@@ -21,6 +21,7 @@ pub mod tapret;
 pub mod tx_builder;
 pub mod types;
 pub mod wallet;
+pub mod testnet_deploy;
 
 #[cfg(feature = "rpc")]
 pub mod real_rpc;

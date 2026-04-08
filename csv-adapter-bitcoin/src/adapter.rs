@@ -151,6 +151,11 @@ impl BitcoinAnchorLayer {
         200
     }
 
+    /// Get current block height (public, for testing)
+    pub fn get_current_height_for_test(&self) -> u64 {
+        self.get_current_height()
+    }
+
     /// Verify a UTXO is unspent
     fn verify_utxo_unspent(&self, seal: &BitcoinSealRef) -> BitcoinResult<()> {
         #[cfg(feature = "rpc")]

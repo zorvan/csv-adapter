@@ -18,9 +18,9 @@ bcs = "0.1"
 ed25519-dalek = { version = "2.0", features = ["rand_core"] }
 
 # Real RPC dependencies (optional, enabled with --features rpc)
+# Note: Uses direct JSON-RPC over HTTP, not sui-sdk
 reqwest = { version = "0.11", features = ["json", "blocking"], optional = true }
 tokio = { version = "1", features = ["rt", "time"], optional = true }
-sui-sdk = "0.0.0"
 
 [features]
 default = []
