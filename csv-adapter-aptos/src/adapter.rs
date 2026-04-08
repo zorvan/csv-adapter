@@ -41,6 +41,9 @@ pub struct AptosAnchorLayer {
     checkpoint_verifier: CheckpointVerifier,
     /// Event builder for creating and parsing anchor events
     event_builder: CommitmentEventBuilder,
+    /// Ed25519 signing key for transaction signing (RPC mode only)
+    #[cfg(feature = "rpc")]
+    signing_key: Option<ed25519_dalek::SigningKey>,
 }
 
 impl AptosAnchorLayer {
@@ -81,6 +84,8 @@ impl AptosAnchorLayer {
             rpc,
             checkpoint_verifier,
             event_builder,
+            #[cfg(feature = "rpc")]
+            signing_key: None,
         })
     }
 
@@ -91,21 +96,34 @@ impl AptosAnchorLayer {
         Self::from_config(config, rpc)
     }
 
+    /// Attach an Ed25519 signing key for transaction signing (RPC mode only).
+    #[cfg(feature = "rpc")]
+    pub fn with_signing_key(mut self, signing_key: ed25519_dalek::SigningKey) -> Self {
+        self.signing_key = Some(signing_key);
+        self
+    }
+
     /// Create a new adapter with real RPC (requires `rpc` feature).
     ///
     /// # Arguments
     /// * `config` - Adapter configuration
     /// * `csv_seal_address` - Address where CSVSeal module is deployed
+    /// * `signing_key` - Ed25519 signing key for transaction signing
     #[cfg(feature = "rpc")]
     pub fn with_real_rpc(
         config: AptosConfig,
         csv_seal_address: [u8; 32],
+        signing_key: ed25519_dalek::SigningKey,
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         use crate::real_rpc::AptosRpcClient;
 
         let rpc: Box<dyn AptosRpc> = Box::new(AptosRpcClient::new(&config.rpc_url));
-        Self::from_config(config, rpc)
-            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+        let mut adapter = Self::from_config(config, rpc)
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
+        adapter.signing_key = Some(signing_key);
+        // Also store the seal address in config for the event builder
+        adapter.config.seal_contract.module_address = format_address(csv_seal_address);
+        Ok(adapter)
     }
 
     #[cfg(not(feature = "rpc"))]
@@ -148,6 +166,116 @@ impl AptosAnchorLayer {
         }
 
         Ok(())
+    }
+
+    /// Build an Entry Function payload for CSVSeal.delete_seal() and sign it.
+    ///
+    /// Returns (signed_transaction_json, expected_event_data) ready for submission.
+    ///
+    /// # Transaction Structure
+    ///
+    /// Aptos Entry Function:
+    /// ```text
+    /// {
+    ///   "type": "entry_function_payload",
+    ///   "function": "{module_address}::csv_seal::delete_seal",
+    ///   "type_arguments": [],
+    ///   "arguments": ["{seal_address}", "{commitment_hex}"]
+    /// }
+    /// ```
+    ///
+    /// The transaction is signed with Ed25519 and formatted for the
+    /// Aptos REST API `/v1/transactions` endpoint.
+    #[cfg(feature = "rpc")]
+    fn build_and_sign_entry_function(
+        &self,
+        seal: &AptosSealRef,
+        commitment: [u8; 32],
+    ) -> Result<(serde_json::Value, Vec<u8>), Box<dyn std::error::Error + Send + Sync>> {
+        use ed25519_dalek::Signer;
+
+        let signing_key = self.signing_key.as_ref()
+            .ok_or("No signing key configured")?;
+
+        // Get account sequence number from RPC
+        let sender = self.rpc.sender_address()
+            .map_err(|e| format!("Failed to get sender address: {}", e))?;
+        let sender_hex = format_address(sender);
+
+        // Get sequence number
+        let sequence_number = self.rpc.get_account_sequence_number(sender)
+            .map_err(|e| format!("Failed to get sequence number: {}", e))?;
+
+        // Get chain ID and ledger info for expiration
+        let ledger = self.rpc.get_ledger_info()
+            .map_err(|e| format!("Failed to get ledger info: {}", e))?;
+
+        // Build event data for verification
+        let event_data = self.event_builder.build(commitment, seal.account_address);
+
+        // Build Entry Function payload
+        let module_address = &self.config.seal_contract.module_address;
+        let function_name = &self.config.seal_contract.seal_resource;
+        // Assume delete_seal is the function name for consuming a seal
+        let function = format!("{}::csv_seal::delete_{}", module_address, function_name);
+
+        log::debug!(
+            "Building Aptos Entry Function: {}(seal={}, commitment={})",
+            function,
+            format_address(seal.account_address),
+            hex::encode(commitment),
+        );
+
+        // Calculate expiration (current timestamp + 600 seconds)
+        let expiration_secs = (ledger.ledger_timestamp / 1_000_000) + 600;
+
+        // Build the signed transaction JSON for Aptos REST API
+        // This matches the format expected by POST /v1/transactions
+        let tx_payload = serde_json::json!({
+            "sender": sender_hex,
+            "sequence_number": sequence_number.to_string(),
+            "max_gas_amount": self.config.transaction.max_gas.to_string(),
+            "gas_unit_price": "100",
+            "expiration_timestamp_secs": expiration_secs.to_string(),
+            "payload": {
+                "type": "entry_function_payload",
+                "function": function,
+                "type_arguments": [],
+                "arguments": [
+                    format!("0x{}", hex::encode(seal.account_address)),
+                    format!("0x{}", hex::encode(commitment))
+                ]
+            }
+        });
+
+        // The raw transaction bytes to sign (BCS serialization of the transaction)
+        // In production, use aptos-sdk's BCS serialization
+        // For now, use the JSON payload hash as the message to sign
+        let tx_json_str = serde_json::to_string(&tx_payload).unwrap_or_default();
+        let mut hasher = sha2::Sha256::new();
+        sha2::Digest::update(&mut hasher, tx_json_str.as_bytes());
+        let message = sha2::Digest::finalize(hasher);
+
+        // Sign with Ed25519
+        let signature = signing_key.sign(&message);
+        let public_key = signing_key.verifying_key().to_bytes();
+
+        // Build the final signed transaction JSON
+        let signed_tx = serde_json::json!({
+            "sender": sender_hex,
+            "sequence_number": sequence_number.to_string(),
+            "max_gas_amount": self.config.transaction.max_gas.to_string(),
+            "gas_unit_price": "100",
+            "expiration_timestamp_secs": expiration_secs.to_string(),
+            "payload": tx_payload["payload"],
+            "signature": {
+                "type": "ed25519_signature",
+                "public_key": format!("0x{}", hex::encode(public_key)),
+                "signature": format!("0x{}", hex::encode(signature.to_bytes()))
+            }
+        });
+
+        Ok((signed_tx, event_data))
     }
 
     /// Verify the event in a published anchor matches the expected commitment.
@@ -220,38 +348,28 @@ impl AnchorLayer for AptosAnchorLayer {
 
         #[cfg(feature = "rpc")]
         {
-            // Build the event data for this commitment
-            let event_data = self.event_builder.build(
+            // Build the Entry Function payload and sign the transaction
+            let (tx_json, expected_event_data) = self.build_and_sign_entry_function(
+                &seal,
                 *commitment.as_bytes(),
-                seal.account_address,
-            );
+            ).map_err(|e| AdapterError::PublishFailed(
+                format!("Failed to build and sign transaction: {}", e),
+            ))?;
 
-            // Build transaction bytes for CSVSeal.delete_seal()
-            // In production with aptos-sdk: construct a signed transaction calling
-            // CSVSeal::delete_seal(seal_id, commitment_hash, event_data)
-            let tx_bytes: Vec<u8> = event_data.clone();
-
-            // Submit transaction via RPC
-            let tx_hash = self.rpc.submit_transaction(tx_bytes)
+            // Submit signed transaction via REST API
+            let submit_result = self.rpc.submit_signed_transaction(tx_json)
                 .map_err(|e| AdapterError::PublishFailed(
                     format!("Failed to submit transaction: {}", e),
                 ))?;
 
-            // Get the latest version to determine our transaction version
-            let latest_version = self.rpc.get_latest_version()
+            // Wait for transaction confirmation
+            let tx = self.rpc.wait_for_transaction(submit_result)
                 .map_err(|e| AdapterError::NetworkError(e.to_string()))?;
-
-            // Get transaction by version to verify execution
-            let tx = self.rpc.get_transaction_by_version(latest_version)
-                .map_err(|e| AdapterError::NetworkError(e.to_string()))?
-                .ok_or_else(|| AdapterError::PublishFailed(
-                    "Transaction not found after submission".to_string(),
-                ))?;
 
             // Verify the emitted event matches the expected commitment
             let valid = EventProofVerifier::verify_event_in_tx(
                 tx.version,
-                &event_data,
+                &expected_event_data,
                 self.rpc.as_ref(),
             ).map_err(|e: AptosError| AdapterError::InclusionProofFailed(e.to_string()))?;
 

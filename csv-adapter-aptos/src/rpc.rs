@@ -4,6 +4,15 @@
 pub trait AptosRpc: Send + Sync {
     fn get_ledger_info(&self) -> Result<AptosLedgerInfo, Box<dyn std::error::Error + Send + Sync>>;
 
+    /// Get the sender's account address
+    fn sender_address(&self) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>>;
+
+    /// Get the account sequence number (transaction count)
+    fn get_account_sequence_number(
+        &self,
+        address: [u8; 32],
+    ) -> Result<u64, Box<dyn std::error::Error + Send + Sync>>;
+
     fn get_resource(
         &self,
         address: [u8; 32],
@@ -32,6 +41,13 @@ pub trait AptosRpc: Send + Sync {
     fn submit_transaction(
         &self,
         tx_bytes: Vec<u8>,
+    ) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>>;
+
+    /// Submit a signed transaction as JSON to the Aptos REST API
+    /// Returns the transaction hash on success
+    fn submit_signed_transaction(
+        &self,
+        signed_tx_json: serde_json::Value,
     ) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>>;
 
     fn wait_for_transaction(
@@ -136,6 +152,8 @@ pub struct AptosBlockInfo {
 pub struct MockAptosRpc {
     pub latest_version: u64,
     pub chain_id: u64,
+    pub mock_address: [u8; 32],
+    pub tx_counter: std::sync::atomic::AtomicU64,
     pub resources: std::sync::Mutex<std::collections::HashMap<([u8; 32], String), AptosResource>>,
     pub transactions: std::sync::Mutex<std::collections::HashMap<u64, AptosTransaction>>,
     pub events: std::sync::Mutex<std::collections::HashMap<String, Vec<AptosEvent>>>,
@@ -149,6 +167,8 @@ impl MockAptosRpc {
         Self {
             latest_version,
             chain_id: 1,
+            mock_address: [0x42; 32],
+            tx_counter: std::sync::atomic::AtomicU64::new(0),
             resources: std::sync::Mutex::new(std::collections::HashMap::new()),
             transactions: std::sync::Mutex::new(std::collections::HashMap::new()),
             events: std::sync::Mutex::new(std::collections::HashMap::new()),
@@ -213,6 +233,17 @@ impl AptosRpc for MockAptosRpc {
         })
     }
 
+    fn sender_address(&self) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>> {
+        Ok(self.mock_address)
+    }
+
+    fn get_account_sequence_number(
+        &self,
+        _address: [u8; 32],
+    ) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
+        Ok(self.tx_counter.load(std::sync::atomic::Ordering::SeqCst))
+    }
+
     fn get_resource(
         &self,
         address: [u8; 32],
@@ -272,6 +303,20 @@ impl AptosRpc for MockAptosRpc {
     ) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>> {
         self.sent_transactions.lock().unwrap().push(tx_bytes);
         Ok([0xAB; 32])
+    }
+
+    fn submit_signed_transaction(
+        &self,
+        signed_tx_json: serde_json::Value,
+    ) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>> {
+        // Store the JSON and return a mock hash
+        let tx_bytes = serde_json::to_vec(&signed_tx_json).unwrap_or_default();
+        self.sent_transactions.lock().unwrap().push(tx_bytes);
+        let counter = self.tx_counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let mut hash = [0u8; 32];
+        hash[..4].copy_from_slice(b"mock");
+        hash[4..12].copy_from_slice(&counter.to_le_bytes());
+        Ok(hash)
     }
 
     fn wait_for_transaction(

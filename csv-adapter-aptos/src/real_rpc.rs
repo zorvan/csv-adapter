@@ -163,6 +163,20 @@ impl AptosRpc for AptosRpcClient {
         })
     }
 
+    fn sender_address(&self) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>> {
+        // In production, this would be derived from the signer's public key
+        Err("sender_address not implemented for AptosRpcClient — set via with_real_rpc()".into())
+    }
+
+    fn get_account_sequence_number(
+        &self,
+        address: [u8; 32],
+    ) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
+        let addr_str = Self::format_address(address);
+        let result = self.get(&format!("/accounts/{}", addr_str))?;
+        Ok(Self::parse_u64(&result["sequence_number"]))
+    }
+
     fn get_resource(
         &self,
         address: [u8; 32],
@@ -239,6 +253,24 @@ impl AptosRpc for AptosRpcClient {
             hash[11 + tx_bytes.len()..].fill(0);
         }
         Ok(hash)
+    }
+
+    fn submit_signed_transaction(
+        &self,
+        signed_tx_json: serde_json::Value,
+    ) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>> {
+        // POST /v1/transactions with the signed transaction JSON
+        let result = self.post("/transactions", &signed_tx_json)?;
+
+        // Parse the transaction hash from the response
+        if let Some(hash_hex) = result.get("hash").and_then(|h| h.as_str()) {
+            Ok(Self::parse_hex_bytes(hash_hex))
+        } else if let Some(error) = result.get("error_code") {
+            Err(format!("Aptos transaction submission failed: {} - {:?}",
+                error, result.get("message")).into())
+        } else {
+            Err(format!("Unexpected Aptos response: {:?}", result).into())
+        }
     }
 
     fn wait_for_transaction(

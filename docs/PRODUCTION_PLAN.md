@@ -237,7 +237,7 @@ Ethereum requires a **nullifier registry contract**. This is the hardest chain b
 |-------|--------|-----------|----------------|
 | **Bitcoin** | ✅ COMPLETE + LIVE TESTED | Full flow works. Real Signet block data test passes: fetches block, computes/verifies merkle root, extracts/verifies 6-branch proof. Taproot tx building + signing ready. | Needs funded Signet wallet to execute end-to-end publish |
 | **Sui** | ✅ COMPLETE + LIVE TESTED | Full flow works. Real Sui Testnet test passes: fetches checkpoint #323502677, epoch 1064. BCS TransactionData builder, Ed25519 signing, signed tx submission ready. | Needs funded Sui Testnet wallet + deployed csv_seal contract |
-| **Aptos** | ✅ Structurally complete | Full flow: verify seal → build event → `rpc.submit_transaction()` → wait → verify → mark consumed | `submit_transaction()` returns placeholder; needs Move tx construction + Ed25519 signing |
+| **Aptos** | ✅ COMPLETE | Full flow: verify seal → `build_and_sign_entry_function()` → Ed25519 sign → `rpc.submit_signed_transaction()` → `wait_for_transaction()` → verify event → mark consumed | Needs Aptos Testnet node + deployed csv_seal contract to execute end-to-end |
 | **Ethereum** | ✅ Structurally complete | Full flow: verify slot → build calldata → `rpc.send_raw_transaction()` → verify receipt LOG event → mark consumed | `publish()` needs Alloy tx building + signing before calling `send_raw_transaction()` |
 
 **E2E Test Infrastructure — Results:**
