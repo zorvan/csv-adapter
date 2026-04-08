@@ -45,6 +45,9 @@ pub mod traits;
 pub mod monitor;
 pub mod store;
 
+// RGB protocol compatibility
+pub mod rgb_compat;
+
 // Re-exports: core
 pub use commitment::Commitment;
 pub use hardening::{

@@ -39,16 +39,22 @@ pub mod adapter;
 pub mod checkpoint;
 pub mod config;
 pub mod error;
+pub mod merkle;
 pub mod proofs;
 pub mod rpc;
 pub mod seal;
 pub mod signatures;
 pub mod types;
 
+#[cfg(feature = "rpc")]
+pub mod real_rpc;
+
 pub use adapter::AptosAnchorLayer;
 pub use config::{AptosConfig, AptosNetwork, CheckpointConfig};
 pub use types::{AptosSealRef, AptosAnchorRef, AptosFinalityProof, AptosInclusionProof};
 pub use rpc::{AptosRpc, MockAptosRpc, AptosResource, AptosEvent, AptosTransaction, AptosBlockInfo, AptosLedgerInfo};
+#[cfg(feature = "rpc")]
+pub use real_rpc::AptosRpcClient;
 pub use checkpoint::CheckpointVerifier;
 pub use seal::{SealRegistry, SealRecord, SealStore};
 pub use proofs::{StateProof, StateProofVerifier, EventProof, EventProofVerifier, TransactionProof, CommitmentEventBuilder};

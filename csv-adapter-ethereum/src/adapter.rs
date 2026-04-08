@@ -353,6 +353,21 @@ impl AnchorLayer for EthereumAnchorLayer {
                 anchor.block_number, current
             )));
         }
+
+        // If the anchor's block is before current block, the transaction may have been reorged out
+        // Clear the seal from registry to allow reuse
+        if anchor.block_number < current {
+            let mut registry = self.seal_registry.lock().unwrap();
+            // Try to clear using a dummy seal identifier
+            // In practice, we'd need to track which seal was used for this anchor
+            let dummy_seal = EthereumSealRef::new(
+                [0u8; 20], // contract address - would need to be tracked
+                anchor.log_index,
+                0, // nonce
+            );
+            registry.clear_seal(&dummy_seal);
+        }
+
         Ok(())
     }
 

@@ -26,6 +26,7 @@ reqwest = { version = "0.11", features = ["blocking", "json"], optional = true }
 default = []
 # Enables real RPC client (aptos-sdk, real RPC calls)
 rpc = ["aptos-sdk", "tokio", "reqwest"]
+aptos-sdk = ["dep:aptos-sdk"]
 
 [dev-dependencies]
 rand = "0.8"

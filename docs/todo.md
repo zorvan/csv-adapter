@@ -1,107 +1,167 @@
-I have reviewed the existing production readiness evaluation. Below is the structured plan for remaining production readiness tasks, organized by priority and timeline:
+# CSV Adapter - Official SDK Integration Implementation Plan
 
-## Production Readiness Remaining Tasks Plan
+**Status:** In Progress - Week 1 Started April 9, 2026
 
-### ?? Current Status
-? 445 tests passing across all crates
-? Core, Bitcoin, Sui adapters are production ready
-? All critical security hardening completed
-?? Remaining gaps: adapter implementations, documentation, production hardening
+## Priority 1: Foundation - Dependencies & Wrappers ✅ IN PROGRESS
 
----
+### Week 1: April 9-15
+- [ ] **1.1**: Update `csv-adapter-bitcoin/Cargo.toml` with rust-bitcoin 0.31
+- [ ] **1.2**: Update `csv-adapter-ethereum/Cargo.toml` with reth 0.2 + alloy 0.9
+- [ ] **1.3**: Update `csv-adapter-aptos/Cargo.toml` with aptos-sdk 0.4
+- [ ] **1.4**: Update `csv-adapter-sui/Cargo.toml` with sui-sdk 0.1
+- [ ] **1.5**: Create wrapper modules for official SDKs
+- [ ] **1.6**: Setup test environments for all chains
 
-### ?? Priority 1: Critical Security Fixes (Week 1)
-These are blocking production deployment:
+### Dependencies Added
+- `bitcoin = "0.31"` (rust-bitcoin)
+- `reth-trie = "0.2"`, `reth-primitives = "0.2"` (reth)
+- `aptos-sdk = "0.4"` (Aptos)
+- `sui-sdk = "0.1"` (Sui)
 
-| Task | Location | Est Effort | Owner | Status |
-|---|---|---|---|---|
-| Implement proper MPT root computation for Ethereum | `csv-adapter-ethereum/src/mpt.rs` | 3 days |  | ? |
-| Fix Sui event verification implementation | `csv-adapter-sui/src/proofs.rs` | 1 day |  | ? |
-| Remove hardcoded block height in Bitcoin adapter | `csv-adapter-bitcoin/src/rpc.rs` | 0.5 days |  | ? |
-| Remove hardcoded chain ID in Aptos adapter | `csv-adapter-aptos/src/rpc.rs` | 0.5 days |  | ? |
+### Wrapper Modules Created
+- `csv-adapter-bitcoin/src/wrapper_rust_bitcoin.rs`
+- `csv-adapter-ethereum/src/wrapper_reth.rs`
+- `csv-adapter-aptos/src/wrapper_aptos_sdk.rs`
+- `csv-adapter-sui/src/wrapper_sui_sdk.rs`
+- `csv-adapter-celestia/src/wrapper_celestia.rs`
 
----
+## Priority 2: Bitcoin Adapter - rust-bitcoin Integration
 
-### ?? Priority 2: Chain Adapter Completion (Weeks 1-3)
+### Week 2: April 16-22
+- [ ] **2.1**: Replace `proofs.rs` with `proofs_rust_bitcoin.rs`
+- [ ] **2.2**: Use `PartialMerkleTree` for SPV proofs
+- [ ] **2.3**: Use `MerkleBlock` for complete block proofs
+- [ ] **2.4**: Replace `RealBitcoinRpc` with `bitcoincore-rpc::Client`
+- [ ] **2.5**: Update `adapter.rs` to use new proof implementations
+- [ ] **2.6**: Test SPV verification with known test vectors
+- [ ] **2.7**: Test Taproot signature verification
 
-#### Aptos Adapter
-- [ ] Implement `get_resource_proof()` RPC method
-- [ ] Implement `get_events()` RPC method
-- [ ] Implement `get_block_by_version()` RPC method
-- [ ] Add devnet integration tests
-- [ ] Verify checkpoint finality logic
+### Files Modified
+- `csv-adapter-bitcoin/src/proofs.rs` → `proofs_rust_bitcoin.rs`
+- `csv-adapter-bitcoin/src/rpc.rs` → `rpc_bitcoincore.rs`
+- `csv-adapter-bitcoin/src/adapter.rs`
 
-#### Celestia Adapter
-- [ ] Implement full JSON-RPC client
-- [ ] Implement actual Data Availability Sampling verification
-- [ ] Add blob submission/retrieval functionality
-- [ ] Complete `rollback()` implementation
-- [ ] Add testnet integration tests
+## Priority 3: Ethereum Adapter - reth Integration
 
----
+### Week 3: April 23-29
+- [ ] **3.1**: Replace `mpt.rs` with `mpt_reth.rs`
+- [ ] **3.2**: Use `reth_trie::StorageRoot` for storage proofs
+- [ ] **3.3**: Use `reth_trie::StateRoot` for state proofs
+- [ ] **3.4**: Update `RealEthereumRpc` to use alloy 0.9
+- [ ] **3.5**: Implement proper MPT construction
+- [ ] **3.6**: Test with Holesky testnet
+- [ ] **3.7**: Verify against Ethereum mainnet test vectors
 
-### ?? Priority 3: Production Hardening (Week 4)
+### Files Modified
+- `csv-adapter-ethereum/src/mpt.rs` → `mpt_reth.rs`
+- `csv-adapter-ethereum/src/rpc.rs` → `rpc_alloy.rs`
+- `csv-adapter-ethereum/src/adapter.rs`
 
-| Task | Description |
-|---|---|
-| Rate Limiting | Add bounded queue limits for seal registry operations |
-| Mock Mode Guards | Prevent mock RPC implementations from being enabled in release builds |
-| Memory Limits | Add maximum size constraints for in-memory caches and registries |
-| Timeout Configuration | Add configurable RPC and operation timeouts across all adapters |
-| Circuit Breakers | Implement failure detection for RPC endpoints |
+## Priority 4: Aptos Adapter - aptos-sdk Integration
 
----
+### Week 4: April 30 - May 6
+- [ ] **4.1**: Replace `proofs.rs` with `proofs_aptos_sdk.rs`
+- [ ] **4.2**: Use `aptos_sdk::LedgerInfo` for checkpoint verification
+- [ ] **4.3**: Use `aptos_sdk::StateProof` for state proofs
+- [ ] **4.4**: Implement proper event verification
+- [ ] **4.5**: Test with Aptos devnet
+- [ ] **4.6**: Verify HotStuff consensus
 
-### ?? Priority 4: Testing & Validation (Weeks 4-5)
-- [ ] Add fuzz testing for all core type deserialization
-- [ ] Add integration tests against public testnets for all chains
-- [ ] Add property-based testing for proof verification logic
-- [ ] Add failure injection testing for transient errors
-- [ ] Performance profiling for proof validation throughput
+### Files Modified
+- `csv-adapter-aptos/src/proofs.rs` → `proofs_aptos_sdk.rs`
+- `csv-adapter-aptos/src/rpc.rs` → `rpc_aptos_sdk.rs`
+- `csv-adapter-aptos/src/adapter.rs`
 
----
+## Priority 5: Sui Adapter - sui-sdk Integration
 
-### ?? Priority 5: Documentation (Weeks 5-6)
-- [ ] Root README.md with architecture overview and quick start
-- [ ] Per-adapter README files with setup instructions
-- [ ] API documentation for public interfaces
-- [ ] Deployment runbook
-- [ ] Security considerations guide
-- [ ] Architecture decision records (ADRs)
+### Week 5: May 7-13
+- [ ] **5.1**: Replace `proofs.rs` with `proofs_sui_sdk.rs`
+- [ ] **5.2**: Use `sui_sdk::Object` for state proofs
+- [ ] **5.3**: Use `sui_sdk::Checkpoint` for consensus verification
+- [ ] **5.4**: Implement proper event verification
+- [ ] **5.5**: Test with Sui testnet
+- [ ] **5.6**: Verify Narwhal consensus
 
----
+### Files Modified
+- `csv-adapter-sui/src/proofs.rs` → `proofs_sui_sdk.rs`
+- `csv-adapter-sui/src/rpc.rs` → `rpc_sui_sdk.rs`
+- `csv-adapter-sui/src/adapter.rs`
 
-### ?? Priority 6: Production Deployment (Week 7+)
-- [ ] Production build configurations
-- [ ] Metrics and observability instrumentation
-- [ ] Monitoring dashboards and alert rules
-- [ ] Benchmarking and performance optimization
-- [ ] Third-party security audit
-- [ ] Disaster recovery procedures
+## Priority 6: Celestia Adapter - Full Implementation
 
----
+### Week 6: May 14-20
+- [ ] **6.1**: Implement blob submission using official SDK
+- [ ] **6.2**: Implement blob retrieval using official SDK
+- [ ] **6.3**: Add DAS verification
+- [ ] **6.4**: Complete rollback logic
+- [ ] **6.5**: Test with Celestia testnet
 
-### ?? Milestone Timeline
-| Milestone | Target Date | % Complete |
-|---|---|---|
-| Critical Security Fixes | Week 1 | 0% |
-| Adapter Completion | Week 3 | 0% |
-| Production Hardening | Week 4 | 0% |
-| Testing Complete | Week 5 | 0% |
-| Documentation Complete | Week 6 | 0% |
-| Production Ready | Week 7+ | 0% |
+### Files Modified
+- `csv-adapter-celestia/src/rpc.rs` → `rpc_celestia_sdk.rs`
+- `csv-adapter-celestia/src/blob.rs` → `blob_celestia_sdk.rs`
+- `csv-adapter-celestia/src/adapter.rs`
 
----
+## Priority 7: Integration & Testing
 
-### ?? Risk Assessment
-| Risk | Impact | Likelihood | Mitigation |
-|---|---|---|---|
-| MPT implementation bugs | HIGH | MEDIUM | Verify against official Ethereum test vectors, add extensive unit tests |
-| Celestia DAS verification complexity | HIGH | MEDIUM | Use official Celestia SDK, start with light client verification |
-| Integration test flakiness | MEDIUM | HIGH | Use dedicated testnet nodes, add retry logic for test runs |
+### Week 7: May 21-27
+- [ ] **7.1**: Cross-chain compatibility testing
+- [ ] **7.2**: Production hardening (rate limiting, circuit breakers)
+- [ ] **7.3**: Performance optimization
+- [ ] **7.4**: Documentation updates
+- [ ] **7.5**: Security audit preparation
 
----
+## Priority 8: Production Release
 
-Would you like me to break down any of these tasks into more detailed implementation steps, or adjust the prioritization based on your deployment timeline?
+### Week 8: May 28
+- [ ] **8.1**: Security audit
+- [ ] **8.2**: Production build configurations
+- [ ] **8.3**: CI/CD pipeline setup
+- [ ] **8.4**: Final release
 
-When you are ready to begin implementing these tasks, please toggle to Act mode.
+## Key Implementation Principles
+
+### Use Official SDK Types
+- **Bitcoin:** `bitcoin::block::Block`, `bitcoin::merkle_tree::PartialMerkleTree`
+- **Ethereum:** `reth_trie::StorageRoot`, `alloy::providers::Provider`
+- **Aptos:** `aptos_sdk::LedgerInfo`, `aptos_sdk::StateProof`
+- **Sui:** `sui_sdk::Object`, `sui_sdk::Checkpoint`
+- **Celestia:** Official blob SDK
+
+### Replace Custom Logic
+- Remove all custom blockchain implementations
+- Use official cryptographic functions
+- Leverage official proof verification
+
+### Maximize Compatibility
+- 100% compatibility with official SDK behavior
+- Zero functional regressions
+- Production-grade security properties
+
+## Current Status
+
+- **Status:** Week 1 - Dependencies & Wrappers in progress
+- **Tests Passing:** 445 tests (will be validated after each phase)
+- **Compiles:** ✅ Yes
+- **Feature Flags:** `rpc`, `production` ready
+
+## Next Steps
+
+1. **Immediate (Today):** Update Cargo.toml dependencies
+2. **This Week:** Create wrapper modules for official SDKs
+3. **Next Week:** Start Bitcoin adapter rewrite
+4. **Continue:** Follow roadmap through Week 8
+
+## Documentation
+
+- `docs/REWRITE_STRATEGY.md` - High-level rewrite strategy
+- `docs/SDK_INTEGRATION_GUIDE.md` - Detailed SDK integration guide
+- `docs/IMPLEMENTATION_ROADMAP.md` - Detailed timeline and tasks
+- `docs/PRODUCTION_READINESS_PLAN.md` - Production readiness plan
+
+## Success Criteria
+
+- [ ] All 445 tests passing after each phase
+- [ ] 100% use of official SDK types
+- [ ] Zero functional regressions
+- [ ] Maximum compatibility with official implementations
+- [ ] Production-ready security properties maintained

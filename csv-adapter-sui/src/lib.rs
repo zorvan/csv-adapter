@@ -45,10 +45,15 @@ pub mod seal;
 pub mod signatures;
 pub mod types;
 
+#[cfg(feature = "rpc")]
+pub mod real_rpc;
+
 pub use adapter::SuiAnchorLayer;
 pub use config::{SuiConfig, SuiNetwork, CheckpointConfig, TransactionConfig, SealContractConfig};
 pub use types::{SuiSealRef, SuiAnchorRef, SuiFinalityProof, SuiInclusionProof};
 pub use rpc::{SuiRpc, MockSuiRpc, SuiObject, SuiEvent, SuiTransactionBlock, SuiCheckpoint, SuiLedgerInfo};
+#[cfg(feature = "rpc")]
+pub use real_rpc::SuiRpcClient;
 pub use checkpoint::CheckpointVerifier;
 pub use seal::{SealRegistry, SealRecord, SealStore};
 pub use proofs::{StateProof, StateProofVerifier, EventProof, EventProofVerifier, TransactionProof, CommitmentEventBuilder};

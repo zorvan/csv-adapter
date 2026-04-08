@@ -129,6 +129,40 @@ impl SealRegistry {
         Ok(())
     }
 
+    /// Clear a seal from the registry (for rollback handling).
+    ///
+    /// Removes the seal from `used_seals`, `seal_records`, and `seal_queue`.
+    /// This allows the seal to be reused after a chain reorg.
+    ///
+    /// # Arguments
+    /// * `seal` - The seal reference to clear
+    ///
+    /// # Returns
+    /// `Ok(())` if the seal was found and cleared, or `Err` if not found.
+    pub fn clear_seal(&mut self, seal: &SuiSealRef) -> SuiResult<()> {
+        let key = format!(
+            "{}-{}-{}",
+            hex::encode(seal.object_id),
+            seal.version,
+            seal.nonce
+        );
+
+        if !self.used_seals.remove(&key) {
+            return Err(SuiError::ObjectUsed(format!(
+                "Seal 0x{} not found in registry",
+                hex::encode(seal.object_id)
+            )));
+        }
+
+        // Remove from seal_records
+        self.seal_records.retain(|r| r.key() != key);
+
+        // Note: seal_queue is append-only by design (BoundedQueue doesn't support removal)
+        // This is acceptable as the queue is only used for rate limiting, not state validation
+
+        Ok(())
+    }
+
     /// Get the current number of used seals.
     pub fn len(&self) -> usize {
         self.used_seals.len()

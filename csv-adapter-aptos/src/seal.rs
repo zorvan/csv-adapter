@@ -113,6 +113,45 @@ impl SealRegistry {
             )));
         }
 
+        let record = SealRecord::new(seal, consumed_at_version);
+        let key = record.key();
+        self.seal_queue.push(key.clone());
+        self.used_seals.insert(key);
+        self.seal_records.push(record);
+        Ok(())
+    }
+
+    /// Clear a seal from the registry (for rollback handling).
+    ///
+    /// Removes the seal from `used_seals`, `seal_records`, and `seal_queue`.
+    /// This allows the seal to be reused after a chain reorg.
+    ///
+    /// # Arguments
+    /// * `seal` - The seal reference to clear
+    ///
+    /// # Returns
+    /// `Ok(())` if the seal was found and cleared, or `Err` if not found.
+    pub fn clear_seal(&mut self, seal: &AptosSealRef) -> AptosResult<()> {
+        let key = format!(
+            "{}-{}-{}",
+            hex::encode(seal.account_address),
+            seal.resource_type,
+            seal.nonce
+        );
+
+        if !self.used_seals.remove(&key) {
+            return Err(AptosError::ResourceUsed(format!(
+                "Seal at address 0x{} not found in registry",
+                hex::encode(seal.account_address)
+            )));
+        }
+
+        // Remove from seal_records
+        self.seal_records.retain(|r| r.key() != key);
+
+        // Note: seal_queue is append-only by design (BoundedQueue doesn't support removal)
+        // This is acceptable as the queue is only used for rate limiting, not state validation
+
         Ok(())
     }
 

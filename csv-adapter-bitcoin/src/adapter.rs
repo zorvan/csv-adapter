@@ -27,13 +27,12 @@ use csv_adapter_core::Hash;
 
 use crate::config::BitcoinConfig;
 use crate::error::{BitcoinError, BitcoinResult};
+use crate::rpc::BitcoinRpc;
 use crate::seal::SealRegistry;
 use crate::spv::verify_merkle_proof;
 use crate::tx_builder::CommitmentTxBuilder;
 use crate::types::{BitcoinAnchorRef, BitcoinFinalityProof, BitcoinInclusionProof, BitcoinSealRef};
 use crate::wallet::SealWallet;
-#[cfg(feature = "rpc")]
-use crate::RealBitcoinRpc;
 #[cfg(feature = "rpc")]
 use crate::RealBitcoinRpc;
 
@@ -153,27 +152,20 @@ impl BitcoinAnchorLayer {
     }
 
     /// Verify a UTXO is unspent
-    fn verify_utxo_unspent(&self, _seal: &BitcoinSealRef) -> BitcoinResult<()> {
+    fn verify_utxo_unspent(&self, seal: &BitcoinSealRef) -> BitcoinResult<()> {
         #[cfg(feature = "rpc")]
         {
             if let Some(rpc) = &self.rpc {
-                let txid = bitcoin::Txid::from_slice(&seal.txid)
-                    .map_err(|e| BitcoinError::RpcError(format!("Invalid txid: {}", e)))?;
-                match rpc.get_tx_out(&txid, seal.vout) {
-                    Ok(Some(_)) => return Ok(()),
-                    Ok(None) => {
-                        return Err(BitcoinError::UTXOSpent(format!(
-                            "UTXO {}:{} is spent",
-                            seal.txid_hex(),
-                            seal.vout
-                        )))
-                    }
-                    Err(e) => {
-                        return Err(BitcoinError::RpcError(format!(
-                            "Failed to check UTXO: {}",
-                            e
-                        )))
-                    }
+                let unspent = rpc.is_utxo_unspent(seal.txid, seal.vout)
+                    .map_err(|e| BitcoinError::RpcError(format!("Failed to check UTXO: {}", e)))?;
+                if unspent {
+                    return Ok(());
+                } else {
+                    return Err(BitcoinError::UTXOSpent(format!(
+                        "UTXO {}:{} is spent",
+                        seal.txid_hex(),
+                        seal.vout
+                    )));
                 }
             }
         }
@@ -219,8 +211,8 @@ impl AnchorLayer for BitcoinAnchorLayer {
         #[cfg(not(feature = "rpc"))]
         {
             let mut txid = [0u8; 32];
-            txid[..8].copy_from_slice(b"sim-commit");
-            txid[8..].copy_from_slice(commitment.as_bytes());
+            txid[..10].copy_from_slice(b"sim-commit");
+            txid[10..].copy_from_slice(&commitment.as_bytes()[..22]);
 
             let mut registry = self.seal_registry.lock().unwrap();
             let _ = registry
@@ -356,6 +348,18 @@ impl AnchorLayer for BitcoinAnchorLayer {
                 anchor.block_height, current_height
             )));
         }
+
+        // If the anchor's block is before current height, the transaction may have been reorged out
+        // In this case, we should clear the seal from the registry to allow reuse
+        if anchor.block_height < current_height {
+            // Attempt to clear the seal from registry
+            // The seal txid is derived from the anchor's txid
+            let mut registry = self.seal_registry.lock().unwrap();
+            // Try to clear using anchor txid as seal identifier
+            let dummy_seal = BitcoinSealRef::new(anchor.txid, anchor.output_index, None);
+            registry.clear_seal(&dummy_seal);
+        }
+
         Ok(())
     }
 

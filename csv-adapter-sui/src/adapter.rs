@@ -124,7 +124,7 @@ impl SuiAnchorLayer {
         config: SuiConfig,
         _csv_seal_package_id: [u8; 32],
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-        use crate::rpc::real_rpc::SuiRpcClient;
+        use crate::real_rpc::SuiRpcClient;
 
         let rpc: Box<dyn SuiRpc> = Box::new(SuiRpcClient::new(&config.rpc_url));
         Self::from_config(config, rpc)
@@ -394,21 +394,30 @@ impl AnchorLayer for SuiAnchorLayer {
 
     fn rollback(&self, anchor: Self::AnchorRef) -> CoreResult<()> {
         log::warn!("Rollback requested for anchor at checkpoint {}", anchor.checkpoint);
-        // In production: check if the checkpoint is still valid
-        // Sui has deterministic finality, so reorgs are extremely rare
-        // but we should still verify the checkpoint exists
         let current_checkpoint = self.rpc.get_latest_checkpoint_sequence_number()
             .map_err(|e| AdapterError::NetworkError(e.to_string()))?;
 
         // If anchor checkpoint is beyond current tip, rollback
         if anchor.checkpoint > current_checkpoint {
-            Err(AdapterError::ReorgInvalid(format!(
+            return Err(AdapterError::ReorgInvalid(format!(
                 "Anchor checkpoint {} beyond current tip {}",
                 anchor.checkpoint, current_checkpoint
-            )))
-        } else {
-            Ok(())
+            )));
         }
+
+        // If anchor checkpoint is before current tip, the transaction may have been reorged out
+        // Clear the seal from registry to allow reuse
+        if anchor.checkpoint < current_checkpoint {
+            let mut registry = self.seal_registry.lock().unwrap();
+            // Try to clear using anchor object_id as seal identifier
+            let dummy_seal = SuiSealRef::new(anchor.object_id, 0, 0);
+            if let Err(e) = registry.clear_seal(&dummy_seal) {
+                // Seal may not be in registry yet, which is OK for rollback
+                log::debug!("Rollback: seal not found in registry (this is OK): {}", e);
+            }
+        }
+
+        Ok(())
     }
 
     fn domain_separator(&self) -> [u8; 32] {
@@ -416,7 +425,7 @@ impl AnchorLayer for SuiAnchorLayer {
     }
 
     fn signature_scheme(&self) -> csv_adapter_core::SignatureScheme {
-        csv_adapter_core::SignatureScheme::Secp256k1
+        csv_adapter_core::SignatureScheme::Ed25519
     }
 }
 

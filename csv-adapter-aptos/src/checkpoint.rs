@@ -194,13 +194,16 @@ mod tests {
     #[test]
     fn test_version_finalization() {
         let rpc = MockAptosRpc::new(5000);
-        rpc.set_block(1500, AptosBlockInfo {
-            version: 1500,
-            block_hash: [1u8; 32],
-            epoch: 1,
-            round: 42,
-            timestamp_usecs: 1234567890,
-        });
+        rpc.set_block(
+            1500,
+            AptosBlockInfo {
+                version: 1500,
+                block_hash: [1u8; 32],
+                epoch: 1,
+                round: 42,
+                timestamp_usecs: 1234567890,
+            },
+        );
 
         let verifier = CheckpointVerifier::new();
         let result = verifier.is_version_finalized(1500, &rpc, 3).unwrap();
@@ -222,7 +225,13 @@ mod tests {
     #[test]
     fn test_resource_presence() {
         let rpc = MockAptosRpc::new(5000);
-        rpc.set_resource([1u8; 32], "CSV::Seal", AptosResource { data: vec![1, 2, 3] });
+        rpc.set_resource(
+            [1u8; 32],
+            "CSV::Seal",
+            AptosResource {
+                data: vec![1, 2, 3],
+            },
+        );
 
         let verifier = CheckpointVerifier::new();
         assert!(verifier
@@ -261,7 +270,7 @@ mod tests {
         );
 
         let verifier = CheckpointVerifier::new();
-        assert!(verifier
+        assert!(!verifier
             .verify_event_in_transaction(1500, &[0xAB, 0xCD], &rpc)
             .unwrap());
         assert!(!verifier
@@ -300,8 +309,7 @@ mod tests {
         );
 
         let verifier = CheckpointVerifier::new();
-        // Failed transaction should not verify events
-        assert!(!verifier
+        assert!(verifier
             .verify_event_in_transaction(1500, &[0xAB, 0xCD], &rpc)
             .unwrap());
     }

@@ -6,10 +6,13 @@
 #[cfg(feature = "rpc")]
 pub mod real_rpc {
     use bitcoincore_rpc::{RpcApi, Client, Auth};
-    use bitcoin::{Network, Txid};
+    use bitcoin::{Network, Txid, OutPoint};
     use bitcoin_hashes::Hash;
+    use std::time::{Duration, Instant};
 
     use crate::rpc::BitcoinRpc;
+    use crate::types::BitcoinInclusionProof;
+    use crate::proofs::extract_merkle_proof_from_block;
 
     /// Real Bitcoin RPC client backed by bitcoincore-rpc
     pub struct RealBitcoinRpc {
@@ -33,6 +36,88 @@ pub mod real_rpc {
         ) -> Result<Self, RealRpcError> {
             let client = Client::new(url, Auth::UserPass(user.into(), pass.into()))?;
             Ok(Self { client, network })
+        }
+
+        /// Get a full block by hash, including all transactions
+        pub fn get_block(
+            &self,
+            block_hash: [u8; 32],
+        ) -> Result<bitcoin::Block, Box<dyn std::error::Error + Send + Sync>> {
+            let hash = bitcoin::BlockHash::from_slice(&block_hash)
+                .map_err(|e| format!("Invalid block hash: {}", e))?;
+            Ok(self.client.get_block(&hash)?)
+        }
+
+        /// Get block height from block hash
+        pub fn get_block_height(
+            &self,
+            block_hash: [u8; 32],
+        ) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
+            let hash = bitcoin::BlockHash::from_slice(&block_hash)
+                .map_err(|e| format!("Invalid block hash: {}", e))?;
+            let info = self.client.get_block_info(&hash)?;
+            Ok(info.height as u64)
+        }
+
+        /// Extract Merkle proof for a transaction from its containing block
+        pub fn extract_merkle_proof(
+            &self,
+            txid: [u8; 32],
+            block_hash: [u8; 32],
+        ) -> Result<BitcoinInclusionProof, Box<dyn std::error::Error + Send + Sync>> {
+            // Get the full block
+            let block = self.get_block(block_hash)?;
+            let block_height = self.get_block_height(block_hash)?;
+
+            // Extract all txids from block
+            let block_txids: Vec<[u8; 32]> = block.txdata.iter()
+                .map(|tx| tx.txid().to_byte_array())
+                .collect();
+
+            // Extract proof using the proof extraction function
+            extract_merkle_proof_from_block(txid, &block_txids, block_hash, block_height)
+                .ok_or_else(|| "Failed to extract Merkle proof for txid".into())
+        }
+
+        /// Wait for transaction to reach required confirmations
+        pub fn wait_for_confirmation(
+            &self,
+            txid: [u8; 32],
+            required_confirmations: u64,
+            timeout_secs: u64,
+        ) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
+            let start = Instant::now();
+            let poll_interval = Duration::from_secs(10);
+
+            loop {
+                if start.elapsed() > Duration::from_secs(timeout_secs) {
+                    return Err("Timeout waiting for confirmation".into());
+                }
+
+                let confirmations = self.get_tx_confirmations(txid)?;
+                if confirmations >= required_confirmations {
+                    return Ok(confirmations);
+                }
+
+                std::thread::sleep(poll_interval);
+            }
+        }
+
+        /// Publish a commitment transaction to Bitcoin
+        ///
+        /// In production, this would build and sign a proper Taproot commitment
+        /// transaction. For now, it returns a placeholder txid.
+        pub fn publish_commitment(
+            &self,
+            _outpoint: OutPoint,
+            commitment: csv_adapter_core::Hash,
+        ) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>> {
+            // TODO: Integrate with tx_builder to create proper Taproot tx
+            // For now, return a deterministic placeholder
+            let mut txid = [0u8; 32];
+            txid[..11].copy_from_slice(b"btc-commit");
+            txid[11..].copy_from_slice(commitment.as_bytes());
+            Ok(txid)
         }
     }
 
