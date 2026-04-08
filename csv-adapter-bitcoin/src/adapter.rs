@@ -191,26 +191,50 @@ impl AnchorLayer for BitcoinAnchorLayer {
 
         #[cfg(feature = "rpc")]
         {
+            use crate::rpc::BitcoinRpc;
+
             let rpc = self.rpc.as_ref().ok_or_else(|| {
                 AdapterError::PublishFailed(
                     "No RPC client configured - call with_rpc() first".to_string(),
                 )
             })?;
 
+            // Find the UTXO matching this seal in the wallet
             let outpoint = bitcoin::OutPoint::new(
                 bitcoin::Txid::from_slice(&seal.txid)
-                    .map_err(|e| AdapterError::Generic(format!("Invalid txid: {}", e)))?,
+                    .map_err(|e| AdapterError::Generic(format!("Invalid seal txid: {}", e)))?,
                 seal.vout,
             );
+            let utxo = self.wallet.get_utxo(&outpoint)
+                .ok_or_else(|| AdapterError::PublishFailed(
+                    format!("UTXO {}:{} not found in wallet", seal.txid_hex(), seal.vout)
+                ))?;
 
-            let txid = rpc.publish_commitment(outpoint, commitment).map_err(
-                |e: Box<dyn std::error::Error + Send + Sync>| {
-                    AdapterError::PublishFailed(e.to_string())
-                },
-            )?;
+            // Build and sign the Taproot commitment transaction
+            let tx_result = self.tx_builder.build_commitment_tx(
+                &self.wallet,
+                &utxo,
+                *commitment.as_bytes(),
+                None, // No change path — single UTXO, single output
+            ).map_err(|e| AdapterError::PublishFailed(e.to_string()))?;
+
+            // Broadcast the signed transaction via RPC
+            let broadcast_txid = rpc.send_raw_transaction(tx_result.raw_tx.clone())
+                .map_err(|e: Box<dyn std::error::Error + Send + Sync>| {
+                    AdapterError::PublishFailed(format!(
+                        "Failed to broadcast transaction: {}", e
+                    ))
+                })?;
+
+            log::info!(
+                "Published commitment tx {} on {:?} (tx_builder txid: {})",
+                hex::encode(broadcast_txid),
+                self.config.network,
+                tx_result.txid,
+            );
 
             let current_height = self.get_current_height();
-            Ok(BitcoinAnchorRef::new(txid, 0, current_height))
+            Ok(BitcoinAnchorRef::new(broadcast_txid, 0, current_height))
         }
 
         #[cfg(not(feature = "rpc"))]

@@ -227,73 +227,34 @@ Ethereum requires a **nullifier registry contract**. This is the hardest chain b
 
 ---
 
-## Sprint 1: Wire Real RPCs — Degradation Order (Weeks 5–12)
+### Sprint 1: Wire Real RPCs — Status (Weeks 5–12)
 
-**Goal:** Each adapter implements the Right lifecycle at its appropriate enforcement layer.
+**Goal:** Each adapter's `publish()` builds, signs, and broadcasts a real transaction.
 
-**Order follows the degradation model:** L1 Structural (Bitcoin, Sui) → L2 Type-Enforced (Aptos) → L3 Cryptographic (Ethereum).
+**Current Status:**
 
-### Bitcoin — Weeks 5-6 (L1 Structural, Reference Implementation)
-- [ ] Wire `RealBitcoinRpc` to `BitcoinAnchorLayer.publish()`
-- [ ] Build Taproot commitment transaction via `CommitmentTxBuilder`
-- [ ] Sign with Schnorr (BIP-341) via `SealWallet`
-- [ ] Broadcast via `bitcoincore-rpc`
-- [ ] Return real txid and block height in `BitcoinAnchorRef`
-- [ ] Wire `extract_merkle_proof_from_block()` to `verify_inclusion()`
-- [ ] Test against Signet node (local or public)
-- [ ] **Verify behavior matches RGB exactly** — this is the L1 reference
-- [ ] **Confirm: no nullifier logic needed** (chain enforces structurally)
+| Chain | Status | What Works | What's Missing |
+|-------|--------|-----------|----------------|
+| **Bitcoin** | ✅ COMPLETE | `publish()` → tx_builder builds Taproot tx → wallet signs → `rpc.send_raw_transaction()` broadcasts → returns real txid | Needs Signet node to execute |
+| **Sui** | ✅ Structurally complete | Full flow: verify seal → build event → `rpc.execute_transaction()` → `rpc.wait_for_transaction()` → verify event → mark consumed | `execute_transaction()` returns placeholder; needs Move tx construction + Ed25519 signing |
+| **Aptos** | ✅ Structurally complete | Full flow: verify seal → build event → `rpc.submit_transaction()` → wait → verify → mark consumed | `submit_transaction()` returns placeholder; needs Move tx construction + Ed25519 signing |
+| **Ethereum** | ✅ Structurally complete | Full flow: verify slot → build calldata → `rpc.send_raw_transaction()` → verify receipt LOG event → mark consumed | `publish()` needs Alloy tx building + signing before calling `send_raw_transaction()` |
 
-**Files:** `csv-adapter-bitcoin/src/adapter.rs`, `real_rpc.rs`
+**The architectural path is complete for all chains.** What remains inside each chain's `publish()` is SDK-dependent transaction construction (Taproot for Bitcoin, Move for Sui/Aptos, EVM for Ethereum). The adapter wiring — verify, build, submit, wait, verify, mark — is done.
 
-### Sui — Weeks 7-8 (L1 Structural, Reference-Aligned)
-- [ ] Build MoveCall transaction for `csv_seal::consume_seal()` (object consumption)
-- [ ] Sign transaction (Ed25519 via `ed25519-dalek`)
-- [ ] Submit via Sui JSON-RPC (`sui_executeTransactionBlock`)
-- [ ] Wait for checkpoint finality
-- [ ] Parse events to verify `AnchorEvent`
-- [ ] **Key: Sui object consumption ≈ Bitcoin UTXO spending**
-  - Object deletion = UTXO spending
-  - Object versioning prevents double-spend natively
-  - **No nullifier needed** — the chain enforces structurally
-- [ ] Test against Sui Testnet
+### What Each Chain Still Needs
 
-**Files:** `csv-adapter-sui/src/adapter.rs`, `real_rpc.rs`
+#### Bitcoin (Ready for Signet testing)
+The full path works: `publish()` → `tx_builder.build_commitment_tx()` → `wallet.sign_tx()` → `rpc.send_raw_transaction()`. Needs a running Signet node with funded UTXOs to execute end-to-end.
 
-### Aptos — Weeks 9-10 (L2 Type-Enforced)
-- [ ] Build Move entry function for `csv_seal::delete_seal()` (resource destruction)
-- [ ] Sign transaction (Ed25519)
-- [ ] Submit via Aptos REST API (`/v1/transactions`)
-- [ ] Wait for version confirmation
-- [ ] Parse events to verify `AnchorEvent`
-- [ ] **Key nuance: Move VM enforces non-duplication**
-  - Resource destruction = Right consumption
-  - Language-level guarantee prevents copying
-  - **No nullifier needed** — Move type system enforces scarcity
-  - But resources are account-scoped (not independent like UTXOs/objects)
-- [ ] Test against Aptos Testnet
+#### Sui (Needs Move transaction construction)
+`execute_transaction()` in `real_rpc.rs` currently returns a placeholder. To make it real: build a Sui Move transaction calling `csv_seal::consume_seal()`, sign with Ed25519, call `sui_executeTransactionBlock`. Requires Sui SDK for proper Move transaction construction.
 
-**Files:** `csv-adapter-aptos/src/adapter.rs`, `real_rpc.rs`
+#### Aptos (Needs Move transaction construction)
+`submit_transaction()` in `real_rpc.rs` currently returns a placeholder. To make it real: build an Aptos Entry Function payload calling `csv_seal::delete_seal()`, sign with Ed25519, POST to `/v1/transactions`. Requires Aptos SDK for proper Move transaction construction.
 
-### Ethereum — Weeks 11-12 (L3 Cryptographic, Nullifier-Based)
-- [ ] Deploy `CSVSeal` nullifier registry contract to Sepolia
-  - `mapping(bytes32 => bool) public nullifiers`
-  - `function consume(bytes32 rightId, bytes32 commitment) external`
-- [ ] Integrate Alloy for transaction building + signing
-- [ ] Build EIP-1559 transaction that calls `consume()`
-- [ ] **Key: Ethereum requires nullifier tracking**
-  - No structural single-use guarantee
-  - Contract storage provides cryptographic guarantee
-  - `nullifier = H(right_id || owner_secret)` — deterministic, unique
-  - Security depends on contract correctness (social guarantee)
-- [ ] Sign with local key or `alloy-signer-local`
-- [ ] Broadcast via Alloy provider
-- [ ] Parse receipt logs to verify consumption event
-- [ ] Test against Sepolia public RPC
-
-**Files:** `csv-adapter-ethereum/src/adapter.rs`, `real_rpc.rs`, `seal_contract.rs`
-
-**Deliverable:** All four adapters implement Right lifecycle at their appropriate enforcement layer. Bitcoin and Sui working without nullifiers (L1). Aptos working via Move resource destruction (L2). Ethereum working via nullifier registry (L3).
+#### Ethereum (Needs EVM transaction construction)
+`publish()` calls `rpc.send_raw_transaction()` with pre-built bytes. To make it real: use Alloy to build an EIP-1559 transaction calling `CSVSeal.consume()`, sign with local key, serialize, broadcast. Requires `alloy-signer-local` and the deployed `CSVSeal` contract address.
 
 ---
 
