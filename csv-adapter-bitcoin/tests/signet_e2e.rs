@@ -142,6 +142,27 @@ fn test_signet_real_block_data() {
     println!("Block has {} transactions", txids.len());
     assert!(!txids.is_empty(), "Block should have transactions");
 
+    // Get the full block header to get the real merkle root
+    let header_url = format!("https://mempool.space/signet/api/block/{}", block_hash);
+    let block_data_text = client.get(&header_url)
+        .send()
+        .expect("Failed to fetch block header")
+        .text()
+        .expect("Failed to read response");
+
+    let block_data: serde_json::Value = serde_json::from_str(&block_data_text)
+        .expect("Failed to parse block data");
+
+    // The merkle root is in the block header data
+    let merkle_root_hex = block_data.get("merkle_root")
+        .and_then(|m| m.as_str())
+        .expect("Block has no merkle_root field");
+    let merkle_root_bytes = hex::decode(merkle_root_hex).expect("Invalid merkle root hex");
+    let mut merkle_root = [0u8; 32];
+    merkle_root.copy_from_slice(&merkle_root_bytes);
+
+    println!("Block merkle root: {}", merkle_root_hex);
+
     // Verify we can extract a Merkle proof
     use csv_adapter_bitcoin::proofs::{
         extract_merkle_proof_from_block,
@@ -150,22 +171,35 @@ fn test_signet_real_block_data() {
     };
 
     // Convert txids to byte arrays
+    // mempool.space returns txids in RPC display order (little-endian, reversed)
+    // Our merkle computation needs internal (big-endian, non-reversed) order
     let block_txids: Vec<[u8; 32]> = txids.iter()
         .map(|hex| {
             let bytes = hex::decode(hex).expect("Invalid txid hex");
             let mut arr = [0u8; 32];
             arr.copy_from_slice(&bytes);
-            arr.reverse(); // Bitcoin displays txids in reversed byte order
+            arr.reverse(); // Convert from RPC display (little-endian) to internal (big-endian)
             arr
         })
         .collect();
 
-    // Compute merkle root
-    let merkle_root = compute_merkle_root(&block_txids)
-        .expect("Failed to compute merkle root");
-    println!("Computed merkle root: {}", hex::encode(merkle_root));
+    // The merkle root from the header is also in display (little-endian) order
+    // We need to reverse it to match our computed (internal) order
+    let mut merkle_root_internal = merkle_root;
+    merkle_root_internal.reverse();
 
-    // Extract proof for the coinbase tx (first txid)
+    // Compute merkle root from txids and compare with the header's merkle root
+    let computed_root = compute_merkle_root(&block_txids)
+        .expect("Failed to compute merkle root");
+    println!("Computed merkle root (internal): {}", hex::encode(computed_root));
+    println!("Header merkle root (display):    {}", merkle_root_hex);
+    println!("Header merkle root (internal):   {}", hex::encode(merkle_root_internal));
+
+    // Verify our computation matches the block header
+    assert_eq!(computed_root, merkle_root_internal,
+        "Computed merkle root must match block header merkle_root (in internal order)");
+
+    // Extract proof using INTERNAL-order txids (the same order used for merkle computation)
     let coinbase_txid = block_txids[0];
     let block_hash_bytes = hex::decode(&block_hash).expect("Invalid block hash");
     let mut block_hash_arr = [0u8; 32];
@@ -173,22 +207,29 @@ fn test_signet_real_block_data() {
 
     let proof = extract_merkle_proof_from_block(
         coinbase_txid,
-        &block_txids,
+        &block_txids, // internal-order txids
         block_hash_arr,
         height,
     ).expect("Failed to extract proof for coinbase tx");
 
-    println!("Coinbase proof: tx_index={}, block_height={}",
-             proof.tx_index, proof.block_height);
-    assert_eq!(proof.tx_index, 0, "Coinbase should be at index 0");
+    println!("Coinbase proof: tx_index={}, block_height={}, merkle_branch_len={}",
+             proof.tx_index, proof.block_height, proof.merkle_branch.len());
 
-    // Verify the proof
+    // Debug: print the first few branch hashes
+    for (i, branch) in proof.merkle_branch.iter().take(3).enumerate() {
+        println!("  Branch[{}]: {}", i, hex::encode(branch));
+    }
+
+    assert_eq!(proof.tx_index, 0, "Coinbase should be at index 0");
+    assert!(!proof.merkle_branch.is_empty(), "Proof should have merkle branch for multi-tx block");
+
+    // Verify the proof using INTERNAL-order txid and merkle root
     let verified = verify_merkle_proof(
         &coinbase_txid,
-        &merkle_root,
+        &merkle_root_internal, // internal-order merkle root
         &proof,
     );
-    assert!(verified, "Merkle proof should verify against computed root");
+    assert!(verified, "Merkle proof must verify against the computed merkle root");
 
     println!("=== Real Signet Block Data Test PASSED ===");
 }

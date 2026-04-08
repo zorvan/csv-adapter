@@ -155,8 +155,8 @@ pub fn from_core_inclusion_proof(proof: &csv_adapter_core::InclusionProof) -> Bi
 
 /// Extract Merkle proof from a Bitcoin block for a specific transaction
 ///
-/// Builds a PartialMerkleTree from the block's transactions with match flags
-/// for the target transaction, enabling SPV verification by peers.
+/// Computes the actual Merkle branch (sibling hashes) needed to verify
+/// that the given txid is included in the block's merkle root.
 ///
 /// # Arguments
 /// * `txid` - Transaction ID to prove inclusion for
@@ -179,15 +179,8 @@ pub fn extract_merkle_proof_from_block(
     // Find transaction position in block
     let tx_index = block_txids.iter().position(|id| *id == txid)?;
 
-    // Build PartialMerkleTree with match flags
-    let matches: Vec<bool> = block_txids.iter().map(|id| *id == txid).collect();
-    let pmt = bitcoin::merkle_tree::PartialMerkleTree::from_txids(
-        &block_txids.iter().map(|id| bitcoin::Txid::from_slice(id)).collect::<Result<Vec<_>, _>>().ok()?,
-        &matches,
-    );
-
-    // Serialize PMT to merkle branch format
-    let merkle_branch = serialize_pmt_to_branch(&pmt);
+    // Compute the merkle branch (sibling hashes) needed to verify this txid
+    let merkle_branch = compute_merkle_branch(&txid, tx_index, block_txids)?;
 
     Some(BitcoinInclusionProof::new(
         merkle_branch,
@@ -197,20 +190,67 @@ pub fn extract_merkle_proof_from_block(
     ))
 }
 
-/// Serialize PartialMerkleTree to merkle branch format for inclusion proof
-fn serialize_pmt_to_branch(pmt: &bitcoin::merkle_tree::PartialMerkleTree) -> Vec<[u8; 32]> {
-    // Extract hashes from the PMT structure
-    // In production, this would properly traverse the PMT internal structure
-    // For now, serialize and chunk into 32-byte hashes
-    let serialized = bitcoin::consensus::encode::serialize(pmt);
-    serialized.chunks(32)
-        .filter(|chunk| chunk.len() == 32)
-        .map(|chunk| {
-            let mut hash = [0u8; 32];
-            hash.copy_from_slice(chunk);
-            hash
-        })
-        .collect()
+/// Compute the Merkle branch (sibling hashes) for a transaction at a given index.
+///
+/// This walks the merkle tree bottom-up, collecting sibling hashes at each level.
+fn compute_merkle_branch(
+    _target_txid: &[u8; 32],
+    target_index: usize,
+    all_txids: &[[u8; 32]],
+) -> Option<Vec<[u8; 32]>> {
+    if all_txids.is_empty() {
+        return None;
+    }
+
+    if all_txids.len() == 1 {
+        // Single tx: no branch needed
+        return Some(vec![]);
+    }
+
+    let mut current_level: Vec<[u8; 32]> = all_txids.to_vec();
+    let mut branch = Vec::new();
+    let mut idx = target_index;
+
+    while current_level.len() > 1 {
+        let mut next_level = Vec::new();
+
+        for i in (0..current_level.len()).step_by(2) {
+            let left = current_level[i];
+            let right = if i + 1 < current_level.len() {
+                current_level[i + 1]
+            } else {
+                // Odd node: duplicate
+                left
+            };
+
+            // Collect sibling hash (not the target's own hash)
+            let is_target_left = (i == idx);
+            let sibling = if is_target_left { right } else { left };
+            if i == idx || i + 1 == idx {
+                branch.push(sibling);
+            }
+
+            // Compute parent hash (double SHA-256)
+            let parent = double_sha256_pair(&left, &right);
+            next_level.push(parent);
+        }
+
+        current_level = next_level;
+        idx /= 2;
+    }
+
+    Some(branch)
+}
+
+/// Double SHA-256 of two concatenated 32-byte inputs
+fn double_sha256_pair(left: &[u8; 32], right: &[u8; 32]) -> [u8; 32] {
+    let mut hasher = Sha256::new();
+    hasher.update(left);
+    hasher.update(right);
+    let first = hasher.finalize_reset();
+    let mut hasher2 = Sha256::new();
+    hasher2.update(first);
+    hasher2.finalize().into()
 }
 
 /// Compute the merkle root from a set of transaction IDs
@@ -374,8 +414,8 @@ mod tests {
         assert_eq!(proof.tx_index, 0);
         assert_eq!(proof.block_hash, block_hash);
         assert_eq!(proof.block_height, block_height);
-        // Single tx PMT still has serialized metadata
-        assert!(!proof.merkle_branch.is_empty());
+        // Single tx: no sibling hashes needed
+        assert!(proof.merkle_branch.is_empty());
     }
 
     #[test]
