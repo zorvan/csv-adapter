@@ -7,6 +7,7 @@ use alloc::vec::Vec;
 use serde::{Deserialize, Serialize};
 
 use crate::hash::Hash;
+use crate::tagged_hash::csv_tagged_hash;
 
 /// A single node in the state transition DAG
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -41,27 +42,22 @@ impl DAGNode {
         }
     }
 
-    /// Compute the node hash
+    /// Compute the node hash using tagged hashing
     pub fn hash(&self) -> Hash {
-        use sha2::{Digest, Sha256};
-
-        let mut hasher = Sha256::new();
-        hasher.update(&self.node_id.as_bytes());
-        hasher.update(&self.bytecode);
+        let mut data = Vec::new();
+        data.extend_from_slice(self.node_id.as_bytes());
+        data.extend_from_slice(&self.bytecode);
         for sig in &self.signatures {
-            hasher.update(sig);
+            data.extend_from_slice(sig);
         }
         for witness in &self.witnesses {
-            hasher.update(witness);
+            data.extend_from_slice(witness);
         }
         for parent in &self.parents {
-            hasher.update(parent.as_bytes());
+            data.extend_from_slice(parent.as_bytes());
         }
 
-        let result = hasher.finalize();
-        let mut array = [0u8; 32];
-        array.copy_from_slice(&result);
-        Hash::new(array)
+        Hash::new(csv_tagged_hash("dag-node", &data))
     }
 }
 
@@ -612,7 +608,7 @@ mod tests {
             let seal = SealRef::new(vec![0xAA; 16], Some(42)).unwrap();
             let domain = [0xBB; 32];
             let commitment =
-                Commitment::v1(Hash::new([2u8; 32]), Hash::zero(), dag_hash, &seal, domain);
+                Commitment::simple(Hash::new([2u8; 32]), Hash::zero(), dag_hash, &seal, domain);
 
             // Commitment produces a valid hash
             assert_eq!(commitment.hash().as_bytes().len(), 32);
@@ -752,14 +748,14 @@ mod tests {
             let seal = SealRef::new(vec![0xFF; 16], Some(1)).unwrap();
             let domain = [0xEE; 32];
 
-            let commitment_a = Commitment::v1(
+            let commitment_a = Commitment::simple(
                 Hash::new([10u8; 32]),
                 Hash::zero(),
                 dag_a.root_commitment,
                 &seal,
                 domain,
             );
-            let commitment_b = Commitment::v1(
+            let commitment_b = Commitment::simple(
                 Hash::new([10u8; 32]),
                 Hash::zero(),
                 dag_b.root_commitment,

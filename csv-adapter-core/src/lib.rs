@@ -15,6 +15,7 @@ pub mod commitment;
 pub mod hash;
 pub mod right;
 pub mod seal;
+pub mod tagged_hash;
 
 // Production hardening
 pub mod hardening;

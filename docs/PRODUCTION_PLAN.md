@@ -17,6 +17,19 @@ A **client-side validation system** where:
 
 The Universal Seal Primitive is the abstraction that makes this work across chains. The degradation model (L1→L2→L3) determines *how* each chain enforces single-use. But the **product** is the validation engine that runs on the client.
 
+### When Does the USP Actually Come Into Play?
+
+**Sprint 2 (Week 13).** Here's why:
+
+| Sprint | What Exists | Is the USP Operational? |
+|--------|------------|------------------------|
+| 0.1 | `Right` type defined | ❌ No — just a data structure with tests |
+| 1 | Each chain wires its native primitive (UTXO, Object, Resource, Nullifier) | ❌ No — each chain still uses its own thing |
+| **2** | **Client receives consignment, maps all chain primitives → unified `Right`, validates uniformly** | **✅ Yes — the USP is now the working abstraction** |
+| 3-6 | Testing, cross-chain, RGB, audit | ✅ Yes — everything builds on Sprint 2 |
+
+Before Sprint 2, the `Right` type exists but nothing uses it to unify chain-specific primitives. After Sprint 2, the client takes heterogeneous anchors (UTXO spends, object deletions, resource destructions, nullifier registrations) and validates them all through a single `Right.verify()` interface.
+
 ### Current Architecture vs What's Needed
 
 | CSV Component | Exists? | Status | Sprint |
@@ -284,22 +297,52 @@ Ethereum requires a **nullifier registry contract**. This is the hardest chain b
 
 ---
 
-### Sprint 2: Client-Side Validation Engine (Weeks 13–16)
+### Sprint 2: Client-Side Validation Engine — The USP Becomes Real (Weeks 13–16)
 
-**Goal:** The core product. Client-side validation flow works for all enforcement layers (Blueprint §6).
+**Goal:** The USP becomes the working abstraction. The client validates consignments using `Right` uniformly, regardless of which chain enforces single-use.
 
-**This is what the product actually does.** Everything before this sprint builds infrastructure. This sprint builds the thing users run.
+**This is when the Universal Seal Primitive actually comes into play.** Before Sprint 2:
+- The `Right` type exists as a data structure (Sprint 0.1)
+- Each chain adapter uses its native primitive (UTXO, Object, Resource, Nullifier) (Sprint 1)
+- But nothing unifies them
+
+In Sprint 2, the client **receives a consignment, maps each chain's native enforcement to a unified `Right`, and validates the whole thing locally.**
+
+### How the USP Becomes Operational
+
+```
+Client receives consignment from peer:
+  │
+  ├─ Bitcoin anchor?  → Map UTXO spend → Right(id, commitment, owner, nullifier=None)
+  ├─ Sui anchor?      → Map object deletion → Right(id, commitment, owner, nullifier=None)
+  ├─ Aptos anchor?    → Map resource destruction → Right(id, commitment, owner, nullifier=None)
+  └─ Ethereum anchor? → Map nullifier registration → Right(id, commitment, owner, nullifier=Some(hash))
+        │
+        ▼
+  Client validates uniformly:
+    1. Each Right.verify() passes
+    2. No Right appears twice (double-consumption check)
+    3. Commitment chain integrity (genesis → present)
+    4. Accept or reject the consignment
+```
+
+**This is the product.** Not the adapters. Not the RPC wiring. The client that receives a consignment, maps heterogeneous chain primitives to unified `Right`s, and validates them all the same way.
 
 #### Right Lifecycle on Client (Week 13)
 - [ ] Client stores full state history for each contract
 - [ ] Client fetches inclusion proofs from chain
-- [ ] Client builds local Right state machine (create → transfer → consume)
+- [ ] Client maps chain-specific anchors to `Right` type
+  - Bitcoin: UTXO → `Right` (L1, no nullifier)
+  - Sui: Object → `Right` (L1, no nullifier)
+  - Aptos: Resource → `Right` (L2, no nullifier)
+  - Ethereum: Nullifier → `Right` (L3, nullifier set)
+- [ ] Client builds local `Right` state machine (create → transfer → consume)
 - [ ] Client verifies chain-enforced single-use matches local state
 
 #### Commitment Chain Verification (Week 14)
 - [ ] Fetch state proof chain from chain's storage
 - [ ] Verify each commitment links to the previous (hash chain integrity)
-- [ ] Verify each Right was consumed at most once
+- [ ] Verify each `Right` was consumed at most once
 - [ ] Verify no conflicting state transitions exist
 - [ ] Accept or reject the consignment based on local validation
 
@@ -310,12 +353,12 @@ Ethereum requires a **nullifier registry contract**. This is the hardest chain b
 - [ ] State divergence → Resolve via canonical commitment
 
 #### Cross-Layer Uniqueness Verification (Week 16)
-- [ ] Bitcoin: Verify UTXO spent exactly once (chain-enforced, client-verified)
-- [ ] Sui: Verify object deleted/mutated exactly once (chain-enforced, client-verified)
-- [ ] Aptos: Verify resource destroyed exactly once (Move-enforced, client-verified)
-- [ ] Ethereum: Verify nullifier registered exactly once (contract-enforced, client-verified)
+- [ ] Bitcoin: Verify UTXO spent exactly once (chain-enforced, client-verified via `Right`)
+- [ ] Sui: Verify object deleted/mutated exactly once (chain-enforced, client-verified via `Right`)
+- [ ] Aptos: Verify resource destroyed exactly once (Move-enforced, client-verified via `Right`)
+- [ ] Ethereum: Verify nullifier registered exactly once (contract-enforced, client-verified via `Right`)
 
-**Deliverable:** A client that can receive a consignment, verify the full state history, confirm no double-consumption, and accept or reject it. This is the product.
+**Deliverable:** A client that receives a consignment, maps heterogeneous chain primitives to unified `Right`s, verifies the full state history, confirms no double-consumption, and accepts or rejects it. **The USP is now the working abstraction.**
 
 ---
 

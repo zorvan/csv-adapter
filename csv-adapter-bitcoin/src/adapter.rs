@@ -292,7 +292,7 @@ impl AnchorLayer for BitcoinAnchorLayer {
     ) -> Hash {
         let core_seal =
             CoreSealRef::new(seal_ref.to_vec(), seal_ref.nonce).expect("valid seal reference");
-        Commitment::v1(
+        Commitment::simple(
             contract_id,
             previous_commitment,
             transition_payload_hash,

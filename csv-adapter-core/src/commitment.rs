@@ -12,6 +12,7 @@ use sha2::{Digest, Sha256};
 use crate::hash::Hash;
 use crate::mpc::MpcTree;
 use crate::seal::SealRef;
+use crate::tagged_hash::csv_tagged_hash;
 
 /// Current commitment version
 pub const COMMITMENT_VERSION: u8 = 2;
@@ -81,7 +82,7 @@ impl Commitment {
     ///
     /// This is a convenience constructor that uses a default empty MPC root.
     /// For multi-protocol use cases, use [`Commitment::new`] instead.
-    pub fn v1(
+    pub fn simple(
         contract_id: Hash,
         previous_commitment: Hash,
         transition_payload_hash: Hash,
@@ -123,6 +124,18 @@ impl Commitment {
         }
     }
 
+    /// Backwards-compatible alias for [`Commitment::simple`].
+    #[deprecated(since = "0.2.0", note = "Use `Commitment::simple` instead")]
+    pub fn v1(
+        contract_id: Hash,
+        previous_commitment: Hash,
+        transition_payload_hash: Hash,
+        seal_ref: &SealRef,
+        domain_separator: [u8; 32],
+    ) -> Self {
+        Self::simple(contract_id, previous_commitment, transition_payload_hash, seal_ref, domain_separator)
+    }
+
     /// Compute the commitment hash
     pub fn hash(&self) -> Hash {
         let mut hasher = Sha256::new();
@@ -134,14 +147,15 @@ impl Commitment {
     }
 
     fn hash_into(&self, hasher: &mut Sha256) {
-        hasher.update([self.version]);
-        hasher.update(&self.protocol_id);
-        hasher.update(self.mpc_root.as_bytes());
-        hasher.update(self.contract_id.as_bytes());
-        hasher.update(self.previous_commitment.as_bytes());
-        hasher.update(self.transition_payload_hash.as_bytes());
-        hasher.update(self.seal_id.as_bytes());
-        hasher.update(self.domain_separator);
+        // Use tagged hashing for each field to prevent cross-protocol collisions
+        hasher.update(csv_tagged_hash("commitment-version", &[self.version]));
+        hasher.update(csv_tagged_hash("commitment-protocol-id", &self.protocol_id));
+        hasher.update(csv_tagged_hash("commitment-mpc-root", self.mpc_root.as_bytes()));
+        hasher.update(csv_tagged_hash("commitment-contract-id", self.contract_id.as_bytes()));
+        hasher.update(csv_tagged_hash("commitment-prev", self.previous_commitment.as_bytes()));
+        hasher.update(csv_tagged_hash("commitment-payload", self.transition_payload_hash.as_bytes()));
+        hasher.update(csv_tagged_hash("commitment-seal", self.seal_id.as_bytes()));
+        hasher.update(csv_tagged_hash("commitment-domain", &self.domain_separator));
     }
 
     /// Get the version
@@ -231,8 +245,8 @@ mod tests {
     use super::*;
     use crate::mpc::MpcTree;
 
-    fn test_simple_commitment() -> Commitment {
-        Commitment::v1(
+    fn test_commitment_commitment() -> Commitment {
+        Commitment::simple(
             Hash::new([1u8; 32]),
             Hash::new([2u8; 32]),
             Hash::new([3u8; 32]),
@@ -263,21 +277,21 @@ mod tests {
     // ─────────────────────────────────────────────
 
     #[test]
-    fn test_simple_creation() {
-        let c = test_simple_commitment();
+    fn test_commitment_creation() {
+        let c = test_commitment_commitment();
         assert_eq!(c.version(), COMMITMENT_VERSION);
     }
 
     #[test]
-    fn test_simple_hash_deterministic() {
-        let c1 = test_simple_commitment();
-        let c2 = test_simple_commitment();
+    fn test_commitment_hash_deterministic() {
+        let c1 = test_commitment_commitment();
+        let c2 = test_commitment_commitment();
         assert_eq!(c1.hash(), c2.hash());
     }
 
     #[test]
-    fn test_simple_canonical_roundtrip() {
-        let c = test_simple_commitment();
+    fn test_commitment_canonical_roundtrip() {
+        let c = test_commitment_commitment();
         let bytes = c.to_canonical_bytes();
         let restored = Commitment::from_canonical_bytes(&bytes).unwrap();
         assert_eq!(c.hash(), restored.hash());
@@ -376,15 +390,15 @@ mod tests {
     // ─────────────────────────────────────────────
 
     #[test]
-    fn test_simple_v2_different_hashes() {
-        let v1 = test_simple_commitment();
+    fn test_commitment_v2_different_hashes() {
+        let v1 = test_commitment_commitment();
         let v2 = test_mpc_commitment();
         assert_ne!(v1.hash(), v2.hash());
     }
 
     #[test]
-    fn test_simple_v2_same_contract_different_versions() {
-        let v1 = test_simple_commitment();
+    fn test_commitment_v2_same_contract_different_versions() {
+        let v1 = test_commitment_commitment();
         let v2 = test_mpc_commitment();
         // Both reference same contract ID
         assert_eq!(v1.contract_id(), v2.contract_id());
@@ -398,7 +412,7 @@ mod tests {
 
     #[test]
     fn test_commitment_accessors() {
-        let v1 = test_simple_commitment();
+        let v1 = test_commitment_commitment();
         assert_eq!(v1.contract_id(), Hash::new([1u8; 32]));
         assert_eq!(v1.domain_separator(), [5u8; 32]);
 
@@ -424,12 +438,12 @@ mod tests {
     }
 
     #[test]
-    fn test_from_bytes_v1_too_short() {
-        assert!(Commitment::from_canonical_bytes(&[1, 0, 0]).is_err());
+    fn test_from_bytes_unsupported_version() {
+        assert!(Commitment::from_canonical_bytes(&[1, 0, 0]).is_err()); // V1 no longer supported
     }
 
     #[test]
-    fn test_from_bytes_v2_too_short() {
+    fn test_from_bytes_too_short() {
         assert!(Commitment::from_canonical_bytes(&[2, 0, 0]).is_err());
     }
 

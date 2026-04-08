@@ -11,6 +11,7 @@ use alloc::vec::Vec;
 use sha2::{Digest, Sha256};
 
 use crate::hash::Hash;
+use crate::tagged_hash::csv_tagged_hash;
 
 /// Protocol identifier (32 bytes)
 pub type ProtocolId = [u8; 32];
@@ -33,15 +34,12 @@ impl MpcLeaf {
         }
     }
 
-    /// Compute the leaf hash: SHA256(protocol_id || commitment)
+    /// Compute the leaf hash: tagged_hash("mpc-leaf", protocol_id || commitment)
     pub fn hash(&self) -> Hash {
-        let mut hasher = Sha256::new();
-        hasher.update(&self.protocol_id);
-        hasher.update(self.commitment.as_bytes());
-        let result = hasher.finalize();
-        let mut array = [0u8; 32];
-        array.copy_from_slice(&result);
-        Hash::new(array)
+        let mut data = Vec::with_capacity(64);
+        data.extend_from_slice(&self.protocol_id);
+        data.extend_from_slice(self.commitment.as_bytes());
+        Hash::new(csv_tagged_hash("mpc-leaf", &data))
     }
 }
 
@@ -70,31 +68,24 @@ pub struct MerkleBranchNode {
 impl MpcProof {
     /// Verify this proof against the claimed root
     pub fn verify(&self, root: &Hash) -> bool {
-        let mut current = {
-            let mut hasher = Sha256::new();
-            hasher.update(&self.protocol_id);
-            hasher.update(self.commitment.as_bytes());
-            let result = hasher.finalize();
-            let mut array = [0u8; 32];
-            array.copy_from_slice(&result);
-            Hash::new(array)
-        };
+        let mut data = Vec::with_capacity(64);
+        data.extend_from_slice(&self.protocol_id);
+        data.extend_from_slice(self.commitment.as_bytes());
+        let mut current = Hash::new(csv_tagged_hash("mpc-leaf", &data));
 
         for node in &self.branch {
-            let mut hasher = Sha256::new();
-            if node.is_left {
-                hasher.update(node.hash.as_bytes());
-                hasher.update(current.as_bytes());
-            } else {
-                hasher.update(current.as_bytes());
-                hasher.update(node.hash.as_bytes());
-            }
-            let result = hasher.finalize();
-            current = Hash::new({
-                let mut arr = [0u8; 32];
-                arr.copy_from_slice(&result);
-                arr
-            });
+            let sibling_data: [u8; 64] = {
+                let mut d = [0u8; 64];
+                if node.is_left {
+                    d[..32].copy_from_slice(node.hash.as_bytes());
+                    d[32..].copy_from_slice(current.as_bytes());
+                } else {
+                    d[..32].copy_from_slice(current.as_bytes());
+                    d[32..].copy_from_slice(node.hash.as_bytes());
+                }
+                d
+            };
+            current = Hash::new(csv_tagged_hash("mpc-internal", &sibling_data));
         }
 
         current == *root
@@ -181,6 +172,7 @@ impl MpcTree {
             for chunk in hashes.chunks(2) {
                 let left = &chunk[0];
                 if chunk.len() == 1 {
+                    // Odd node: promote to next level (standard merkle tree behavior)
                     next_level.push(*left);
                 } else {
                     next_level.push(hash_pair(left, &chunk[1]));
@@ -235,15 +227,12 @@ impl MpcTree {
     }
 }
 
-/// Hash two nodes together (internal helper)
+/// Hash two nodes together (internal helper using tagged hashing)
 fn hash_pair(left: &Hash, right: &Hash) -> Hash {
-    let mut hasher = Sha256::new();
-    hasher.update(left.as_bytes());
-    hasher.update(right.as_bytes());
-    let result = hasher.finalize();
-    let mut array = [0u8; 32];
-    array.copy_from_slice(&result);
-    Hash::new(array)
+    let mut data = [0u8; 64];
+    data[..32].copy_from_slice(left.as_bytes());
+    data[32..].copy_from_slice(right.as_bytes());
+    Hash::new(csv_tagged_hash("mpc-internal", &data))
 }
 
 #[cfg(test)]
