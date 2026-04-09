@@ -27,7 +27,7 @@ pub mod testnet_deploy;
 pub mod real_rpc;
 
 pub use adapter::BitcoinAnchorLayer;
-pub use config::BitcoinConfig;
+pub use config::{BitcoinConfig, Network};
 pub use types::{BitcoinSealRef, BitcoinAnchorRef, BitcoinInclusionProof, BitcoinFinalityProof};
 pub use rpc::BitcoinRpc;
 pub use tapret::{TapretCommitment, TapretError, OpretCommitment, mine_tapret_nonce, TAPRET_SCRIPT_SIZE};
@@ -37,4 +37,4 @@ pub use spv::SpvVerifier;
 pub use bip341::{derive_output_key, TaprootOutput, Bip341Error, generate_test_keypair};
 
 #[cfg(feature = "rpc")]
-pub use real_rpc::real_rpc::RealBitcoinRpc;
+pub use real_rpc::real_rpc::{RealBitcoinRpc, TxInfo};

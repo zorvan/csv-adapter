@@ -352,6 +352,76 @@ impl SealWallet {
     pub fn list_utxos(&self) -> Vec<WalletUtxo> {
         self.utxos.lock().unwrap().values().cloned().collect()
     }
+
+    /// Scan the blockchain for UTXOs belonging to this wallet's addresses
+    /// 
+    /// This method checks all derived addresses up to `address_gap_limit` consecutive
+    /// unused addresses to find UTXOs on the chain and add them to the wallet.
+    /// 
+    /// Requires a callback that checks whether a given address has UTXOs and returns them.
+    pub fn scan_chain_for_utxos<F>(
+        &self,
+        mut fetch_utxos: F,
+        account: u32,
+        address_gap_limit: usize,
+    ) -> Result<usize, WalletError>
+    where
+        F: FnMut(&Address) -> Result<Vec<(OutPoint, u64)>, String>,
+    {
+        let mut discovered_count = 0;
+        let mut consecutive_empty = 0;
+        let mut index = 0;
+
+        loop {
+            if consecutive_empty >= address_gap_limit {
+                break;
+            }
+
+            let path = Bip86Path::external(account, index);
+            let derived = self.derive_key(&path)?;
+
+            match fetch_utxos(&derived.address) {
+                Ok(utxos) => {
+                    if utxos.is_empty() {
+                        consecutive_empty += 1;
+                    } else {
+                        consecutive_empty = 0;
+                        for (outpoint, amount) in utxos {
+                            self.add_utxo(outpoint, amount, path.clone());
+                            discovered_count += 1;
+                        }
+                    }
+                }
+                Err(e) => {
+                    return Err(WalletError::KeyDerivationFailed(e));
+                }
+            }
+
+            index += 1;
+        }
+
+        Ok(discovered_count)
+    }
+
+    /// Add a UTXO to the wallet from a known address and outpoint
+    /// 
+    /// This is used when you manually fund an address by sending bitcoin to it,
+    /// then register the UTXO once it's confirmed.
+    pub fn add_utxo_from_address(
+        &self,
+        outpoint: OutPoint,
+        amount_sat: u64,
+        account: u32,
+        index: u32,
+    ) -> Result<(), WalletError> {
+        let path = Bip86Path::external(account, index);
+        let derived = self.derive_key(&path)?;
+        
+        // Verify the outpoint belongs to this address
+        // (In production, you'd verify the script_pubkey matches)
+        self.add_utxo(outpoint, amount_sat, path);
+        Ok(())
+    }
 }
 
 #[derive(Debug, thiserror::Error)]

@@ -38,6 +38,80 @@ pub mod real_rpc {
             Ok(Self { client, network })
         }
 
+        /// Get UTXOs for a specific Bitcoin address
+        /// 
+        /// Returns a list of (OutPoint, amount_in_satoshis) pairs
+        pub fn get_address_utxos(
+            &self,
+            address: &bitcoin::Address,
+        ) -> Result<Vec<(OutPoint, u64)>, Box<dyn std::error::Error + Send + Sync>> {
+            // Use listunspent RPC call to get UTXOs for the address
+            // This requires the Bitcoin Core wallet to be watching this address
+            let utxos = self.client.list_unspent(
+                Some(0),      // min_confirmations
+                None,         // max_confirmations  
+                Some(&[address]), // addresses filter
+                None,         // include_unsafe
+                None,         // query_options
+            )?;
+            
+            let result: Vec<(OutPoint, u64)> = utxos
+                .into_iter()
+                .map(|utxo| {
+                    let outpoint = OutPoint::new(utxo.txid, utxo.vout);
+                    let amount_sat = utxo.amount.to_sat();
+                    (outpoint, amount_sat)
+                })
+                .collect();
+            
+            Ok(result)
+        }
+
+        /// Get transaction details including confirmations and block info
+        pub fn get_transaction_info(
+            &self,
+            txid: [u8; 32],
+        ) -> Result<TxInfo, Box<dyn std::error::Error + Send + Sync>> {
+            let txid = Txid::from_slice(&txid)
+                .map_err(|e| format!("Invalid txid: {}", e))?;
+            
+            let tx_info = self.client.get_raw_transaction_info(&txid, None)?;
+            
+            // Get block hash if confirmed
+            let block_hash = tx_info.blockhash.map(|h| {
+                let bytes = h.as_ref();
+                let mut arr = [0u8; 32];
+                arr.copy_from_slice(bytes);
+                arr
+            });
+            
+            Ok(TxInfo {
+                confirmations: tx_info.confirmations.unwrap_or(0) as u64,
+                block_hash,
+            })
+        }
+
+        /// Get the funding transaction that created a UTXO at a specific address
+        /// 
+        /// This is useful for discovering UTXOs by scanning the blockchain
+        /// for transactions sent to wallet addresses.
+        pub fn get_funding_tx(
+            &self,
+            address: &bitcoin::Address,
+            min_confirmations: u64,
+        ) -> Result<Vec<(Txid, u64, u32)>, Box<dyn std::error::Error + Send + Sync>> {
+            // Scan recent transactions for this address
+            // This requires a wallet with transaction indexing
+            // For now, return empty - users should manually add UTXOs
+            
+            // In production, you'd use:
+            // 1. listtransactions to find transactions
+            // 2. Filter by address
+            // 3. Return (txid, amount, vout) for each
+            
+            Ok(vec![])
+        }
+
         /// Get a full block by hash, including all transactions
         pub fn get_block(
             &self,
@@ -164,5 +238,12 @@ pub mod real_rpc {
     pub enum RealRpcError {
         #[error("RPC error: {0}")]
         Rpc(#[from] bitcoincore_rpc::Error),
+    }
+
+    /// Transaction information helper
+    #[derive(Debug, Clone)]
+    pub struct TxInfo {
+        pub confirmations: u64,
+        pub block_hash: Option<[u8; 32]>,
     }
 }
