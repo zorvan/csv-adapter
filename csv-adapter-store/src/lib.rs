@@ -68,7 +68,7 @@ impl SqliteSealStore {
 
 impl SealStore for SqliteSealStore {
     fn save_seal(&mut self, record: &SealRecord) -> Result<(), StoreError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         conn.execute(
             "INSERT OR IGNORE INTO seals (chain, seal_id, consumed_at_height, commitment_hash, recorded_at)
              VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -84,7 +84,7 @@ impl SealStore for SqliteSealStore {
     }
 
     fn is_seal_consumed(&self, chain: &str, seal_id: &[u8]) -> Result<bool, StoreError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let count: i64 = conn
             .query_row(
                 "SELECT COUNT(*) FROM seals WHERE chain = ?1 AND seal_id = ?2",
@@ -96,7 +96,7 @@ impl SealStore for SqliteSealStore {
     }
 
     fn get_seals(&self, chain: &str) -> Result<Vec<SealRecord>, StoreError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let mut stmt = conn.prepare(
             "SELECT seal_id, consumed_at_height, commitment_hash, recorded_at FROM seals WHERE chain = ?1"
         ).map_err(|e| StoreError::IoError(e.to_string()))?;
@@ -125,7 +125,7 @@ impl SealStore for SqliteSealStore {
     }
 
     fn remove_seal(&mut self, chain: &str, seal_id: &[u8]) -> Result<(), StoreError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         conn.execute(
             "DELETE FROM seals WHERE chain = ?1 AND seal_id = ?2",
             params![chain, seal_id],
@@ -135,7 +135,7 @@ impl SealStore for SqliteSealStore {
     }
 
     fn remove_seals_after(&mut self, chain: &str, height: u64) -> Result<usize, StoreError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let removed = conn
             .execute(
                 "DELETE FROM seals WHERE chain = ?1 AND consumed_at_height > ?2",
@@ -146,7 +146,7 @@ impl SealStore for SqliteSealStore {
     }
 
     fn save_anchor(&mut self, record: &AnchorRecord) -> Result<(), StoreError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         conn.execute(
             "INSERT OR IGNORE INTO anchors (chain, anchor_id, block_height, commitment_hash, is_finalized, confirmations, recorded_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
@@ -164,7 +164,7 @@ impl SealStore for SqliteSealStore {
     }
 
     fn has_anchor(&self, chain: &str, anchor_id: &[u8]) -> Result<bool, StoreError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let count: i64 = conn
             .query_row(
                 "SELECT COUNT(*) FROM anchors WHERE chain = ?1 AND anchor_id = ?2",
@@ -181,7 +181,7 @@ impl SealStore for SqliteSealStore {
         anchor_id: &[u8],
         confirmations: u64,
     ) -> Result<(), StoreError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         conn.execute(
             "UPDATE anchors SET is_finalized = 1, confirmations = ?3
              WHERE chain = ?1 AND anchor_id = ?2",
@@ -192,7 +192,7 @@ impl SealStore for SqliteSealStore {
     }
 
     fn pending_anchors(&self, chain: &str) -> Result<Vec<AnchorRecord>, StoreError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let mut stmt = conn
             .prepare(
                 "SELECT anchor_id, block_height, commitment_hash, confirmations, recorded_at
@@ -227,7 +227,7 @@ impl SealStore for SqliteSealStore {
     }
 
     fn remove_anchors_after(&mut self, chain: &str, height: u64) -> Result<usize, StoreError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let removed = conn
             .execute(
                 "DELETE FROM anchors WHERE chain = ?1 AND block_height > ?2",
@@ -238,7 +238,7 @@ impl SealStore for SqliteSealStore {
     }
 
     fn highest_block(&self, chain: &str) -> Result<u64, StoreError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let max: Option<i64> = conn
             .query_row(
                 "SELECT MAX(block_height) FROM anchors WHERE chain = ?1",

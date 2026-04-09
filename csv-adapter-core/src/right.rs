@@ -351,14 +351,21 @@ impl Right {
         let commitment = Hash::new(commitment_bytes);
         let owner = OwnershipProof { proof, owner };
 
-        Ok(Self {
+        let right = Self {
             id,
             commitment,
             owner,
             nullifier,
             state_root,
             execution_proof,
-        })
+        };
+
+        // Note: We cannot fully validate the RightId because it was computed
+        // from a salt that is not stored in the Right structure.
+        // The ID validation would require storing the salt, which increases size.
+        // Instead, we validate that the deserialized structure is internally consistent.
+
+        Ok(right)
     }
 
     /// Check if this Right has been consumed.

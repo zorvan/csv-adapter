@@ -57,6 +57,8 @@ impl Signature {
 /// Public key format: 33 bytes (compressed) or 65 bytes (uncompressed)
 /// Message: 32 bytes (pre-hashed)
 fn verify_secp256k1(signature: &[u8], public_key: &[u8], message: &[u8]) -> Result<()> {
+    use secp256k1::{Secp256k1, PublicKey, Message, ecdsa};
+
     // Validate input sizes
     if message.len() != 32 {
         return Err(AdapterError::SignatureVerificationFailed(format!(
@@ -85,20 +87,6 @@ fn verify_secp256k1(signature: &[u8], public_key: &[u8], message: &[u8]) -> Resu
         )));
     }
 
-    // For compressed keys, first byte must be 0x02 or 0x03
-    if public_key.len() == 33 && public_key[0] != 0x02 && public_key[0] != 0x03 {
-        return Err(AdapterError::SignatureVerificationFailed(
-            "Invalid compressed public key prefix".to_string(),
-        ));
-    }
-
-    // For uncompressed keys, first byte must be 0x04
-    if public_key.len() == 65 && public_key[0] != 0x04 {
-        return Err(AdapterError::SignatureVerificationFailed(
-            "Invalid uncompressed public key prefix".to_string(),
-        ));
-    }
-
     // Signature should be 64 bytes (r || s) or 65 bytes (recovery_id || r || s)
     if signature.len() != 64 && signature.len() != 65 {
         return Err(AdapterError::SignatureVerificationFailed(format!(
@@ -107,30 +95,38 @@ fn verify_secp256k1(signature: &[u8], public_key: &[u8], message: &[u8]) -> Resu
         )));
     }
 
-    // In a no_std environment, we can't use secp256k1 crate directly
-    // This is a structural validation - actual cryptographic verification
-    // requires the secp256k1 crate which is chain-specific
+    // Parse public key
+    let pubkey = PublicKey::from_slice(public_key)
+        .map_err(|e| AdapterError::SignatureVerificationFailed(format!(
+            "Invalid public key: {}", e
+        )))?;
 
-    // Basic malleability check: s value should be in lower half
-    if signature.len() >= 64 {
-        let s_start = if signature.len() == 65 { 1 } else { 0 } + 32;
-        let s_bytes = &signature[s_start..s_start + 32];
+    // Parse signature
+    let sig = if signature.len() == 64 {
+        ecdsa::Signature::from_compact(signature)
+            .map_err(|e| AdapterError::SignatureVerificationFailed(format!(
+                "Invalid signature format: {}", e
+            )))?
+    } else {
+        // 65 bytes: skip recovery ID
+        ecdsa::Signature::from_compact(&signature[1..])
+            .map_err(|e| AdapterError::SignatureVerificationFailed(format!(
+                "Invalid signature format: {}", e
+            )))?
+    };
 
-        // Check if s is in the upper half (malleable)
-        let is_high_s = s_bytes[0] > 0x7F;
+    // Parse message
+    let msg = Message::from_digest_slice(message)
+        .map_err(|e| AdapterError::SignatureVerificationFailed(format!(
+            "Invalid message: {}", e
+        )))?;
 
-        if is_high_s {
-            return Err(AdapterError::SignatureVerificationFailed(
-                "Signature has high-s value (malleable)".to_string(),
-            ));
-        }
-    }
-
-    // Signature structure is valid
-    // Note: Full cryptographic verification would require:
-    // - secp256k1 crate for actual verification
-    // - Public key recovery and validation
-    // - This implementation validates structure and format
+    // Perform actual cryptographic verification
+    let secp = Secp256k1::verification_only();
+    secp.verify_ecdsa(&msg, &sig, &pubkey)
+        .map_err(|e| AdapterError::SignatureVerificationFailed(format!(
+            "Signature verification failed: {}", e
+        )))?;
 
     Ok(())
 }
@@ -140,7 +136,9 @@ fn verify_secp256k1(signature: &[u8], public_key: &[u8], message: &[u8]) -> Resu
 /// Signature format: 64 bytes (R || S)
 /// Public key format: 32 bytes
 /// Message: arbitrary length
-fn verify_ed25519(signature: &[u8], public_key: &[u8], _message: &[u8]) -> Result<()> {
+fn verify_ed25519(signature: &[u8], public_key: &[u8], message: &[u8]) -> Result<()> {
+    use ed25519_dalek::{VerifyingKey, Signature, Verifier};
+
     // Validate input sizes
     if public_key.is_empty() {
         return Err(AdapterError::SignatureVerificationFailed(
@@ -170,50 +168,21 @@ fn verify_ed25519(signature: &[u8], public_key: &[u8], _message: &[u8]) -> Resul
         )));
     }
 
-    // Ed25519 signatures have specific structure
-    // First 32 bytes: R (compressed curve point)
-    // Last 32 bytes: S (scalar)
+    // Parse public key
+    let verifying_key = VerifyingKey::from_bytes(public_key.try_into().unwrap())
+        .map_err(|e| AdapterError::SignatureVerificationFailed(format!(
+            "Invalid Ed25519 public key: {}", e
+        )))?;
 
-    // Check that S < L (order of base point)
-    // Ed25519 order L = 2^252 + 27742317777372353535851937790883648493
-    // In bytes (little-endian): 0xed, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58,
-    //                            0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde, 0x14,
-    //                            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    //                            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10
-    let s_bytes = &signature[32..64];
-    let order_l: [u8; 32] = [
-        0xed, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58, 0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde,
-        0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x10,
-    ];
+    // Parse signature
+    let sig_bytes_arr: [u8; 64] = signature.try_into().unwrap();
+    let sig = Signature::from_bytes(&sig_bytes_arr);
 
-    // Compare in little-endian (reverse order)
-    // S must be strictly less than L
-    let mut s_ge_l = true;
-    for i in (0..32).rev() {
-        if s_bytes[i] < order_l[i] {
-            s_ge_l = false;
-            break; // S < L, valid
-        } else if s_bytes[i] > order_l[i] {
-            return Err(AdapterError::SignatureVerificationFailed(
-                "Ed25519 signature has S >= L (invalid)".to_string(),
-            ));
-        }
-    }
-
-    // If all bytes were equal, S == L which is invalid
-    if s_ge_l {
-        return Err(AdapterError::SignatureVerificationFailed(
-            "Ed25519 signature has S >= L (invalid)".to_string(),
-        ));
-    }
-
-    // Signature structure is valid
-    // Note: Full cryptographic verification would require:
-    // - ed25519-dalek or similar crate
-    // - SHA-512 hashing
-    // - Elliptic curve operations
-    // This implementation validates structure and format
+    // Perform actual cryptographic verification
+    verifying_key.verify(message, &sig)
+        .map_err(|e| AdapterError::SignatureVerificationFailed(format!(
+            "Ed25519 signature verification failed: {}", e
+        )))?;
 
     Ok(())
 }
@@ -258,24 +227,41 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_secp256k1_valid_signature_structure() {
-        // Valid 64-byte signature (r || s)
-        let mut signature = vec![0u8; 64];
-        // Set r value (first 32 bytes)
-        signature[..32].copy_from_slice(&[0x01; 32]);
-        // Set s value in lower half (avoid high-s malleability)
-        signature[32..64].copy_from_slice(&[0x01; 32]);
+    fn test_secp256k1_valid_signature() {
+        use secp256k1::{Secp256k1, SecretKey, Message};
+        use secp256k1::ecdsa::Signature;
 
-        // Valid compressed public key (33 bytes, starts with 0x02 or 0x03)
-        let mut public_key = vec![0u8; 33];
-        public_key[0] = 0x02; // Compressed, even y
-        public_key[1..].copy_from_slice(&[0xAB; 32]);
-
-        // Valid 32-byte message
+        let secp = Secp256k1::new();
+        let secret_key = SecretKey::new(&mut secp256k1::rand::thread_rng());
+        let public_key = secp256k1::PublicKey::from_secret_key(&secp, &secret_key);
         let message = [0xCD; 32];
+        let msg = Message::from_digest_slice(&message).unwrap();
+        let signature = secp.sign_ecdsa(&msg, &secret_key);
+        let sig_bytes = signature.serialize_compact();
+        let pubkey_bytes = public_key.serialize();
 
-        let sig = Signature::new(signature, public_key, message.to_vec());
+        let sig = Signature::new(sig_bytes.to_vec(), pubkey_bytes.to_vec(), message.to_vec());
         assert!(sig.verify(SignatureScheme::Secp256k1).is_ok());
+    }
+
+    #[test]
+    fn test_secp256k1_invalid_signature_fails() {
+        use secp256k1::{Secp256k1, SecretKey, Message};
+
+        let secp = Secp256k1::new();
+        let secret_key = SecretKey::new(&mut secp256k1::rand::thread_rng());
+        let public_key = secp256k1::PublicKey::from_secret_key(&secp, &secret_key);
+        let pubkey_bytes = public_key.serialize();
+
+        // Wrong message
+        let message = [0xCD; 32];
+        let different_message = [0xAB; 32];
+        let msg = Message::from_digest_slice(&message).unwrap();
+        let signature = secp.sign_ecdsa(&msg, &secret_key);
+        let sig_bytes = signature.serialize_compact();
+
+        let sig = Signature::new(sig_bytes.to_vec(), pubkey_bytes.to_vec(), different_message.to_vec());
+        assert!(sig.verify(SignatureScheme::Secp256k1).is_err());
     }
 
     #[test]
@@ -328,48 +314,53 @@ mod tests {
     }
 
     #[test]
-    fn test_secp256k1_high_s_malleability() {
-        let mut signature = vec![0u8; 64];
-        signature[..32].copy_from_slice(&[0x01; 32]);
-        // High s value (starts with 0xFF)
-        signature[32..64].copy_from_slice(&[0xFF; 32]);
+    fn test_secp256k1_tampered_signature() {
+        use secp256k1::{Secp256k1, SecretKey, Message};
 
-        let public_key = vec![0x02; 33];
-        let message = [0u8; 32];
+        let secp = Secp256k1::new();
+        let secret_key = SecretKey::new(&mut secp256k1::rand::thread_rng());
+        let public_key = secp256k1::PublicKey::from_secret_key(&secp, &secret_key);
+        let message = [0xCD; 32];
+        let msg = Message::from_digest_slice(&message).unwrap();
+        let signature = secp.sign_ecdsa(&msg, &secret_key);
+        let mut sig_bytes = signature.serialize_compact();
+        // Tamper with signature
+        sig_bytes[0] ^= 0xFF;
+        let pubkey_bytes = public_key.serialize();
 
-        let sig = Signature::new(signature, public_key, message.to_vec());
+        let sig = Signature::new(sig_bytes.to_vec(), pubkey_bytes.to_vec(), message.to_vec());
         assert!(sig.verify(SignatureScheme::Secp256k1).is_err());
     }
 
     #[test]
-    fn test_secp256k1_uncompressed_public_key() {
-        let signature = vec![0u8; 64];
-        let mut public_key = vec![0u8; 65];
-        public_key[0] = 0x04; // Uncompressed prefix
-        public_key[1..].copy_from_slice(&[0xAB; 64]);
-        let message = [0u8; 32];
+    fn test_ed25519_valid_signature() {
+        use ed25519_dalek::{SigningKey, Signer, VerifyingKey};
+        use ed25519_dalek::Signature as DalekSignature;
+        use rand::rngs::OsRng;
 
-        let sig = Signature::new(signature, public_key, message.to_vec());
-        assert!(sig.verify(SignatureScheme::Secp256k1).is_ok());
+        let signing_key = SigningKey::generate(&mut OsRng);
+        let verifying_key: VerifyingKey = signing_key.verifying_key();
+        let message = b"This is a test message for Ed25519 verification";
+        let signature: DalekSignature = signing_key.sign(message);
+
+        let sig = Signature::new(signature.to_bytes().to_vec(), verifying_key.to_bytes().to_vec(), message.to_vec());
+        assert!(sig.verify(SignatureScheme::Ed25519).is_ok());
     }
 
     #[test]
-    fn test_ed25519_valid_signature_structure() {
-        // Valid 64-byte Ed25519 signature
-        let mut signature = vec![0u8; 64];
-        // R (32 bytes)
-        signature[..32].copy_from_slice(&[0xAB; 32]);
-        // S (32 bytes, must be < L)
-        signature[32..64].copy_from_slice(&[0x01; 32]);
+    fn test_ed25519_invalid_signature_fails() {
+        use ed25519_dalek::{SigningKey, Signer, VerifyingKey};
+        use ed25519_dalek::Signature as DalekSignature;
+        use rand::rngs::OsRng;
 
-        // Valid 32-byte Ed25519 public key
-        let public_key = vec![0xCD; 32];
+        let signing_key = SigningKey::generate(&mut OsRng);
+        let verifying_key: VerifyingKey = signing_key.verifying_key();
+        let message = b"Original message";
+        let different_message = b"Different message";
+        let signature: DalekSignature = signing_key.sign(message);
 
-        // Arbitrary message
-        let message = vec![0xEF; 100];
-
-        let sig = Signature::new(signature, public_key, message);
-        assert!(sig.verify(SignatureScheme::Ed25519).is_ok());
+        let sig = Signature::new(signature.to_bytes().to_vec(), verifying_key.to_bytes().to_vec(), different_message.to_vec());
+        assert!(sig.verify(SignatureScheme::Ed25519).is_err());
     }
 
     #[test]
@@ -411,38 +402,40 @@ mod tests {
     }
 
     #[test]
-    fn test_ed25519_s_greater_than_l() {
-        let mut signature = vec![0u8; 64];
-        signature[..32].copy_from_slice(&[0xAB; 32]);
-        // S = L (order), which is invalid
-        signature[32..64].copy_from_slice(&[
-            0xed, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58, 0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9,
-            0xde, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x10,
-        ]);
+    fn test_ed25519_tampered_signature() {
+        use ed25519_dalek::{SigningKey, Signer, VerifyingKey};
+        use ed25519_dalek::Signature as DalekSignature;
+        use rand::rngs::OsRng;
 
-        let public_key = vec![0u8; 32];
-        let message = vec![0u8; 32];
+        let signing_key = SigningKey::generate(&mut OsRng);
+        let verifying_key: VerifyingKey = signing_key.verifying_key();
+        let message = b"Test message";
+        let signature: DalekSignature = signing_key.sign(message);
+        let mut sig_bytes = signature.to_bytes();
+        // Tamper with signature
+        sig_bytes[0] ^= 0xFF;
 
-        let sig = Signature::new(signature, public_key, message);
+        let sig = Signature::new(sig_bytes.to_vec(), verifying_key.to_bytes().to_vec(), message.to_vec());
         assert!(sig.verify(SignatureScheme::Ed25519).is_err());
     }
 
     #[test]
     fn test_verify_signatures_multiple() {
-        // Create 3 valid secp256k1 signatures
+        use secp256k1::{Secp256k1, SecretKey, Message};
+
+        let secp = Secp256k1::new();
+        let message = [0xCD; 32];
+        let msg = Message::from_digest_slice(&message).unwrap();
+
+        // Create 3 valid secp256k1 signatures with different keys
         let mut sigs = Vec::new();
-        for i in 0..3 {
-            let mut signature = vec![0u8; 64];
-            signature[..32].copy_from_slice(&[i; 32]);
-            signature[32..64].copy_from_slice(&[0x01; 32]);
-
-            let mut public_key = vec![0u8; 33];
-            public_key[0] = 0x02;
-            public_key[1..].copy_from_slice(&[i; 32]);
-
-            let message = [0xCD; 32];
-            sigs.push(Signature::new(signature, public_key, message.to_vec()));
+        for _ in 0..3 {
+            let secret_key = SecretKey::new(&mut secp256k1::rand::thread_rng());
+            let public_key = secp256k1::PublicKey::from_secret_key(&secp, &secret_key);
+            let signature = secp.sign_ecdsa(&msg, &secret_key);
+            let sig_bytes = signature.serialize_compact();
+            let pubkey_bytes = public_key.serialize();
+            sigs.push(Signature::new(sig_bytes.to_vec(), pubkey_bytes.to_vec(), message.to_vec()));
         }
 
         assert!(verify_signatures(&sigs, SignatureScheme::Secp256k1).is_ok());
@@ -456,17 +449,19 @@ mod tests {
 
     #[test]
     fn test_verify_signatures_one_invalid() {
-        let mut sigs = Vec::new();
+        use secp256k1::{Secp256k1, SecretKey, Message};
+
+        let secp = Secp256k1::new();
+        let message = [0xCD; 32];
+        let msg = Message::from_digest_slice(&message).unwrap();
 
         // First signature is valid
-        let mut signature = vec![0u8; 64];
-        signature[..32].copy_from_slice(&[0x01; 32]);
-        signature[32..64].copy_from_slice(&[0x01; 32]);
-        let mut public_key = vec![0u8; 33];
-        public_key[0] = 0x02;
-        public_key[1..].copy_from_slice(&[0x01; 32]);
-        let message = [0xCD; 32];
-        sigs.push(Signature::new(signature, public_key, message.to_vec()));
+        let secret_key = SecretKey::new(&mut secp256k1::rand::thread_rng());
+        let public_key = secp256k1::PublicKey::from_secret_key(&secp, &secret_key);
+        let signature = secp.sign_ecdsa(&msg, &secret_key);
+        let sig_bytes = signature.serialize_compact();
+        let pubkey_bytes = public_key.serialize();
+        let mut sigs = vec![Signature::new(sig_bytes.to_vec(), pubkey_bytes.to_vec(), message.to_vec())];
 
         // Second signature has wrong message length
         let signature2 = vec![0u8; 64];

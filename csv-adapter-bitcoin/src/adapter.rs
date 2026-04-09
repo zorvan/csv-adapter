@@ -107,7 +107,7 @@ impl BitcoinAnchorLayer {
         &self,
         value_sat: u64,
     ) -> Result<(BitcoinSealRef, crate::wallet::Bip86Path), AdapterError> {
-        let mut next_index = self.next_seal_index.lock().unwrap();
+        let mut next_index = self.next_seal_index.lock().unwrap_or_else(|e| e.into_inner());
         let path = crate::wallet::Bip86Path::external(0, *next_index);
 
         // Derive the Taproot key for this path
@@ -151,7 +151,7 @@ impl BitcoinAnchorLayer {
         let seal_ref = BitcoinSealRef::new(txid, outpoint.vout, Some(utxo.amount_sat));
 
         // Check if seal is already used
-        if self.seal_registry.lock().unwrap().is_seal_used(&seal_ref) {
+        if self.seal_registry.lock().unwrap_or_else(|e| e.into_inner()).is_seal_used(&seal_ref) {
             return Err(AdapterError::Generic(format!(
                 "Seal {}:{} already used",
                 outpoint.txid, outpoint.vout
@@ -317,7 +317,7 @@ impl AnchorLayer for BitcoinAnchorLayer {
             txid[..10].copy_from_slice(b"sim-commit");
             txid[10..].copy_from_slice(&commitment.as_bytes()[..22]);
 
-            let mut registry = self.seal_registry.lock().unwrap();
+            let mut registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
             let _ = registry
                 .mark_seal_used(&seal)
                 .map_err(|e| AdapterError::from(e));
@@ -332,7 +332,7 @@ impl AnchorLayer for BitcoinAnchorLayer {
             txid[..10].copy_from_slice(b"sim-commit");
             txid[10..].copy_from_slice(&commitment.as_bytes()[..22]);
 
-            let mut registry = self.seal_registry.lock().unwrap();
+            let mut registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
             let _ = registry
                 .mark_seal_used(&seal)
                 .map_err(|e| AdapterError::from(e));
@@ -397,7 +397,7 @@ impl AnchorLayer for BitcoinAnchorLayer {
     }
 
     fn enforce_seal(&self, seal: Self::SealRef) -> CoreResult<()> {
-        let mut registry = self.seal_registry.lock().unwrap();
+        let mut registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
         registry
             .mark_seal_used(&seal)
             .map_err(|e| AdapterError::from(e))
@@ -485,7 +485,7 @@ impl AnchorLayer for BitcoinAnchorLayer {
         if anchor.block_height < current_height {
             // Attempt to clear the seal from registry
             // The seal txid is derived from the anchor's txid
-            let mut registry = self.seal_registry.lock().unwrap();
+            let mut registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
             // Try to clear using anchor txid as seal identifier
             let dummy_seal = BitcoinSealRef::new(anchor.txid, anchor.output_index, None);
             registry.clear_seal(&dummy_seal);

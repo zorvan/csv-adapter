@@ -64,20 +64,23 @@ impl ContractHistory {
     }
 
     /// Add a state transition to the history.
-    pub fn add_transition(&mut self, transition: StateTransitionRecord) {
+    pub fn add_transition(&mut self, transition: StateTransitionRecord) -> Result<(), StoreError> {
         // Verify this transition's commitment chains from the latest
         let expected_previous = self.latest_commitment_hash;
-        assert_eq!(
-            transition.commitment.previous_commitment,
-            expected_previous,
-            "Transition commitment does not chain from latest"
-        );
+        if transition.commitment.previous_commitment != expected_previous {
+            return Err(StoreError::InvalidHistory(format!(
+                "Transition commitment does not chain from latest: expected {:?}, got {:?}",
+                expected_previous, transition.commitment.previous_commitment
+            )));
+        }
 
         // Update latest commitment
         self.latest_commitment_hash = transition.commitment.hash();
 
         // Add to transitions
         self.transitions.push(transition);
+        
+        Ok(())
     }
 
     /// Register a new Right as active.
@@ -229,7 +232,7 @@ mod tests {
             verified: true,
         };
 
-        history.add_transition(transition);
+        history.add_transition(transition).unwrap();
         assert_eq!(history.transition_count(), 1);
     }
 

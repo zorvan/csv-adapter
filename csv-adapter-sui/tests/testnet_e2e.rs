@@ -63,12 +63,6 @@ fn test_sui_testnet_e2e_publish_and_verify() {
         },
     };
 
-    // For a real test, you'd create the adapter with a real signing key:
-    // let signing_key_bytes = hex::decode(&signing_key_hex).expect("Invalid signing key");
-    // let signing_key = SigningKey::from_bytes(signing_key_bytes.as_slice().try_into().unwrap());
-    // let adapter = SuiAnchorLayer::with_real_rpc(config, package_id_bytes, signing_key).unwrap();
-
-    // For now, use mock adapter to verify structural path
     let adapter = SuiAnchorLayer::with_mock()
         .expect("Failed to create mock Sui adapter");
 
@@ -79,10 +73,6 @@ fn test_sui_testnet_e2e_publish_and_verify() {
 
     // Step 2: Publish commitment (simulated without real node)
     let commitment = Hash::new([0xCD; 32]);
-
-    // Without a real RPC connection, publish() returns a simulated anchor
-    // In a real test with RPC and signing key configured:
-    // let anchor = adapter.publish(commitment, seal.clone()).unwrap();
 
     let anchor = adapter.publish(commitment, seal.clone())
         .expect("Failed to publish commitment");

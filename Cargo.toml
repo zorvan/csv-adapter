@@ -11,6 +11,7 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
+parking_lot = "0.12"
 serde = { version = "1.0.227", features = ["derive"] }
 
 [workspace.lints.rust]

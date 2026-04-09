@@ -90,7 +90,7 @@ impl EthereumAnchorLayer {
     }
 
     fn verify_slot_available(&self, seal: &EthereumSealRef) -> EthereumResult<()> {
-        let registry = self.seal_registry.lock().unwrap();
+        let registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
         if registry.is_seal_used(seal) {
             return Err(EthereumError::SlotUsed("Storage slot already consumed".to_string()));
         }
@@ -146,7 +146,7 @@ impl EthereumAnchorLayer {
         let anchor = EthereumAnchorRef::new(tx_hash, receipt.block_number, log_index);
 
         // Mark seal as consumed
-        let registry = self.seal_registry.lock().unwrap();
+        let registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
         registry.mark_seal_used(&seal)
             .map_err(|e| AdapterError::from(e))?;
 
@@ -201,7 +201,7 @@ impl AnchorLayer for EthereumAnchorLayer {
             let anchor = EthereumAnchorRef::new(tx_hash, receipt.block_number, log_index);
 
             // Mark seal as consumed in local registry
-            let registry = self.seal_registry.lock().unwrap();
+            let registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
             registry.mark_seal_used(&seal)
                 .map_err(|e| AdapterError::from(e))?;
 
@@ -298,7 +298,7 @@ impl AnchorLayer for EthereumAnchorLayer {
     }
 
     fn enforce_seal(&self, seal: Self::SealRef) -> CoreResult<()> {
-        let registry = self.seal_registry.lock().unwrap();
+        let registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
         registry.mark_seal_used(&seal)
             .map_err(|e| AdapterError::from(e))
     }
@@ -385,7 +385,7 @@ impl AnchorLayer for EthereumAnchorLayer {
         // Clear the seal from registry to allow reuse
         if anchor.block_number < current {
             #[allow(unused_mut)]
-            let mut registry = self.seal_registry.lock().unwrap();
+            let mut registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
             // Derive the seal that was used for this anchor
             // The nonce is tracked via the log_index
             let seal = EthereumSealRef::new(

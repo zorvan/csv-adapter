@@ -50,11 +50,6 @@ fn test_signet_e2e_publish_and_verify() {
     // Step 2: Publish commitment (simulated without real node)
     let commitment = Hash::new([0xAB; 32]);
 
-    // Without a real RPC connection, publish() returns a simulated txid
-    // In a real test with RPC configured:
-    // let anchor = adapter.publish(commitment, seal.clone()).unwrap();
-    // println!("Published commitment: txid={}", hex::encode(anchor.txid));
-
     let anchor = adapter.publish(commitment, seal.clone())
         .expect("Failed to publish commitment");
     println!("Anchor: txid={}", hex::encode(anchor.txid));

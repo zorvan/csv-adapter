@@ -14,12 +14,11 @@ hex = "0.4"
 sha2 = "0.10"
 log = "0.4"
 chrono = { version = "0.4", features = ["serde"] }
-bcs = "0.1"
 ed25519-dalek = { version = "2.0", features = ["rand_core"] }
 
 # Real RPC dependencies (optional, enabled with --features rpc)
 # Note: Uses direct JSON-RPC over HTTP, not sui-sdk
-reqwest = { version = "0.11", features = ["json", "blocking"], optional = true }
+reqwest = { version = "0.12", features = ["json", "blocking"], optional = true }
 tokio = { version = "1", features = ["rt", "time"], optional = true }
 base64 = { version = "0.22", optional = true }
 
@@ -31,4 +30,4 @@ rpc = ["reqwest", "tokio", "base64"]
 [dev-dependencies]
 rand = "0.8"
 tempfile = "3"
-reqwest = { version = "0.11", features = ["json", "blocking"] }
+reqwest = { version = "0.12", features = ["json", "blocking"] }

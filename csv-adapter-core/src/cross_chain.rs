@@ -65,6 +65,8 @@ pub struct CrossChainLockEvent {
     pub commitment: Hash,
     /// The owner who initiated the lock
     pub owner: OwnershipProof,
+    /// Source chain (where the Right is being locked)
+    pub source_chain: ChainId,
     /// Destination chain
     pub destination_chain: ChainId,
     /// Destination owner (may differ from source owner)
@@ -308,17 +310,21 @@ impl CrossChainTransfer {
         )?;
 
         // Step 2: Build transfer proof
+        let source_chain = lock_event.source_chain.clone();
+        let source_block_height = lock_event.source_block_height;
+        let lock_timestamp = lock_event.timestamp;
+        
         let transfer_proof = CrossChainTransferProof {
             lock_event,
             inclusion_proof,
             finality_proof: CrossChainFinalityProof {
-                source_chain: ChainId::Bitcoin, // TODO: determine from context
-                height: 0,                       // TODO: get from lock
-                current_height: 0,               // TODO: get from chain
-                is_finalized: false,             // TODO: verify
+                source_chain: source_chain.clone(),
+                height: source_block_height,
+                current_height: 0, // TODO: get from chain oracle
+                is_finalized: false, // TODO: verify finality
                 depth: 0,
             },
-            source_state_root: Hash::new([0u8; 32]), // TODO: get from chain
+            source_state_root: Hash::new([0u8; 32]), // TODO: get from lock provider
         };
 
         // Step 3: Verify on destination
@@ -330,13 +336,13 @@ impl CrossChainTransfer {
         // Step 5: Record in registry
         let entry = CrossChainRegistryEntry {
             right_id,
-            source_chain: ChainId::Bitcoin, // TODO: determine from context
+            source_chain,
             source_seal: transfer_proof.lock_event.source_seal.clone(),
             destination_chain: transfer_proof.lock_event.destination_chain.clone(),
             destination_seal: result.destination_seal.clone(),
             lock_tx_hash: transfer_proof.lock_event.source_tx_hash,
-            mint_tx_hash: Hash::new([0u8; 32]), // TODO: get from mint tx
-            timestamp: 0,                       // TODO: current timestamp
+            mint_tx_hash: Hash::new([0u8; 32]), // TODO: get from mint provider
+            timestamp: lock_timestamp,
         };
         self.registry.record_transfer(entry)?;
 

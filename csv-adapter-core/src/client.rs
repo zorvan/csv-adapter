@@ -429,7 +429,7 @@ impl ValidationClient {
                 verified: true,
             };
 
-            history.add_transition(record);
+            history.add_transition(record).map_err(|e| ValidationError::StoreError(e.to_string()))?;
         }
 
         // Save updated history

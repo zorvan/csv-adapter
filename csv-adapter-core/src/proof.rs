@@ -197,8 +197,16 @@ impl ProofBundle {
         bincode::serialize(self)
     }
 
-    /// Deserialize the proof bundle
+    /// Deserialize the proof bundle with size limit (10MB max)
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, bincode::Error> {
+        const MAX_SIZE: usize = 10 * 1024 * 1024; // 10MB
+        if bytes.len() > MAX_SIZE {
+            return Err(bincode::ErrorKind::Custom(format!(
+                "ProofBundle too large: {} bytes (max {})",
+                bytes.len(),
+                MAX_SIZE
+            )).into());
+        }
         bincode::deserialize(bytes)
     }
 }

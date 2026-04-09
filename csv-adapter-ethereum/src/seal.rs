@@ -154,7 +154,7 @@ impl SealRegistry {
     /// Clear a seal from the registry (for reorg rollback)
     pub fn clear_seal(&self, seal: &EthereumSealRef) {
         {
-            let mut cache = self.used_seals.lock().unwrap();
+            let mut cache = self.used_seals.lock().unwrap_or_else(|e| e.into_inner());
             let key = Self::seal_key(seal);
             cache.remove(&key);
         }
@@ -170,7 +170,7 @@ impl SealRegistry {
 
     /// Get all used seals
     pub fn get_all_seals(&self) -> Vec<EthereumSealRef> {
-        let cache = self.used_seals.lock().unwrap();
+        let cache = self.used_seals.lock().unwrap_or_else(|e| e.into_inner());
         cache
             .iter()
             .filter_map(|key| {

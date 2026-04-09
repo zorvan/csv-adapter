@@ -280,7 +280,7 @@ impl SuiAnchorLayer {
     /// Verify that a seal object is available before consumption.
     fn verify_seal_available(&self, seal: &SuiSealRef) -> SuiResult<()> {
         // Check registry first
-        let registry = self.seal_registry.lock().unwrap();
+        let registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
         if registry.is_seal_used(seal) {
             return Err(SuiError::ObjectUsed(format!(
                 "Object {} with version {} is already consumed",
@@ -491,7 +491,7 @@ impl AnchorLayer for SuiAnchorLayer {
 
             // Mark seal as consumed with the block checkpoint
             let checkpoint = block.checkpoint.unwrap_or(0);
-            let mut registry = self.seal_registry.lock().unwrap();
+            let mut registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
             registry.mark_seal_used(&seal, checkpoint)
                 .map_err(|e| AdapterError::from(e))?;
 
@@ -501,7 +501,7 @@ impl AnchorLayer for SuiAnchorLayer {
         #[cfg(not(feature = "rpc"))]
         {
             // Simulated path
-            let mut registry = self.seal_registry.lock().unwrap();
+            let mut registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
             registry.mark_seal_used(&seal, 0)
                 .map_err(|e| AdapterError::from(e))?;
 
@@ -583,7 +583,7 @@ impl AnchorLayer for SuiAnchorLayer {
     }
 
     fn enforce_seal(&self, seal: Self::SealRef) -> CoreResult<()> {
-        let mut registry = self.seal_registry.lock().unwrap();
+        let mut registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
         if registry.is_seal_used(&seal) {
             return Err(AdapterError::SealReplay(format!(
                 "Object {} already consumed",
@@ -686,7 +686,7 @@ impl AnchorLayer for SuiAnchorLayer {
         // If anchor checkpoint is before current tip, the transaction may have been reorged out
         // Clear the seal from registry to allow reuse
         if anchor.checkpoint < current_checkpoint {
-            let mut registry = self.seal_registry.lock().unwrap();
+            let mut registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
             // Try to clear using anchor object_id as seal identifier
             let dummy_seal = SuiSealRef::new(anchor.object_id, 0, 0);
             if let Err(e) = registry.clear_seal(&dummy_seal) {
@@ -768,7 +768,7 @@ mod tests {
         let seal = adapter.create_seal(None).unwrap();
 
         // Manually mark as used
-        adapter.seal_registry.lock().unwrap()
+        adapter.seal_registry.lock().unwrap_or_else(|e| e.into_inner())
             .mark_seal_used(&seal, 0).unwrap();
 
         // Try to enforce again

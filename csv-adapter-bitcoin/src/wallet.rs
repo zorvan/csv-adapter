@@ -209,7 +209,7 @@ impl SealWallet {
         &self,
         account: u32,
     ) -> Result<(DerivedTaprootKey, Bip86Path), WalletError> {
-        let mut ni = self.next_index.lock().unwrap();
+        let mut ni = self.next_index.lock().unwrap_or_else(|e| e.into_inner());
         let idx = ni.entry(account).or_insert(0);
         let path = Bip86Path::external(account, *idx);
         let key = self.derive_key(&path)?;
@@ -239,7 +239,7 @@ impl SealWallet {
     }
 
     pub fn add_utxo(&self, outpoint: OutPoint, amount_sat: u64, path: Bip86Path) {
-        self.utxos.lock().unwrap().insert(
+        self.utxos.lock().unwrap_or_else(|e| e.into_inner()).insert(
             outpoint,
             WalletUtxo {
                 outpoint,
@@ -253,7 +253,7 @@ impl SealWallet {
     pub fn balance(&self) -> u64 {
         self.utxos
             .lock()
-            .unwrap()
+            .unwrap_or_else(|e| e.into_inner())
             .values()
             .filter(|u| !u.reserved)
             .map(|u| u.amount_sat)
@@ -262,7 +262,7 @@ impl SealWallet {
     pub fn utxo_count(&self) -> usize {
         self.utxos
             .lock()
-            .unwrap()
+            .unwrap_or_else(|e| e.into_inner())
             .values()
             .filter(|u| !u.reserved)
             .count()
@@ -272,7 +272,7 @@ impl SealWallet {
         let mut available: Vec<_> = self
             .utxos
             .lock()
-            .unwrap()
+            .unwrap_or_else(|e| e.into_inner())
             .values()
             .filter(|u| !u.reserved)
             .cloned()
@@ -298,7 +298,7 @@ impl SealWallet {
     }
 
     pub fn reserve_utxos(&self, ops: &[OutPoint], reason: &str) {
-        let mut u = self.utxos.lock().unwrap();
+        let mut u = self.utxos.lock().unwrap_or_else(|e| e.into_inner());
         for op in ops {
             if let Some(x) = u.get_mut(op) {
                 x.reserved = true;
@@ -307,7 +307,7 @@ impl SealWallet {
         }
     }
     pub fn unreserve_utxos(&self, ops: &[OutPoint]) {
-        let mut u = self.utxos.lock().unwrap();
+        let mut u = self.utxos.lock().unwrap_or_else(|e| e.into_inner());
         for op in ops {
             if let Some(x) = u.get_mut(op) {
                 x.reserved = false;
@@ -328,7 +328,7 @@ impl SealWallet {
     }
 
     pub fn mark_seal_used(&self, seal: &BitcoinSealRef) -> Result<(), WalletError> {
-        let mut used = self.used_seals.lock().unwrap();
+        let mut used = self.used_seals.lock().unwrap_or_else(|e| e.into_inner());
         let key = seal.to_vec();
         if used.contains(&key) {
             return Err(WalletError::SealAlreadyUsed);
@@ -337,7 +337,7 @@ impl SealWallet {
         Ok(())
     }
     pub fn is_seal_used(&self, seal: &BitcoinSealRef) -> bool {
-        self.used_seals.lock().unwrap().contains(&seal.to_vec())
+        self.used_seals.lock().unwrap_or_else(|e| e.into_inner()).contains(&seal.to_vec())
     }
 
     pub fn network(&self) -> Network {
@@ -347,10 +347,10 @@ impl SealWallet {
         &self.secp
     }
     pub fn get_utxo(&self, op: &OutPoint) -> Option<WalletUtxo> {
-        self.utxos.lock().unwrap().get(op).cloned()
+        self.utxos.lock().unwrap_or_else(|e| e.into_inner()).get(op).cloned()
     }
     pub fn list_utxos(&self) -> Vec<WalletUtxo> {
-        self.utxos.lock().unwrap().values().cloned().collect()
+        self.utxos.lock().unwrap_or_else(|e| e.into_inner()).values().cloned().collect()
     }
 
     /// Scan the blockchain for UTXOs belonging to this wallet's addresses

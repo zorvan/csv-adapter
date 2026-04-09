@@ -1343,16 +1343,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
 
 [[package]]
-name = "bcs"
-version = "0.1.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85b6598a2f5d564fb7855dc6b06fd1c38cff5a72bd8b863a4d021938497b440a"
-dependencies = [
- "serde",
- "thiserror 1.0.69",
-]
-
-[[package]]
 name = "bech32"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1833,14 +1823,13 @@ name = "csv-adapter-aptos"
 version = "0.1.0"
 dependencies = [
  "aptos-sdk",
- "bcs",
  "chrono",
  "csv-adapter-core",
  "ed25519-dalek",
  "hex",
  "log",
  "rand 0.8.5",
- "reqwest 0.11.27",
+ "reqwest 0.12.28",
  "serde",
  "serde_json",
  "sha2",
@@ -1880,6 +1869,7 @@ dependencies = [
  "hex",
  "rand 0.8.5",
  "secp256k1 0.27.0",
+ "secp256k1 0.28.2",
  "serde",
  "sha2",
  "thiserror 1.0.69",
@@ -1917,9 +1907,7 @@ name = "csv-adapter-store"
 version = "0.1.0"
 dependencies = [
  "csv-adapter-core",
- "hex",
  "rusqlite",
- "serde_json",
  "thiserror 1.0.69",
 ]
 
@@ -1928,14 +1916,13 @@ name = "csv-adapter-sui"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
- "bcs",
  "chrono",
  "csv-adapter-core",
  "ed25519-dalek",
  "hex",
  "log",
  "rand 0.8.5",
- "reqwest 0.11.27",
+ "reqwest 0.12.28",
  "serde",
  "serde_json",
  "sha2",

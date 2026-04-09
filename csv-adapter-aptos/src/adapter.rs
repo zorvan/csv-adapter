@@ -137,7 +137,7 @@ impl AptosAnchorLayer {
     /// Verify that a seal resource is available before consumption.
     fn verify_seal_available(&self, seal: &AptosSealRef) -> AptosResult<()> {
         // Check registry first
-        let registry = self.seal_registry.lock().unwrap();
+        let registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
         if registry.is_seal_used(seal) {
             return Err(AptosError::ResourceUsed(format!(
                 "Seal at address {} is already consumed",
@@ -381,7 +381,7 @@ impl AnchorLayer for AptosAnchorLayer {
 
             // Mark seal as consumed with the transaction version
             let version = tx.version;
-            let mut registry = self.seal_registry.lock().unwrap();
+            let mut registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
             registry.mark_seal_used(&seal, version)
                 .map_err(|e| AdapterError::from(e))?;
 
@@ -391,7 +391,7 @@ impl AnchorLayer for AptosAnchorLayer {
         #[cfg(not(feature = "rpc"))]
         {
             // Simulated path
-            let mut registry = self.seal_registry.lock().unwrap();
+            let mut registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
             registry.mark_seal_used(&seal, 0)
                 .map_err(|e| AdapterError::from(e))?;
 
@@ -481,7 +481,7 @@ impl AnchorLayer for AptosAnchorLayer {
     }
 
     fn enforce_seal(&self, seal: Self::SealRef) -> CoreResult<()> {
-        let mut registry = self.seal_registry.lock().unwrap();
+        let mut registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
         if registry.is_seal_used(&seal) {
             return Err(AdapterError::SealReplay(format!(
                 "Resource already consumed at {}",
@@ -577,7 +577,7 @@ impl AnchorLayer for AptosAnchorLayer {
         // If anchor version is before current tip, the transaction may have been reorged out
         // Clear the seal from registry to allow reuse
         if anchor.version < current_version {
-            let mut registry = self.seal_registry.lock().unwrap();
+            let mut registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
             // Try to clear using anchor event_handle as seal identifier
             let dummy_seal = AptosSealRef::new(anchor.event_handle, "CSV::Seal".to_string(), 0);
             if let Err(e) = registry.clear_seal(&dummy_seal) {

@@ -251,8 +251,17 @@ impl Consignment {
         bincode::serialize(self)
     }
 
-    /// Deserialize consignment from bytes
+    /// Deserialize consignment from bytes with size limit (50MB max)
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, bincode::Error> {
+        const MAX_SIZE: usize = 50 * 1024 * 1024; // 50MB
+        if bytes.len() > MAX_SIZE {
+            return Err(bincode::ErrorKind::Custom(format!(
+                "Consignment too large: {} bytes (max {})",
+                bytes.len(),
+                MAX_SIZE
+            )).into());
+        }
+
         let consignment: Consignment = bincode::deserialize(bytes)?;
 
         // Verify version before accepting
