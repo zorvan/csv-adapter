@@ -50,6 +50,9 @@ pub mod store;
 // Client-side validation (Sprint 2)
 pub mod client;
 pub mod validator;
+pub mod commitment_chain;
+pub mod state_store;
+pub mod seal_registry;
 
 // RGB protocol compatibility (Sprint 5)
 pub mod rgb_compat;
