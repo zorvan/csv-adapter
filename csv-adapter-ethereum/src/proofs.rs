@@ -139,12 +139,254 @@ fn receipt_index_to_path_key(index: u64) -> [u8; 32] {
 
 /// Decode a receipt from RLP and extract its LOG events
 ///
-/// Note: This is a simplified decoder. For production use,
-/// use alloy-rpc-types-eth for proper receipt parsing.
-fn decode_receipt_logs(_receipt_rlp: &[u8]) -> Result<Vec<DecodedLog>, ()> {
-    // Stub: In production, use alloy-rpc-types-eth to decode receipts
-    // For now, return empty logs - the MPT proof verification is handled by alloy-trie
-    Ok(Vec::new())
+/// Ethereum receipts are RLP-encoded with the following structure:
+/// - Pre-EIP-2718: RLP([status/nonce/gasUsed/logsBloom/logs...])
+/// - EIP-2718 typed: type || RLP(receipt_data)
+///
+/// This decoder handles both formats, extracting the logs array.
+fn decode_receipt_logs(receipt_rlp: &[u8]) -> Result<Vec<DecodedLog>, ()> {
+    if receipt_rlp.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    // Check if this is a typed receipt (EIP-2718)
+    let (is_typed, data) = if receipt_rlp[0] <= 0x7f {
+        (true, &receipt_rlp[1..])
+    } else {
+        (false, receipt_rlp)
+    };
+
+    if is_typed {
+        // For typed receipts, the type byte indicates the format.
+        // Type 0x02 = EIP-1559, type 0x01 = Access List
+        // The actual receipt data after the type is RLP-encoded.
+        // We do a simplified decode here - in production use alloy-rpc-types-eth.
+        decode_logs_from_rlp(data)
+    } else {
+        decode_logs_from_rlp(data)
+    }
+}
+
+/// Simplified RLP decoder for receipt logs
+///
+/// This performs a best-effort decode of the logs array from a receipt.
+/// For production, use alloy-rpc-types-eth::ReceiptWithBloom.
+fn decode_logs_from_rlp(rlp_data: &[u8]) -> Result<Vec<DecodedLog>, ()> {
+    // The receipt RLP structure is:
+    // [status/postState, cumulativeGasUsed, logsBloom, logs]
+    //
+    // We need to find and decode the logs array (4th element).
+    // This is a simplified RLP parser - production should use proper RLP crate.
+
+    if rlp_data.len() < 2 {
+        return Err(());
+    }
+
+    // Parse the outer list
+    let (list_items, _consumed) = rlp_decode_list(rlp_data)?;
+
+    // We need at least 4 elements: status, gasUsed, logsBloom, logs
+    if list_items.len() < 4 {
+        return Err(());
+    }
+
+    // The 4th element is the logs array
+    let logs_rlp = &list_items[3];
+    let (logs_items, _) = rlp_decode_list(logs_rlp)?;
+
+    let mut logs = Vec::new();
+    for (log_index, log_rlp) in logs_items.iter().enumerate() {
+        if let Ok(log) = decode_single_log(log_rlp, log_index as u64) {
+            logs.push(log);
+        }
+    }
+
+    Ok(logs)
+}
+
+/// Decode a single log from RLP
+/// Log structure: [address, topics, data]
+fn decode_single_log(log_rlp: &[u8], log_index: u64) -> Result<DecodedLog, ()> {
+    let (items, _) = rlp_decode_list(log_rlp)?;
+    if items.len() < 3 {
+        return Err(());
+    }
+
+    // Address (20 bytes)
+    let address = rlp_decode_bytes(&items[0])?;
+    if address.len() != 20 {
+        return Err(());
+    }
+    let mut addr = [0u8; 20];
+    addr.copy_from_slice(&address);
+
+    // Topics (array of 32-byte values)
+    let (topics_items, _) = rlp_decode_list(&items[1])?;
+    let mut topics = Vec::new();
+    for topic_rlp in &topics_items {
+        let topic_bytes = rlp_decode_bytes(topic_rlp)?;
+        if topic_bytes.len() == 32 {
+            let mut topic = [0u8; 32];
+            topic.copy_from_slice(&topic_bytes);
+            topics.push(topic);
+        }
+    }
+
+    // Data (arbitrary bytes)
+    let data = rlp_decode_bytes(&items[2])?;
+
+    Ok(DecodedLog {
+        address: addr,
+        topics,
+        data,
+        log_index,
+    })
+}
+
+/// Simplified RLP list decoder
+/// Returns (list_items, bytes_consumed)
+fn rlp_decode_list(data: &[u8]) -> Result<(Vec<&[u8]>, usize), ()> {
+    if data.is_empty() {
+        return Err(());
+    }
+
+    let prefix = data[0];
+
+    // Short list: prefix 0xc0-0xf7
+    if prefix >= 0xc0 && prefix <= 0xf7 {
+        let len = (prefix - 0xc0) as usize;
+        if data.len() < 1 + len {
+            return Err(());
+        }
+        let items = rlp_parse_items(&data[1..1 + len])?;
+        Ok((items, 1 + len))
+    }
+    // Long list: prefix 0xf8-0xff
+    else if prefix >= 0xf8 {
+        let len_of_len = (prefix - 0xf7) as usize;
+        if data.len() < 1 + len_of_len {
+            return Err(());
+        }
+        let len_bytes = &data[1..1 + len_of_len];
+        let len = decode_big_endian(len_bytes);
+        if data.len() < 1 + len_of_len + len {
+            return Err(());
+        }
+        let items = rlp_parse_items(&data[1 + len_of_len..1 + len_of_len + len])?;
+        Ok((items, 1 + len_of_len + len))
+    } else {
+        Err(())
+    }
+}
+
+/// Parse RLP items from a byte slice
+fn rlp_parse_items(data: &[u8]) -> Result<Vec<&[u8]>, ()> {
+    let mut items = Vec::new();
+    let mut offset = 0;
+
+    while offset < data.len() {
+        let (_, consumed) = rlp_decode_item_length(&data[offset..])?;
+        if offset + consumed > data.len() {
+            return Err(());
+        }
+        items.push(&data[offset..offset + consumed]);
+        offset += consumed;
+    }
+
+    Ok(items)
+}
+
+/// Decode the length of an RLP item and return total bytes consumed
+fn rlp_decode_item_length(data: &[u8]) -> Result<(bool, usize), ()> {
+    if data.is_empty() {
+        return Err(());
+    }
+
+    let prefix = data[0];
+
+    // Single byte: 0x00-0x7f
+    if prefix <= 0x7f {
+        Ok((false, 1))
+    }
+    // Short string: 0x80-0xb7
+    else if prefix >= 0x80 && prefix <= 0xb7 {
+        let len = (prefix - 0x80) as usize;
+        Ok((false, 1 + len))
+    }
+    // Long string: 0xb8-0xbf
+    else if prefix >= 0xb8 && prefix <= 0xbf {
+        let len_of_len = (prefix - 0xb7) as usize;
+        if data.len() < 1 + len_of_len {
+            return Err(());
+        }
+        let len = decode_big_endian(&data[1..1 + len_of_len]);
+        Ok((false, 1 + len_of_len + len))
+    }
+    // Short list: 0xc0-0xf7
+    else if prefix >= 0xc0 && prefix <= 0xf7 {
+        let len = (prefix - 0xc0) as usize;
+        Ok((true, 1 + len))
+    }
+    // Long list: 0xf8-0xff
+    else if prefix >= 0xf8 {
+        let len_of_len = (prefix - 0xf7) as usize;
+        if data.len() < 1 + len_of_len {
+            return Err(());
+        }
+        let len = decode_big_endian(&data[1..1 + len_of_len]);
+        Ok((true, 1 + len_of_len + len))
+    } else {
+        Err(())
+    }
+}
+
+/// Decode bytes from an RLP item
+fn rlp_decode_bytes(data: &[u8]) -> Result<Vec<u8>, ()> {
+    if data.is_empty() {
+        return Err(());
+    }
+
+    let prefix = data[0];
+
+    // Single byte
+    if prefix <= 0x7f {
+        Ok(vec![prefix])
+    }
+    // Short string
+    else if prefix >= 0x80 && prefix <= 0xb7 {
+        let len = (prefix - 0x80) as usize;
+        if data.len() < 1 + len {
+            return Err(());
+        }
+        Ok(data[1..1 + len].to_vec())
+    }
+    // Long string
+    else if prefix >= 0xb8 && prefix <= 0xbf {
+        let len_of_len = (prefix - 0xb7) as usize;
+        if data.len() < 1 + len_of_len {
+            return Err(());
+        }
+        let len = decode_big_endian(&data[1..1 + len_of_len]);
+        if data.len() < 1 + len_of_len + len {
+            return Err(());
+        }
+        Ok(data[1 + len_of_len..1 + len_of_len + len].to_vec())
+    }
+    // List - return empty for bytes context
+    else if prefix >= 0xc0 {
+        Ok(Vec::new())
+    } else {
+        Err(())
+    }
+}
+
+/// Decode big-endian integer from bytes
+fn decode_big_endian(bytes: &[u8]) -> usize {
+    let mut result: usize = 0;
+    for &b in bytes {
+        result = (result << 8) | (b as usize);
+    }
+    result
 }
 
 /// Check if any log matches the SealUsed event pattern
