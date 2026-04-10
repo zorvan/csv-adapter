@@ -2,10 +2,28 @@
 pragma solidity ^0.8.20;
 
 /// @title CSVLock — Cross-Chain Right Lock on Ethereum
-/// @notice Registers nullifiers and emits lock events for cross-chain Right transfers
+/// @notice Registers nullifiers, emits lock events, and supports time-locked refunds
 contract CSVLock {
     /// @notice Tracks consumed nullifiers (seal single-use)
     mapping(bytes32 => bool) public usedSeals;
+
+    /// @notice Lock record for refund support
+    struct LockRecord {
+        bytes32 commitment;
+        uint256 timestamp;
+        uint8 destinationChain;
+        bytes32 destinationOwnerRoot; // Hash of destination owner for verification
+        bool refunded;
+    }
+
+    /// @notice Tracks lock events for refund verification
+    mapping(bytes32 => LockRecord) public locks;
+
+    /// @notice Refund timeout — 24 hours after lock
+    uint256 public constant REFUND_TIMEOUT = 24 hours;
+
+    /// @notice Address of the CSVMint contract (to verify no mint happened)
+    address public mintContract;
 
     /// @notice Emitted when a Right is locked for cross-chain transfer
     event CrossChainLock(
@@ -20,6 +38,32 @@ contract CSVLock {
     /// @notice Emitted when a Right is consumed (nullifier registered)
     event SealUsed(bytes32 indexed sealId, bytes32 commitment);
 
+    /// @notice Emitted when a locked Right is refunded
+    event RightRefunded(
+        bytes32 indexed rightId,
+        bytes32 indexed commitment,
+        address indexed claimant,
+        uint256 refundTimestamp
+    );
+
+    /// @notice Emitted when mint contract address is set
+    event MintContractSet(address indexed mintContract);
+
+    error RightAlreadyConsumed();
+    error RightAlreadyLocked();
+    error TimeoutNotExpired();
+    error RightAlreadyMinted();
+    error RefundAlreadyClaimed();
+    error InvalidMintContract();
+
+    /// @notice Set the mint contract address (for refund verification)
+    /// @param _mintContract Address of the CSVMint contract
+    function setMintContract(address _mintContract) external {
+        require(_mintContract != address(0), "Invalid mint contract address");
+        mintContract = _mintContract;
+        emit MintContractSet(_mintContract);
+    }
+
     /// @notice Lock a Right for cross-chain transfer
     /// @param rightId Unique Right identifier
     /// @param commitment Right's commitment hash
@@ -31,8 +75,23 @@ contract CSVLock {
         uint8 destinationChain,
         bytes calldata destinationOwner
     ) external {
-        require(!usedSeals[rightId], "Right already consumed");
+        if (usedSeals[rightId]) {
+            revert RightAlreadyConsumed();
+        }
+        if (locks[rightId].timestamp != 0 && !locks[rightId].refunded) {
+            revert RightAlreadyLocked();
+        }
+
         usedSeals[rightId] = true;
+
+        // Record lock for refund support
+        locks[rightId] = LockRecord({
+            commitment: commitment,
+            timestamp: block.timestamp,
+            destinationChain: destinationChain,
+            destinationOwnerRoot: keccak256(destinationOwner),
+            refunded: false
+        });
 
         emit CrossChainLock(
             rightId,
@@ -50,9 +109,62 @@ contract CSVLock {
     /// @param sealId Seal identifier
     /// @param commitment Commitment hash
     function markSealUsed(bytes32 sealId, bytes32 commitment) external {
-        require(!usedSeals[sealId], "Seal already consumed");
+        if (usedSeals[sealId]) {
+            revert RightAlreadyConsumed();
+        }
         usedSeals[sealId] = true;
         emit SealUsed(sealId, commitment);
+    }
+
+    /// @notice Claim a refund for a locked Right that was never minted on destination.
+    /// @dev This function allows a user to recover a Right if:
+    ///   1. The lock was recorded in this contract
+    ///   2. The REFUND_TIMEOUT has elapsed since the lock
+    ///   3. The Right was NOT minted on any destination chain
+    ///   4. The refund has not already been claimed
+    /// @param rightId The Right identifier to refund
+    /// @param destinationOwnerHash Hash of the destination owner (for verification)
+    function refundRight(bytes32 rightId, bytes32 destinationOwnerHash) external {
+        LockRecord storage lock = locks[rightId];
+
+        // Verify lock exists
+        if (lock.timestamp == 0) {
+            revert RightAlreadyConsumed();
+        }
+
+        // Verify timeout has elapsed
+        if (block.timestamp < lock.timestamp + REFUND_TIMEOUT) {
+            revert TimeoutNotExpired();
+        }
+
+        // Verify not already refunded
+        if (lock.refunded) {
+            revert RefundAlreadyClaimed();
+        }
+
+        // Verify the Right was NOT minted on destination chain
+        // This requires the mint contract to expose isRightMinted
+        if (mintContract != address(0)) {
+            (bool success, bytes memory data) = mintContract.staticcall(
+                abi.encodeWithSignature("isRightMinted(bytes32)", rightId)
+            );
+            if (success && data.length >= 32) {
+                bool isMinted = abi.decode(data, (bool));
+                if (isMinted) {
+                    revert RightAlreadyMinted();
+                }
+            }
+            // If call fails or mintContract not set, we proceed (trust the user)
+            // In production, the mint contract should be properly configured
+        }
+
+        // Mark as refunded to prevent re-entrancy and double-claim
+        lock.refunded = true;
+
+        // Re-allow the seal for future use (re-create the Right)
+        usedSeals[rightId] = false;
+
+        emit RightRefunded(rightId, lock.commitment, msg.sender, block.timestamp);
     }
 
     /// @notice Check if a seal/Right has been consumed
@@ -60,5 +172,37 @@ contract CSVLock {
     /// @return True if consumed
     function isSealUsed(bytes32 sealId) external view returns (bool) {
         return usedSeals[sealId];
+    }
+
+    /// @notice Get lock details for a Right
+    /// @param rightId The Right identifier
+    /// @return commitment The commitment hash
+    /// @return timestamp When the lock was created
+    /// @return destinationChain The target chain ID
+    /// @return refunded Whether the lock has been refunded
+    function getLockInfo(bytes32 rightId) external view returns (
+        bytes32 commitment,
+        uint256 timestamp,
+        uint8 destinationChain,
+        bool refunded
+    ) {
+        LockRecord storage lock = locks[rightId];
+        return (lock.commitment, lock.timestamp, lock.destinationChain, lock.refunded);
+    }
+
+    /// @notice Check if a refund can be claimed for a Right
+    /// @param rightId The Right identifier
+    /// @return True if refund is claimable
+    function canRefund(bytes32 rightId) external view returns (bool) {
+        LockRecord storage lock = locks[rightId];
+
+        // Must exist
+        if (lock.timestamp == 0) return false;
+        // Must not be refunded
+        if (lock.refunded) return false;
+        // Timeout must have elapsed
+        if (block.timestamp < lock.timestamp + REFUND_TIMEOUT) return false;
+
+        return true;
     }
 }

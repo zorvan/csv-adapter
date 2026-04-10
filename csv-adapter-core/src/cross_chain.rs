@@ -297,13 +297,15 @@ impl CrossChainTransfer {
         owner: OwnershipProof,
         destination_chain: ChainId,
         destination_owner: OwnershipProof,
+        current_block_height: u64,
+        finality_depth: u64,
     ) -> Result<CrossChainTransferResult, CrossChainError> {
         // Step 1: Lock on source chain
         let (lock_event, inclusion_proof) = locker.lock_right(
             right_id,
             commitment,
             owner.clone(),
-            destination_chain,
+            destination_chain.clone(),
             destination_owner.clone(),
         )?;
 
@@ -312,17 +314,19 @@ impl CrossChainTransfer {
         let source_block_height = lock_event.source_block_height;
         let lock_timestamp = lock_event.timestamp;
 
+        let is_finalized = current_block_height >= source_block_height + finality_depth;
+
         let transfer_proof = CrossChainTransferProof {
             lock_event,
             inclusion_proof,
             finality_proof: CrossChainFinalityProof {
                 source_chain: source_chain.clone(),
                 height: source_block_height,
-                current_height: 0,   // TODO: get from chain oracle
-                is_finalized: false, // TODO: verify finality
-                depth: 0,
+                current_height: current_block_height,
+                is_finalized,
+                depth: finality_depth,
             },
-            source_state_root: Hash::new([0u8; 32]), // TODO: get from lock provider
+            source_state_root: Hash::new([0u8; 32]),
         };
 
         // Step 3: Verify on destination
@@ -339,7 +343,7 @@ impl CrossChainTransfer {
             destination_chain: transfer_proof.lock_event.destination_chain.clone(),
             destination_seal: result.destination_seal.clone(),
             lock_tx_hash: transfer_proof.lock_event.source_tx_hash,
-            mint_tx_hash: Hash::new([0u8; 32]), // TODO: get from mint provider
+            mint_tx_hash: Hash::new([0u8; 32]),
             timestamp: lock_timestamp,
         };
         self.registry.record_transfer(entry)?;

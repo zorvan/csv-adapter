@@ -25,7 +25,6 @@
 
 use alloc::vec::Vec;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 
 use crate::hash::Hash;
 use crate::tagged_hash::csv_tagged_hash;
@@ -130,16 +129,39 @@ impl Right {
     /// - **L3 (Ethereum)**: The nullifier MUST be registered on-chain.
     ///   The contract's `nullifiers[id] = true` is what enforces single-use.
     ///
+    /// # Nullifier Construction
+    ///
+    /// `nullifier = tagged_hash("csv-nullifier", right_id || secret || context)`
+    ///
+    /// Where `context = H(chain_id || domain_separator)` binds the nullifier
+    /// to a specific chain context, preventing cross-chain replay attacks
+    /// even if the same secret is reused.
+    ///
+    /// # Arguments
+    /// * `secret` — The user's secret (prevents front-running)
+    /// * `chain_context` — Pre-computed context hash: `H(chain_id || domain_separator)`
+    ///
     /// # Returns
     /// The nullifier hash, or `None` for L1/L2 chains where the
     /// nullifier is not needed (but returned for local tracking).
-    pub fn consume(&mut self, secret: Option<&[u8]>) -> Option<Hash> {
+    pub fn consume(
+        &mut self,
+        secret: Option<&[u8]>,
+        chain_context: Option<&[u8; 32]>,
+    ) -> Option<Hash> {
         if let Some(secret) = secret {
+            // Build context binding: H(chain_id || domain_separator)
+            // If no chain_context provided, use empty context (backward compat)
+            let context_bytes = chain_context.unwrap_or(&[0u8; 32]);
+
             // L3: Compute deterministic nullifier with domain-separated hashing
-            let mut data = Vec::with_capacity(32 + secret.len());
+            // nullifier = H("csv-nullifier" || right_id || secret || context)
+            let mut data =
+                Vec::with_capacity(32 + self.id.0.as_bytes().len() + secret.len() + 32);
             data.extend_from_slice(self.id.0.as_bytes());
             data.extend_from_slice(secret);
-            let nullifier = Hash::new(csv_tagged_hash("right-nullifier", &data));
+            data.extend_from_slice(context_bytes);
+            let nullifier = Hash::new(csv_tagged_hash("csv-nullifier", &data));
             self.nullifier = Some(nullifier);
             Some(nullifier)
         } else {
@@ -558,7 +580,8 @@ mod tests {
     #[test]
     fn test_right_consume_with_nullifier() {
         let mut right = test_right();
-        let nullifier = right.consume(Some(b"secret"));
+        let chain_context = [0x01u8; 32]; // Ethereum context
+        let nullifier = right.consume(Some(b"secret"), Some(&chain_context));
         assert!(nullifier.is_some());
         assert!(right.nullifier.is_some());
         assert_eq!(right.verify(), Err(RightError::AlreadyConsumed));
@@ -567,7 +590,7 @@ mod tests {
     #[test]
     fn test_right_consume_without_nullifier() {
         let mut right = test_right();
-        let result = right.consume(None);
+        let result = right.consume(None, None);
         assert!(result.is_none());
         assert!(right.nullifier.is_none());
         // L1/L2: Right is still valid locally (chain enforces structural single-use)
@@ -589,7 +612,8 @@ mod tests {
     #[test]
     fn test_right_canonical_roundtrip_with_nullifier() {
         let mut right = test_right();
-        right.consume(Some(b"secret"));
+        let chain_context = [0x01u8; 32];
+        right.consume(Some(b"secret"), Some(&chain_context));
         let bytes = right.to_canonical_bytes();
         let decoded = Right::from_canonical_bytes(&bytes).expect("Should decode");
         assert_eq!(decoded.nullifier, right.nullifier);
@@ -647,7 +671,7 @@ mod tests {
         let mut right = test_right();
         assert!(!right.is_consumed());
 
-        right.consume(Some(b"secret"));
+        right.consume(Some(b"secret"), Some(&[0x01u8; 32]));
         assert!(right.is_consumed());
     }
 
@@ -657,8 +681,60 @@ mod tests {
         assert!(!right_l1.requires_nullifier());
 
         let mut right_l3 = test_right();
-        right_l3.consume(Some(b"secret")); // L3 does
+        right_l3.consume(Some(b"secret"), Some(&[0x01u8; 32])); // L3 does
         assert!(right_l3.requires_nullifier());
+    }
+
+    #[test]
+    fn test_nullifier_context_binding() {
+        // Same right + same secret + different contexts => different nullifiers
+        // This prevents cross-chain replay attacks even if secret is reused.
+        let right1 = Right::new(
+            Hash::new([0xAB; 32]),
+            OwnershipProof {
+                proof: vec![0x01, 0x02, 0x03],
+                owner: vec![0xFF; 32],
+                scheme: None,
+            },
+            &[0x42; 16],
+        );
+        let mut right2 = right1.clone();
+        let mut right3 = right1.clone();
+
+        let ethereum_context = [0x03u8; 32]; // Ethereum domain
+        let sui_context = [0x01u8; 32]; // Sui domain
+
+        let n1 = right3.consume(Some(b"same-secret"), Some(&ethereum_context));
+        let n2 = right2.consume(Some(b"same-secret"), Some(&sui_context));
+
+        // Nullifiers MUST differ across contexts
+        assert_ne!(n1, n2, "Nullifiers must be context-bound");
+
+        // Without context, produces different nullifier than with context
+        let mut right_no_context = right1.clone();
+        let n3 = right_no_context.consume(Some(b"same-secret"), None);
+        assert_ne!(n1, n3, "Context must affect nullifier computation");
+    }
+
+    #[test]
+    fn test_nullifier_determinism() {
+        // Same right + same secret + same context => same nullifier
+        let mut right1 = Right::new(
+            Hash::new([0xAB; 32]),
+            OwnershipProof {
+                proof: vec![0x01],
+                owner: vec![0xFF; 32],
+                scheme: None,
+            },
+            &[0x42; 16],
+        );
+        let mut right2 = right1.clone();
+        let context = [0x03u8; 32];
+
+        let n1 = right1.consume(Some(b"secret"), Some(&context));
+        let n2 = right2.consume(Some(b"secret"), Some(&context));
+
+        assert_eq!(n1, n2, "Nullifier must be deterministic");
     }
 
     #[test]

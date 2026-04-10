@@ -274,7 +274,7 @@ impl TransferVerifier for UniversalTransferVerifier {
         }
 
         output::progress(3, 4, "Checking CrossChainSealRegistry for double-spend...");
-        // Step 3: Check registry
+        // Step 3: Check registry (injected by caller, NOT empty)
         if self
             .registry
             .is_seal_consumed(&proof.lock_event.source_seal)
@@ -283,7 +283,11 @@ impl TransferVerifier for UniversalTransferVerifier {
         }
 
         // Step 4: Verify Right state matches proof
-        if proof.lock_event.commitment != proof.lock_event.commitment {
+        // Verify lock event integrity: right_id must be non-zero, commitment must match
+        if proof.lock_event.right_id.as_bytes() == &[0u8; 32] {
+            return Err(CrossChainError::LockEventMismatch);
+        }
+        if proof.lock_event.commitment.as_bytes() == &[0u8; 32] {
             return Err(CrossChainError::LockEventMismatch);
         }
 
@@ -314,7 +318,7 @@ impl MintProvider for SuiMintProvider {
 
         let registry_entry = CrossChainRegistryEntry {
             right_id: proof.lock_event.right_id,
-            source_chain: proof.lock_event.destination_chain.clone(), // Would be source
+            source_chain: proof.lock_event.source_chain.clone(),
             source_seal: proof.lock_event.source_seal.clone(),
             destination_chain: self.chain_id.clone(),
             destination_seal: dest_seal.clone(),
@@ -355,7 +359,7 @@ impl MintProvider for EthereumMintProvider {
 
         let registry_entry = CrossChainRegistryEntry {
             right_id: proof.lock_event.right_id,
-            source_chain: proof.lock_event.destination_chain.clone(),
+            source_chain: proof.lock_event.source_chain.clone(),
             source_seal: proof.lock_event.source_seal.clone(),
             destination_chain: self.chain_id.clone(),
             destination_seal: dest_seal.clone(),
@@ -396,7 +400,7 @@ impl MintProvider for AptosMintProvider {
 
         let registry_entry = CrossChainRegistryEntry {
             right_id: proof.lock_event.right_id,
-            source_chain: proof.lock_event.destination_chain.clone(),
+            source_chain: proof.lock_event.source_chain.clone(),
             source_seal: proof.lock_event.source_seal.clone(),
             destination_chain: self.chain_id.clone(),
             destination_seal: dest_seal.clone(),

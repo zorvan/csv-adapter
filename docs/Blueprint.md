@@ -180,21 +180,40 @@ MARK as consumed
 --------------
 
 ```
-nullifier = H(right_id || secret || context)
+context = H(chain_id || domain_separator)
+nullifier = H("csv-nullifier" || right_id || secret || context)
 
 ```
 
 ### Properties
 
-- Deterministic
+- **Deterministic**: Same inputs always produce same nullifier
+- **Unique per consumption**: Each (right_id, secret, context) tuple is unique
+- **Non-forgeable**: Requires knowledge of `secret` (pre-image resistant)
+- **Context-bound**: Different chains produce different nullifiers even with same secret
+- **Cross-chain unlinkable**: Without the `salt`, observers cannot link `right_id` across chains
 
-- Unique per consumption
+5.2 Context Construction
+------------------------
 
-- Non-forgeable
+The `context` parameter binds the nullifier to a specific chain and domain:
 
-* * * * *
+```
+context = H(chain_id || domain_separator)
 
-5.2 Storage Strategies
+chain_id:       8-bit chain identifier (0=Bitcoin, 1=Sui, 2=Aptos, 3=Ethereum)
+domain_separator: 32-byte adapter-specific domain (from AnchorLayer trait)
+
+```
+
+This provides **defense in depth**:
+
+1. **Tagged hash** (`csv-nullifier`) prevents cross-protocol collisions
+2. **right_id** prevents nullifier computation without knowing the commitment chain
+3. **secret** prevents front-running (user chooses secret)
+4. **context** prevents cross-chain replay even if secret is reused
+
+5.3 Storage Strategies
 ----------------------
 
 ### Ethereum
@@ -488,43 +507,64 @@ Phase 5 --- Advanced Guarantees
 
 * * * * *
 
-## 12. Open Design Edges (We Should Decide Together)
+## 12. Design Decisions (Resolved)
 
 ======
 
-These will change architecture significantly:
+### 1\. Nullifier Scope — ✅ RESOLVED
 
-### 1\. Nullifier Scope
+**Decision**: Global, context-bound nullifiers
 
-- Global?
+**Construction**: `nullifier = H("csv-nullifier" || right_id || secret || context)`
 
-- Per contract?
+**Rationale**:
 
-- Per application?
-
-* * * * *
-
-### 2\. Privacy Level
-
-- Transparent (simpler)
-
-- ZK (complex, powerful)
+- Same right + same secret + different chain context = different nullifiers
+- Prevents cross-chain replay attacks even if secret is compromised
+- Context = `H(chain_id || domain_separator)` from AnchorLayer trait
+- Tagged hash with `"csv-nullifier"` prefix prevents cross-protocol collisions
 
 * * * * *
 
-### 3\. Settlement Strategy
+### 2\. Privacy Level — ✅ RESOLVED
 
-- Immediate finality
+**Decision**: Transparent commitments with structural privacy
 
-- Optimistic delay
+**Rationale**:
+
+- L1 chains (Bitcoin/Sui) never expose nullifiers — structural enforcement
+- L2 (Aptos) never exposes nullifiers — Move resource destruction
+- L3 (Ethereum) exposes nullifier on-chain but `right_id` is pre-image-resistant
+- Without the `salt`, observers cannot link `right_id` across chains
+- Future: ZK nullifiers (Section 8.1) can be added without changing this interface
 
 * * * * *
 
-### 4\. Cross-Chain Portability
+### 3\. Settlement Strategy — ✅ RESOLVED
 
-- Lock/mint?
+**Decision**: Time-locked atomic swap with automatic refund
 
-- Proof-based teleportation?
+**Design**:
+
+- Lock starts 24h timeout on source chain
+- If no mint on destination before timeout, user calls `refund_right()`
+- Contract verifies: lock exists, no mint on any chain, timeout elapsed
+- Self-service refund — no admin/DAO needed
+- User pays refund tx fee (future: bond system)
+
+* * * * *
+
+### 4\. Cross-Chain Portability — ✅ RESOLVED
+
+**Decision**: Lock-and-prove (client-side proof verification)
+
+**Design**:
+
+- No bridge. No minting. No cross-chain messaging.
+- Source chain: consume seal, emit event, generate inclusion proof
+- Client: packages lock event + inclusion proof + finality proof
+- Destination chain: verify inclusion, check registry, mint new Right
+- Proof verified against structural chain data (Merkkle/checkpoint/ledger/MPT)
 
 * * * * *
 

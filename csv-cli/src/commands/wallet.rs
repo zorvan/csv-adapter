@@ -2,7 +2,6 @@
 
 use anyhow::Result;
 use clap::Subcommand;
-use sha2::Digest;
 
 use crate::config::{Chain, Config, Network};
 use crate::output;
@@ -151,8 +150,10 @@ fn generate_ethereum(state: &mut State) -> Result<()> {
 }
 
 fn generate_sui(state: &mut State) -> Result<()> {
+    use blake2::{Blake2b, digest::Digest};
     use ed25519_dalek::SigningKey;
     use rand::RngCore;
+    use typenum::U32;
 
     let mut seed = [0u8; 32];
     rand::rngs::OsRng.fill_bytes(&mut seed);
@@ -160,8 +161,13 @@ fn generate_sui(state: &mut State) -> Result<()> {
     let signing_key = SigningKey::from_bytes(&seed);
     let verifying_key = signing_key.verifying_key();
 
-    // Sui address: 0x + 32-byte public key
-    let address = format!("0x{}", hex::encode(verifying_key.as_bytes()));
+    // Sui address: BLAKE2b-256(signature_scheme_flag || public_key)
+    // Signature scheme flag 0x00 = Ed25519
+    let mut hasher = Blake2b::<U32>::new();
+    hasher.update([0x00]);
+    hasher.update(verifying_key.as_bytes());
+    let address_bytes = hasher.finalize();
+    let address = format!("0x{}", hex::encode(address_bytes));
 
     state.store_address(Chain::Sui, address.clone());
 
@@ -179,6 +185,7 @@ fn generate_sui(state: &mut State) -> Result<()> {
 fn generate_aptos(state: &mut State) -> Result<()> {
     use ed25519_dalek::SigningKey;
     use rand::RngCore;
+    use sha3::{Digest, Sha3_256};
 
     let mut seed = [0u8; 32];
     rand::rngs::OsRng.fill_bytes(&mut seed);
@@ -186,8 +193,13 @@ fn generate_aptos(state: &mut State) -> Result<()> {
     let signing_key = SigningKey::from_bytes(&seed);
     let verifying_key = signing_key.verifying_key();
 
-    // Aptos address: 0x + 32-byte public key
-    let address = format!("0x{}", hex::encode(verifying_key.as_bytes()));
+    // Aptos address: SHA3-256(public_key || authentication_scheme_byte)
+    // Authentication scheme 0x00 = Ed25519 (SingleSender)
+    let mut hasher = Sha3_256::new();
+    hasher.update(verifying_key.as_bytes());
+    hasher.update([0x00]);
+    let auth_key = hasher.finalize();
+    let address = format!("0x{}", hex::encode(auth_key));
 
     state.store_address(Chain::Aptos, address.clone());
 
@@ -196,7 +208,7 @@ fn generate_aptos(state: &mut State) -> Result<()> {
     output::kv_hash("Private Key", &seed);
 
     println!();
-    output::warning("Save this private key securely.");
+    output::warning("Save this private key securely. It cannot be recovered.");
     output::info("Fund this wallet with: csv wallet fund --chain aptos");
 
     Ok(())
@@ -461,12 +473,98 @@ fn cmd_import(chain: Chain, secret: String, _config: &Config, state: &mut State)
     output::header(&format!("Import Wallet: {}", chain));
     output::kv("Chain", &chain.to_string());
 
-    // For now, store the secret and derive an address
-    // In production, properly derive addresses from the secret
-    let address = if secret.starts_with("0x") {
-        secret.clone()
-    } else {
-        format!("0x{}", hex::encode(sha2::Sha256::digest(secret.as_bytes())))
+    // Properly derive address from private key based on chain
+    let address = match chain {
+        Chain::Aptos => {
+            use ed25519_dalek::SigningKey;
+            use sha3::{Digest, Sha3_256};
+
+            let secret_bytes = if secret.starts_with("0x") {
+                hex::decode(&secret[2..]).map_err(|e| anyhow::anyhow!("Invalid hex: {}", e))?
+            } else {
+                hex::decode(&secret).map_err(|e| anyhow::anyhow!("Invalid hex: {}", e))?
+            };
+
+            if secret_bytes.len() != 32 {
+                return Err(anyhow::anyhow!(
+                    "Invalid Aptos private key length: {} bytes (expected 32)",
+                    secret_bytes.len()
+                ));
+            }
+
+            let mut seed = [0u8; 32];
+            seed.copy_from_slice(&secret_bytes);
+
+            let signing_key = SigningKey::from_bytes(&seed);
+            let verifying_key = signing_key.verifying_key();
+
+            let mut hasher = Sha3_256::new();
+            hasher.update(verifying_key.as_bytes());
+            hasher.update([0x00]);
+            let auth_key = hasher.finalize();
+            format!("0x{}", hex::encode(auth_key))
+        }
+        Chain::Sui => {
+            use blake2::{Blake2b, digest::Digest};
+            use ed25519_dalek::SigningKey;
+            use typenum::U32;
+
+            let secret_bytes = if secret.starts_with("0x") {
+                hex::decode(&secret[2..]).map_err(|e| anyhow::anyhow!("Invalid hex: {}", e))?
+            } else {
+                hex::decode(&secret).map_err(|e| anyhow::anyhow!("Invalid hex: {}", e))?
+            };
+
+            if secret_bytes.len() != 32 {
+                return Err(anyhow::anyhow!(
+                    "Invalid Sui private key length: {} bytes (expected 32)",
+                    secret_bytes.len()
+                ));
+            }
+
+            let mut seed = [0u8; 32];
+            seed.copy_from_slice(&secret_bytes);
+
+            let signing_key = SigningKey::from_bytes(&seed);
+            let verifying_key = signing_key.verifying_key();
+
+            let mut hasher = Blake2b::<U32>::new();
+            hasher.update([0x00]);
+            hasher.update(verifying_key.as_bytes());
+            let address_bytes = hasher.finalize();
+            format!("0x{}", hex::encode(address_bytes))
+        }
+        Chain::Ethereum => {
+            use secp256k1::{Secp256k1, SecretKey};
+            use sha3::{Digest, Keccak256};
+
+            let secret_bytes = if secret.starts_with("0x") {
+                hex::decode(&secret[2..]).map_err(|e| anyhow::anyhow!("Invalid hex: {}", e))?
+            } else {
+                hex::decode(&secret).map_err(|e| anyhow::anyhow!("Invalid hex: {}", e))?
+            };
+
+            if secret_bytes.len() != 32 {
+                return Err(anyhow::anyhow!(
+                    "Invalid Ethereum private key length: {} bytes (expected 32)",
+                    secret_bytes.len()
+                ));
+            }
+
+            let secp = Secp256k1::new();
+            let secret_key = SecretKey::from_slice(&secret_bytes)
+                .map_err(|e| anyhow::anyhow!("Invalid private key: {}", e))?;
+            let public_key = secret_key.public_key(&secp);
+
+            let pubkey_bytes = public_key.serialize_uncompressed();
+            let hash = Keccak256::digest(&pubkey_bytes[1..]);
+            format!("0x{}", hex::encode(&hash[12..]))
+        }
+        Chain::Bitcoin => {
+            return Err(anyhow::anyhow!(
+                "Bitcoin import requires mnemonic or complex key derivation. Use generate instead."
+            ))
+        }
     };
 
     state.store_address(chain, address.clone());
