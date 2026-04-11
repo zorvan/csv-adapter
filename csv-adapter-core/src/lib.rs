@@ -33,6 +33,9 @@ pub mod right;
 pub mod seal;
 pub mod tagged_hash;
 
+// Agent-friendly types (AI agent support)
+pub mod agent_types;
+
 // Production hardening
 pub mod hardening;
 
@@ -81,6 +84,7 @@ pub mod rgb_compat;
 pub mod tapret_verify;
 
 // Re-exports: core
+pub use agent_types::{Chain, ErrorSuggestion, FixAction, TransferStatus};
 pub use commitment::Commitment;
 pub use hardening::{
     BoundedQueue, CircuitBreaker, CircuitState, MemoryLimits, TimeoutConfig,

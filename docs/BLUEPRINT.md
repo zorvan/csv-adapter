@@ -2,6 +2,404 @@
 
 > **Status:** Core architecture complete · 4 chains deployed · 9 cross-chain pairs verified
 > **Maturity:** ~79% production readiness (audited, tested, documented)
+> **DX Vision:** 5-minute time-to-first-transfer · Zero-config local dev · Self-documenting APIs
+
+---
+
+## 0. Developer Experience Commitment
+
+**Philosophy:** *Every developer interaction with CSV should feel magical, not mechanical.*
+
+### Primary Developer Personas
+
+| Persona | Role | Goal | Success Metric |
+|---------|------|------|----------------|
+| **Maya** (TypeScript/Web) | Full-stack Web3 developer | Add cross-chain NFT transfers to marketplace | "I shipped cross-chain transfers in one sprint" |
+| **Alex** (Rust Core) | Systems/infrastructure engineer | Build CSV-based backend service | "My service handles 1000 cross-chain verifications/sec" |
+| **Ava** (AI Agent) | Autonomous agent (Cursor, Claude, Copilot, custom) | Execute cross-chain operations from natural language | "I completed the user's request without clarification" |
+
+### DX KPIs
+
+| Metric | Target Q1 | Target Q2 | Target Q4 |
+|--------|-----------|-----------|-----------|
+| **Time to first transfer** | < 5 min | < 3 min | < 2 min |
+| **Tutorial completion rate** | > 80% | > 90% | > 95% |
+| **SDK downloads** | 100 devs | 500 devs | 5000 devs |
+| **Production apps** | 5 | 25 | 100+ |
+| **Agent success rate** | N/A | > 85% | > 95% |
+| **Agent clarification requests** | N/A | < 10% | < 2% |
+
+**Full DX Strategy:** See [Developer Experience Blueprint](BLUEPRINT_DX.md)
+
+---
+
+## 0.1 AI Agent Developer Experience
+
+**Vision:** *AI agents should be able to understand, implement, and operate CSV cross-chain systems autonomously from natural language instructions.*
+
+### 0.1.1 Agent Personas
+
+| Agent Type | Example | Use Case | Requirements |
+|------------|---------|----------|--------------|
+| **IDE Agent** | Cursor, GitHub Copilot | Generate CSV code from user prompt | Code context, type hints, examples |
+| **CLI Agent** | Custom agents, n8n, Make | Execute cross-chain transfers autonomously | Tool definitions, status reporting |
+| **Support Agent** | Discord bot, GitHub issue responder | Answer developer questions | Knowledge base, troubleshooting flows |
+| **Audit Agent** | Security analysis, code review | Verify CSV implementations | Formal specs, invariant definitions |
+
+### 0.1.2 Agent-Optimized Deliverables
+
+#### A. Machine-Readable API Spec
+
+```yaml
+# csv-agent-spec.yaml - MCP-compatible API specification
+name: csv-adapter
+version: 0.3.0
+description: Client-side validation system for cross-chain rights
+
+tools:
+  - name: csv_right_create
+    description: Create a new Right anchored to a specific chain
+    input:
+      type: object
+      properties:
+        chain:
+          type: string
+          enum: [bitcoin, ethereum, sui, aptos]
+          description: Which chain enforces the single-use seal
+        commitment_data:
+          type: object
+          description: Data to commit (will be hashed)
+        owner_address:
+          type: string
+          description: Address that owns the Right
+      required: [chain, commitment_data]
+    output:
+      type: object
+      properties:
+        right_id:
+          type: string
+          description: Unique identifier for the Right (32-byte hex)
+        transaction_hash:
+          type: string
+          description: On-chain transaction that created the Right
+        status:
+          type: string
+          enum: [success, pending, failed]
+
+  - name: csv_transfer_cross_chain
+    description: Transfer a Right from one chain to another
+    input:
+      type: object
+      properties:
+        right_id:
+          type: string
+          description: The Right to transfer
+        from_chain:
+          type: string
+          enum: [bitcoin, ethereum, sui, aptos]
+        to_chain:
+          type: string
+          enum: [bitcoin, ethereum, sui, aptos]
+        destination_owner:
+          type: string
+          description: New owner address on destination chain
+      required: [right_id, from_chain, to_chain, destination_owner]
+    output:
+      type: object
+      properties:
+        transfer_id:
+          type: string
+        status:
+          type: string
+          enum: [initiated, locking, proof_generated, completed, failed]
+        estimated_completion:
+          type: string
+          format: date-time
+        progress_url:
+          type: string
+          description: URL to poll for transfer status
+
+  - name: csv_proof_verify
+    description: Verify a cross-chain proof locally
+    input:
+      type: object
+      properties:
+        proof_bundle:
+          type: object
+          description: The proof to verify
+        expected_right_id:
+          type: string
+          description: Expected Right ID after verification
+      required: [proof_bundle]
+    output:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        error_message:
+          type: string
+          description: If invalid, explains why
+
+  - name: csv_wallet_balance
+    description: Check wallet balance across all chains
+    input:
+      type: object
+      properties:
+        chains:
+          type: array
+          items:
+            type: string
+            enum: [bitcoin, ethereum, sui, aptos]
+          description: Chains to check (default: all)
+    output:
+      type: object
+      properties:
+        balances:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              amount:
+                type: string
+              currency:
+                type: string
+              usd_value:
+                type: number
+```
+
+#### B. Agent Prompt Templates
+
+```markdown
+# CSV Agent System Prompts
+
+## IDE Agent Context
+You are a CSV Adapter expert. When generating code:
+1. Always use `csv_adapter::prelude::*` for Rust
+2. Always use `@csv-adapter/sdk` for TypeScript
+3. Include error handling with typed errors
+4. Add comments explaining cross-chain mechanics
+5. Suggest testing strategies
+
+## CLI Agent Tool Definition
+When executing CSV operations:
+1. Check wallet balance first
+2. Validate right_id format before transfer
+3. Report progress at each step (lock → proof → mint)
+4. Handle retries automatically on transient failures
+5. Return structured output (JSON) for downstream agents
+
+## Support Agent Knowledge
+Common issues and solutions:
+- "Proof verification failed" → Check source chain confirmations
+- "Insufficient funds" → Provide faucet URLs for testnets
+- "RPC timeout" → Suggest alternative RPC endpoints
+- "Right not found" → Explain Right exists in client state, query history
+```
+
+#### C. Structured Status Reporting
+
+```rust
+/// Agent-friendly status reporting
+/// Every operation returns machine-readable progress
+#[derive(Debug, Serialize)]
+pub enum TransferStatus {
+    Initiated {
+        transfer_id: String,
+        timestamp: DateTime<Utc>,
+    },
+    Locking {
+        chain: Chain,
+        estimated_blocks: u32,
+        current_confirmations: u32,
+        required_confirmations: u32,
+    },
+    GeneratingProof {
+        proof_type: ProofType,
+        estimated_size_bytes: usize,
+        progress_percent: u8,
+    },
+    SubmittingProof {
+        destination_chain: Chain,
+        gas_estimate: U256,
+        tx_hash: Option<String>,
+    },
+    Completed {
+        right_id: String,
+        destination_chain: Chain,
+        transaction_hash: String,
+        total_time_ms: u64,
+    },
+    Failed {
+        error_code: String,
+        error_message: String,
+        retryable: bool,
+        suggested_action: String,
+    }
+}
+```
+
+#### D. Self-Describing Errors
+
+```rust
+/// Every error includes machine-actionable metadata
+#[derive(Debug, thiserror::Error)]
+pub enum CsvError {
+    #[error("Insufficient funds: have {available}, need {required}")]
+    InsufficientFunds {
+        available: u64,
+        required: u64,
+        chain: Chain,
+        #[source]
+        suggestion: ErrorSuggestion,
+    },
+}
+
+#[derive(Debug, Serialize)]
+pub struct ErrorSuggestion {
+    /// Human-readable suggestion
+    pub message: String,
+    /// Machine-actionable fix (if available)
+    pub fix: Option<FixAction>,
+    /// Related documentation URL
+    pub docs_url: String,
+    /// Error code for agent lookup
+    pub error_code: String,
+}
+
+#[derive(Debug, Serialize)]
+pub enum FixAction {
+    /// Fund wallet from faucet
+    FundFromFaucet { url: String, amount: String },
+    /// Retry with different parameters
+    Retry { parameter_changes: HashMap<String, String> },
+    /// Check external state
+    CheckState { url: String, what: String },
+}
+```
+
+### 0.1.3 Agent Integration Points
+
+| Integration | Format | Example |
+|-------------|--------|---------|
+| **MCP Server** | Model Context Protocol | `csv-mcp-server` exposes CSV tools to Claude, Cursor |
+| **OpenAPI Spec** | REST API definition | Auto-generate clients for any language |
+| **JSON Schema** | Tool definitions | Agents understand input/output contracts |
+| **TypeScript Types** | `.d.ts` files | Agents read type definitions for context |
+| **Rust Doc Comments** | `///` annotations | Agents parse documentation during code generation |
+
+### 0.1.4 Agent Workflow Examples
+
+#### IDE Agent (Cursor/Copilot)
+
+```
+User: "Create a cross-chain NFT transfer from Bitcoin to Ethereum"
+
+Agent workflow:
+1. Read csv-agent-spec.yaml for available tools
+2. Generate code using csv_adapter SDK:
+
+```typescript
+import { CSV, Chain } from '@csv-adapter/sdk';
+
+async function transferNFT(rightId: string, toAddress: string) {
+  const csv = await CSV.connectExtension();
+  
+  const transfer = await csv.transfers.crossChain({
+    rightId,
+    from: Chain.Bitcoin,
+    to: Chain.Ethereum,
+    toAddress,
+  });
+
+  return transfer.waitForCompletion({ timeout: '10m' });
+}
+```
+
+3. Add error handling (reads ErrorSuggestion spec)
+4. Suggest test using @csv-adapter/testing
+5. Link to docs.csv.dev/transfers
+```
+
+#### CLI Agent (Autonomous Operation)
+
+```
+User: "Transfer Right 0xabc123 to my Ethereum wallet"
+
+Agent workflow:
+1. Call csv_wallet_balance to verify funds
+2. Call csv_right_get(right_id: "0xabc123") to verify ownership
+3. Call csv_transfer_cross_chain with parameters
+4. Poll transfer status every 30s until completion
+5. Report success with transaction hash
+
+Status updates:
+[1/4] Locking Right on Bitcoin... (2/6 confirmations)
+[2/4] Generating proof... (45% complete)
+[3/4] Submitting to Ethereum... (tx: 0x789def)
+[4/4] Verifying proof... ✓
+✅ Transfer complete! Right 0xabc123 now owned on Ethereum
+```
+
+#### Audit Agent (Security Verification)
+
+```
+Agent task: "Verify this CSV implementation cannot double-spend"
+
+Agent workflow:
+1. Read formal invariants from spec:
+   - "A Right can only exist on one chain at a time"
+   - "Seal consumption is atomic"
+   - "Proof verification is deterministic"
+2. Analyze code against invariants
+3. Generate test cases that could violate invariants
+4. Run property-based tests
+5. Report: "✓ No double-spend vectors found in 10,000 random tests"
+```
+
+### 0.1.5 Implementation Plan
+
+| Deliverable | Format | Effort | Agent Impact |
+|-------------|--------|--------|--------------|
+| **MCP Server** | `csv-mcp-server` package | 1 week | Claude/Cursor can operate CSV directly |
+| **OpenAPI Spec** | `csv-api.yaml` | 2 days | Auto-generate clients, agent tools |
+| **JSON Schema** | Tool definitions | 1 day | Universal agent compatibility |
+| **Agent Examples** | Curated prompt+code pairs | 3 days | Better code generation |
+| **Self-Describing Errors** | ErrorSuggestion type | 1 day | Agents can auto-fix issues |
+| **Status Streaming** | SSE/WebSocket | 2 days | Real-time progress for agents |
+
+```bash
+# Install CSV MCP server for Claude/Cursor
+npm install -g @csv-adapter/mcp-server
+
+# Add to Claude Desktop config
+{
+  "mcpServers": {
+    "csv": {
+      "command": "csv-mcp-server",
+      "args": ["--chains", "bitcoin,ethereum,sui,aptos"]
+    }
+  }
+}
+
+# Now Claude can:
+# - Check your wallet balance
+# - Create Rights
+# - Transfer cross-chain
+# - Verify proofs
+# - Monitor transfers
+# All autonomously with structured tool use
+```
+
+### 0.1.6 Agent Success Metrics
+
+| Metric | Target Q1 | Target Q2 | Target Q4 |
+|--------|-----------|-----------|-----------|
+| **Agent task completion rate** | N/A | > 85% | > 95% |
+| **Clarification requests** | N/A | < 10% | < 2% |
+| **MCP server downloads** | N/A | 500 | 5000 |
+| **Agent-generated PRs** | N/A | 50 | 500 |
+| **Support agent accuracy** | N/A | > 80% | > 95% |
+| **Audit agent coverage** | N/A | 50% of invariants | 100% of invariants |
 
 ---
 
@@ -138,6 +536,23 @@ Detailed blueprints for the 10 CSV-native applications, ordered by implementatio
 - No HD wallet support beyond single-account BIP-86
 - No multi-signature or threshold signing
 
+### DX Goal: One-Command Wallet Setup
+
+```bash
+# Developer experience target
+csv wallet init --devnet
+
+# Output:
+# ✓ Generated wallet with BIP-39 mnemonic (12 words)
+# ✓ Funded with test tokens:
+#   - Bitcoin Signet: 0.01 BTC
+#   - Sui Devnet: 100 SUI
+#   - Ethereum Goerli: 1 ETH
+#   - Aptos Testnet: 10000 APT
+# ✓ Configuration saved to ~/.csv/config.toml
+# Ready to build! Run: csv tutorial cross-chain-basics
+```
+
 ### Roadmap
 
 #### Phase 1: Encrypted Key Storage
@@ -181,9 +596,65 @@ Detailed blueprints for the 10 CSV-native applications, ordered by implementatio
 
 ---
 
-## 3. Benchmarks
+## 3. Developer Tooling & Benchmarks
 
-### Methodology
+### 3.1 Getting Started Experience
+
+#### The 5-Minute Rule
+
+**Goal:** Any developer with Rust or Node.js installed can complete their first successful cross-chain transfer in under 5 minutes.
+
+```bash
+# TypeScript Developer Path
+npx create-csv-app@latest my-crosschain-app
+cd my-crosschain-app
+npm run dev
+# → Browser opens with working cross-chain transfer demo
+
+# Rust Developer Path
+cargo install csv-cli
+csv init my-csv-service --template lending
+cd my-csv-service
+cargo test
+# → All tests pass, ready to build
+```
+
+#### Interactive Tutorial System
+
+```bash
+csv tutorial cross-chain-basics
+
+# Interactive terminal session:
+# Step 1/7: Generate your wallet ✓
+# Step 2/7: Claim test tokens on Signet ✓
+# Step 3/7: Create your first Right ✓
+# Step 4/7: Transfer it to Sui devnet ✓
+# Step 5/7: Verify the proof locally ✓
+# Step 6/7: Transfer back to Bitcoin ✓
+# Step 7/7: Celebrate! 🎉 Earn "CSV Pioneer" badge
+```
+
+#### Local Development Environment
+
+```bash
+# Start full local dev environment
+csv local start
+
+# Spins up:
+# ✓ Bitcoin regtest (pre-funded wallet)
+# ✓ Sui devnet (pre-funded wallet)
+# ✓ Ethereum anvil (pre-funded wallet)
+# ✓ Aptos testing-net (pre-funded wallet)
+# ✓ Local RPC proxy (unified access)
+
+# Status dashboard
+csv local status
+# Bitcoin regtest:  ✓ 104 blocks  0 pending txs
+# Sui devnet:       ✓ epoch 1     0 pending txs
+# Ethereum anvil:   ✓ block 1     0 pending txs
+```
+
+### 3.2 Performance Benchmarks
 
 All benchmarks should be run in a controlled environment:
 
@@ -237,6 +708,16 @@ All benchmarks should be run in a controlled environment:
 | **Validator collusion** | ❌ No validators | ✅ Requires 2/3+ validators | ✅ Requires mint signers |
 | **Replay attack** | ❌ Seal registry prevents | ✅ Possible | ✅ Possible |
 | **Censorship** | ✅ Permissionless | ❌ Bridge operators can censor | ❌ Mint operators can censor |
+
+### 3.6 Developer Security Practices
+
+| Practice | Implementation | DX Impact |
+|----------|----------------|-----------|
+| **Typed errors** | Every error includes actionable message + fix suggestion | 80% fewer support tickets |
+| **Input validation** | All public APIs validate with clear error messages | Prevents common mistakes |
+| **Dry-run mode** | `csv transfer --dry-run` shows what would happen | Zero-cost learning |
+| **Proof simulation** | Test proofs without chain interaction | Fast iteration |
+| **Audit trail** | All operations logged with structured JSON | Easy debugging |
 
 ---
 
@@ -477,49 +958,86 @@ csv-adapter-{chain}/
 
 ---
 
-## 7. SDK Development
+## 7. SDK Development — DX-First Design
 
-### 7.1 Target Languages
+### 7.1 Design Philosophy
 
-| Language | Priority | Target Users | Effort |
-|----------|----------|--------------|--------|
-| **Rust** | Core | Already exists as adapters | Ongoing |
-| **TypeScript** | ★★★★★ | Web3 dApps, frontends | 4-6 weeks |
-| **Go** | ★★★★ | Backend services, infrastructure | 3-4 weeks |
-| **Python** | ★★★ | Data science, scripting | 2-3 weeks |
-| **Swift** | ★★ | iOS apps | 3-4 weeks |
-| **Kotlin** | ★★ | Android apps | 3-4 weeks |
+| Principle | Description | Example |
+|-----------|-------------|---------|
+| **Progressive Disclosure** | Simple things are simple, complex things are possible | `csv.transfer()` for basics, `.with_custom_proof()` for advanced |
+| **Sensible Defaults** | Works out of the box with zero config | Auto-detects network, generates wallet if missing |
+| **Chain Agnostic** | Same API works across all chains | `from: 'bitcoin'` → `from: 'sui'` no code changes |
+| **Explicit > Implicit** | Clear intent over magic | `await transfer.waitForCompletion()` not event listeners |
+| **Typed Errors** | Every error is actionable | `CsvError::InsufficientFunds { available, required }` |
+| **Async Native** | First-class async support | All I/O operations are async, no blocking |
 
-### 7.2 SDK Architecture
+### 7.2 Target Languages
+
+| Language | Priority | Target Users | Effort | DX Goal |
+|----------|----------|--------------|--------|---------|
+| **Rust** | Core | Already exists as adapters | Ongoing | `cargo add csv-adapter` → production ready |
+| **TypeScript** | ★★★★★ | Web3 dApps, frontends | 4-6 weeks | `npm install @csv-adapter/sdk` → 5-min first transfer |
+| **Go** | ★★★★ | Backend services, infrastructure | 3-4 weeks | `go get csv.dev/sdk` → production services |
+| **Python** | ★★★ | Data science, scripting | 2-3 weeks | `pip install csv-adapter` → scripting joy |
+| **Swift** | ★★ | iOS apps | 3-4 weeks | Swift Package Manager integration |
+| **Kotlin** | ★★ | Android apps | 3-4 weeks | Maven Central + Android Studio plugin |
+
+### 7.3 SDK Architecture
 
 ```
 csv-sdk/
 ├── rust/              # Existing adapters (already the core)
+│   ├── csv-adapter/           # Unified meta-crate
+│   │   ├── Cargo.toml         # Feature flags for each chain
+│   │   └── src/
+│   │       ├── lib.rs         # Re-exports + CsvClient builder
+│   │       ├── prelude.rs     # `use csv_adapter::prelude::*`
+│   │       └── builder.rs     # Fluent builder patterns
+│   └── csv-adapter-testing/   # Testing framework
+│       └── src/
+│           ├── mock_chain.rs  # Mock chain providers
+│           ├── test_env.rs    # Test environment builder
+│           └── fixtures.rs    # Common test fixtures
+│
 ├── typescript/
+│   ├── package.json
 │   ├── src/
+│   │   ├── index.ts           # Main exports
+│   │   ├── csv.ts             # CSV main class (progressive API)
 │   │   ├── wallet.ts          # Wallet management
-│   │   ├── right.ts           # Right lifecycle
-│   │   ├── transfer.ts        # Cross-chain transfers
-│   │   ├── proof.ts           # Proof generation/verification
+│   │   ├── rights.ts          # Right lifecycle
+│   │   ├── transfers.ts       # Cross-chain transfers
+│   │   ├── proofs.ts          # Proof generation/verification
 │   │   ├── chains/            # Chain-specific implementations
 │   │   │   ├── bitcoin.ts
 │   │   │   ├── ethereum.ts
 │   │   │   ├── sui.ts
 │   │   │   └── aptos.ts
-│   │   └── utils.ts
+│   │   ├── errors.ts          # Typed error classes with suggestions
+│   │   └── types.ts           # Full TypeScript definitions
 │   ├── test/
-│   └── package.json
+│   │   ├── unit/              # Unit tests with mocks
+│   │   ├── integration/       # Integration tests with local chains
+│   │   └── e2e/               # E2E tests with testnets
+│   └── dist/
+│       ├── cjs/               # CommonJS build
+│       ├── esm/               # ESM build
+│       └── types/             # TypeScript declarations
+│
 ├── go/
 │   ├── csv/
+│   │   ├── client.go          # Main client
 │   │   ├── wallet.go
 │   │   ├── right.go
 │   │   ├── transfer.go
 │   │   ├── proof.go
 │   │   └── chains/
 │   └── go.mod
+│
 └── python/
     ├── csv_adapter/
     │   ├── __init__.py
+    │   ├── client.py
     │   ├── wallet.py
     │   ├── right.py
     │   ├── transfer.py
@@ -527,52 +1045,179 @@ csv-sdk/
     └── setup.py
 ```
 
-### 7.3 TypeScript SDK API (Example)
+### 7.4 TypeScript SDK API (Maya's Flow)
 
 ```typescript
 import { CSV, Chain } from '@csv-adapter/sdk';
 
-// Initialize with wallet
-const csv = await CSV.fromMnemonic(mnemonic, {
-  chains: [Chain.Bitcoin, Chain.Ethereum, Chain.Sui, Chain.Aptos],
+// Initialize - works immediately
+const csv = await CSV.createDevWallet();
+
+// Create a Right - one liner
+const right = await csv.rights.create({
+  value: { amount: 1000, currency: 'sats' },
 });
 
-// Create a Right
-const right = await csv.right.create({
-  commitment: '0x...',
-  chain: Chain.Sui,
-});
-
-// Transfer to another chain
-const transfer = await csv.transfer({
+// Transfer cross-chain - simple
+const transfer = await csv.transfers.crossChain({
   rightId: right.id,
-  from: Chain.Sui,
+  from: Chain.Bitcoin,
   to: Chain.Ethereum,
-  destinationOwner: '0x...',
+  toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD38',
 });
 
-// Monitor transfer
-const status = await transfer.waitForCompletion();
-console.log(status); // 'completed' | 'locked' | 'minted' | 'failed'
-
-// Verify a proof
-const isValid = await csv.verifyProof(transfer.proof);
+// Wait for completion - explicit
+const result = await transfer.waitForCompletion({ timeout: '5m' });
+console.log(`✅ Right ${right.id} transferred to Ethereum`);
 ```
 
-### 7.4 WASM Bindings
+### 7.5 Rust SDK API (Alex's Flow)
 
-For browser use without a backend:
+```rust
+use csv_adapter::prelude::*;
 
+#[tokio::main]
+async fn main() -> Result<(), CsvError> {
+    // Build client - fluent builder pattern
+    let client = CsvClient::builder()
+        .with_chain(Bitcoin::mainnet()?)
+        .with_chain(Ethereum::mainnet()?)
+        .with_chain(Sui::mainnet()?)
+        .with_wallet(Wallet::from_mnemonic(std::env::var("MNEMONIC")?)?)
+        .with_store(SqliteStore::new("data/csv.db").await?)
+        .build()?;
+
+    // Create a Right - one liner
+    let right = client.rights()
+        .create(Commitment::from_hash(b"metadata".as_slice()))
+        .on(Chain::Sui)
+        .await?;
+
+    // Cross-chain transfer - explicit
+    let transfer = client.transfers()
+        .cross_chain(&right.id, Chain::Ethereum)
+        .to_address("0x742d35Cc6634C0532925a3b844Bc9e7595f2bD38".parse()?)
+        .execute()
+        .await?;
+
+    // Monitor progress - stream API
+    let mut watcher = transfer.watch();
+    while let Some(event) = watcher.next().await {
+        println!("Progress: {:?}", event);
+    }
+
+    Ok(())
+}
 ```
-csv-wasm/
-├── src/lib.rs          # Rust → WASM bindings via wasm-bindgen
-├── pkg/
-│   ├── csv.wasm
-│   ├── csv.js           # JS wrapper
-│   └── csv.d.ts         # TypeScript definitions
-└── examples/
-    ├── react/
-    └── vanilla/
+
+### 7.6 WASM Bindings (Browser-Only)
+
+```typescript
+// @csv-adapter/wasm - all crypto in WASM
+import init, { CsvWasm } from '@csv-adapter/wasm';
+
+// Initialize WASM module
+await init();
+
+const csv = CsvWasm.new();
+
+// All cryptography happens in WASM (faster, safer)
+const wallet = csv.generate_wallet();
+const proof = csv.generate_proof(right_id, chain);
+const valid = csv.verify_proof(proof);
+```
+
+### 7.7 Testing Framework
+
+```typescript
+// @csv-adapter/testing
+import { TestEnvironment, Chain } from '@csv-adapter/testing';
+
+describe('Cross-Chain NFT Transfer', () => {
+  let env: TestEnvironment;
+
+  beforeEach(async () => {
+    env = await TestEnvironment.create({
+      chains: [Chain.Bitcoin, Chain.Ethereum],
+      fundWallets: true,  // Auto-fund dev wallets
+    });
+  });
+
+  it('should transfer NFT from Bitcoin to Ethereum', async () => {
+    const csv = env.getCsvClient('alice');
+
+    // Create NFT Right on Bitcoin
+    const nft = await csv.rights.create({
+      metadata: { name: 'Test NFT', image: 'ipfs://...' },
+    });
+
+    // Transfer to Ethereum
+    const transfer = await csv.transfers.crossChain({
+      rightId: nft.id,
+      from: Chain.Bitcoin,
+      to: Chain.Ethereum,
+      toAddress: env.getAddress('bob', Chain.Ethereum),
+    });
+
+    await transfer.waitForCompletion();
+
+    // Verify Bob owns it on Ethereum
+    const bobCsv = env.getCsvClient('bob');
+    const rights = await bobCsv.rights.list({ chain: Chain.Ethereum });
+    expect(rights).toContainEqual(expect.objectContaining({ id: nft.id }));
+  });
+});
+```
+
+### 7.8 Error Handling — Typed & Actionable
+
+```typescript
+// Every error is actionable
+try {
+  await transfer.waitForCompletion();
+} catch (error) {
+  if (error instanceof CsvError) {
+    switch (error.code) {
+      case ErrorCode.INSUFFICIENT_FUNDS:
+        console.log(`Need ${error.details.required} sats, have ${error.details.available}`);
+        console.log(`Fund wallet: ${error.details.faucetUrl}`);
+        break;
+
+      case ErrorCode.PROOF_VERIFICATION_FAILED:
+        console.log('Proof verification failed. Details:');
+        console.log(`  Expected seal: ${error.details.expectedSeal}`);
+        console.log(`  Got seal: ${error.details.gotSeal}`);
+        console.log(`  Run: csv validate proof ${error.details.proofFile}`);
+        break;
+
+      case ErrorCode.RPC_TIMEOUT:
+        console.log(`RPC timeout for ${error.details.chain}`);
+        console.log(`  Checked endpoint: ${error.details.rpcUrl}`);
+        console.log(`  Try alternative: ${error.details.alternativeRpcUrl}`);
+        break;
+    }
+  }
+}
+```
+
+### 7.9 Diagnostic Tools
+
+```bash
+# Run full diagnostic
+csv doctor
+
+# Output:
+# ✓ Rust version: 1.75.0
+# ✓ CSV Adapter version: 0.3.0
+# ✓ Configuration file: ~/.csv/config.toml
+# ✗ Bitcoin RPC: Connection failed
+#   → Checked: https://mempool.space/api
+#   → Error: timeout after 30s
+#   → Try: https://blockstream.info/api
+# ✓ Ethereum RPC: Connected (chain: goerli, block: 10,234,567)
+# ✓ Sui RPC: Connected (epoch: 1, checkpoint: 5,432)
+# ✓ Wallet: Found (address: bc1q..., balance: 0.001 BTC)
+# ✓ Store: SQLite database healthy (12 rights, 34 transfers)
 ```
 
 ---
@@ -1244,18 +1889,39 @@ Week 8: Documentation + example apps (marketplace, lending)
 
 ---
 
-## Implementation Priority Matrix
+## Implementation Priority Matrix — DX-First
 
-### Q1 2026 (Immediate)
+### Q1 2026 (Immediate) — DX Foundation
 
+**Developer Experience (Priority 1)**
+- [x] Developer Experience Blueprint (BLUEPRINT_DX.md)
+- [ ] TypeScript SDK (core APIs) — `npm install @csv-adapter/sdk`
+- [ ] `create-csv-app` scaffolding — `npx create-csv-app@latest`
+- [ ] Interactive tutorial system — `csv tutorial cross-chain-basics`
+- [ ] Local chain simulator — `csv local start`
+- [ ] Typed error classes with suggestions
+- [ ] `csv doctor` diagnostic tool
+
+**Core Features (Priority 2)**
 - [ ] Cross-chain subscription app (easiest app)
 - [ ] Wallet encryption + BIP-39 support
-- [ ] Solana adapter
-- [ ] TypeScript SDK (core APIs)
 - [ ] Seal registry performance optimization
+- [ ] Solana adapter
 
-### Q2 2026
+**Success Criteria:** Developer can complete first cross-chain transfer in < 5 minutes
 
+### Q2 2026 — DX Polish
+
+**Developer Experience (Priority 1)**
+- [ ] TypeScript SDK chain providers (Bitcoin, Ethereum, Sui, Aptos)
+- [ ] WASM bindings for browser — `@csv-adapter/wasm`
+- [ ] Testing framework with mock chains — `@csv-adapter/testing`
+- [ ] Browser-based playground — `play.csv.dev`
+- [ ] Living examples repository — `examples.csv.dev`
+- [ ] Code generator — `csv generate project --template nft-marketplace`
+- [ ] Property-based test suite
+
+**Core Features (Priority 2)**
 - [ ] Cross-chain NFT app
 - [ ] Multi-sig wallet support
 - [ ] Cosmos adapter
@@ -1263,8 +1929,20 @@ Week 8: Documentation + example apps (marketplace, lending)
 - [ ] ZK proof verification (Phase 1)
 - [ ] RGB asset import
 
-### Q3 2026
+**Success Criteria:** 90% of tutorial participants succeed without external help
 
+### Q3 2026 — DX Ecosystem
+
+**Developer Experience (Priority 1)**
+- [ ] VS Code extension (v1)
+- [ ] React component library — `@csv-adapter/react`
+- [ ] Achievement system & developer gamification
+- [ ] Production monitoring guide
+- [ ] Security best practices guide
+- [ ] Advanced tutorial series
+- [ ] Developer feedback system
+
+**Core Features (Priority 2)**
 - [ ] Supply chain provenance app
 - [ ] Hardware wallet integration
 - [ ] Solana/Cosmos production readiness
@@ -1272,8 +1950,18 @@ Week 8: Documentation + example apps (marketplace, lending)
 - [ ] Post-quantum signatures (Dilithium2)
 - [ ] AluVM integration
 
-### Q4 2026
+**Success Criteria:** 100+ developers onboarded, 10+ production apps using CSV
 
+### Q4 2026 — DX Maturity
+
+**Developer Experience (Priority 1)**
+- [ ] Developer satisfaction survey (quarterly)
+- [ ] DX metrics dashboard
+- [ ] Community examples curation
+- [ ] "You Asked, We Built" series
+- [ ] Developer advocacy program
+
+**Core Features (Priority 2)**
 - [ ] Privacy-preserving credentials
 - [ ] ZK selective disclosure
 - [ ] Polkadot adapter
@@ -1281,9 +1969,13 @@ Week 8: Documentation + example apps (marketplace, lending)
 - [ ] RGB bidirectional bridge
 - [ ] Formal verification of core invariants
 
+**Success Criteria:** 500+ developers, 25+ production apps, 4.5/5 DX satisfaction
+
 ---
 
-## Success Metrics
+## Success Metrics — DX-Focused
+
+### Technical Metrics
 
 | Metric | Current | Target Q1 | Target Q2 | Target Q4 |
 |--------|---------|-----------|-----------|-----------|
@@ -1294,3 +1986,94 @@ Week 8: Documentation + example apps (marketplace, lending)
 | **Production readiness** | 79% | 85% | 92% | 98% |
 | **Real transactions** | 1 (BTC→Signet) | 5 | 20 | 100+ |
 | **Apps built on CSV** | 0 | 1 | 3 | 10 |
+
+### Developer Experience Metrics
+
+| Metric | Current | Target Q1 | Target Q2 | Target Q4 |
+|--------|---------|-----------|-----------|-----------|
+| **Time to first transfer** | N/A | < 5 min | < 3 min | < 2 min |
+| **Tutorial completion rate** | N/A | > 80% | > 90% | > 95% |
+| **SDK downloads** | 0 | 100 devs | 500 devs | 5000 devs |
+| **GitHub stars** | Existing | +200 | +1000 | +5000 |
+| **Community size** | Small | 500 | 2000 | 10000 |
+| **Production apps** | 0 | 5 | 25 | 100+ |
+| **Documentation satisfaction** | N/A | 4.0/5 | 4.5/5 | 4.8/5 |
+| **Error resolution time** | N/A | < 5 min | < 2 min | < 1 min |
+| **Support tickets per dev** | N/A | < 0.5 | < 0.2 | < 0.1 |
+
+### Community Health Metrics
+
+| Metric | Target Q2 | Target Q4 |
+|--------|-----------|-----------|
+| **Active contributors** | 20 | 100 |
+| **Community examples** | 10 | 50 |
+| **Discord activity** | 500 msgs/month | 2000 msgs/month |
+| **Office hours attendance** | 20/session | 100/session |
+| **Achievement badges earned** | 100 | 1000 |
+
+---
+
+## Documentation Strategy
+
+### Documentation Layers (Diátaxis Framework)
+
+| Layer | Purpose | Example | Audience |
+|-------|---------|---------|----------|
+| **Tutorials** | Learning-oriented, step-by-step | "Cross-Chain Transfers in 5 Minutes" | Beginners |
+| **How-To Guides** | Goal-oriented, real-world scenarios | "How to Add Cross-Chain NFT Transfers" | Intermediate |
+| **Reference** | Information-oriented, complete API docs | TypeScript SDK API Reference | All levels |
+| **Explanation** | Understanding-oriented, deep dives | "Why Client-Side Validation?" | Advanced |
+
+### Documentation Sites
+
+| Site | Purpose | Features |
+|------|---------|----------|
+| **docs.csv.dev** | Main documentation hub | Search, chain selector, language toggle |
+| **play.csv.dev** | Browser-based playground | In-browser Rust/TS, simulated chains |
+| **examples.csv.dev** | Living examples repository | Working code, live demos, guides |
+| **api.csv.dev** | Auto-generated API docs | Rust rustdoc, TypeScript TypeDoc |
+
+### Community-Driven Content
+
+| Content Type | Source | Review Process |
+|--------------|--------|----------------|
+| **Core docs** | Maintainers | PR review by DX team |
+| **Examples** | Community | Curated by community team |
+| **Tutorials** | Community + Maintainers | Peer-reviewed before publishing |
+| **Troubleshooting** | Community | Wiki-style, moderated |
+| **Blog posts** | Maintainers | Monthly DX updates |
+
+### Feedback Loop
+
+```
+Collect → Analyze → Act → Communicate
+
+1. Collect:
+   - In-app feedback widget
+   - GitHub issue labels (dx-improvement)
+   - Discord support channel mining
+   - Quarterly developer survey
+
+2. Analyze:
+   - Categorize feedback (onboarding, API, docs, bugs)
+   - Identify top 3 pain points
+   - Track trends over time
+
+3. Act:
+   - Prioritize DX improvements in sprint planning
+   - Assign owner to each pain point
+   - Set deadline for resolution
+
+4. Communicate:
+   - Monthly DX update blog post
+   - "You Asked, We Built" series
+   - Changelog highlights DX improvements
+   - Thank contributors publicly
+```
+
+---
+
+*This is a living document. Last updated: April 11, 2026.  
+Related: [Developer Experience Blueprint](BLUEPRINT_DX.md)  
+Contribute: https://github.com/zorvan/csv-adapter  
+Discuss: https://discord.gg/csv-adapter*

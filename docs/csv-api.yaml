@@ -1,0 +1,639 @@
+openapi: 3.1.0
+info:
+  title: CSV Adapter API
+  description: |
+    Client-side validation system for cross-chain rights.
+    
+    This API enables AI agents and applications to:
+    - Create and manage Rights anchored to blockchain seals
+    - Execute cross-chain transfers with cryptographic proofs
+    - Verify proofs locally without trusting intermediaries
+    - Monitor wallet balances and chain status
+    
+    **Key Concepts:**
+    - **Right**: A transferrable claim anchored to a chain's single-use seal
+    - **Seal**: Chain-specific mechanism enforcing single-use (UTXO, Object, Resource, Nullifier)
+    - **Cross-chain transfer**: Right moves by consuming seal on source, proving on destination
+  version: 0.1.0
+  contact:
+    name: CSV Adapter Team
+    url: https://github.com/zorvan/csv-adapter
+  license:
+    name: MIT OR Apache-2.0
+    url: https://github.com/zorvan/csv-adapter/blob/main/LICENSE
+
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Local development server
+  - url: https://api.csv.dev/v1
+    description: Production API
+
+tags:
+  - name: rights
+    description: Create, query, and manage Rights
+  - name: transfers
+    description: Cross-chain transfer operations
+  - name: proofs
+    description: Generate and verify cryptographic proofs
+  - name: wallet
+    description: Wallet and chain management
+
+paths:
+  /rights:
+    post:
+      operationId: createRight
+      summary: Create a new Right
+      description: Create a new Right anchored to a specific blockchain's single-use seal
+      tags:
+        - rights
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRightRequest'
+      responses:
+        '201':
+          description: Right created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateRightResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    get:
+      operationId: listRights
+      summary: List all Rights
+      description: List all Rights in the wallet, optionally filtered by chain and status
+      tags:
+        - rights
+      parameters:
+        - name: chain
+          in: query
+          description: Filter by chain
+          schema:
+            $ref: '#/components/schemas/Chain'
+        - name: status
+          in: query
+          description: Filter by status
+          schema:
+            type: string
+            enum: [active, spent, all]
+            default: active
+        - name: limit
+          in: query
+          description: Maximum number of Rights to return
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: List of Rights
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListRightsResponse'
+
+  /rights/{rightId}:
+    get:
+      operationId: getRight
+      summary: Get Right details
+      description: Get details of a specific Right by its ID
+      tags:
+        - rights
+      parameters:
+        - name: rightId
+          in: path
+          required: true
+          description: The 32-byte Right ID (hex format)
+          schema:
+            type: string
+            pattern: '^0x[a-fA-F0-9]{64}$'
+      responses:
+        '200':
+          description: Right details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetRightResponse'
+        '404':
+          description: Right not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /transfers:
+    post:
+      operationId: createTransfer
+      summary: Create cross-chain transfer
+      description: |
+        Transfer a Right from one blockchain to another.
+        
+        **Process:**
+        1. Lock Right on source chain (consume seal)
+        2. Generate cryptographic proof
+        3. Submit proof to destination chain
+        4. Mint Right on destination chain
+      tags:
+        - transfers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTransferRequest'
+      responses:
+        '201':
+          description: Transfer initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateTransferResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    get:
+      operationId: listTransfers
+      summary: List transfers
+      description: List all cross-chain transfers, optionally filtered
+      tags:
+        - transfers
+      parameters:
+        - name: from_chain
+          in: query
+          description: Filter by source chain
+          schema:
+            $ref: '#/components/schemas/Chain'
+        - name: to_chain
+          in: query
+          description: Filter by destination chain
+          schema:
+            $ref: '#/components/schemas/Chain'
+        - name: status
+          in: query
+          description: Filter by status
+          schema:
+            type: string
+            enum: [pending, completed, failed, all]
+            default: all
+        - name: limit
+          in: query
+          description: Maximum number of transfers to return
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: List of transfers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListTransfersResponse'
+
+  /transfers/{transferId}:
+    get:
+      operationId: getTransfer
+      summary: Get transfer status
+      description: Get the current status of a cross-chain transfer
+      tags:
+        - transfers
+      parameters:
+        - name: transferId
+          in: path
+          required: true
+          description: The transfer ID to check
+          schema:
+            type: string
+            pattern: '^0x[a-fA-F0-9]{64}$'
+      responses:
+        '200':
+          description: Transfer status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetTransferResponse'
+        '404':
+          description: Transfer not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /proofs/verify:
+    post:
+      operationId: verifyProof
+      summary: Verify proof
+      description: |
+        Verify a cross-chain proof locally.
+        
+        This checks that a Right was properly locked on the source chain and the proof is valid.
+      tags:
+        - proofs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyProofRequest'
+      responses:
+        '200':
+          description: Proof verification result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyProofResponse'
+
+  /wallet/balance:
+    get:
+      operationId: getWalletBalance
+      summary: Get wallet balance
+      description: Check wallet balance across all supported blockchain chains
+      tags:
+        - wallet
+      parameters:
+        - name: chains
+          in: query
+          description: Comma-separated list of chains to check
+          schema:
+            type: string
+            example: "bitcoin,ethereum"
+      responses:
+        '200':
+          description: Wallet balances
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetBalanceResponse'
+
+  /wallet/chains:
+    get:
+      operationId: listChains
+      summary: List supported chains
+      description: List all supported blockchain chains and their current status
+      tags:
+        - wallet
+      responses:
+        '200':
+          description: List of chains
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListChainsResponse'
+
+components:
+  schemas:
+    Chain:
+      type: string
+      enum:
+        - bitcoin
+        - ethereum
+        - sui
+        - aptos
+      description: Supported blockchain networks
+
+    CreateRightRequest:
+      type: object
+      required:
+        - chain
+        - commitment_data
+      properties:
+        chain:
+          $ref: '#/components/schemas/Chain'
+        commitment_data:
+          type: object
+          description: Data to commit (will be hashed)
+          additionalProperties: true
+        owner_address:
+          type: string
+          description: Address that owns the Right (default: wallet address)
+        metadata:
+          type: object
+          description: Optional metadata for the Right
+          additionalProperties: true
+
+    CreateRightResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        right_id:
+          type: string
+          pattern: '^0x[a-fA-F0-9]{64}$'
+          example: '0xabc123...'
+        chain:
+          $ref: '#/components/schemas/Chain'
+        transaction_hash:
+          type: string
+          example: '0xdef456...'
+        commitment_hash:
+          type: string
+          example: '0x789abc...'
+        owner:
+          type: string
+          example: 'bc1q...'
+        created_at:
+          type: string
+          format: date-time
+
+    GetRightResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        right:
+          $ref: '#/components/schemas/Right'
+
+    ListRightsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        count:
+          type: integer
+        rights:
+          type: array
+          items:
+            $ref: '#/components/schemas/Right'
+
+    Right:
+      type: object
+      properties:
+        right_id:
+          type: string
+          pattern: '^0x[a-fA-F0-9]{64}$'
+        chain:
+          $ref: '#/components/schemas/Chain'
+        commitment:
+          type: string
+        owner:
+          type: string
+        status:
+          type: string
+          enum: [active, spent, pending]
+        created_at:
+          type: string
+          format: date-time
+        history:
+          type: array
+          items:
+            $ref: '#/components/schemas/RightEvent'
+
+    RightEvent:
+      type: object
+      properties:
+        action:
+          type: string
+          enum: [created, transferred, spent]
+        timestamp:
+          type: string
+          format: date-time
+        chain:
+          $ref: '#/components/schemas/Chain'
+        transaction:
+          type: string
+
+    CreateTransferRequest:
+      type: object
+      required:
+        - right_id
+        - from_chain
+        - to_chain
+        - destination_owner
+      properties:
+        right_id:
+          type: string
+          pattern: '^0x[a-fA-F0-9]{64}$'
+          description: The Right ID to transfer
+        from_chain:
+          $ref: '#/components/schemas/Chain'
+        to_chain:
+          $ref: '#/components/schemas/Chain'
+        destination_owner:
+          type: string
+          description: New owner address on destination chain
+        wait_for_completion:
+          type: boolean
+          default: true
+          description: If true, poll until transfer completes or fails
+        timeout:
+          type: string
+          pattern: '^\d+[smh]$'
+          default: '10m'
+          description: Maximum time to wait (e.g., '10m', '1h')
+
+    CreateTransferResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        transfer_id:
+          type: string
+        right_id:
+          type: string
+        from_chain:
+          $ref: '#/components/schemas/Chain'
+        to_chain:
+          $ref: '#/components/schemas/Chain'
+        status:
+          type: string
+          enum: [initiated, locking, proof_generated, completed, failed]
+        estimated_completion:
+          type: string
+          format: date-time
+
+    GetTransferResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        transfer:
+          $ref: '#/components/schemas/Transfer'
+
+    ListTransfersResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        count:
+          type: integer
+        transfers:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transfer'
+
+    Transfer:
+      type: object
+      properties:
+        transfer_id:
+          type: string
+        right_id:
+          type: string
+        from_chain:
+          $ref: '#/components/schemas/Chain'
+        to_chain:
+          $ref: '#/components/schemas/Chain'
+        destination_owner:
+          type: string
+        status:
+          type: string
+          enum: [initiated, locking, proof_generated, submitting, verifying, minting, completed, failed]
+        progress_percent:
+          type: integer
+          minimum: 0
+          maximum: 100
+        current_step:
+          type: string
+        source_transaction:
+          type: string
+        destination_transaction:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        total_time_ms:
+          type: integer
+
+    VerifyProofRequest:
+      type: object
+      required:
+        - proof_bundle
+      properties:
+        proof_bundle:
+          type: object
+          description: The proof bundle to verify
+          additionalProperties: true
+        expected_right_id:
+          type: string
+          description: Expected Right ID after verification
+
+    VerifyProofResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        valid:
+          type: boolean
+        proof_type:
+          type: string
+          enum: [merkle_inclusion, state_proof, receipt]
+        source_chain:
+          $ref: '#/components/schemas/Chain'
+        destination_chain:
+          $ref: '#/components/schemas/Chain'
+        verification_time_ms:
+          type: integer
+        right_id:
+          type: string
+        details:
+          type: object
+          properties:
+            inclusion_verified:
+              type: boolean
+            finality_confirmed:
+              type: boolean
+            seal_consumption_verified:
+              type: boolean
+
+    GetBalanceResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        total_usd_value:
+          type: number
+        balances:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/Balance'
+        last_updated:
+          type: string
+          format: date-time
+
+    Balance:
+      type: object
+      properties:
+        amount:
+          type: string
+        currency:
+          type: string
+        usd_value:
+          type: number
+        address:
+          type: string
+
+    ListChainsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        chains:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChainInfo'
+
+    ChainInfo:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/Chain'
+        name:
+          type: string
+        network:
+          type: string
+          enum: [mainnet, testnet, devnet]
+        status:
+          type: string
+          enum: [connected, disconnected, syncing]
+        block_height:
+          type: integer
+        rpc_url:
+          type: string
+
+    Error:
+      type: object
+      required:
+        - error_code
+        - error_message
+      properties:
+        success:
+          type: boolean
+          example: false
+        error_code:
+          type: string
+          description: Machine-readable error code
+          example: 'CSV_001'
+        error_message:
+          type: string
+          description: Human-readable error message
+        suggested_fix:
+          type: string
+          description: Actionable suggestion to resolve the issue
+        retryable:
+          type: boolean
+          description: Whether retrying the operation might succeed
+        docs_url:
+          type: string
+          format: uri
+          description: Link to documentation for this error
