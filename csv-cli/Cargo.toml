@@ -10,7 +10,7 @@ path = "src/main.rs"
 
 [dependencies]
 csv-adapter-core = { path = "../csv-adapter-core" }
-csv-adapter-bitcoin = { path = "../csv-adapter-bitcoin" }
+csv-adapter-bitcoin = { path = "../csv-adapter-bitcoin", features = ["signet-rest"] }
 csv-adapter-ethereum = { path = "../csv-adapter-ethereum" }
 csv-adapter-sui = { path = "../csv-adapter-sui" }
 csv-adapter-aptos = { path = "../csv-adapter-aptos" }

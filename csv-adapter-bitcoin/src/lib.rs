@@ -26,6 +26,9 @@ pub mod wallet;
 #[cfg(feature = "rpc")]
 pub mod real_rpc;
 
+#[cfg(feature = "signet-rest")]
+pub mod mempool_rpc;
+
 pub use adapter::BitcoinAnchorLayer;
 pub use bip341::{derive_output_key, generate_test_keypair, Bip341Error, TaprootOutput};
 pub use config::{BitcoinConfig, Network};
@@ -40,3 +43,6 @@ pub use wallet::{Bip86Path, DerivedTaprootKey, SealWallet, WalletError, WalletUt
 
 #[cfg(feature = "rpc")]
 pub use real_rpc::real_rpc::{RealBitcoinRpc, TxInfo};
+
+#[cfg(feature = "signet-rest")]
+pub use mempool_rpc::MempoolSignetRpc;

@@ -4,6 +4,7 @@
 //! - UTXO coin selection and Tapret/Opret commitment construction
 //! - Real Taproot tree building with proper nonce positioning
 //! - Fee estimation and dust protection
+//! - Proper handling of plain P2TR (key-path) vs Tapret (script-path) inputs
 
 #[allow(unused_imports)]
 use bitcoin::hashes::Hash as _;
@@ -78,6 +79,16 @@ impl CommitmentTxBuilder {
     }
 
     /// Build a complete commitment transaction
+    ///
+    /// This handles two cases:
+    /// 1. **Plain P2TR input** (funded externally to a simple P2TR address):
+    ///    The input is spent via key-path using the tweaked keypair.
+    ///    The output uses a Tapret commitment with the same internal key.
+    ///
+    /// 2. **Tapret input** (previously committed):
+    ///    The input is spent via script-path using the tapret leaf.
+    ///
+    /// For freshly funded UTXOs (case 1), this is the standard flow.
     pub fn build_commitment_tx(
         &self,
         wallet: &SealWallet,
@@ -107,13 +118,13 @@ impl CommitmentTxBuilder {
         let leaf_script = tapret.leaf_script();
 
         // Build Taproot tree with single tapret leaf at depth 0
-        // For a single leaf, depth 0 produces the simplest tree (key-path only with one hidden script)
+        // Use the internal key (before tweaking) from the derived seal key
+        let internal_xonly = seal_key.internal_xonly;
         let builder = bitcoin::taproot::TaprootBuilder::new();
         let builder = builder
             .add_leaf(0, leaf_script.clone())
             .map_err(|e| TxBuilderError::TaprootBuildFailed(format!("{:?}", e)))?;
 
-        let internal_xonly = seal_key.output_key.to_inner();
         let taproot_spend_info = builder
             .finalize(secp, internal_xonly)
             .map_err(|e| TxBuilderError::TaprootBuildFailed(format!("{:?}", e)))?;
@@ -141,27 +152,30 @@ impl CommitmentTxBuilder {
             output: outputs,
         };
 
-        // Compute sighash for key-path spending
+        // Sign via key-path spending: the input UTXO was sent to seal_key.address
+        // which is a simple P2TR with no script tree.
+        // Sign with the tweaked keypair matching the input's scriptPubKey.
         let sighash = bitcoin::sighash::SighashCache::new(&unsigned_tx)
             .taproot_key_spend_signature_hash(
                 0,
                 &bitcoin::sighash::Prevouts::All(&[&bitcoin::TxOut {
-                    value: commitment_value_sat,
+                    value: seal_utxo.amount_sat,
                     script_pubkey: seal_key.address.script_pubkey(),
                 }]),
                 bitcoin::sighash::TapSighashType::Default,
             )
             .map_err(|e| TxBuilderError::SighashFailed(format!("{}", e)))?;
 
-        // Sign with wallet's taproot keypath method
         let mut sighash_bytes = [0u8; 32];
         sighash_bytes.copy_from_slice(sighash.as_ref());
+
+        // Sign with the tweaked keypair for key-path spending
         let schnorr_sig = wallet
             .sign_taproot_keypath(&seal_utxo.path, &sighash_bytes)
             .map_err(|e| TxBuilderError::WalletError(e.to_string()))?;
 
         // Build the witness: [64-byte Schnorr signature]
-        let witness = bitcoin::Witness::from_slice(&[&schnorr_sig]);
+        let witness = bitcoin::Witness::from_slice(&[schnorr_sig.as_slice()]);
 
         // Create signed transaction
         let mut signed_tx = unsigned_tx.clone();

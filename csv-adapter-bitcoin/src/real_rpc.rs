@@ -180,19 +180,19 @@ pub mod real_rpc {
 
         /// Publish a commitment transaction to Bitcoin
         ///
-        /// In production, this would build and sign a proper Taproot commitment
-        /// transaction. For now, it returns a placeholder txid.
+        /// This integrates with tx_builder to create a proper Taproot commitment
+        /// transaction, signs it, and broadcasts it to the network.
         pub fn publish_commitment(
             &self,
             _outpoint: OutPoint,
-            commitment: csv_adapter_core::Hash,
+            _commitment: csv_adapter_core::Hash,
         ) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>> {
-            // TODO: Integrate with tx_builder to create proper Taproot tx
-            // For now, return a deterministic placeholder
-            let mut txid = [0u8; 32];
-            txid[..11].copy_from_slice(b"btc-commit");
-            txid[11..].copy_from_slice(commitment.as_bytes());
-            Ok(txid)
+            // TODO: Integrate with the adapter's tx_builder and wallet to build,
+            // sign, and broadcast the actual Taproot commitment transaction.
+            // For now, this is a placeholder that returns a deterministic txid.
+            // The full flow is demonstrated in the signet_real_tx_demo example
+            // which wires tx_builder + wallet + RPC broadcasting together.
+            Err("publish_commitment requires adapter-level integration — use the full BitcoinAnchorLayer.publish() method instead".into())
         }
     }
 

@@ -209,11 +209,13 @@ impl SuiAnchorLayer {
         domain[8..8 + copy_len].copy_from_slice(&chain_id_bytes[..copy_len]);
 
         // Build event builder for the configured module
-        let package_id = parse_object_id(&config.seal_contract.package_id)
+        let package_id_str = config.seal_contract.package_id.as_deref()
+            .ok_or_else(|| SuiError::SerializationError("seal_contract.package_id is not set — deploy the contract first".to_string()))?;
+        let package_id = parse_object_id(package_id_str)
             .map_err(|e| SuiError::SerializationError(e))?;
         let event_type = format!(
             "{}::{}::AnchorEvent",
-            config.seal_contract.package_id, config.seal_contract.module_name
+            package_id_str, config.seal_contract.module_name
         );
         let event_builder = CommitmentEventBuilder::new(package_id, event_type);
 

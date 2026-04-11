@@ -8,11 +8,12 @@
 /// - `refund_right()` — Recover a Right after lock timeout (settlement strategy)
 
 module csv_seal::csv_seal {
-    use sui::object::{Self, UID};
+    use sui::object::{Self, UID, ID};
     use sui::transfer;
     use sui::tx_context::{Self, TxContext};
-    use std::string::{Self, String};
-    use std::hash;
+    use sui::table;
+    use sui::event;
+    use std::vector;
 
     /// A Right anchored to Sui as an object.
     /// The object's existence = the Right's validity.
@@ -56,22 +57,20 @@ module csv_seal::csv_seal {
         refund_timeout: u64,
     }
 
-    /// Emitted when a Right is created
-    event RightCreated {
+    // Event structs (copy + drop)
+    struct RightCreated has copy, drop {
         right_id: vector<u8>,
         commitment: vector<u8>,
         owner: address,
         object_id: ID,
     }
 
-    /// Emitted when a Right is consumed
-    event RightConsumed {
+    struct RightConsumed has copy, drop {
         right_id: vector<u8>,
         consumer: address,
     }
 
-    /// Emitted when a Right is locked for cross-chain transfer
-    event CrossChainLock {
+    struct CrossChainLock has copy, drop {
         right_id: vector<u8>,
         commitment: vector<u8>,
         owner: address,
@@ -81,8 +80,7 @@ module csv_seal::csv_seal {
         locked_at: u64,
     }
 
-    /// Emitted when a Right is minted from cross-chain transfer
-    event CrossChainMint {
+    struct CrossChainMint has copy, drop {
         right_id: vector<u8>,
         commitment: vector<u8>,
         owner: address,
@@ -90,8 +88,7 @@ module csv_seal::csv_seal {
         source_seal_ref: vector<u8>,
     }
 
-    /// Emitted when a Right is refunded (settlement)
-    event CrossChainRefund {
+    struct CrossChainRefund has copy, drop {
         right_id: vector<u8>,
         commitment: vector<u8>,
         claimant: address,
@@ -99,17 +96,17 @@ module csv_seal::csv_seal {
     }
 
     /// Create a new LockRegistry (called once during deployment)
-    public entry fun create_registry(ctx: &mut TxContext) {
+    public fun create_registry(ctx: &mut TxContext) {
         let registry = LockRegistry {
             id: object::new(ctx),
-            locks: table::new<vector<u8>, LockRecord>(),
+            locks: table::new(ctx),
             refund_timeout: 86400, // 24 hours
         };
         transfer::share_object(registry);
     }
 
     /// Create a new Right on Sui
-    public entry fun create_seal(
+    public fun create_seal(
         right_id: vector<u8>,
         commitment: vector<u8>,
         state_root: vector<u8>,
@@ -135,7 +132,7 @@ module csv_seal::csv_seal {
     }
 
     /// Consume a Right (single-use enforcement via object deletion)
-    public entry fun consume_seal(
+    public fun consume_seal(
         right: RightObject,
         ctx: &mut TxContext
     ) {
@@ -151,7 +148,7 @@ module csv_seal::csv_seal {
     /// Lock a Right for cross-chain transfer.
     /// This consumes the Right (deletes the object) and emits a CrossChainLock event.
     /// The lock is recorded in the registry for refund support.
-    public entry fun lock_right(
+    public fun lock_right(
         right: RightObject,
         destination_chain: u8,
         destination_owner: vector<u8>,
@@ -178,7 +175,7 @@ module csv_seal::csv_seal {
             owner: right.owner,
             destination_chain,
             destination_owner,
-            source_tx_hash: tx_context::digest(ctx),
+            source_tx_hash: *tx_context::digest(ctx),
             locked_at,
         });
 
@@ -189,7 +186,7 @@ module csv_seal::csv_seal {
 
     /// Mint a new Right from a cross-chain transfer proof.
     /// This creates a new RightObject with the same commitment as the source chain's Right.
-    public entry fun mint_right(
+    public fun mint_right(
         right_id: vector<u8>,
         commitment: vector<u8>,
         state_root: vector<u8>,
@@ -222,19 +219,18 @@ module csv_seal::csv_seal {
     /// 1. The lock was recorded in the registry
     /// 2. The REFUND_TIMEOUT has elapsed
     /// 3. The Right has not already been refunded
-    public entry fun refund_right(
+    public fun refund_right(
         right_id: vector<u8>,
-        commitment: vector<u8>,
         state_root: vector<u8>,
         registry: &mut LockRegistry,
         ctx: &mut TxContext
     ) {
         assert!(
-            table::contains(&registry.locks, &right_id),
+            table::contains(&registry.locks, right_id),
             1003 // Lock not found in registry
         );
 
-        let lock = table::borrow_mut(&mut registry.locks, &right_id);
+        let lock = table::borrow_mut(&mut registry.locks, right_id);
         let now = tx_context::epoch_timestamp_ms(ctx) / 1000;
 
         // Verify timeout has elapsed
@@ -270,7 +266,7 @@ module csv_seal::csv_seal {
     }
 
     /// Transfer ownership of a Right
-    public entry fun transfer_right(
+    public fun transfer_right(
         right: RightObject,
         new_owner: address,
         _ctx: &mut TxContext
@@ -281,7 +277,7 @@ module csv_seal::csv_seal {
     /// Get lock info (for off-chain refund verification)
     public fun get_lock_info(
         registry: &LockRegistry,
-        right_id: &vector<u8>,
+        right_id: vector<u8>,
     ): (vector<u8>, u64, bool) {
         let lock = table::borrow(&registry.locks, right_id);
         (lock.commitment, lock.locked_at, lock.refunded)
@@ -290,7 +286,7 @@ module csv_seal::csv_seal {
     /// Check if refund is available for a Right
     public fun can_refund(
         registry: &LockRegistry,
-        right_id: &vector<u8>,
+        right_id: vector<u8>,
         now: u64,
     ): bool {
         if (!table::contains(&registry.locks, right_id)) {

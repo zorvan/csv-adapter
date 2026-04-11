@@ -93,7 +93,8 @@ impl Default for TransactionConfig {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SealContractConfig {
     /// Package ID where CSVSeal module is deployed.
-    pub package_id: String,
+    /// Must be set explicitly — there is no safe default.
+    pub package_id: Option<String>,
     /// Module name (typically "csv_seal").
     pub module_name: String,
     /// Seal object type name.
@@ -103,8 +104,7 @@ pub struct SealContractConfig {
 impl Default for SealContractConfig {
     fn default() -> Self {
         Self {
-            package_id: "0x0000000000000000000000000000000000000000000000000000000000000000"
-                .to_string(),
+            package_id: None, // No safe default — must be set explicitly
             module_name: "csv_seal".to_string(),
             seal_type: "Seal".to_string(),
         }
@@ -149,8 +149,10 @@ impl SuiConfig {
         if self.rpc_url.is_empty() {
             return Err("RPC URL cannot be empty".to_string());
         }
-        if self.seal_contract.package_id.is_empty() {
-            return Err("Seal contract package ID cannot be empty".to_string());
+        match &self.seal_contract.package_id {
+            Some(id) if id.is_empty() => return Err("Seal contract package ID cannot be empty".to_string()),
+            None => return Err("Seal contract package ID must be set — deploy the contract first".to_string()),
+            _ => {}
         }
         if self.transaction.max_gas_budget == 0 {
             return Err("Max gas budget must be greater than 0".to_string());
@@ -205,7 +207,7 @@ mod tests {
     #[test]
     fn test_invalid_config() {
         let mut config = SuiConfig::default();
-        config.seal_contract.package_id = "".to_string();
+        config.seal_contract.package_id = Some("".to_string());
         assert!(config.validate().is_err());
     }
 }

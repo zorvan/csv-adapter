@@ -205,7 +205,8 @@ fn cmd_transfer(
 
     // Step 5: Mint on destination chain
     output::progress(5, 6, &format!("Step 5: Minting Right on {}...", to_str));
-    let mint_provider = create_mint_provider(&to, dest_chain_id.clone());
+    let mint_provider = create_mint_provider(&to, dest_chain_id.clone())
+        .map_err(|e| anyhow::anyhow!("{}", e))?;
     let mint_result = mint_provider
         .mint_right(&transfer_proof)
         .map_err(|e| anyhow::anyhow!("Mint failed: {:?}", e))?;
@@ -268,12 +269,12 @@ fn create_lock_provider(chain: &Chain, chain_id: ChainId) -> Box<dyn LockProvide
     }
 }
 
-fn create_mint_provider(chain: &Chain, chain_id: ChainId) -> Box<dyn MintProvider> {
+fn create_mint_provider(chain: &Chain, chain_id: ChainId) -> Result<Box<dyn MintProvider>, String> {
     match chain {
-        Chain::Bitcoin => panic!("Bitcoin doesn't support minting (UTXO-native)"),
-        Chain::Sui => Box::new(SuiMintProvider { chain_id }),
-        Chain::Aptos => Box::new(AptosMintProvider { chain_id }),
-        Chain::Ethereum => Box::new(EthereumMintProvider { chain_id }),
+        Chain::Bitcoin => Err("Bitcoin is UTXO-native and does not support minting Rights. Bitcoin can only be used as a source chain for cross-chain transfers.".to_string()),
+        Chain::Sui => Ok(Box::new(SuiMintProvider { chain_id })),
+        Chain::Aptos => Ok(Box::new(AptosMintProvider { chain_id })),
+        Chain::Ethereum => Ok(Box::new(EthereumMintProvider { chain_id })),
     }
 }
 

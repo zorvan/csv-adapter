@@ -498,6 +498,7 @@ fn cmd_import(chain: Chain, secret: String, _config: &Config, state: &mut State)
             let signing_key = SigningKey::from_bytes(&seed);
             let verifying_key = signing_key.verifying_key();
 
+            // Aptos address: SHA3-256(public_key || authentication_scheme_byte)
             let mut hasher = Sha3_256::new();
             hasher.update(verifying_key.as_bytes());
             hasher.update([0x00]);
@@ -528,6 +529,7 @@ fn cmd_import(chain: Chain, secret: String, _config: &Config, state: &mut State)
             let signing_key = SigningKey::from_bytes(&seed);
             let verifying_key = signing_key.verifying_key();
 
+            // Sui address: BLAKE2b-256(signature_scheme_flag || public_key)
             let mut hasher = Blake2b::<U32>::new();
             hasher.update([0x00]);
             hasher.update(verifying_key.as_bytes());
@@ -561,9 +563,34 @@ fn cmd_import(chain: Chain, secret: String, _config: &Config, state: &mut State)
             format!("0x{}", hex::encode(&hash[12..]))
         }
         Chain::Bitcoin => {
-            return Err(anyhow::anyhow!(
-                "Bitcoin import requires mnemonic or complex key derivation. Use generate instead."
-            ))
+            use bitcoin::Network as BtcNetwork;
+            use csv_adapter_bitcoin::wallet::{Bip86Path, SealWallet};
+
+            let seed_bytes = if secret.starts_with("0x") {
+                hex::decode(&secret[2..]).map_err(|e| anyhow::anyhow!("Invalid hex: {}", e))?
+            } else {
+                hex::decode(&secret).map_err(|e| anyhow::anyhow!("Invalid hex: {}", e))?
+            };
+
+            if seed_bytes.len() != 64 {
+                return Err(anyhow::anyhow!(
+                    "Invalid Bitcoin seed length: {} bytes (expected 64)",
+                    seed_bytes.len()
+                ));
+            }
+
+            let mut seed = [0u8; 64];
+            seed.copy_from_slice(&seed_bytes);
+
+            let wallet = SealWallet::from_seed(&seed, BtcNetwork::Signet)
+                .map_err(|e| anyhow::anyhow!("Failed to create wallet: {}", e))?;
+
+            let path = Bip86Path::external(0, 0);
+            let key = wallet
+                .derive_key(&path)
+                .map_err(|e| anyhow::anyhow!("Failed to derive key: {}", e))?;
+
+            key.address.to_string()
         }
     };
 

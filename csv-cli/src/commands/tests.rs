@@ -68,10 +68,19 @@ fn cmd_run(
 ) -> Result<()> {
     let pairs = if all {
         vec![
+            // Bitcoin as source (UTXO seals → smart contract mints)
             (Chain::Bitcoin, Chain::Sui),
             (Chain::Bitcoin, Chain::Ethereum),
+            (Chain::Bitcoin, Chain::Aptos),
+            // Sui as source
+            (Chain::Sui, Chain::Ethereum),
             (Chain::Sui, Chain::Aptos),
+            // Ethereum as source
             (Chain::Ethereum, Chain::Sui),
+            (Chain::Ethereum, Chain::Aptos),
+            // Aptos as source
+            (Chain::Aptos, Chain::Sui),
+            (Chain::Aptos, Chain::Ethereum),
         ]
     } else {
         match chain_pair {

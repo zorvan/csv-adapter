@@ -1,4 +1,9 @@
 //! Cross-chain trait implementations for each chain adapter
+//!
+//! These providers simulate the cross-chain flow with placeholder data.
+//! In production, each provider would wire to real RPC calls and on-chain
+//! transactions. The placeholder data is derived from the actual parameters
+//! (right_id, commitment) to maintain referential integrity across the flow.
 
 use anyhow::Result;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -14,6 +19,12 @@ use csv_adapter_core::right::OwnershipProof;
 use csv_adapter_core::seal::SealRef;
 
 use crate::output;
+
+/// Helper to create a seal reference from real data (avoids unwrap on arbitrary lengths)
+fn make_seal_ref(data: &[u8]) -> SealRef {
+    SealRef::new(data.to_vec(), None)
+        .unwrap_or_else(|_| SealRef::new(vec![0u8; 36], None).unwrap())
+}
 
 /// Implement LockProvider for Bitcoin
 pub struct BitcoinLockProvider {
@@ -36,8 +47,12 @@ impl LockProvider for BitcoinLockProvider {
         output::progress(2, 3, "Generating Merkle inclusion proof...");
         // In production: call verify_inclusion() to get real Merkle proof
 
-        let tx_hash = Hash::new([0xAB; 32]); // Placeholder — would be real txid
-        let block_height = 299239u64; // Placeholder — would be real block height
+        // Derive deterministic placeholders from actual parameters
+        let mut tx_hash_bytes = [0u8; 32];
+        tx_hash_bytes[..16].copy_from_slice(&right_id.as_bytes()[..16]);
+        tx_hash_bytes[16..].copy_from_slice(&commitment.as_bytes()[..16]);
+        let tx_hash = Hash::new(tx_hash_bytes);
+        let block_height = 299500u64; // Signet block height range
 
         let lock_event = CrossChainLockEvent {
             right_id,
@@ -46,16 +61,16 @@ impl LockProvider for BitcoinLockProvider {
             source_chain: self._chain_id.clone(),
             destination_chain,
             destination_owner,
-            source_seal: SealRef::new(vec![0x01; 36], None).unwrap(),
+            source_seal: make_seal_ref(&tx_hash_bytes),
             source_tx_hash: tx_hash,
             source_block_height: block_height,
             timestamp: current_timestamp(),
         };
 
         let inclusion = InclusionProof::Bitcoin(BitcoinMerkleProof {
-            txid: (*tx_hash.as_bytes()).clone(),
-            merkle_branch: vec![[0xCD; 32], [0xEF; 32]], // Placeholder
-            block_header: vec![0x01; 80],                // Placeholder
+            txid: tx_hash_bytes,
+            merkle_branch: vec![], // Real proof would contain sibling hashes
+            block_header: vec![],  // Real proof would contain block header
             block_height,
             confirmations: 6,
         });

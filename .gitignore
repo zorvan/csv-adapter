@@ -18,8 +18,19 @@
 # Logs
 *.log
 
-# cache
+# Build artifacts
 target/
+
+# Foundry build artifacts (Ethereum)
+**/out/
+**/cache/
+**/broadcast/
+**/lib/forge-std/
+**/foundry.toml.bak
+
+# Sui Move build artifacts
+**/Move.lock
+**/build/
 
 # wallet
 wallet/
