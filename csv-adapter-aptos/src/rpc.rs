@@ -159,6 +159,7 @@ pub struct MockAptosRpc {
     pub events: std::sync::Mutex<std::collections::HashMap<String, Vec<AptosEvent>>>,
     pub blocks: std::sync::Mutex<std::collections::HashMap<u64, AptosBlockInfo>>,
     pub sent_transactions: std::sync::Mutex<Vec<Vec<u8>>>,
+    pub next_tx_events: std::sync::Mutex<Vec<AptosEvent>>,
 }
 
 #[cfg(debug_assertions)]
@@ -174,6 +175,7 @@ impl MockAptosRpc {
             events: std::sync::Mutex::new(std::collections::HashMap::new()),
             sent_transactions: std::sync::Mutex::new(Vec::new()),
             blocks: std::sync::Mutex::new(std::collections::HashMap::new()),
+            next_tx_events: std::sync::Mutex::new(Vec::new()),
         }
     }
 
@@ -312,6 +314,41 @@ impl AptosRpc for MockAptosRpc {
         // Store the JSON and return a mock hash
         let tx_bytes = serde_json::to_vec(&signed_tx_json).unwrap_or_default();
         self.sent_transactions.lock().unwrap().push(tx_bytes);
+
+        // Extract payload arguments to build mock event data
+        // New format: consume_seal only takes commitment (seal is at signer's address)
+        if let Some(payload) = signed_tx_json.get("payload") {
+            if let Some(args) = payload.get("arguments").and_then(|a| a.as_array()) {
+                if !args.is_empty() {
+                    // Parse commitment from argument
+                    let commit_str = args[0].as_str().unwrap_or("");
+
+                    let commitment = if let Some(hex) = commit_str.strip_prefix("0x") {
+                        hex::decode(hex).unwrap_or_default()
+                    } else {
+                        hex::decode(commit_str).unwrap_or_default()
+                    };
+
+                    // Build event data: module_address (32) + seal_address (mock) + commitment (32)
+                    let mut event_data = vec![0u8; 96];
+                    // module_address (0x1 padded to 32)
+                    event_data[31] = 0x01;
+                    // seal_address (use mock_address)
+                    event_data[32..64].copy_from_slice(&self.mock_address);
+                    // commitment
+                    event_data[64..96].copy_from_slice(&commitment[..32.min(commitment.len())]);
+
+                    let mut events = self.next_tx_events.lock().unwrap();
+                    events.push(AptosEvent {
+                        data: event_data,
+                        event_sequence_number: 0,
+                        key: "CSV::AnchorEvent".to_string(),
+                        transaction_version: self.latest_version,
+                    });
+                }
+            }
+        }
+
         let counter = self
             .tx_counter
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
@@ -325,7 +362,8 @@ impl AptosRpc for MockAptosRpc {
         &self,
         _tx_hash: [u8; 32],
     ) -> Result<AptosTransaction, Box<dyn std::error::Error + Send + Sync>> {
-        Ok(AptosTransaction {
+        let events = self.next_tx_events.lock().unwrap().drain(..).collect();
+        let tx = AptosTransaction {
             version: self.latest_version,
             hash: [0xCD; 32],
             state_change_hash: [0xEF; 32],
@@ -333,13 +371,19 @@ impl AptosRpc for MockAptosRpc {
             state_checkpoint_hash: None,
             epoch: 1,
             round: 0,
-            events: Vec::new(),
+            events,
             payload: Vec::new(),
             success: true,
             vm_status: "Executed".to_string(),
             gas_used: 0,
             cumulative_gas_used: 0,
-        })
+        };
+        // Add to transactions map so get_transaction_by_version can find it
+        self.transactions
+            .lock()
+            .unwrap()
+            .insert(self.latest_version, tx.clone());
+        Ok(tx)
     }
 
     fn get_block_by_version(

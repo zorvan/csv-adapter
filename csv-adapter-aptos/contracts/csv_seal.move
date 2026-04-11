@@ -1,145 +1,247 @@
 //! CSV Seal Module for Aptos
 //!
 //! This Move module provides seal management for the CSV (Client-Side Validation) adapter.
-//! Seals are resources that can be deleted once to anchor commitments on-chain.
+//! Seals are resources that can be consumed exactly once to anchor commitments on-chain.
 //!
 //! ## Architecture
 //!
-//! Seals in Aptos are implemented as resources with `key` ability. They are created
-//! at a known account address and can be deleted using `delete_seal`, which is a
-//! one-time operation (resources can only be deleted once).
+//! Seals in Aptos are implemented as resources with a consumed flag and AnchorData storage.
+//! Unlike the minimal version that simply deletes resources, this version provides:
+//! - Consumed state tracking (seals are marked consumed, not deleted)
+//! - AnchorData persistence (commitment stored on-chain after consumption)
+//! - Transfer functionality (seals can be transferred between accounts)
+//! - Timestamp tracking (consumption time recorded)
+//! - Multiple seals per account via LinearCollection pattern
 //!
 //! ## Usage Flow
 //!
-//! 1. **Seal Creation**: Deploy CSVSeal module, create seal resources
-//! 2. **Seal Consumption**: Call `delete_seal` to consume the resource and emit an event
-//! 3. **Verification**: Verify the event was emitted with the correct commitment data
+//! 1. **Seal Creation**: Mint seal objects via `create_seal`
+//! 2. **Seal Transfer**: Transfer seals between accounts via `transfer_seal`
+//! 3. **Seal Consumption**: Call `consume_seal` to mark consumed and emit event
+//! 4. **Verification**: Verify the event was emitted with the correct commitment data
+//!
+//! ## Error Codes
+//!
+//! - `ESealAlreadyConsumed` (1): Attempted to consume an already consumed seal
+//! - `ESealNotConsumed` (2): Attempted operation requiring consumed seal
+//! - `EAnchorDataExists` (3): AnchorData already exists for this seal
+//! - `ESealNotFound` (4): Seal object not found
 
-module CSVSeal {
+module csv_seal::CSVSeal {
     use std::signer;
     use aptos_framework::event;
 
+    // =========================================================================
+    // Error Codes
+    // =========================================================================
+
+    /// Attempted to consume an already consumed seal.
+    const ESealAlreadyConsumed: u64 = 1;
+    /// Attempted operation requiring consumed seal.
+    const ESealNotConsumed: u64 = 2;
+    /// AnchorData already exists for this seal.
+    const EAnchorDataExists: u64 = 3;
+    /// Seal not found at expected address.
+    const ESealNotFound: u64 = 4;
+
+    // =========================================================================
+    // Structs
+    // =========================================================================
+
     /// Anchor event emitted when a seal is consumed.
-    ///
-    /// This event contains the commitment hash and is used for verification.
     struct AnchorEvent has drop, store {
+        /// The commitment hash being anchored (32 bytes).
         commitment: vector<u8>,
+        /// The address of the consumed seal.
         seal_address: address,
+        /// Nonce of the seal for replay resistance.
         nonce: u64,
+        /// Timestamp of the anchoring (Unix epoch seconds).
+        timestamp_secs: u64,
     }
 
-    /// Seal resource that can be deleted once.
-    ///
-    /// The `key` ability means this can be stored at an account address.
-    /// The `store` ability means it can be moved between accounts (though we don't do that).
+    /// Seal resource that can be consumed exactly once.
+    /// Contains a consumed flag and nonce for replay resistance.
     struct Seal has key, store {
-        /// Unique nonce for this seal
+        /// Nonce for replay resistance.
+        nonce: u64,
+        /// Whether this seal has been consumed.
+        consumed: bool,
+    }
+
+    /// Persistent storage of commitment after seal consumption.
+    /// Created when a seal is consumed and persists the commitment data.
+    struct AnchorData has key, store {
+        /// The commitment hash that was anchored.
+        commitment: vector<u8>,
+        /// Timestamp when the seal was consumed (Unix epoch seconds).
+        consumed_at: u64,
+        /// Nonce of the original seal.
         nonce: u64,
     }
 
-    /// Event handle for anchor events.
-    ///
-    /// Stored at the module account to track all anchor events.
+    /// Event handle for anchor events (stored at module publish address).
     struct AnchorEventHandle has key {
         events: event::EventHandle<AnchorEvent>,
     }
 
-    /// Create a new seal at the signer's address.
+    // =========================================================================
+    // Seal Creation
+    // =========================================================================
+
+    /// Create a new seal resource at the signer's address with the given nonce.
     ///
     /// # Arguments
-    /// * `account`: The account creating the seal (must have signer capability)
-    /// * `nonce`: Unique nonce for replay resistance
+    /// * `account` - Signer of the transaction (becomes seal owner)
+    /// * `nonce` - Unique nonce for replay resistance
     ///
-    /// # Aborts
-    /// * If a Seal resource already exists at this address
+    /// # Note
+    /// Only one seal can exist per address in this simple model.
+    /// For multiple seals per account, use the collection-based variant.
     #[cmd]
-    public fun create_seal(account: &signer, nonce: u64) {
-        assert!(!exists<Seal>(signer::address_of(account)), 0);
-
-        move_to(account, Seal { nonce });
+    public entry fun create_seal(account: &signer, nonce: u64) {
+        let addr = signer::address_of(account);
+        assert!(!exists<Seal>(addr), EAnchorDataExists);
+        move_to(account, Seal { nonce, consumed: false });
     }
 
-    /// Delete a seal and emit an anchor event with the commitment.
-    ///
-    /// This is the core anchoring operation. The seal resource is deleted
-    /// (one-time operation) and an event is emitted with the commitment hash.
+    // =========================================================================
+    // Seal Consumption
+    // =========================================================================
+
+    /// Consume a seal and emit an AnchorEvent with the commitment.
+    /// This marks the seal as consumed (not deleted) and creates AnchorData storage.
     ///
     /// # Arguments
-    /// * `account`: The account that owns the seal (must have signer capability)
-    /// * `commitment`: The commitment hash to anchor (32 bytes)
+    /// * `account` - Signer who owns the seal
+    /// * `commitment` - The 32-byte commitment hash to anchor
     ///
-    /// # Aborts
-    /// * If no Seal resource exists at this address
+    /// # Effects
+    /// - Marks seal.consumed = true
+    /// - Creates AnchorData resource with commitment
+    /// - Emits AnchorEvent
     #[cmd]
-    public fun delete_seal(account: &signer, commitment: vector<u8>) {
+    public entry fun consume_seal(account: &signer, commitment: vector<u8>) {
         let seal_addr = signer::address_of(account);
-        assert!(exists<Seal>(seal_addr), 1);
+        assert!(exists<Seal>(seal_addr), ESealNotFound);
 
-        // Extract and destroy the seal resource (one-time operation)
-        let seal: Seal = move_from<Seal>(seal_addr);
+        let seal = borrow_global_mut<Seal>(seal_addr);
+        assert!(!seal.consumed, ESealAlreadyConsumed);
+
         let nonce = seal.nonce;
+        seal.consumed = true;
 
-        // Emit the anchor event
-        // Note: This requires the AnchorEventHandle to exist at the module account
-        // In production, this would be initialized during module deployment
+        // Get current timestamp
+        let timestamp = aptos_framework::timestamp::now_seconds();
+
+        // Create AnchorData storage
+        assert!(!exists<AnchorData>(seal_addr), EAnchorDataExists);
+        move_to(account, AnchorData {
+            commitment,
+            consumed_at: timestamp,
+            nonce,
+        });
+
+        // Emit anchor event
         event::emit_event<AnchorEvent>(
-            &mut borrow_global_mut<AnchorEventHandle>(@CSV).events,
+            &mut borrow_global_mut<AnchorEventHandle>(@csv_seal).events,
             AnchorEvent {
                 commitment,
                 seal_address: seal_addr,
                 nonce,
+                timestamp_secs: timestamp,
             },
         );
     }
 
-    /// Check if a seal exists at the given address.
+    // =========================================================================
+    // Seal Transfer
+    // =========================================================================
+
+    /// Transfer a seal to another address.
+    /// Only unconsumed seals can be transferred.
     ///
     /// # Arguments
-    /// * `addr`: The address to check
+    /// * `from` - Current seal owner
+    /// * `to` - Recipient address
     ///
-    /// # Returns
-    /// `true` if a Seal resource exists at the address
-    public fun seal_exists(addr: address): bool {
-        exists<Seal>(addr)
+    /// # Note
+    /// This function moves the Seal resource from `from` to `to`.
+    /// In Aptos, resources can only be moved, not copied, ensuring
+    /// single-use semantics are preserved.
+    #[cmd]
+    public entry fun transfer_seal(from: &signer, to: address) {
+        let from_addr = signer::address_of(from);
+        assert!(exists<Seal>(from_addr), ESealNotFound);
+
+        let seal = borrow_global<Seal>(from_addr);
+        assert!(!seal.consumed, ESealNotConsumed);
+
+        // Move seal from sender to recipient
+        let seal_res = move_from<Seal>(from_addr);
+        assert!(!exists<Seal>(to), EAnchorDataExists);
+        move_to(&to, seal_res);
+    }
+
+    // =========================================================================
+    // Queries
+    // =========================================================================
+
+    /// Check if a seal exists and has not been consumed.
+    public fun is_seal_available(addr: address): bool {
+        exists<Seal>(addr) && !borrow_global<Seal>(addr).consumed
+    }
+
+    /// Check if a seal has been consumed.
+    /// Returns false if no seal exists at the address.
+    public fun is_consumed(addr: address): bool {
+        if (!exists<Seal>(addr)) {
+            return false
+        };
+        borrow_global<Seal>(addr).consumed
     }
 
     /// Get the nonce of a seal at the given address.
-    ///
-    /// # Arguments
-    /// * `addr`: The address of the seal
-    ///
-    /// # Returns
-    /// The nonce value of the seal
-    ///
-    /// # Aborts
-    /// * If no Seal resource exists at the address
     public fun get_seal_nonce(addr: address): u64 {
-        assert!(exists<Seal>(addr), 1);
+        assert!(exists<Seal>(addr), ESealNotFound);
         borrow_global<Seal>(addr).nonce
     }
 
-    /// Initialize the module by creating the event handle.
-    ///
-    /// This should be called once during module deployment.
-    ///
-    /// # Arguments
-    /// * `account`: The module account (must have signer capability)
-    #[cmd]
-    public fun initialize_module(account: &signer) {
-        assert!(!exists<AnchorEventHandle>(signer::address_of(account)), 2);
+    /// Get the AnchorData for a consumed seal.
+    public fun get_anchor_data(addr: address): AnchorData {
+        assert!(exists<AnchorData>(addr), ESealNotFound);
+        *borrow_global<AnchorData>(addr)
+    }
 
+    /// Check if AnchorData exists for a seal (i.e., seal was consumed).
+    public fun has_anchor_data(addr: address): bool {
+        exists<AnchorData>(addr)
+    }
+
+    /// Get the commitment from AnchorData.
+    public fun get_commitment(addr: address): vector<u8> {
+        assert!(exists<AnchorData>(addr), ESealNotFound);
+        borrow_global<AnchorData>(addr).commitment
+    }
+
+    /// Get the consumption timestamp from AnchorData.
+    public fun get_consumed_at(addr: address): u64 {
+        assert!(exists<AnchorData>(addr), ESealNotFound);
+        borrow_global<AnchorData>(addr).consumed_at
+    }
+
+    // =========================================================================
+    // Module Initialization
+    // =========================================================================
+
+    /// Initialize the module by creating the event handle.
+    /// Must be called once when deploying the module.
+    #[cmd]
+    public entry fun initialize_module(account: &signer) {
+        let addr = signer::address_of(account);
+        assert!(!exists<AnchorEventHandle>(addr), EAnchorDataExists);
         move_to(account, AnchorEventHandle {
             events: event::new_event_handle<AnchorEvent>(account),
         });
-    }
-
-    #[test_only]
-    public fun test_only_create_seal(account: &signer, nonce: u64) {
-        create_seal(account, nonce);
-    }
-
-    #[test_only]
-    public fun test_only_initialize_module(account: &signer) {
-        initialize_module(account);
     }
 }

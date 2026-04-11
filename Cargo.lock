@@ -1811,7 +1811,7 @@ dependencies = [
 
 [[package]]
 name = "csv-adapter-bitcoin"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "bip32",
  "bitcoin",
@@ -1832,7 +1832,7 @@ dependencies = [
 
 [[package]]
 name = "csv-adapter-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "bincode",
  "bitcoin",
@@ -1875,7 +1875,7 @@ dependencies = [
 
 [[package]]
 name = "csv-adapter-store"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "csv-adapter-core",
  "rusqlite",
@@ -1884,7 +1884,7 @@ dependencies = [
 
 [[package]]
 name = "csv-adapter-sui"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -1904,12 +1904,13 @@ dependencies = [
 
 [[package]]
 name = "csv-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "alloy-primitives 0.8.26",
  "anyhow",
  "bip32",
  "bitcoin",
+ "bitcoin_hashes 0.12.0",
  "blake2",
  "chrono",
  "clap",

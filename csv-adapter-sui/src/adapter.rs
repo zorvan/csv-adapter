@@ -18,6 +18,9 @@ use csv_adapter_core::dag::DAGSegment;
 use csv_adapter_core::error::AdapterError;
 use csv_adapter_core::error::Result as CoreResult;
 use csv_adapter_core::proof::{FinalityProof, ProofBundle};
+
+#[cfg(feature = "rpc")]
+type SignedTransaction = (Vec<u8>, Vec<u8>, Vec<u8>);
 use csv_adapter_core::seal::AnchorRef as CoreAnchorRef;
 use csv_adapter_core::seal::SealRef as CoreSealRef;
 use csv_adapter_core::AnchorLayer;
@@ -79,6 +82,7 @@ fn parse_object_id(s: &str) -> Result<[u8; 32], String> {
 ///
 /// This function manually constructs the BCS bytes to avoid the sui-sdk dependency.
 #[cfg(feature = "rpc")]
+#[allow(clippy::too_many_arguments)]
 fn build_sui_transaction_data(
     package_id: [u8; 32],
     module_name: &str,
@@ -214,8 +218,7 @@ impl SuiAnchorLayer {
                 "seal_contract.package_id is not set — deploy the contract first".to_string(),
             )
         })?;
-        let package_id =
-            parse_object_id(package_id_str).map_err(SuiError::SerializationError)?;
+        let package_id = parse_object_id(package_id_str).map_err(SuiError::SerializationError)?;
         let event_type = format!(
             "{}::{}::AnchorEvent",
             package_id_str, config.seal_contract.module_name
@@ -349,7 +352,7 @@ impl SuiAnchorLayer {
         &self,
         seal: &SuiSealRef,
         commitment: [u8; 32],
-    ) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>), Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<SignedTransaction, Box<dyn std::error::Error + Send + Sync>> {
         use ed25519_dalek::Signer;
 
         let signing_key = self
@@ -363,14 +366,18 @@ impl SuiAnchorLayer {
             .package_id
             .as_deref()
             .ok_or("seal_contract.package_id is not set — deploy the contract first")?;
-        let package_id = parse_object_id(package_id)
-            .map_err(|e| format!("Invalid package ID: {}", e))?;
+        let package_id =
+            parse_object_id(package_id).map_err(|e| format!("Invalid package ID: {}", e))?;
         let module_name = self.config.seal_contract.module_name.clone();
         let function_name = "consume_seal".to_string();
 
         log::debug!(
             "Building Sui MoveCall: {}::{}::{}(seal={}, commitment={})",
-            self.config.seal_contract.package_id.as_deref().unwrap_or("unknown"),
+            self.config
+                .seal_contract
+                .package_id
+                .as_deref()
+                .unwrap_or("unknown"),
             module_name,
             function_name,
             format_object_id(seal.object_id),
@@ -521,7 +528,7 @@ impl AnchorLayer for SuiAnchorLayer {
             let mut registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
             registry
                 .mark_seal_used(&seal, checkpoint)
-                .map_err(|e| AdapterError::from(e))?;
+                .map_err(AdapterError::from)?;
 
             Ok(SuiAnchorRef::new(seal.object_id, tx_digest, checkpoint))
         }

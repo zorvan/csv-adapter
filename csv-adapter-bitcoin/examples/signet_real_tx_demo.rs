@@ -17,9 +17,9 @@ use csv_adapter_core::{AnchorLayer, Hash};
 fn main() {
     println!("=== Bitcoin Signet Real Transaction Demo ===\n");
 
-    // Funded wallet seed from bitcoin-test.txt
-    let seed_hex = "f66b59d3e97de5e4e861ad4a24209727a5951936e30df5edc7a7d0e4a3906006f41957068112964ad8ca4ef40fc7780790302f4d202997b7800e7f71f4507f78";
-    let seed_bytes = hex::decode(seed_hex).expect("Invalid seed hex");
+    let seed_hex = std::env::var("BTC_SEED_HEX")
+        .expect("⚠️  BTC_SEED_HEX is not set. Copy .env.example to .env and fill in your key.");
+    let seed_bytes = hex::decode(&seed_hex).expect("Invalid seed hex");
     let mut seed = [0u8; 64];
     seed.copy_from_slice(&seed_bytes);
 

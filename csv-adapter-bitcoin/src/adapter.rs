@@ -352,9 +352,7 @@ impl AnchorLayer for BitcoinAnchorLayer {
         txid[10..].copy_from_slice(&commitment.as_bytes()[..22]);
 
         let mut registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
-        let _ = registry
-            .mark_seal_used(&seal)
-            .map_err(AdapterError::from);
+        let _ = registry.mark_seal_used(&seal).map_err(AdapterError::from);
 
         let current_height = self.get_current_height();
         Ok(BitcoinAnchorRef::new(txid, 0, current_height))
@@ -408,9 +406,7 @@ impl AnchorLayer for BitcoinAnchorLayer {
 
     fn enforce_seal(&self, seal: Self::SealRef) -> CoreResult<()> {
         let mut registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
-        registry
-            .mark_seal_used(&seal)
-            .map_err(AdapterError::from)
+        registry.mark_seal_used(&seal).map_err(AdapterError::from)
     }
 
     fn create_seal(&self, value: Option<u64>) -> CoreResult<Self::SealRef> {

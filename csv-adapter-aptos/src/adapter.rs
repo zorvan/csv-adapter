@@ -1,12 +1,12 @@
 //! Aptos AnchorLayer implementation with production-grade features
 //!
 //! This adapter implements the AnchorLayer trait for Aptos,
-//! using resources with key + delete as seals.
+//! using resources with consumed flag tracking as seals.
 //!
 //! ## Architecture
 //!
-//! - **Seals**: Move resources that can be deleted once (via `move_from`)
-//! - **Anchors**: Events emitted when seal resources are deleted
+//! - **Seals**: Move resources with `consumed` flag (marked consumed, not deleted)
+//! - **Anchors**: Events emitted when seal resources are consumed
 //! - **Finality**: HotStuff consensus provides deterministic finality via 2f+1 certification
 
 #![allow(dead_code)]
@@ -171,7 +171,7 @@ impl AptosAnchorLayer {
         Ok(())
     }
 
-    /// Build an Entry Function payload for CSVSeal.delete_seal() and sign it.
+    /// Build an Entry Function payload for CSVSeal.consume_seal() and sign it.
     ///
     /// Returns (signed_transaction_json, expected_event_data) ready for submission.
     ///
@@ -181,9 +181,9 @@ impl AptosAnchorLayer {
     /// ```text
     /// {
     ///   "type": "entry_function_payload",
-    ///   "function": "{module_address}::csv_seal::delete_seal",
+    ///   "function": "{module_address}::csv_seal::consume_seal",
     ///   "type_arguments": [],
-    ///   "arguments": ["{seal_address}", "{commitment_hex}"]
+    ///   "arguments": ["{commitment_hex}"]
     /// }
     /// ```
     ///
@@ -226,9 +226,8 @@ impl AptosAnchorLayer {
 
         // Build Entry Function payload
         let module_address = &self.config.seal_contract.module_address;
-        let function_name = &self.config.seal_contract.seal_resource;
-        // Assume delete_seal is the function name for consuming a seal
-        let function = format!("{}::csv_seal::delete_{}", module_address, function_name);
+        // consume_seal only takes commitment (seal is at signer's address)
+        let function = format!("{}::csv_seal::consume_seal", module_address);
 
         log::debug!(
             "Building Aptos Entry Function: {}(seal={}, commitment={})",
@@ -253,7 +252,6 @@ impl AptosAnchorLayer {
                 "function": function,
                 "type_arguments": [],
                 "arguments": [
-                    format!("0x{}", hex::encode(seal.account_address)),
                     format!("0x{}", hex::encode(commitment))
                 ]
             }
@@ -403,7 +401,7 @@ impl AnchorLayer for AptosAnchorLayer {
             let mut registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
             registry
                 .mark_seal_used(&seal, version)
-                .map_err(|e| AdapterError::from(e))?;
+                .map_err(AdapterError::from)?;
 
             Ok(AptosAnchorRef::new(version, seal.account_address, version))
         }
@@ -674,7 +672,10 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "rpc")]
     fn test_publish_seal_available() {
+        use ed25519_dalek::SigningKey;
+
         let config = AptosConfig::default();
         let mock = crate::rpc::MockAptosRpc::new(5000);
 
@@ -690,7 +691,10 @@ mod tests {
         );
 
         let rpc = Box::new(mock);
-        let adapter = AptosAnchorLayer::from_config(config.clone(), rpc).unwrap();
+        let signing_key = SigningKey::from_bytes(&[1u8; 32]);
+        let adapter = AptosAnchorLayer::from_config(config.clone(), rpc)
+            .unwrap()
+            .with_signing_key(signing_key);
 
         // Create a seal
         let seal = AptosSealRef::new([1u8; 32], resource_type.clone(), 0);
@@ -700,7 +704,10 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "rpc")]
     fn test_publish_seal_replay() {
+        use ed25519_dalek::SigningKey;
+
         let config = AptosConfig::default();
         let mock = crate::rpc::MockAptosRpc::new(5000);
 
@@ -716,7 +723,10 @@ mod tests {
         );
 
         let rpc = Box::new(mock);
-        let adapter = AptosAnchorLayer::from_config(config.clone(), rpc).unwrap();
+        let signing_key = SigningKey::from_bytes(&[1u8; 32]);
+        let adapter = AptosAnchorLayer::from_config(config.clone(), rpc)
+            .unwrap()
+            .with_signing_key(signing_key);
 
         let seal = AptosSealRef::new([1u8; 32], resource_type.clone(), 0);
         let commitment = Hash::new([1u8; 32]);

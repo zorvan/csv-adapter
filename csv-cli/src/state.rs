@@ -71,7 +71,7 @@ pub struct DeployedContract {
 }
 
 /// Persistent CLI state
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct State {
     /// Tracked Rights
     pub rights: Vec<TrackedRight>,
@@ -83,18 +83,6 @@ pub struct State {
     pub addresses: HashMap<config::Chain, String>,
     /// Seal consumption registry (simplified)
     pub consumed_seals: Vec<Vec<u8>>,
-}
-
-impl Default for State {
-    fn default() -> Self {
-        Self {
-            rights: Vec::new(),
-            transfers: Vec::new(),
-            contracts: HashMap::new(),
-            addresses: HashMap::new(),
-            consumed_seals: Vec::new(),
-        }
-    }
 }
 
 impl State {

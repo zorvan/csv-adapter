@@ -116,7 +116,7 @@ impl LockProvider for SuiLockProvider {
         };
 
         let inclusion = InclusionProof::Sui(SuiCheckpointProof {
-            tx_digest: (*tx_hash.as_bytes()).clone(),
+            tx_digest: (*tx_hash.as_bytes()),
             checkpoint_sequence: checkpoint,
             checkpoint_contents_hash: [0x33; 32],
             effects: vec![], // Would contain tx effects
@@ -215,7 +215,7 @@ impl LockProvider for EthereumLockProvider {
         };
 
         let inclusion = InclusionProof::Ethereum(EthereumMPTProof {
-            tx_hash: (*tx_hash.as_bytes()).clone(),
+            tx_hash: (*tx_hash.as_bytes()),
             receipt_root: [0x77; 32],
             receipt_rlp: vec![0x88; 200], // Would contain actual RLP
             merkle_nodes: vec![vec![0x99; 64]], // MPT proof nodes

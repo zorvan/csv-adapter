@@ -3,6 +3,7 @@
 //! Wraps `bitcoincore-rpc` behind the `BitcoinRpc` trait for production use.
 //! Only compiled when the `rpc` feature is enabled.
 
+#[allow(clippy::module_inception)]
 #[cfg(feature = "rpc")]
 pub mod real_rpc {
     use bitcoin::{Network, OutPoint, Txid};
@@ -13,6 +14,8 @@ pub mod real_rpc {
     use crate::proofs::extract_merkle_proof_from_block;
     use crate::rpc::BitcoinRpc;
     use crate::types::BitcoinInclusionProof;
+
+    type FundingTxResult = Vec<(Txid, u64, u32)>;
 
     /// Real Bitcoin RPC client backed by bitcoincore-rpc
     pub struct RealBitcoinRpc {
@@ -98,7 +101,7 @@ pub mod real_rpc {
             &self,
             _address: &bitcoin::Address,
             _min_confirmations: u64,
-        ) -> Result<Vec<(Txid, u64, u32)>, Box<dyn std::error::Error + Send + Sync>> {
+        ) -> Result<FundingTxResult, Box<dyn std::error::Error + Send + Sync>> {
             // Scan recent transactions for this address
             // This requires a wallet with transaction indexing
             // For now, return empty - users should manually add UTXOs

@@ -316,7 +316,7 @@ fn cmd_balance(
                     let balance_sui: u64 = balance.parse().unwrap_or(0);
                     let balance_display = balance_sui as f64 / 1e9;
                     output::kv("Balance (SUI)", &format!("{:.4}", balance_display));
-                    output::kv("Balance (MIST)", &balance.to_string());
+                    output::kv("Balance (MIST)", balance);
                 } else {
                     output::warning("No balance found");
                 }
@@ -479,10 +479,10 @@ fn cmd_import(chain: Chain, secret: String, _config: &Config, state: &mut State)
             use ed25519_dalek::SigningKey;
             use sha3::{Digest, Sha3_256};
 
-            let secret_bytes = if secret.starts_with("0x") {
-                hex::decode(&secret[2..]).map_err(|e| anyhow::anyhow!("Invalid hex: {}", e))?
+            let secret_bytes = if let Some(stripped) = secret.strip_prefix("0x") {
+                hex::decode(stripped).map_err(|e| anyhow::anyhow!("Invalid hex: {}", e))?
             } else {
-                hex::decode(&secret).map_err(|e| anyhow::anyhow!("Invalid hex: {}", e))?
+                hex::decode(secret).map_err(|e| anyhow::anyhow!("Invalid hex: {}", e))?
             };
 
             if secret_bytes.len() != 32 {
@@ -510,10 +510,10 @@ fn cmd_import(chain: Chain, secret: String, _config: &Config, state: &mut State)
             use ed25519_dalek::SigningKey;
             use typenum::U32;
 
-            let secret_bytes = if secret.starts_with("0x") {
-                hex::decode(&secret[2..]).map_err(|e| anyhow::anyhow!("Invalid hex: {}", e))?
+            let secret_bytes = if let Some(stripped) = secret.strip_prefix("0x") {
+                hex::decode(stripped).map_err(|e| anyhow::anyhow!("Invalid hex: {}", e))?
             } else {
-                hex::decode(&secret).map_err(|e| anyhow::anyhow!("Invalid hex: {}", e))?
+                hex::decode(secret).map_err(|e| anyhow::anyhow!("Invalid hex: {}", e))?
             };
 
             if secret_bytes.len() != 32 {
@@ -540,10 +540,10 @@ fn cmd_import(chain: Chain, secret: String, _config: &Config, state: &mut State)
             use secp256k1::{Secp256k1, SecretKey};
             use sha3::{Digest, Keccak256};
 
-            let secret_bytes = if secret.starts_with("0x") {
-                hex::decode(&secret[2..]).map_err(|e| anyhow::anyhow!("Invalid hex: {}", e))?
+            let secret_bytes = if let Some(stripped) = secret.strip_prefix("0x") {
+                hex::decode(stripped).map_err(|e| anyhow::anyhow!("Invalid hex: {}", e))?
             } else {
-                hex::decode(&secret).map_err(|e| anyhow::anyhow!("Invalid hex: {}", e))?
+                hex::decode(secret).map_err(|e| anyhow::anyhow!("Invalid hex: {}", e))?
             };
 
             if secret_bytes.len() != 32 {
@@ -566,10 +566,10 @@ fn cmd_import(chain: Chain, secret: String, _config: &Config, state: &mut State)
             use bitcoin::Network as BtcNetwork;
             use csv_adapter_bitcoin::wallet::{Bip86Path, SealWallet};
 
-            let seed_bytes = if secret.starts_with("0x") {
-                hex::decode(&secret[2..]).map_err(|e| anyhow::anyhow!("Invalid hex: {}", e))?
+            let seed_bytes = if let Some(stripped) = secret.strip_prefix("0x") {
+                hex::decode(stripped).map_err(|e| anyhow::anyhow!("Invalid hex: {}", e))?
             } else {
-                hex::decode(&secret).map_err(|e| anyhow::anyhow!("Invalid hex: {}", e))?
+                hex::decode(secret).map_err(|e| anyhow::anyhow!("Invalid hex: {}", e))?
             };
 
             if seed_bytes.len() != 64 {

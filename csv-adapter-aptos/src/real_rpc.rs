@@ -67,13 +67,7 @@ impl AptosRpcClient {
 
     /// Parse u64 from string (Aptos returns numbers as strings)
     fn parse_u64(value: &Value) -> u64 {
-        if let Some(s) = value.as_str() {
-            s.parse().unwrap_or(0)
-        } else if let Some(n) = value.as_u64() {
-            n
-        } else {
-            0
-        }
+        value.as_u64().unwrap_or_default()
     }
 
     /// Format address as hex string
@@ -103,7 +97,7 @@ impl AptosRpcClient {
         // Parse events
         let events = result["events"]
             .as_array()
-            .map(|arr| arr.iter().map(|e| Self::parse_event(e)).collect())
+            .map(|arr| arr.iter().map(Self::parse_event).collect())
             .unwrap_or_default();
 
         // Parse payload
@@ -230,7 +224,7 @@ impl AptosRpc for AptosRpcClient {
         ))?;
 
         if let Some(txs) = result.as_array() {
-            Ok(txs.iter().map(|tx| Self::parse_transaction(tx)).collect())
+            Ok(txs.iter().map(Self::parse_transaction).collect())
         } else {
             Ok(vec![])
         }
@@ -246,7 +240,7 @@ impl AptosRpc for AptosRpcClient {
         let result = self.get(&format!("/events?handle={}&limit={}", event_handle, limit))?;
 
         if let Some(events) = result.as_array() {
-            Ok(events.iter().map(|e| Self::parse_event(e)).collect())
+            Ok(events.iter().map(Self::parse_event).collect())
         } else {
             Ok(vec![])
         }
@@ -356,7 +350,7 @@ impl AptosRpc for AptosRpcClient {
         ))?;
 
         if let Some(events) = result.as_array() {
-            Ok(events.iter().map(|e| Self::parse_event(e)).collect())
+            Ok(events.iter().map(Self::parse_event).collect())
         } else {
             Ok(vec![])
         }

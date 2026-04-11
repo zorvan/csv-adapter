@@ -124,7 +124,7 @@ impl EthereumAnchorLayer {
 
         // Step 1: Verify slot is available
         self.verify_slot_available(&seal)
-            .map_err(|e| AdapterError::from(e))?;
+            .map_err(AdapterError::from)?;
 
         // Step 3: Send raw transaction
         let tx_hash = self
@@ -158,9 +158,7 @@ impl EthereumAnchorLayer {
 
         // Mark seal as consumed
         let registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
-        registry
-            .mark_seal_used(&seal)
-            .map_err(|e| AdapterError::from(e))?;
+        registry.mark_seal_used(&seal).map_err(AdapterError::from)?;
 
         Ok(anchor)
     }
@@ -220,9 +218,7 @@ impl AnchorLayer for EthereumAnchorLayer {
 
             // Mark seal as consumed in local registry
             let registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
-            registry
-                .mark_seal_used(&seal)
-                .map_err(|e| AdapterError::from(e))?;
+            registry.mark_seal_used(&seal).map_err(AdapterError::from)?;
 
             Ok(anchor)
         }
@@ -320,9 +316,7 @@ impl AnchorLayer for EthereumAnchorLayer {
 
     fn enforce_seal(&self, seal: Self::SealRef) -> CoreResult<()> {
         let registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
-        registry
-            .mark_seal_used(&seal)
-            .map_err(AdapterError::from)
+        registry.mark_seal_used(&seal).map_err(AdapterError::from)
     }
 
     fn create_seal(&self, value: Option<u64>) -> CoreResult<Self::SealRef> {

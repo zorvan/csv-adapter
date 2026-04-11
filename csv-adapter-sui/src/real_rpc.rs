@@ -275,10 +275,8 @@ impl SuiRpc for SuiRpcClient {
         // Call sui_executeTransactionBlock with signed transaction
         // https://docs.sui.io/sui-jsonrpc#suix_executeTransactionBlock
         let tx_b64 = base64::engine::general_purpose::STANDARD.encode(&tx_bytes);
-        let sig_b64 =
-            base64::engine::general_purpose::STANDARD.encode(&signature);
-        let pk_b64 =
-            base64::engine::general_purpose::STANDARD.encode(&public_key);
+        let sig_b64 = base64::engine::general_purpose::STANDARD.encode(&signature);
+        let pk_b64 = base64::engine::general_purpose::STANDARD.encode(&public_key);
 
         let result = self.rpc_call(
             "sui_executeTransactionBlock",

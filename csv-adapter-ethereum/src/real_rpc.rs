@@ -272,7 +272,7 @@ mod real_rpc_impl {
                 .get_block_by_tag(&tag)?
                 .ok_or_else(|| format!("Block {} not found", block_number))?;
 
-            let hash_str = block["hash"].as_str().ok_or_else(|| "Missing block hash")?;
+            let hash_str = block["hash"].as_str().ok_or("Missing block hash")?;
             Ok(parse_hex_bytes32(hash_str))
         }
 
@@ -299,7 +299,7 @@ mod real_rpc_impl {
                 .as_array()
                 .map(|arr| {
                     arr.iter()
-                        .filter_map(|v| v.as_str().map(|s| parse_hex_bytes(s)))
+                        .filter_map(|v| v.as_str().map(parse_hex_bytes))
                         .collect()
                 })
                 .unwrap_or_default();
@@ -309,16 +309,16 @@ mod real_rpc_impl {
                 .map(|arr| {
                     arr.iter()
                         .filter_map(|sp| {
-                            let key = sp["key"].as_str().map(|s| parse_hex_bytes32(s))?;
+                            let key = sp["key"].as_str().map(parse_hex_bytes32)?;
                             let value = sp["value"]
                                 .as_str()
-                                .map(|s| parse_hex_bytes(s))
+                                .map(parse_hex_bytes)
                                 .unwrap_or_default();
                             let proof_nodes: Vec<Vec<u8>> = sp["proof"]
                                 .as_array()
                                 .map(|p| {
                                     p.iter()
-                                        .filter_map(|v| v.as_str().map(|s| parse_hex_bytes(s)))
+                                        .filter_map(|v| v.as_str().map(parse_hex_bytes))
                                         .collect()
                                 })
                                 .unwrap_or_default();
@@ -356,18 +356,18 @@ mod real_rpc_impl {
                 .map(|arr| {
                     arr.iter()
                         .filter_map(|log| {
-                            let address = log["address"].as_str().map(|s| parse_hex_bytes20(s))?;
+                            let address = log["address"].as_str().map(parse_hex_bytes20)?;
                             let topics: Vec<[u8; 32]> = log["topics"]
                                 .as_array()
                                 .map(|t| {
                                     t.iter()
-                                        .filter_map(|v| v.as_str().map(|s| parse_hex_bytes32(s)))
+                                        .filter_map(|v| v.as_str().map(parse_hex_bytes32))
                                         .collect()
                                 })
                                 .unwrap_or_default();
                             let data = log["data"]
                                 .as_str()
-                                .map(|s| parse_hex_bytes(s))
+                                .map(parse_hex_bytes)
                                 .unwrap_or_default();
                             let log_index = log["logIndex"]
                                 .as_str()
@@ -387,7 +387,7 @@ mod real_rpc_impl {
             let contract_addr = receipt["contractAddress"]
                 .as_str()
                 .filter(|s| !s.is_empty() && *s != "null")
-                .map(|s| parse_hex_bytes20(s));
+                .map(parse_hex_bytes20);
 
             let status = receipt["status"]
                 .as_str()
@@ -401,7 +401,7 @@ mod real_rpc_impl {
 
             let block_hash = receipt["blockHash"]
                 .as_str()
-                .map(|s| parse_hex_bytes32(s))
+                .map(parse_hex_bytes32)
                 .unwrap_or_default();
 
             Ok(TransactionReceipt {
