@@ -101,7 +101,10 @@ fn main() {
     println!("   🔍 View: https://mempool.space/signet/tx/{}", txid_hex);
 
     // Wait for confirmation
-    println!("\n--- Waiting for confirmation ({} required) ---", required_depth);
+    println!(
+        "\n--- Waiting for confirmation ({} required) ---",
+        required_depth
+    );
     let txid_bytes = hex::decode(&txid_hex).unwrap();
     let mut txid = [0u8; 32];
     txid.copy_from_slice(&txid_bytes);

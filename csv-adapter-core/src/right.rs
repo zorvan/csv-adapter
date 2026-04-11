@@ -156,8 +156,7 @@ impl Right {
 
             // L3: Compute deterministic nullifier with domain-separated hashing
             // nullifier = H("csv-nullifier" || right_id || secret || context)
-            let mut data =
-                Vec::with_capacity(32 + self.id.0.as_bytes().len() + secret.len() + 32);
+            let mut data = Vec::with_capacity(32 + self.id.0.as_bytes().len() + secret.len() + 32);
             data.extend_from_slice(self.id.0.as_bytes());
             data.extend_from_slice(secret);
             data.extend_from_slice(context_bytes);

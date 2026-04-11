@@ -62,44 +62,44 @@ impl Transition {
         let mut hasher = Sha256::new();
 
         hasher.update(b"CSV-TRANSITION-v1");
-        hasher.update(&self.transition_id.to_le_bytes());
+        hasher.update(self.transition_id.to_le_bytes());
 
         // Owned inputs
-        hasher.update(&(self.owned_inputs.len() as u64).to_le_bytes());
+        hasher.update((self.owned_inputs.len() as u64).to_le_bytes());
         for input in &self.owned_inputs {
-            hasher.update(&input.type_id.to_le_bytes());
+            hasher.update(input.type_id.to_le_bytes());
             hasher.update(input.commitment.as_bytes());
-            hasher.update(&input.output_index.to_le_bytes());
+            hasher.update(input.output_index.to_le_bytes());
         }
 
         // Owned outputs
-        hasher.update(&(self.owned_outputs.len() as u64).to_le_bytes());
+        hasher.update((self.owned_outputs.len() as u64).to_le_bytes());
         for output in &self.owned_outputs {
-            hasher.update(&output.type_id.to_le_bytes());
-            hasher.update(&output.seal.to_vec());
+            hasher.update(output.type_id.to_le_bytes());
+            hasher.update(output.seal.to_vec());
             hasher.update(&output.data);
         }
 
         // Global updates
-        hasher.update(&(self.global_updates.len() as u64).to_le_bytes());
+        hasher.update((self.global_updates.len() as u64).to_le_bytes());
         for update in &self.global_updates {
-            hasher.update(&update.type_id.to_le_bytes());
+            hasher.update(update.type_id.to_le_bytes());
             hasher.update(&update.data);
         }
 
         // Metadata
-        hasher.update(&(self.metadata.len() as u64).to_le_bytes());
+        hasher.update((self.metadata.len() as u64).to_le_bytes());
         for meta in &self.metadata {
             hasher.update(meta.key.as_bytes());
             hasher.update(&meta.value);
         }
 
         // Validation script
-        hasher.update(&(self.validation_script.len() as u64).to_le_bytes());
+        hasher.update((self.validation_script.len() as u64).to_le_bytes());
         hasher.update(&self.validation_script);
 
         // Signatures
-        hasher.update(&(self.signatures.len() as u64).to_le_bytes());
+        hasher.update((self.signatures.len() as u64).to_le_bytes());
         for sig in &self.signatures {
             hasher.update(sig);
         }

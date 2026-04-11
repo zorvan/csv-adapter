@@ -174,7 +174,7 @@ impl AnchorLayer for EthereumAnchorLayer {
 
     fn publish(&self, commitment: Hash, seal: Self::SealRef) -> CoreResult<Self::AnchorRef> {
         self.verify_slot_available(&seal)
-            .map_err(|e| AdapterError::from(e))?;
+            .map_err(AdapterError::from)?;
 
         #[cfg(feature = "rpc")]
         {
@@ -244,7 +244,7 @@ impl AnchorLayer for EthereumAnchorLayer {
             // Try to get real proof data from RPC
             use crate::real_rpc::RealEthereumRpc;
 
-            if let Some(real_rpc) = self.rpc.as_ref().as_any().downcast_ref::<RealEthereumRpc>() {
+            if let Some(_real_rpc) = self.rpc.as_ref().as_any().downcast_ref::<RealEthereumRpc>() {
                 // Get the block header for receipt root
                 let block_hash = self.rpc.get_block_hash(anchor.block_number).map_err(|e| {
                     AdapterError::InclusionProofFailed(format!("Failed to get block hash: {}", e))
@@ -322,7 +322,7 @@ impl AnchorLayer for EthereumAnchorLayer {
         let registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
         registry
             .mark_seal_used(&seal)
-            .map_err(|e| AdapterError::from(e))
+            .map_err(AdapterError::from)
     }
 
     fn create_seal(&self, value: Option<u64>) -> CoreResult<Self::SealRef> {

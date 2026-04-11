@@ -22,8 +22,7 @@ use crate::output;
 
 /// Helper to create a seal reference from real data (avoids unwrap on arbitrary lengths)
 fn make_seal_ref(data: &[u8]) -> SealRef {
-    SealRef::new(data.to_vec(), None)
-        .unwrap_or_else(|_| SealRef::new(vec![0u8; 36], None).unwrap())
+    SealRef::new(data.to_vec(), None).unwrap_or_else(|_| SealRef::new(vec![0u8; 36], None).unwrap())
 }
 
 /// Implement LockProvider for Bitcoin

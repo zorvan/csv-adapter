@@ -259,7 +259,7 @@ impl AptosRpc for AptosRpcClient {
         // Submit the signed transaction to Aptos via the REST API.
         // POST /v1/transactions with BCS-encoded transaction bytes.
         // The response contains the transaction hash.
-        use sha2::{Digest, Sha3_256};
+        use sha3::{Digest, Sha3_256};
 
         // Compute the transaction hash from the BCS bytes
         // (In production, the actual hash comes from the Aptos response)
@@ -401,9 +401,10 @@ impl AptosRpc for AptosRpcClient {
         // 2. Verify the HotStuff quorum certificate signatures
         // 3. Confirm the checkpoint is part of the canonical chain
 
-        // Fetch account info to verify the sequence number is valid
-        let account = self.get_account()?;
-        if account.sequence_number < sequence_number {
+        // Fetch account sequence number to verify it's valid
+        let sender = self.sender_address()?;
+        let current_seq = self.get_account_sequence_number(sender)?;
+        if current_seq < sequence_number {
             return Ok(false);
         }
 

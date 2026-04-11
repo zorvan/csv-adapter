@@ -96,8 +96,8 @@ pub mod real_rpc {
         /// for transactions sent to wallet addresses.
         pub fn get_funding_tx(
             &self,
-            address: &bitcoin::Address,
-            min_confirmations: u64,
+            _address: &bitcoin::Address,
+            _min_confirmations: u64,
         ) -> Result<Vec<(Txid, u64, u32)>, Box<dyn std::error::Error + Send + Sync>> {
             // Scan recent transactions for this address
             // This requires a wallet with transaction indexing

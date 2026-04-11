@@ -176,9 +176,9 @@ fn cmd_transfer(
     let mut registry = CrossChainSealRegistry::new();
     // Inject state's known seals into the registry
     for seal_bytes in &state.consumed_seals {
-        use csv_adapter_core::seal_registry::{ChainId as CoreChainId, SealConsumption};
         use csv_adapter_core::right::RightId;
         use csv_adapter_core::seal::SealRef;
+        use csv_adapter_core::seal_registry::{ChainId as CoreChainId, SealConsumption};
         if let Ok(seal_ref) = SealRef::new(seal_bytes.clone(), None) {
             let consumption = SealConsumption {
                 chain: CoreChainId::Ethereum,
@@ -205,8 +205,8 @@ fn cmd_transfer(
 
     // Step 5: Mint on destination chain
     output::progress(5, 6, &format!("Step 5: Minting Right on {}...", to_str));
-    let mint_provider = create_mint_provider(&to, dest_chain_id.clone())
-        .map_err(|e| anyhow::anyhow!("{}", e))?;
+    let mint_provider =
+        create_mint_provider(&to, dest_chain_id.clone()).map_err(|e| anyhow::anyhow!("{}", e))?;
     let mint_result = mint_provider
         .mint_right(&transfer_proof)
         .map_err(|e| anyhow::anyhow!("Mint failed: {:?}", e))?;
@@ -383,7 +383,9 @@ fn cmd_retry(transfer_id: String, _config: &Config, state: &mut State) -> Result
                     output::info("For timed-out locks: the refund function is available on the source chain contract.");
                 }
                 TransferStatus::Locked | TransferStatus::Initiated => {
-                    output::info("Transfer is in progress. If stuck, wait for lock timeout and refund.");
+                    output::info(
+                        "Transfer is in progress. If stuck, wait for lock timeout and refund.",
+                    );
                 }
                 TransferStatus::Completed => {
                     output::success("Transfer already completed successfully.");
@@ -416,9 +418,9 @@ fn get_chain_height(chain: &Chain, _config: &Config) -> u64 {
 /// Get the required confirmation depth for a chain.
 fn get_chain_confirmations(chain: &Chain) -> u64 {
     match chain {
-        Chain::Bitcoin => 6,     // ~1 hour on signet
-        Chain::Ethereum => 15,   // ~3 minutes
-        Chain::Sui => 1,         // Finality is ~1 checkpoint
-        Chain::Aptos => 1,       // Finality is ~1 block (HotStuff)
+        Chain::Bitcoin => 6,   // ~1 hour on signet
+        Chain::Ethereum => 15, // ~3 minutes
+        Chain::Sui => 1,       // Finality is ~1 checkpoint
+        Chain::Aptos => 1,     // Finality is ~1 block (HotStuff)
     }
 }

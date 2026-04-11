@@ -107,7 +107,11 @@ impl SealRef {
         if bytes.len() < pos + 4 {
             return Err("truncated seal_id length");
         }
-        let seal_id_len = u32::from_le_bytes(bytes[pos..pos + 4].try_into().map_err(|_| "truncated seal_id length")?) as usize;
+        let seal_id_len = u32::from_le_bytes(
+            bytes[pos..pos + 4]
+                .try_into()
+                .map_err(|_| "truncated seal_id length")?,
+        ) as usize;
         pos += 4;
 
         if seal_id_len > MAX_SEAL_ID_SIZE {
@@ -261,7 +265,10 @@ mod tests {
         assert_eq!(SealRef::from_bytes(&[0]), Err("truncated seal_id length"));
 
         // Truncated seal_id data
-        assert_eq!(SealRef::from_bytes(&[0, 3, 0, 0, 0, 1]), Err("truncated seal_id"));
+        assert_eq!(
+            SealRef::from_bytes(&[0, 3, 0, 0, 0, 1]),
+            Err("truncated seal_id")
+        );
 
         // Seal_id too large
         let mut large = vec![0, 0x01, 0x04, 0x00, 0x00]; // length 1025
@@ -272,7 +279,10 @@ mod tests {
         );
 
         // Empty seal_id
-        assert_eq!(SealRef::from_bytes(&[0, 0, 0, 0, 0]), Err("seal_id cannot be empty"));
+        assert_eq!(
+            SealRef::from_bytes(&[0, 0, 0, 0, 0]),
+            Err("seal_id cannot be empty")
+        );
     }
 
     #[test]

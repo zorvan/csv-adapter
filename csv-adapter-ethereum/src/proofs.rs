@@ -206,7 +206,7 @@ fn decode_single_log(log_rlp: &[u8], log_index: u64) -> Result<DecodedLog, ()> {
     }
 
     // Address (20 bytes)
-    let address = rlp_decode_bytes(&items[0])?;
+    let address = rlp_decode_bytes(items[0])?;
     if address.len() != 20 {
         return Err(());
     }
@@ -214,7 +214,7 @@ fn decode_single_log(log_rlp: &[u8], log_index: u64) -> Result<DecodedLog, ()> {
     addr.copy_from_slice(&address);
 
     // Topics (array of 32-byte values)
-    let (topics_items, _) = rlp_decode_list(&items[1])?;
+    let (topics_items, _) = rlp_decode_list(items[1])?;
     let mut topics = Vec::new();
     for topic_rlp in &topics_items {
         let topic_bytes = rlp_decode_bytes(topic_rlp)?;
@@ -226,7 +226,7 @@ fn decode_single_log(log_rlp: &[u8], log_index: u64) -> Result<DecodedLog, ()> {
     }
 
     // Data (arbitrary bytes)
-    let data = rlp_decode_bytes(&items[2])?;
+    let data = rlp_decode_bytes(items[2])?;
 
     Ok(DecodedLog {
         address: addr,
@@ -246,7 +246,7 @@ fn rlp_decode_list(data: &[u8]) -> Result<(Vec<&[u8]>, usize), ()> {
     let prefix = data[0];
 
     // Short list: prefix 0xc0-0xf7
-    if prefix >= 0xc0 && prefix <= 0xf7 {
+    if (0xc0..=0xf7).contains(&prefix) {
         let len = (prefix - 0xc0) as usize;
         if data.len() < 1 + len {
             return Err(());
@@ -302,12 +302,12 @@ fn rlp_decode_item_length(data: &[u8]) -> Result<(bool, usize), ()> {
         Ok((false, 1))
     }
     // Short string: 0x80-0xb7
-    else if prefix >= 0x80 && prefix <= 0xb7 {
+    else if (0x80..=0xb7).contains(&prefix) {
         let len = (prefix - 0x80) as usize;
         Ok((false, 1 + len))
     }
     // Long string: 0xb8-0xbf
-    else if prefix >= 0xb8 && prefix <= 0xbf {
+    else if (0xb8..=0xbf).contains(&prefix) {
         let len_of_len = (prefix - 0xb7) as usize;
         if data.len() < 1 + len_of_len {
             return Err(());
@@ -316,7 +316,7 @@ fn rlp_decode_item_length(data: &[u8]) -> Result<(bool, usize), ()> {
         Ok((false, 1 + len_of_len + len))
     }
     // Short list: 0xc0-0xf7
-    else if prefix >= 0xc0 && prefix <= 0xf7 {
+    else if (0xc0..=0xf7).contains(&prefix) {
         let len = (prefix - 0xc0) as usize;
         Ok((true, 1 + len))
     }
@@ -346,7 +346,7 @@ fn rlp_decode_bytes(data: &[u8]) -> Result<Vec<u8>, ()> {
         Ok(vec![prefix])
     }
     // Short string
-    else if prefix >= 0x80 && prefix <= 0xb7 {
+    else if (0x80..=0xb7).contains(&prefix) {
         let len = (prefix - 0x80) as usize;
         if data.len() < 1 + len {
             return Err(());
@@ -354,7 +354,7 @@ fn rlp_decode_bytes(data: &[u8]) -> Result<Vec<u8>, ()> {
         Ok(data[1..1 + len].to_vec())
     }
     // Long string
-    else if prefix >= 0xb8 && prefix <= 0xbf {
+    else if (0xb8..=0xbf).contains(&prefix) {
         let len_of_len = (prefix - 0xb7) as usize;
         if data.len() < 1 + len_of_len {
             return Err(());

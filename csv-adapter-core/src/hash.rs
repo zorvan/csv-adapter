@@ -99,7 +99,10 @@ impl Hash {
     /// Returns [`HashParseError`] if the input is not valid hex or does not
     /// represent exactly 32 bytes.
     pub fn from_hex(s: &str) -> Result<Self, HashParseError> {
-        let s = s.strip_prefix("0x").or_else(|| s.strip_prefix("0X")).unwrap_or(s);
+        let s = s
+            .strip_prefix("0x")
+            .or_else(|| s.strip_prefix("0X"))
+            .unwrap_or(s);
         let bytes = hex::decode(s).map_err(|e| HashParseError::InvalidHex(e.to_string()))?;
         if bytes.len() != 32 {
             return Err(HashParseError::WrongLength {
@@ -267,6 +270,9 @@ mod tests {
         let h: Hash = "abababababababababababababababababababababababababababababababab"
             .parse()
             .unwrap();
-        assert_eq!(h.to_hex(), "abababababababababababababababababababababababababababababababab");
+        assert_eq!(
+            h.to_hex(),
+            "abababababababababababababababababababababababababababababababab"
+        );
     }
 }

@@ -12,7 +12,10 @@ fn main() {
 
     // Step 1: Create a commitment (represents the Right's content/state)
     let commitment = Hash::new([0xAB; 32]);
-    println!("1. Created commitment: {}", hex::encode(commitment.as_bytes()));
+    println!(
+        "1. Created commitment: {}",
+        hex::encode(commitment.as_bytes())
+    );
 
     // Step 2: Create an initial ownership proof
     // In a real scenario, this would contain a cryptographic signature
@@ -26,8 +29,14 @@ fn main() {
     let salt = b"genesis-salt-2026";
     let right = Right::new(commitment, initial_owner, salt);
 
-    println!("2. Created Right with ID: {}", hex::encode(right.id.0.as_bytes()));
-    println!("   Commitment: {}", hex::encode(right.commitment.as_bytes()));
+    println!(
+        "2. Created Right with ID: {}",
+        hex::encode(right.id.0.as_bytes())
+    );
+    println!(
+        "   Commitment: {}",
+        hex::encode(right.commitment.as_bytes())
+    );
     println!("   Owner: {}", hex::encode(&right.owner.owner));
     println!("   Salt: {}", String::from_utf8_lossy(&right.salt));
 

@@ -184,8 +184,7 @@ impl MpcTree {
         // Extract branch
         let mut branch = Vec::new();
         let mut idx = leaf_index;
-        for level_idx in 0..levels.len() - 1 {
-            let level = &levels[level_idx];
+        for level in levels.iter().take(levels.len() - 1) {
             let (sibling_idx, is_left) = if idx % 2 == 0 {
                 (idx + 1, false) // Sibling is to the right
             } else {

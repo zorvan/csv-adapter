@@ -65,7 +65,7 @@ impl AptosAnchorLayer {
 
         // Build event builder for the configured module
         let module_address = parse_aptos_address(&config.seal_contract.module_address)
-            .map_err(|e| AptosError::SerializationError(e))?;
+            .map_err(AptosError::SerializationError)?;
         let event_type = format!(
             "{}::csv_seal::AnchorEvent",
             config.seal_contract.module_address
@@ -263,9 +263,12 @@ impl AptosAnchorLayer {
         // In production, use aptos-sdk's BCS serialization
         // For now, use the JSON payload hash as the message to sign
         let tx_json_str = serde_json::to_string(&tx_payload).unwrap_or_default();
-        let mut hasher = sha2::Sha256::new();
-        sha2::Digest::update(&mut hasher, tx_json_str.as_bytes());
-        let message = sha2::Digest::finalize(hasher);
+        let message = {
+            use sha2::Digest as _;
+            let mut hasher = sha2::Sha256::new();
+            hasher.update(tx_json_str.as_bytes());
+            hasher.finalize()
+        };
 
         // Sign with Ed25519
         let signature = signing_key.sign(&message);
@@ -356,7 +359,7 @@ impl AnchorLayer for AptosAnchorLayer {
 
         // Verify seal is available
         self.verify_seal_available(&seal)
-            .map_err(|e| AdapterError::from(e))?;
+            .map_err(AdapterError::from)?;
 
         #[cfg(feature = "rpc")]
         {
@@ -411,7 +414,7 @@ impl AnchorLayer for AptosAnchorLayer {
             let mut registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
             registry
                 .mark_seal_used(&seal, 0)
-                .map_err(|e| AdapterError::from(e))?;
+                .map_err(AdapterError::from)?;
 
             // Build event data for this commitment
             let _event_data = self
@@ -517,7 +520,7 @@ impl AnchorLayer for AptosAnchorLayer {
         }
         registry
             .mark_seal_used(&seal, 0)
-            .map_err(|e| AdapterError::from(e))
+            .map_err(AdapterError::from)
     }
 
     fn create_seal(&self, _value: Option<u64>) -> CoreResult<Self::SealRef> {

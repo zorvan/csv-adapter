@@ -110,7 +110,7 @@ impl CrossChainSealRegistry {
     pub fn record_consumption(
         &mut self,
         consumption: SealConsumption,
-    ) -> Result<(), DoubleSpendError> {
+    ) -> Result<(), Box<DoubleSpendError>> {
         let seal_key = consumption.seal_ref.to_vec();
         let is_double_spend = self.consumed_seals.contains_key(&seal_key)
             && !self
@@ -136,27 +136,27 @@ impl CrossChainSealRegistry {
             // Still record for auditing purposes
             self.consumed_seals
                 .entry(seal_key)
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(consumption.clone());
 
             self.right_consumption_map
                 .entry(consumption.right_id.0)
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(consumption);
 
-            return Err(err);
+            return Err(Box::new(err));
         }
 
         // Record the consumption
         self.consumed_seals
             .entry(seal_key)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(consumption.clone());
 
         // Track by Right ID
         self.right_consumption_map
             .entry(consumption.right_id.0)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(consumption);
 
         Ok(())

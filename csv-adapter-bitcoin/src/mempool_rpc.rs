@@ -57,7 +57,10 @@ impl MempoolSignetRpc {
             if attempt > 0 {
                 log::warn!(
                     "Retry {}/{} for {} after {:?} backoff",
-                    attempt, MAX_RETRIES, url, backoff
+                    attempt,
+                    MAX_RETRIES,
+                    url,
+                    backoff
                 );
                 thread::sleep(backoff);
                 backoff *= 2;
@@ -135,9 +138,7 @@ impl MempoolSignetRpc {
                 Ok(resp) => {
                     let status = resp.status();
                     let error_text = resp.text().unwrap_or_default();
-                    last_err = Some(
-                        format!("HTTP {} at {}: {}", status, url, error_text).into(),
-                    );
+                    last_err = Some(format!("HTTP {} at {}: {}", status, url, error_text).into());
                 }
                 Err(e) => {
                     last_err = Some(format!("Network error at {}: {}", url, e).into());
@@ -166,16 +167,16 @@ impl MempoolSignetRpc {
     }
 
     /// Get full transaction details (inputs, outputs, fee, etc.)
-    pub fn get_tx(
-        &self,
-        txid: &str,
-    ) -> Result<TxDetail, Box<dyn std::error::Error + Send + Sync>> {
+    pub fn get_tx(&self, txid: &str) -> Result<TxDetail, Box<dyn std::error::Error + Send + Sync>> {
         let url = format!("{}/tx/{}", self.base_url, txid);
         self.get_with_retry(&url)
     }
 
     /// Get raw transaction hex
-    pub fn get_tx_hex(&self, txid: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    pub fn get_tx_hex(
+        &self,
+        txid: &str,
+    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
         let url = format!("{}/tx/{}/hex", self.base_url, txid);
         self.get_text_with_retry(&url)
     }

@@ -7,6 +7,8 @@ use crate::error::{EthereumError, EthereumResult};
 use crate::types::EthereumSealRef;
 use csv_adapter_core::hardening::{BoundedQueue, MAX_SEAL_REGISTRY_SIZE};
 #[cfg(feature = "rpc")]
+use csv_adapter_core::Hash;
+#[cfg(feature = "rpc")]
 use csv_adapter_core::SealStore;
 #[cfg(feature = "rpc")]
 use csv_adapter_store::SqliteSealStore;

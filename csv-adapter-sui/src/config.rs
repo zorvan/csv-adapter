@@ -150,8 +150,14 @@ impl SuiConfig {
             return Err("RPC URL cannot be empty".to_string());
         }
         match &self.seal_contract.package_id {
-            Some(id) if id.is_empty() => return Err("Seal contract package ID cannot be empty".to_string()),
-            None => return Err("Seal contract package ID must be set — deploy the contract first".to_string()),
+            Some(id) if id.is_empty() => {
+                return Err("Seal contract package ID cannot be empty".to_string())
+            }
+            None => {
+                return Err(
+                    "Seal contract package ID must be set — deploy the contract first".to_string(),
+                )
+            }
             _ => {}
         }
         if self.transaction.max_gas_budget == 0 {

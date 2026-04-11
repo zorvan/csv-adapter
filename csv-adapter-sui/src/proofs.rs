@@ -41,8 +41,8 @@ impl StateProof {
     pub fn leaf_hash(&self) -> [u8; 32] {
         use sha2::{Digest, Sha256};
         let mut hasher = Sha256::new();
-        hasher.update(&self.object_id);
-        hasher.update(&self.version.to_le_bytes());
+        hasher.update(self.object_id);
+        hasher.update(self.version.to_le_bytes());
         hasher.finalize().into()
     }
 }

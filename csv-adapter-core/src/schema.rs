@@ -293,46 +293,46 @@ impl Schema {
         let mut hasher = Sha256::new();
 
         hasher.update(b"CSV-SCHEMA-v1");
-        hasher.update(&self.version.to_le_bytes());
+        hasher.update(self.version.to_le_bytes());
         hasher.update(self.name.as_bytes());
 
         // Global types
-        hasher.update(&(self.global_types.len() as u64).to_le_bytes());
+        hasher.update((self.global_types.len() as u64).to_le_bytes());
         for gt in &self.global_types {
-            hasher.update(&gt.type_id.to_le_bytes());
+            hasher.update(gt.type_id.to_le_bytes());
             hasher.update(gt.name.as_bytes());
-            hasher.update(&(gt.data_type.fixed_size().unwrap_or(0)).to_le_bytes());
-            hasher.update(&[gt.is_homomorphic as u8]);
+            hasher.update((gt.data_type.fixed_size().unwrap_or(0)).to_le_bytes());
+            hasher.update([gt.is_homomorphic as u8]);
         }
 
         // Owned types
-        hasher.update(&(self.owned_types.len() as u64).to_le_bytes());
+        hasher.update((self.owned_types.len() as u64).to_le_bytes());
         for ot in &self.owned_types {
-            hasher.update(&ot.type_id.to_le_bytes());
+            hasher.update(ot.type_id.to_le_bytes());
             hasher.update(ot.name.as_bytes());
-            hasher.update(&(ot.data_type.fixed_size().unwrap_or(0)).to_le_bytes());
-            hasher.update(&[ot.is_fungible as u8]);
+            hasher.update((ot.data_type.fixed_size().unwrap_or(0)).to_le_bytes());
+            hasher.update([ot.is_fungible as u8]);
         }
 
         // Transitions
-        hasher.update(&(self.transitions.len() as u64).to_le_bytes());
+        hasher.update((self.transitions.len() as u64).to_le_bytes());
         for t in &self.transitions {
-            hasher.update(&t.transition_id.to_le_bytes());
+            hasher.update(t.transition_id.to_le_bytes());
             hasher.update(t.name.as_bytes());
-            hasher.update(&(t.owned_inputs.len() as u64).to_le_bytes());
+            hasher.update((t.owned_inputs.len() as u64).to_le_bytes());
             for id in &t.owned_inputs {
-                hasher.update(&id.to_le_bytes());
+                hasher.update(id.to_le_bytes());
             }
-            hasher.update(&(t.owned_outputs.len() as u64).to_le_bytes());
+            hasher.update((t.owned_outputs.len() as u64).to_le_bytes());
             for id in &t.owned_outputs {
-                hasher.update(&id.to_le_bytes());
+                hasher.update(id.to_le_bytes());
             }
-            hasher.update(&(t.validation_script.len() as u64).to_le_bytes());
+            hasher.update((t.validation_script.len() as u64).to_le_bytes());
             hasher.update(&t.validation_script);
         }
 
         // Root script
-        hasher.update(&(self.root_script.len() as u64).to_le_bytes());
+        hasher.update((self.root_script.len() as u64).to_le_bytes());
         hasher.update(&self.root_script);
 
         let result = hasher.finalize();

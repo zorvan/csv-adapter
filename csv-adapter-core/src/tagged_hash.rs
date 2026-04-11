@@ -27,8 +27,8 @@ pub fn tagged_hash(tag: &str, data: &[u8]) -> [u8; 32] {
     };
 
     let mut hasher = Sha256::new();
-    hasher.update(&tag_hash);
-    hasher.update(&tag_hash);
+    hasher.update(tag_hash);
+    hasher.update(tag_hash);
     hasher.update(data);
     let result = hasher.finalize();
 

@@ -185,7 +185,7 @@ impl ValidationClient {
         event
             .right
             .verify()
-            .map_err(|e| ValidationError::RightValidationError(e))?;
+            .map_err(ValidationError::RightValidationError)?;
 
         // Step 2: Check seal not already consumed (cross-chain)
         match self.seal_registry.check_seal_status(&event.seal) {

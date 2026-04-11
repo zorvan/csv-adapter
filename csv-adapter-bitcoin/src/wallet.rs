@@ -110,7 +110,7 @@ impl SealWallet {
         let seed = bip32::Mnemonic::new(mnemonic, bip32::Language::English)
             .map_err(|e| WalletError::InvalidMnemonic(e.to_string()))?
             .to_seed(password);
-        Self::from_seed(&*seed.as_bytes(), network)
+        Self::from_seed(seed.as_bytes(), network)
     }
 
     pub fn from_seed(seed: &[u8; 64], network: Network) -> Result<Self, WalletError> {
@@ -178,7 +178,7 @@ impl SealWallet {
         let (xonly, _parity) = XOnlyPublicKey::from_keypair(&kp);
         // tap_tweak on XOnlyPublicKey returns (TweakedPublicKey, Parity)
         let (output_key, _) = xonly.tap_tweak(&self.secp, None);
-        let address = Address::p2tr_tweaked(output_key.clone(), self.network);
+        let address = Address::p2tr_tweaked(output_key, self.network);
         Ok(DerivedTaprootKey {
             internal_xonly: xonly,
             output_key,

@@ -24,20 +24,10 @@ fn main() {
         domain_separator,
     );
 
-    println!(
-        "1. Genesis Commitment:");
-    println!(
-        "   Hash: {}",
-        hex::encode(genesis.hash().as_bytes())
-    );
-    println!(
-        "   Previous: {}",
-        hex::encode(Hash::zero().as_bytes())
-    );
-    println!(
-        "   Payload: {}",
-        hex::encode(payload_hash.as_bytes())
-    );
+    println!("1. Genesis Commitment:");
+    println!("   Hash: {}", hex::encode(genesis.hash().as_bytes()));
+    println!("   Previous: {}", hex::encode(Hash::zero().as_bytes()));
+    println!("   Payload: {}", hex::encode(payload_hash.as_bytes()));
 
     // Step 2: Create a second commitment linked to the genesis
     let payload_hash_2 = Hash::new([0xBB; 32]);
@@ -52,18 +42,9 @@ fn main() {
     );
 
     println!("\n2. Second Commitment:");
-    println!(
-        "   Hash: {}",
-        hex::encode(commitment_2.hash().as_bytes())
-    );
-    println!(
-        "   Previous: {}",
-        hex::encode(genesis.hash().as_bytes())
-    );
-    println!(
-        "   Payload: {}",
-        hex::encode(payload_hash_2.as_bytes())
-    );
+    println!("   Hash: {}", hex::encode(commitment_2.hash().as_bytes()));
+    println!("   Previous: {}", hex::encode(genesis.hash().as_bytes()));
+    println!("   Payload: {}", hex::encode(payload_hash_2.as_bytes()));
 
     // Step 3: Create a third commitment
     let payload_hash_3 = Hash::new([0xCC; 32]);
@@ -78,18 +59,12 @@ fn main() {
     );
 
     println!("\n3. Third Commitment:");
-    println!(
-        "   Hash: {}",
-        hex::encode(commitment_3.hash().as_bytes())
-    );
+    println!("   Hash: {}", hex::encode(commitment_3.hash().as_bytes()));
     println!(
         "   Previous: {}",
         hex::encode(commitment_2.hash().as_bytes())
     );
-    println!(
-        "   Payload: {}",
-        hex::encode(payload_hash_3.as_bytes())
-    );
+    println!("   Payload: {}", hex::encode(payload_hash_3.as_bytes()));
 
     // Step 4: Verify the chain integrity
     println!("\n4. Commitment Chain Summary:");

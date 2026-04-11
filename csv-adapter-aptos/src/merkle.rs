@@ -81,6 +81,15 @@ pub struct MerkleAccumulator {
     num_leaves: u64,
 }
 
+impl Default for MerkleAccumulator {
+    fn default() -> Self {
+        Self {
+            root: MerkleNode::Empty,
+            num_leaves: 0,
+        }
+    }
+}
+
 impl MerkleAccumulator {
     /// Create a new empty Merkle accumulator
     pub fn new() -> Self {
@@ -263,7 +272,7 @@ impl StateProof {
     pub fn compute_leaf_hash(&self) -> [u8; 32] {
         let mut hasher = Sha256::new();
         hasher.update(b"APTOS::STATE::LEAF");
-        hasher.update(&self.address);
+        hasher.update(self.address);
         hasher.update(self.resource_type.as_bytes());
         if self.exists {
             hasher.update(b"EXISTS");
@@ -319,6 +328,7 @@ pub struct TransactionProof {
 
 impl TransactionProof {
     /// Create a new transaction proof
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         version: u64,
         hash: [u8; 32],

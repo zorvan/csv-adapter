@@ -34,7 +34,7 @@ impl BitcoinSealRef {
 
     /// Get txid as hex string
     pub fn txid_hex(&self) -> String {
-        hex::encode(&self.txid)
+        hex::encode(self.txid)
     }
 }
 

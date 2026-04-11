@@ -33,9 +33,7 @@ use bitcoin::{Network as BtcNetwork, OutPoint, Txid};
 use bitcoin_hashes::Hash as BitcoinHash;
 use csv_adapter_bitcoin::mempool_rpc::{get_address_utxos, MempoolSignetRpc};
 use csv_adapter_bitcoin::wallet::SealWallet;
-use csv_adapter_bitcoin::{
-    BitcoinAnchorLayer, BitcoinConfig, BitcoinRpc, Network,
-};
+use csv_adapter_bitcoin::{BitcoinAnchorLayer, BitcoinConfig, BitcoinRpc, Network};
 use csv_adapter_core::{AnchorLayer, Hash};
 use std::str::FromStr;
 
@@ -98,13 +96,14 @@ fn test_signet_real_transaction_lifecycle() {
             .with_rpc(rpc_box)
     } else {
         println!("\n⚠️  No funding UTXO provided!");
-        println!("Set CSV_SIGNET_FUNDING_TXID, CSV_SIGNET_FUNDING_VOUT, and CSV_SIGNET_FUNDING_AMOUNT");
+        println!(
+            "Set CSV_SIGNET_FUNDING_TXID, CSV_SIGNET_FUNDING_VOUT, and CSV_SIGNET_FUNDING_AMOUNT"
+        );
         println!("to run the full real transaction test.");
         println!("\nFor now, demonstrating wallet and seal creation...");
 
         // Demo mode - no real broadcast
-        BitcoinAnchorLayer::with_wallet(config, wallet)
-            .expect("Failed to create adapter")
+        BitcoinAnchorLayer::with_wallet(config, wallet).expect("Failed to create adapter")
     };
 
     // Step 1: Create a seal from the funding UTXO (or mock)
@@ -114,7 +113,10 @@ fn test_signet_real_transaction_lifecycle() {
     let seal = if has_rpc {
         // Real mode: use the funding UTXO
         let utxos = adapter.wallet().list_utxos();
-        assert!(!utxos.is_empty(), "No UTXOs in wallet - fund the address first!");
+        assert!(
+            !utxos.is_empty(),
+            "No UTXOs in wallet - fund the address first!"
+        );
 
         let first_utxo = &utxos[0];
         let (seal_ref, path) = adapter
@@ -130,7 +132,9 @@ fn test_signet_real_transaction_lifecycle() {
         seal_ref
     } else {
         // Demo mode: create a mock seal
-        let seal_ref = adapter.create_seal(Some(100_000)).expect("Failed to create seal");
+        let seal_ref = adapter
+            .create_seal(Some(100_000))
+            .expect("Failed to create seal");
         println!("✅ Created mock seal (no real UTXO):");
         println!("   TXID: {}", seal_ref.txid_hex());
         println!("   VOUT: {}", seal_ref.vout);
@@ -213,7 +217,9 @@ fn test_signet_real_block_verification() {
     );
 
     // Get block info
-    let block_info = rpc.get_block_info(&hex::encode(block_hash)).expect("Failed to get block info");
+    let block_info = rpc
+        .get_block_info(&hex::encode(block_hash))
+        .expect("Failed to get block info");
     println!("Block {}:", height);
     println!("  Transactions: {}", block_info.tx_count);
     println!("  Weight: {} WU", block_info.weight);

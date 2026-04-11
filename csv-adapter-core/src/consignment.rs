@@ -126,30 +126,30 @@ impl Consignment {
         let mut hasher = Sha256::new();
 
         hasher.update(b"CSV-CONSIGNMENT-v1");
-        hasher.update(&self.version.to_le_bytes());
+        hasher.update(self.version.to_le_bytes());
 
         // Genesis hash
         hasher.update(self.genesis.hash().as_bytes());
 
         // Transition hashes in order
-        hasher.update(&(self.transitions.len() as u64).to_le_bytes());
+        hasher.update((self.transitions.len() as u64).to_le_bytes());
         for transition in &self.transitions {
             hasher.update(transition.hash().as_bytes());
         }
 
         // Seal assignments
-        hasher.update(&(self.seal_assignments.len() as u64).to_le_bytes());
+        hasher.update((self.seal_assignments.len() as u64).to_le_bytes());
         for assignment in &self.seal_assignments {
-            hasher.update(&assignment.seal_ref.to_vec());
-            hasher.update(&assignment.assignment.seal.to_vec());
+            hasher.update(assignment.seal_ref.to_vec());
+            hasher.update(assignment.assignment.seal.to_vec());
             hasher.update(&assignment.assignment.data);
         }
 
         // Anchors
-        hasher.update(&(self.anchors.len() as u64).to_le_bytes());
+        hasher.update((self.anchors.len() as u64).to_le_bytes());
         for anchor in &self.anchors {
             hasher.update(anchor.commitment.as_bytes());
-            hasher.update(&anchor.anchor_ref.to_vec());
+            hasher.update(anchor.anchor_ref.to_vec());
         }
 
         let result = hasher.finalize();

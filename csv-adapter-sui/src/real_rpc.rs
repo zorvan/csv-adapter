@@ -274,11 +274,11 @@ impl SuiRpc for SuiRpcClient {
     ) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>> {
         // Call sui_executeTransactionBlock with signed transaction
         // https://docs.sui.io/sui-jsonrpc#suix_executeTransactionBlock
-        let tx_b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &tx_bytes);
+        let tx_b64 = base64::engine::general_purpose::STANDARD.encode(&tx_bytes);
         let sig_b64 =
-            base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &signature);
+            base64::engine::general_purpose::STANDARD.encode(&signature);
         let pk_b64 =
-            base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &public_key);
+            base64::engine::general_purpose::STANDARD.encode(&public_key);
 
         let result = self.rpc_call(
             "sui_executeTransactionBlock",

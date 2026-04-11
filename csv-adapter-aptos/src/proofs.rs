@@ -84,7 +84,7 @@ impl StateProof {
     pub fn leaf_hash(&self) -> [u8; 32] {
         let mut hasher = Sha256::new();
         hasher.update(b"APTOS::STATE::LEAF");
-        hasher.update(&self.address);
+        hasher.update(self.address);
         hasher.update(self.resource_type.as_bytes());
         if self.exists {
             hasher.update(b"EXISTS");
@@ -139,10 +139,10 @@ impl EventProof {
     pub fn event_hash(&self) -> [u8; 32] {
         let mut hasher = Sha256::new();
         hasher.update(b"APTOS::EVENT::LEAF");
-        hasher.update(&self.guid);
-        hasher.update(&self.sequence_number.to_le_bytes());
-        hasher.update(&self.transaction_version.to_le_bytes());
-        hasher.update(&self.event_index.to_le_bytes());
+        hasher.update(self.guid);
+        hasher.update(self.sequence_number.to_le_bytes());
+        hasher.update(self.transaction_version.to_le_bytes());
+        hasher.update(self.event_index.to_le_bytes());
         hasher.update(&self.data);
         hasher.finalize().into()
     }

@@ -175,7 +175,10 @@ fn deploy_ethereum(config: &Config, state: &mut State, deployer_key: Option<Stri
             .lines()
             .find(|l| l.contains("transactionHash") || l.contains("txHash"))
             .and_then(|l| l.split(':').nth(1))
-            .map(|s| s.trim().trim_matches(|c: char| !c.is_alphanumeric() && c != 'x'))
+            .map(|s| {
+                s.trim()
+                    .trim_matches(|c: char| !c.is_alphanumeric() && c != 'x')
+            })
             .unwrap_or_else(|| "0xunknown")
             .to_string(),
         deployed_at: timestamp,
@@ -240,7 +243,10 @@ fn deploy_sui(config: &Config, state: &mut State) -> Result<()> {
 
     let deploy_script = contracts_dir.parent().unwrap().join("scripts/deploy.sh");
     if !deploy_script.exists() {
-        return Err(anyhow::anyhow!("Deploy script not found: {:?}", deploy_script));
+        return Err(anyhow::anyhow!(
+            "Deploy script not found: {:?}",
+            deploy_script
+        ));
     }
 
     let deploy_output = Command::new(&deploy_script)
@@ -261,12 +267,9 @@ fn deploy_sui(config: &Config, state: &mut State) -> Result<()> {
     let stdout = String::from_utf8_lossy(&deploy_output.stdout);
 
     // Extract package ID
-    let package_id = extract_package_id(&stdout)
-        .ok_or_else(|| {
-            anyhow::anyhow!(
-                "Could not extract package ID. Check scripts/deploy-output-testnet.json"
-            )
-        })?;
+    let package_id = extract_package_id(&stdout).ok_or_else(|| {
+        anyhow::anyhow!("Could not extract package ID. Check scripts/deploy-output-testnet.json")
+    })?;
 
     output::progress(4, 4, "Verifying deployment...");
 
@@ -331,7 +334,10 @@ fn deploy_aptos(config: &Config, state: &mut State) -> Result<()> {
 
     let deploy_script = contracts_dir.parent().unwrap().join("scripts/deploy.sh");
     if !deploy_script.exists() {
-        return Err(anyhow::anyhow!("Deploy script not found: {:?}", deploy_script));
+        return Err(anyhow::anyhow!(
+            "Deploy script not found: {:?}",
+            deploy_script
+        ));
     }
 
     let deploy_output = Command::new(&deploy_script)
@@ -442,7 +448,9 @@ fn extract_address(output: &str, prefix: &str) -> Option<String> {
         if line.contains(prefix) {
             // Format: "CSVLock deployed at: 0x..."
             if let Some(addr) = line.split(':').nth(1) {
-                let addr = addr.trim().trim_matches(|c: char| c.is_whitespace() || c == '"');
+                let addr = addr
+                    .trim()
+                    .trim_matches(|c: char| c.is_whitespace() || c == '"');
                 if addr.starts_with("0x") && addr.len() >= 42 {
                     return Some(addr.to_string());
                 }

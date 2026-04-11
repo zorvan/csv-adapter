@@ -7,12 +7,14 @@
 //! 4. No panics on adversarial byte sequences
 
 use csv_adapter_core::hash::Hash;
-use csv_adapter_core::right::{Right, OwnershipProof, RightId};
-use csv_adapter_core::seal::{SealRef, AnchorRef, MAX_SEAL_ID_SIZE, MAX_ANCHOR_ID_SIZE, MAX_ANCHOR_METADATA_SIZE};
-use csv_adapter_core::seal_registry::{CrossChainSealRegistry, SealConsumption, ChainId};
 use csv_adapter_core::right::RightError;
-use proptest::prelude::*;
+use csv_adapter_core::right::{OwnershipProof, Right, RightId};
+use csv_adapter_core::seal::{
+    AnchorRef, SealRef, MAX_ANCHOR_ID_SIZE, MAX_ANCHOR_METADATA_SIZE, MAX_SEAL_ID_SIZE,
+};
+use csv_adapter_core::seal_registry::{ChainId, CrossChainSealRegistry, SealConsumption};
 use proptest::collection::vec;
+use proptest::prelude::*;
 
 // ── Strategy helpers ────────────────────────────────────────────────────────
 

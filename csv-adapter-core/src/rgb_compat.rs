@@ -126,7 +126,7 @@ impl RgbConsignmentValidator {
         hasher.update(consignment.genesis.schema_id.as_bytes());
         // Hash transitions
         for tx in &consignment.transitions {
-            hasher.update(&tx.transition_id.to_le_bytes());
+            hasher.update(tx.transition_id.to_le_bytes());
             for sig in &tx.signatures {
                 hasher.update(sig);
             }
@@ -273,10 +273,13 @@ impl RgbTapretVerifier {
         {
             // Verify the commitment is embedded in the tapret root.
             // The tapret root should be H(protocol_id || commitment_hash).
-            let expected_tapret = tapret_verify::compute_tap_tweak_hash(protocol_id, Some(tapret_root));
+            let expected_tapret =
+                tapret_verify::compute_tap_tweak_hash(protocol_id, Some(tapret_root));
             if expected_tapret != tapret_root {
                 // The tapret_root should contain the commitment. Verify via OP_RETURN fallback.
-                let opreturn_data: Vec<u8> = protocol_id[..4].iter().copied()
+                let opreturn_data: Vec<u8> = protocol_id[..4]
+                    .iter()
+                    .copied()
                     .chain(commitment.as_bytes().iter().copied())
                     .collect();
                 if !Self::verify_opreturn_commitment(&opreturn_data, protocol_id, commitment) {

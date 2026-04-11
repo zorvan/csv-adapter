@@ -119,6 +119,7 @@ pub struct LogEntry {
 /// This implementation is only compiled in debug builds to prevent
 /// accidental use in production environments.
 #[cfg(debug_assertions)]
+#[allow(clippy::type_complexity)]
 pub struct MockEthereumRpc {
     pub block_number: u64,
     pub finalized_block: Option<u64>,

@@ -322,6 +322,7 @@ impl CrossChainTransfer {
     /// 3. Verify on the destination chain
     /// 4. Mint the new Right
     /// 5. Record in the registry
+    #[allow(clippy::too_many_arguments)]
     pub fn execute(
         &mut self,
         locker: &dyn LockProvider,

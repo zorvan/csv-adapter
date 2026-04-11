@@ -209,10 +209,13 @@ impl SuiAnchorLayer {
         domain[8..8 + copy_len].copy_from_slice(&chain_id_bytes[..copy_len]);
 
         // Build event builder for the configured module
-        let package_id_str = config.seal_contract.package_id.as_deref()
-            .ok_or_else(|| SuiError::SerializationError("seal_contract.package_id is not set — deploy the contract first".to_string()))?;
-        let package_id = parse_object_id(package_id_str)
-            .map_err(|e| SuiError::SerializationError(e))?;
+        let package_id_str = config.seal_contract.package_id.as_deref().ok_or_else(|| {
+            SuiError::SerializationError(
+                "seal_contract.package_id is not set — deploy the contract first".to_string(),
+            )
+        })?;
+        let package_id =
+            parse_object_id(package_id_str).map_err(SuiError::SerializationError)?;
         let event_type = format!(
             "{}::{}::AnchorEvent",
             package_id_str, config.seal_contract.module_name
@@ -243,7 +246,8 @@ impl SuiAnchorLayer {
     #[cfg(debug_assertions)]
     pub fn with_mock() -> SuiResult<Self> {
         let mut config = SuiConfig::default();
-        config.seal_contract.package_id = Some("0x0000000000000000000000000000000000000000000000000000000000000002".to_string());
+        config.seal_contract.package_id =
+            Some("0x0000000000000000000000000000000000000000000000000000000000000002".to_string());
         let rpc = Box::new(crate::rpc::MockSuiRpc::new(1000));
         Self::from_config(config, rpc)
     }
@@ -353,14 +357,20 @@ impl SuiAnchorLayer {
             .as_ref()
             .ok_or("No signing key configured")?;
 
-        let package_id = parse_object_id(&self.config.seal_contract.package_id)
+        let package_id = self
+            .config
+            .seal_contract
+            .package_id
+            .as_deref()
+            .ok_or("seal_contract.package_id is not set — deploy the contract first")?;
+        let package_id = parse_object_id(package_id)
             .map_err(|e| format!("Invalid package ID: {}", e))?;
         let module_name = self.config.seal_contract.module_name.clone();
         let function_name = "consume_seal".to_string();
 
         log::debug!(
             "Building Sui MoveCall: {}::{}::{}(seal={}, commitment={})",
-            self.config.seal_contract.package_id,
+            self.config.seal_contract.package_id.as_deref().unwrap_or("unknown"),
             module_name,
             function_name,
             format_object_id(seal.object_id),
@@ -452,7 +462,7 @@ impl AnchorLayer for SuiAnchorLayer {
 
         // Verify seal is available
         self.verify_seal_available(&seal)
-            .map_err(|e| AdapterError::from(e))?;
+            .map_err(AdapterError::from)?;
 
         #[cfg(feature = "rpc")]
         {
@@ -522,7 +532,7 @@ impl AnchorLayer for SuiAnchorLayer {
             let mut registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
             registry
                 .mark_seal_used(&seal, 0)
-                .map_err(|e| AdapterError::from(e))?;
+                .map_err(AdapterError::from)?;
 
             // Build event data for this commitment
             let _event_data = self
@@ -619,7 +629,7 @@ impl AnchorLayer for SuiAnchorLayer {
         }
         registry
             .mark_seal_used(&seal, 0)
-            .map_err(|e| AdapterError::from(e))
+            .map_err(AdapterError::from)
     }
 
     fn create_seal(&self, _value: Option<u64>) -> CoreResult<Self::SealRef> {
@@ -631,11 +641,11 @@ impl AnchorLayer for SuiAnchorLayer {
             .unwrap_or(0);
         let mut hasher = Sha256::new();
         hasher.update(b"sui-seal");
-        hasher.update(&nonce.to_le_bytes());
+        hasher.update(nonce.to_le_bytes());
         let result = hasher.finalize();
         let mut object_id = [0u8; 32];
         object_id.copy_from_slice(&result);
-        Ok(SuiSealRef::new(object_id, 1, nonce as u64))
+        Ok(SuiSealRef::new(object_id, 1, nonce))
     }
 
     fn hash_commitment(

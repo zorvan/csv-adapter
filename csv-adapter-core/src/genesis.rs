@@ -61,22 +61,22 @@ impl Genesis {
         hasher.update(self.schema_id.as_bytes());
 
         // Global state: count + each (type_id || data)
-        hasher.update(&(self.global_state.len() as u64).to_le_bytes());
+        hasher.update((self.global_state.len() as u64).to_le_bytes());
         for state in &self.global_state {
-            hasher.update(&state.type_id.to_le_bytes());
+            hasher.update(state.type_id.to_le_bytes());
             hasher.update(&state.data);
         }
 
         // Owned state: count + each (type_id || seal || data)
-        hasher.update(&(self.owned_state.len() as u64).to_le_bytes());
+        hasher.update((self.owned_state.len() as u64).to_le_bytes());
         for state in &self.owned_state {
-            hasher.update(&state.type_id.to_le_bytes());
-            hasher.update(&state.seal.to_vec());
+            hasher.update(state.type_id.to_le_bytes());
+            hasher.update(state.seal.to_vec());
             hasher.update(&state.data);
         }
 
         // Metadata: count + each (key || value)
-        hasher.update(&(self.metadata.len() as u64).to_le_bytes());
+        hasher.update((self.metadata.len() as u64).to_le_bytes());
         for meta in &self.metadata {
             hasher.update(meta.key.as_bytes());
             hasher.update(&meta.value);

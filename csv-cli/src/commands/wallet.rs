@@ -150,7 +150,7 @@ fn generate_ethereum(state: &mut State) -> Result<()> {
 }
 
 fn generate_sui(state: &mut State) -> Result<()> {
-    use blake2::{Blake2b, digest::Digest};
+    use blake2::{digest::Digest, Blake2b};
     use ed25519_dalek::SigningKey;
     use rand::RngCore;
     use typenum::U32;
@@ -506,7 +506,7 @@ fn cmd_import(chain: Chain, secret: String, _config: &Config, state: &mut State)
             format!("0x{}", hex::encode(auth_key))
         }
         Chain::Sui => {
-            use blake2::{Blake2b, digest::Digest};
+            use blake2::{digest::Digest, Blake2b};
             use ed25519_dalek::SigningKey;
             use typenum::U32;
 

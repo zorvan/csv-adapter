@@ -12,7 +12,7 @@
 //! rust-bitcoin TaprootBuilder directly.
 
 use bitcoin::hashes::Hash as _;
-use bitcoin::key::{TapTweak, TweakedPublicKey, UntweakedPublicKey, XOnlyPublicKey};
+use bitcoin::key::{TapTweak, XOnlyPublicKey};
 use bitcoin::opcodes::all::OP_RETURN;
 use bitcoin::script::{Builder, PushBytesBuf, ScriptBuf};
 use bitcoin::secp256k1::{Secp256k1, Verification};
@@ -114,7 +114,7 @@ pub fn verify_tapret_output_key<C: Verification>(
     merkle_root: Option<[u8; 32]>,
     expected_output_key: XOnlyPublicKey,
 ) -> bool {
-    let merkle_root_hash = merkle_root.map(|bytes| TapNodeHash::from_byte_array(bytes));
+    let merkle_root_hash = merkle_root.map(TapNodeHash::from_byte_array);
 
     let (tweaked_key, _parity) = internal_key.tap_tweak(secp, merkle_root_hash);
     let tweaked_xonly = tweaked_key.to_inner();

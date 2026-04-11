@@ -270,13 +270,7 @@ impl BitcoinAnchorLayer {
     }
 
     /// Add a UTXO to the wallet from a known outpoint
-    pub fn add_utxo(
-        &self,
-        outpoint: bitcoin::OutPoint,
-        amount_sat: u64,
-        account: u32,
-        index: u32,
-    ) {
+    pub fn add_utxo(&self, outpoint: bitcoin::OutPoint, amount_sat: u64, account: u32, index: u32) {
         let path = crate::wallet::Bip86Path::external(account, index);
         self.wallet.add_utxo(outpoint, amount_sat, path);
     }
@@ -302,7 +296,7 @@ impl AnchorLayer for BitcoinAnchorLayer {
 
     fn publish(&self, commitment: Hash, seal: Self::SealRef) -> CoreResult<Self::AnchorRef> {
         self.verify_utxo_unspent(&seal)
-            .map_err(|e| AdapterError::from(e))?;
+            .map_err(AdapterError::from)?;
 
         // If RPC client is available, use real broadcasting
         if let Some(rpc) = &self.rpc {
@@ -332,14 +326,14 @@ impl AnchorLayer for BitcoinAnchorLayer {
                 .map_err(|e| AdapterError::PublishFailed(e.to_string()))?;
 
             // Broadcast the signed transaction via RPC
-            let broadcast_txid = rpc
-                .send_raw_transaction(tx_result.raw_tx.clone())
-                .map_err(|e| {
-                    AdapterError::PublishFailed(format!(
-                        "Failed to broadcast transaction: {}",
-                        e
-                    ))
-                })?;
+            let broadcast_txid =
+                rpc.send_raw_transaction(tx_result.raw_tx.clone())
+                    .map_err(|e| {
+                        AdapterError::PublishFailed(format!(
+                            "Failed to broadcast transaction: {}",
+                            e
+                        ))
+                    })?;
 
             log::info!(
                 "Published commitment tx {} on {:?} (tx_builder txid: {})",
@@ -360,7 +354,7 @@ impl AnchorLayer for BitcoinAnchorLayer {
         let mut registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
         let _ = registry
             .mark_seal_used(&seal)
-            .map_err(|e| AdapterError::from(e));
+            .map_err(AdapterError::from);
 
         let current_height = self.get_current_height();
         Ok(BitcoinAnchorRef::new(txid, 0, current_height))
@@ -370,14 +364,9 @@ impl AnchorLayer for BitcoinAnchorLayer {
         // If we have an RPC client, fetch real Merkle proof from the blockchain
         if let Some(rpc) = &self.rpc {
             // Get the block containing the anchor transaction
-            let block_hash = rpc
-                .get_block_hash(anchor.block_height)
-                .map_err(|e| {
-                    AdapterError::InclusionProofFailed(format!(
-                        "Failed to get block hash: {}",
-                        e
-                    ))
-                })?;
+            let block_hash = rpc.get_block_hash(anchor.block_height).map_err(|e| {
+                AdapterError::InclusionProofFailed(format!("Failed to get block hash: {}", e))
+            })?;
 
             // Extract the Merkle proof for the anchor transaction
             // This would require block fetching which is RPC-backend specific
@@ -421,7 +410,7 @@ impl AnchorLayer for BitcoinAnchorLayer {
         let mut registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
         registry
             .mark_seal_used(&seal)
-            .map_err(|e| AdapterError::from(e))
+            .map_err(AdapterError::from)
     }
 
     fn create_seal(&self, value: Option<u64>) -> CoreResult<Self::SealRef> {
