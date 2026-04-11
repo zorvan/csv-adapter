@@ -1,0 +1,81 @@
+[package]
+name = "csv-adapter"
+version = "0.1.0"
+edition = "2021"
+description = "Unified meta-crate for CSV (Client-Side Validation) adapters — single entry point for all CSV operations"
+license = "MIT OR Apache-2.0"
+authors = ["Amin Razavi, Qwen3"]
+repository = "https://github.com/zorvan/csv-adapter"
+homepage = "https://github.com/zorvan/csv-adapter"
+documentation = "https://docs.rs/csv-adapter"
+readme = "README.md"
+keywords = ["blockchain", "cryptography", "csv-validation", "cross-chain", "smart-contracts"]
+categories = ["cryptography::cryptocurrencies", "authentication"]
+publish = true
+rust-version = "1.75"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[dependencies]
+# Core — always included
+csv-adapter-core = { version = "0.1", path = "../csv-adapter-core" }
+
+# Chain adapters — optional, enabled via feature flags
+csv-adapter-bitcoin = { version = "0.1", path = "../csv-adapter-bitcoin", optional = true }
+csv-adapter-ethereum = { version = "0.1", path = "../csv-adapter-ethereum", optional = true }
+csv-adapter-sui = { version = "0.1", path = "../csv-adapter-sui", optional = true }
+csv-adapter-aptos = { version = "0.1", path = "../csv-adapter-aptos", optional = true }
+
+# Persistence
+csv-adapter-store = { version = "0.1", path = "../csv-adapter-store", optional = true }
+
+# Async runtime
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "sync", "time"], optional = true }
+async-std = { version = "1", optional = true }
+
+# Serialization / utilities
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+hex = "0.4"
+sha2 = "0.10"
+toml = "0.8"
+dirs = "5.0"
+rand = "0.8"
+
+# Optional: bring in chain-specific heavy deps when full chain support is needed
+bitcoin = { version = "0.30", features = ["serde", "rand"], optional = true }
+ed25519-dalek = { version = "2.0", features = ["rand_core"], optional = true }
+bip32 = { version = "0.5", features = ["std", "mnemonic"], optional = true }
+
+[features]
+default = ["std", "tokio"]
+std = ["csv-adapter-core/std"]
+
+# Chain features
+bitcoin = ["dep:csv-adapter-bitcoin", "dep:bitcoin", "dep:bip32"]
+ethereum = ["dep:csv-adapter-ethereum"]
+sui = ["dep:csv-adapter-sui"]
+aptos = ["dep:csv-adapter-aptos"]
+all-chains = ["bitcoin", "ethereum", "sui", "aptos"]
+
+# Runtime features
+tokio = ["dep:tokio"]
+async-std = ["dep:async-std"]
+
+# Storage features
+sqlite = ["dep:csv-adapter-store"]
+in-memory = []
+
+# Wallet / crypto
+wallet = ["dep:ed25519-dalek", "dep:bip32"]
+
+[dev-dependencies]
+rand = "0.8"
+tempfile = "3"
+csv-adapter-store = { version = "0.1", path = "../csv-adapter-store" }
+
+[lints]
+workspace = true

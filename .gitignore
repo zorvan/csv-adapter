@@ -1,4 +1,7 @@
-# Database
+# Node Modules
+node_modules/
+dist/
+coverage/
 
 
 # Environment

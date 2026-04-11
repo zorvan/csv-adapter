@@ -11,7 +11,6 @@
 
 use serde::Serialize;
 use std::collections::HashMap;
-use crate::Chain;
 
 /// Agent-friendly transfer status with structured progress
 ///

@@ -1,0 +1,236 @@
+//! Fluent builder implementations for [`CsvClient`](crate::client::CsvClient).
+//!
+//! The builder pattern allows constructing a client with any combination
+//! of chain support, wallet, and storage backend.
+//!
+//! # Example
+//!
+//! ```no_run
+//! use csv_adapter::prelude::*;
+//!
+//! #[tokio::main]
+//! async fn main() -> Result<()> {
+//!     let client = CsvClient::builder()
+//!         .with_chain(Chain::Bitcoin)
+//!         .with_chain(Chain::Ethereum)
+//!         .with_store_backend(StoreBackend::InMemory)
+//!         .build()?;
+//!     Ok(())
+//! }
+//! ```
+
+use std::collections::HashSet;
+use std::sync::Arc;
+
+use csv_adapter_core::Chain;
+
+use crate::config::Config;
+use crate::errors::CsvError;
+use crate::wallet::Wallet;
+
+/// Storage backend for seal and anchor persistence.
+#[derive(Debug, Clone)]
+pub enum StoreBackend {
+    /// In-memory store (non-persistent, for testing).
+    InMemory,
+    /// SQLite file at the given path.
+    #[cfg(feature = "sqlite")]
+    Sqlite {
+        /// Path to the SQLite database.
+        path: String,
+    },
+}
+
+/// Internal state for the client builder.
+#[derive(Default)]
+struct BuilderState {
+    enabled_chains: HashSet<Chain>,
+    wallet: Option<Wallet>,
+    store_backend: Option<StoreBackend>,
+    config: Option<Config>,
+}
+
+/// Fluent builder for constructing a [`CsvClient`](crate::client::CsvClient).
+///
+/// Use [`CsvClient::builder()`](crate::client::CsvClient::builder) to create a new builder.
+pub struct ClientBuilder {
+    state: BuilderState,
+}
+
+impl ClientBuilder {
+    /// Create a new builder with default settings.
+    pub fn new() -> Self {
+        Self {
+            state: BuilderState::default(),
+        }
+    }
+
+    /// Enable a specific chain adapter.
+    ///
+    /// This method can be called multiple times to enable multiple chains.
+    ///
+    /// # Arguments
+    ///
+    /// * `chain` — The chain to enable (e.g., `Chain::Bitcoin`).
+    ///
+    /// # Note
+    ///
+    /// The corresponding feature flag must be enabled in `Cargo.toml`.
+    /// For example, `Chain::Bitcoin` requires the `"bitcoin"` feature.
+    pub fn with_chain(mut self, chain: Chain) -> Self {
+        self.state.enabled_chains.insert(chain);
+        self
+    }
+
+    /// Enable all supported chains (requires `all-chains` feature).
+    pub fn with_all_chains(self) -> Self {
+        self.with_chain(Chain::Bitcoin)
+            .with_chain(Chain::Ethereum)
+            .with_chain(Chain::Sui)
+            .with_chain(Chain::Aptos)
+    }
+
+    /// Attach a wallet to the client.
+    ///
+    /// The wallet is used for signing transactions and deriving addresses.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use csv_adapter::prelude::*;
+    ///
+    /// let wallet = Wallet::generate();
+    /// let client = CsvClient::builder()
+    ///     .with_wallet(wallet)
+    ///     .build()?;
+    /// # Ok::<_, csv_adapter::CsvError>(())
+    /// ```
+    pub fn with_wallet(mut self, wallet: Wallet) -> Self {
+        self.state.wallet = Some(wallet);
+        self
+    }
+
+    /// Set the storage backend.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use csv_adapter::prelude::*;
+    ///
+    /// let client = CsvClient::builder()
+    ///     .with_store_backend(StoreBackend::InMemory)
+    ///     .build()?;
+    /// # Ok::<_, csv_adapter::CsvError>(())
+    /// ```
+    pub fn with_store_backend(mut self, backend: StoreBackend) -> Self {
+        self.state.store_backend = Some(backend);
+        self
+    }
+
+    /// Load configuration from a [`Config`] struct.
+    ///
+    /// This overrides any previously set chain or store settings.
+    pub fn with_config(mut self, config: Config) -> Self {
+        // Enable chains from config before moving config into state
+        for (name, chain_cfg) in &config.chains {
+            if chain_cfg.enabled {
+                if let Ok(chain) = name.parse::<Chain>() {
+                    self.state.enabled_chains.insert(chain);
+                }
+            }
+        }
+        self.state.config = Some(config);
+        self
+    }
+
+    /// Build the [`CsvClient`](crate::client::CsvClient), validating all settings.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - No chains are enabled
+    /// - A chain is enabled but its feature flag is not compiled
+    /// - The store backend cannot be initialized
+    pub fn build(self) -> Result<crate::client::CsvClient, CsvError> {
+        if self.state.enabled_chains.is_empty() {
+            return Err(CsvError::BuilderError(
+                "At least one chain must be enabled. Use .with_chain() to enable a chain."
+                    .to_string(),
+            ));
+        }
+
+        // Validate that enabled chains have their feature flags
+        for chain in &self.state.enabled_chains {
+            Self::check_chain_feature(*chain)?;
+        }
+
+        // Apply config overrides if present
+        let config = self.state.config.unwrap_or_else(Config::default);
+
+        // Initialize store backend
+        let store = match self.state.store_backend.unwrap_or(StoreBackend::InMemory) {
+            StoreBackend::InMemory => {
+                crate::client::StoreHandle::InMemory(csv_adapter_core::InMemorySealStore::new())
+            }
+            #[cfg(feature = "sqlite")]
+            StoreBackend::Sqlite { ref path } => {
+                crate::client::StoreHandle::Sqlite(
+                    csv_adapter_store::SqliteSealStore::open(path)
+                        .map_err(|e| CsvError::StoreError(e.to_string()))?,
+                )
+            }
+        };
+
+        Ok(crate::client::CsvClient {
+            enabled_chains: self.state.enabled_chains,
+            wallet: self.state.wallet,
+            store: Arc::new(std::sync::Mutex::new(store)),
+            config,
+            event_tx: tokio::sync::broadcast::channel(256).0,
+        })
+    }
+
+    /// Check that the required feature flag is enabled for a chain.
+    fn check_chain_feature(chain: Chain) -> Result<(), CsvError> {
+        match chain {
+            Chain::Bitcoin => {
+                #[cfg(not(feature = "bitcoin"))]
+                return Err(CsvError::BuilderError(
+                    "Bitcoin adapter requires the 'bitcoin' feature flag".to_string(),
+                ));
+                #[cfg(feature = "bitcoin")]
+                Ok(())
+            }
+            Chain::Ethereum => {
+                #[cfg(not(feature = "ethereum"))]
+                return Err(CsvError::BuilderError(
+                    "Ethereum adapter requires the 'ethereum' feature flag".to_string(),
+                ));
+                #[cfg(feature = "ethereum")]
+                Ok(())
+            }
+            Chain::Sui => {
+                #[cfg(not(feature = "sui"))]
+                return Err(CsvError::BuilderError(
+                    "Sui adapter requires the 'sui' feature flag".to_string(),
+                ));
+                #[cfg(feature = "sui")]
+                Ok(())
+            }
+            Chain::Aptos => {
+                #[cfg(not(feature = "aptos"))]
+                return Err(CsvError::BuilderError(
+                    "Aptos adapter requires the 'aptos' feature flag".to_string(),
+                ));
+                #[cfg(feature = "aptos")]
+                Ok(())
+            }
+        }
+    }
+}
+
+impl Default for ClientBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}

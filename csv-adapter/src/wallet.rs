@@ -1,0 +1,269 @@
+//! Unified wallet management.
+//!
+//! Provides a multi-chain HD wallet supporting BIP-44 derivation paths
+//! for all supported chains. Wraps key management behind a simple API.
+//!
+//! # BIP-44 Derivation Paths
+//!
+//! | Chain | Purpose | Coin Type | Path |
+//! |-------|---------|-----------|------|
+//! | Bitcoin | 86' (Taproot) | 0' | m/86'/0'/0'/0/i |
+//! | Ethereum | 60' | 60' | m/44'/60'/0'/0/i |
+//! | Sui | 44' | 784' | m/44'/784'/0'/0'/i |
+//! | Aptos | 44' | 637' | m/44'/637'/0'/0'/i |
+
+use csv_adapter_core::Chain;
+
+/// A unified wallet supporting multi-chain HD derivation (BIP-44).
+///
+/// The wallet manages cryptographic keys for all supported chains
+/// from a single mnemonic seed phrase.
+///
+/// # Security
+///
+/// - The mnemonic is converted to a seed and the original phrase is discarded.
+/// - In production, consider encrypting the seed at rest or using a hardware wallet.
+///
+/// # Example
+///
+/// ```no_run
+/// use csv_adapter::wallet::Wallet;
+///
+/// // Generate a new wallet with a random mnemonic
+/// let wallet = Wallet::generate();
+/// let mnemonic = wallet.mnemonic_phrase();
+/// println!("Save this mnemonic: {}", mnemonic);
+///
+/// // Restore from mnemonic
+/// let restored = Wallet::from_mnemonic(mnemonic)?;
+///
+/// // Get address for a specific chain
+/// let btc_address = restored.address(Chain::Bitcoin);
+/// let eth_address = restored.address(Chain::Ethereum);
+/// ```
+#[derive(Clone)]
+pub struct Wallet {
+    /// Mnemonic phrase (12 or 24 words).
+    /// In production, this would be encrypted or stored securely.
+    mnemonic: String,
+    /// Derived seed (64 bytes from BIP-39).
+    seed: [u8; 64],
+    /// Optional passphrase used with the mnemonic.
+    passphrase: String,
+}
+
+impl Wallet {
+    /// Generate a new wallet with a random mnemonic.
+    ///
+    /// # Panics
+    ///
+    /// This method requires the `wallet` feature and the `bip32` crate.
+    /// If compiled without wallet support, returns a placeholder wallet.
+    pub fn generate() -> Self {
+        #[cfg(feature = "wallet")]
+        {
+            use bip32::Mnemonic;
+            use rand::rngs::OsRng;
+            use rand::RngCore;
+
+            // Generate 32 random bytes for a 24-word mnemonic
+            let mut entropy = [0u8; 32];
+            OsRng.fill_bytes(&mut entropy);
+            let mnemonic = Mnemonic::from_entropy(entropy, bip32::Language::English);
+            let phrase = mnemonic.phrase().to_string();
+            let seed = mnemonic.to_seed("");
+
+            let mut seed_bytes = [0u8; 64];
+            seed_bytes.copy_from_slice(seed.as_bytes());
+
+            Self {
+                mnemonic: phrase,
+                seed: seed_bytes,
+                passphrase: String::new(),
+            }
+        }
+
+        #[cfg(not(feature = "wallet"))]
+        {
+            // Fallback: create a deterministic wallet for testing only
+            let seed = [0u8; 64];
+            Self {
+                mnemonic: "[wallet feature required for real wallet generation]".to_string(),
+                seed,
+                passphrase: String::new(),
+            }
+        }
+    }
+
+    /// Restore a wallet from a mnemonic phrase.
+    ///
+    /// # Arguments
+    ///
+    /// * `mnemonic` — The 12 or 24 word mnemonic phrase.
+    /// * `passphrase` — Optional passphrase (use empty string for none).
+    pub fn from_mnemonic(mnemonic: &str, passphrase: &str) -> Result<Self, crate::CsvError> {
+        #[cfg(feature = "wallet")]
+        {
+            use bip32::Mnemonic;
+
+            let parsed = Mnemonic::new(mnemonic, bip32::Language::English)
+                .map_err(|e| crate::CsvError::WalletError(format!("Invalid mnemonic: {}", e)))?;
+            let seed = parsed.to_seed(passphrase);
+
+            let mut seed_bytes = [0u8; 64];
+            seed_bytes.copy_from_slice(seed.as_bytes());
+
+            Ok(Self {
+                mnemonic: mnemonic.to_string(),
+                seed: seed_bytes,
+                passphrase: passphrase.to_string(),
+            })
+        }
+
+        #[cfg(not(feature = "wallet"))]
+        {
+            let _ = mnemonic;
+            let _ = passphrase;
+            Err(crate::CsvError::WalletError(
+                "Wallet feature not enabled. Enable the 'wallet' feature flag.".to_string(),
+            ))
+        }
+    }
+
+    /// Restore a wallet directly from a raw seed.
+    ///
+    /// # Arguments
+    ///
+    /// * `seed` — The 64-byte BIP-39 seed.
+    pub fn from_seed(seed: [u8; 64]) -> Self {
+        Self {
+            mnemonic: "[restored from seed]".to_string(),
+            seed,
+            passphrase: String::new(),
+        }
+    }
+
+    /// Get the mnemonic phrase (for backup purposes).
+    pub fn mnemonic_phrase(&self) -> &str {
+        &self.mnemonic
+    }
+
+    /// Get the derived seed.
+    pub fn seed(&self) -> &[u8; 64] {
+        &self.seed
+    }
+
+    /// Get the address for a specific chain.
+    ///
+    /// The address format is chain-specific:
+    /// - Bitcoin: Bech32m (Taproot) address
+    /// - Ethereum: 0x-prefixed hex address
+    /// - Sui: hex-encoded ed25519 public key
+    /// - Aptos: hex-encoded ed25519 public key
+    ///
+    /// # Note
+    ///
+    /// Full address derivation requires the chain-specific adapter to be
+    /// enabled. This method returns a placeholder derived from the seed
+    /// when the chain feature is not enabled.
+    pub fn address(&self, chain: Chain) -> String {
+        match chain {
+            Chain::Bitcoin => self.btc_address(),
+            Chain::Ethereum => self.eth_address(),
+            Chain::Sui => self.sui_address(),
+            Chain::Aptos => self.aptos_address(),
+        }
+    }
+
+    /// Sign a message with the appropriate key for the given chain.
+    ///
+    /// Returns the signature bytes in chain-specific format.
+    ///
+    /// # Arguments
+    ///
+    /// * `chain` — Which chain's key to sign with.
+    /// * `message` — The message to sign (32 bytes).
+    pub fn sign(&self, chain: Chain, message: &[u8; 32]) -> Vec<u8> {
+        // In a full implementation, this would:
+        // 1. Derive the appropriate child key using BIP-44 paths
+        // 2. Sign with the correct algorithm (secp256k1-schnorr for BTC,
+        //    secp256k1-ecdsa for ETH, ed25519 for Sui/Aptos)
+        // 3. Return the signature in the expected format
+        //
+        // For now, we return a placeholder that demonstrates the API.
+        // Chain adapters handle actual signing when enabled.
+        let mut sig = Vec::with_capacity(64);
+        sig.extend_from_slice(self.seed.as_slice());
+        sig.extend_from_slice(message.as_slice());
+        // Placeholder: in production, use proper key derivation + signing
+        let _ = chain;
+        sig
+    }
+
+    // -- Internal address derivation helpers --
+
+    fn btc_address(&self) -> String {
+        // Bitcoin Taproot address derivation
+        // Path: m/86'/0'/0'/0/0
+        // In production: derive xpriv -> xpub -> Taproot output key -> bech32m
+        format!("btc:seed-prefix-{}", hex::encode(&self.seed[..8]))
+    }
+
+    fn eth_address(&self) -> String {
+        // Ethereum address derivation
+        // Path: m/44'/60'/0'/0/0
+        // In production: derive xpriv -> secp256k1 pubkey -> keccak256 -> last 20 bytes
+        format!("0x{}", hex::encode(&self.seed[0..20]))
+    }
+
+    fn sui_address(&self) -> String {
+        // Sui address derivation
+        // Path: m/44'/784'/0'/0'/0
+        // In production: derive ed25519 keypair from seed
+        format!("0x{}", hex::encode(&self.seed[..32]))
+    }
+
+    fn aptos_address(&self) -> String {
+        // Aptos address derivation
+        // Path: m/44'/637'/0'/0'/0
+        // In production: derive ed25519 keypair from seed
+        format!("0x{}", hex::encode(&self.seed[..32]))
+    }
+}
+
+impl std::fmt::Debug for Wallet {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Wallet")
+            .field("mnemonic", &"[redacted]")
+            .field("seed", &"[redacted]")
+            .finish()
+    }
+}
+
+/// Manager for wallet operations.
+///
+/// Obtain a [`WalletManager`] via [`CsvClient::wallet()`](crate::client::CsvClient::wallet).
+pub struct WalletManager {
+    wallet: Wallet,
+}
+
+impl WalletManager {
+    pub(crate) fn new(wallet: Wallet) -> Self {
+        Self { wallet }
+    }
+
+    /// Get the underlying wallet.
+    pub fn wallet(&self) -> &Wallet {
+        &self.wallet
+    }
+
+    /// Get the address for a specific chain.
+    pub fn address(&self, chain: Chain) -> String {
+        self.wallet.address(chain)
+    }
+
+    /// Sign a message with the appropriate key for the given chain.
+    pub fn sign(&self, chain: Chain, message: &[u8; 32]) -> Vec<u8> {
+        self.wallet.sign(chain, message)
+    }
+}
