@@ -18,7 +18,7 @@ use csv_explorer_storage::init_pool;
 
 use crate::graphql::{create_schema, schema::GraphqlContext};
 use crate::rest;
-use shared::{ApiConfig, ExplorerConfig, Result};
+use csv_explorer_shared::{ApiConfig, ExplorerConfig, Result};
 
 /// The API server.
 pub struct ApiServer {
@@ -79,12 +79,12 @@ impl ApiServer {
 
         let listener = tokio::net::TcpListener::bind(&self.config.bind())
             .await
-            .map_err(|e| shared::ExplorerError::Internal(format!("Failed to bind to {}: {}", self.config.bind(), e)))?;
+            .map_err(|e| csv_explorer_shared::ExplorerError::Internal(format!("Failed to bind to {}: {}", self.config.bind(), e)))?;
 
         tracing::info!(addr = %self.config.bind(), "API server started");
         axum::serve(listener, app)
             .await
-            .map_err(|e| shared::ExplorerError::Internal(format!("Server error: {}", e)))?;
+            .map_err(|e| csv_explorer_shared::ExplorerError::Internal(format!("Server error: {}", e)))?;
 
         Ok(())
     }

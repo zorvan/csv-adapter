@@ -1,9 +1,9 @@
 /// Repository for `RightRecord` operations.
 
-use chrono::Utc;
-use sqlx::SqlitePool;
+use sqlx::sqlite::SqliteRow;
+use sqlx::{Row, SqlitePool};
 
-use shared::{Result, RightFilter, RightRecord, RightStatus};
+use csv_explorer_shared::{Result, RightFilter, RightRecord, RightStatus};
 
 /// Typed repository for the `rights` table.
 #[derive(Clone)]
@@ -24,7 +24,7 @@ impl RightsRepository {
             .as_ref()
             .map(|v| serde_json::to_string(v))
             .transpose()?;
-        let last_transfer_at = right.last_transfer_at.map(|dt| dt.naive_utc());
+        let last_transfer_at = right.last_transfer_at.map(|dt| dt);
 
         sqlx::query(
             r#"
@@ -44,7 +44,7 @@ impl RightsRepository {
         .bind(&right.seal_ref)
         .bind(&right.commitment)
         .bind(&right.owner)
-        .bind(right.created_at.naive_utc())
+        .bind(right.created_at)
         .bind(&right.created_tx)
         .bind(right.status.to_string())
         .bind(metadata_json)
@@ -201,7 +201,7 @@ impl RightsRepository {
     }
 }
 
-fn row_to_right(row: &sqlx::SqliteRow) -> Result<RightRecord> {
+fn row_to_right(row: &SqliteRow) -> Result<RightRecord> {
     let status_str: String = row.try_get("status")?;
     let status = match status_str.as_str() {
         "active" => RightStatus::Active,
@@ -212,7 +212,7 @@ fn row_to_right(row: &sqlx::SqliteRow) -> Result<RightRecord> {
 
     let metadata: Option<serde_json::Value> = row
         .try_get::<Option<String>, _>("metadata")?
-        .map(|s| serde_json::from_str(&s))
+        .map(|s: String| serde_json::from_str(&s))
         .transpose()?;
 
     Ok(RightRecord {
@@ -222,14 +222,14 @@ fn row_to_right(row: &sqlx::SqliteRow) -> Result<RightRecord> {
         commitment: row.try_get("commitment")?,
         owner: row.try_get("owner")?,
         created_at: row
-            .try_get::<chrono::NaiveDateTime, _>("created_at")?
-            .and_utc(),
+            .try_get::<chrono::DateTime<chrono::Utc>, _>("created_at")?
+            ,
         created_tx: row.try_get("created_tx")?,
         status,
         metadata,
         transfer_count: row.try_get::<i64, _>("transfer_count")? as u64,
         last_transfer_at: row
-            .try_get::<Option<chrono::NaiveDateTime>, _>("last_transfer_at")?
-            .map(|dt| dt.and_utc()),
+            .try_get::<Option<chrono::DateTime<chrono::Utc>>, _>("last_transfer_at")?
+            .map(|dt| dt),
     })
 }

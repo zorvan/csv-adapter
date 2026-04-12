@@ -10,7 +10,7 @@ use reqwest::Client;
 use serde::Deserialize;
 
 use super::chain_indexer::{ChainIndexer, ChainResult};
-use shared::{
+use csv_explorer_shared::{
     ChainConfig, ContractStatus, ContractType, CsvContract, ExplorerError, RightRecord,
     SealRecord, SealStatus, SealType, TransferRecord,
 };
@@ -187,7 +187,7 @@ impl AptosIndexer {
             owner,
             created_at: chrono::Utc::now(),
             created_tx: tx_hash.to_string(),
-            status: shared::RightStatus::Active,
+            status: csv_explorer_shared::RightStatus::Active,
             metadata: Some(event.data.clone()),
             transfer_count: 0,
             last_transfer_at: None,
@@ -236,7 +236,7 @@ impl AptosIndexer {
             lock_tx: tx_hash.to_string(),
             mint_tx: None,
             proof_ref: None,
-            status: shared::TransferStatus::Pending,
+            status: csv_explorer_shared::TransferStatus::Pending,
             created_at: chrono::Utc::now(),
             completed_at: None,
             duration_ms: None,

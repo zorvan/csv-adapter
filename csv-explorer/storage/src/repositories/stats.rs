@@ -2,7 +2,7 @@
 
 use sqlx::SqlitePool;
 
-use shared::{ChainCount, ChainPairCount, ExplorerStats, Result};
+use csv_explorer_shared::{ChainCount, ChainPairCount, ExplorerStats, Result};
 
 /// Repository for aggregate statistics.
 #[derive(Clone)]
@@ -40,7 +40,7 @@ impl StatsRepository {
             .into_iter()
             .map(|r| ChainCount {
                 chain: r.chain,
-                count: r.count,
+                count: r.count as u64,
             })
             .collect();
 
@@ -56,7 +56,7 @@ impl StatsRepository {
             .map(|r| ChainPairCount {
                 from_chain: r.from_chain,
                 to_chain: r.to_chain,
-                count: r.count,
+                count: r.count as u64,
             })
             .collect();
 
@@ -71,7 +71,7 @@ impl StatsRepository {
             .into_iter()
             .map(|r| ChainCount {
                 chain: r.chain,
-                count: r.count,
+                count: r.count as u64,
             })
             .collect();
 
@@ -147,12 +147,12 @@ impl StatsRepository {
 #[derive(Debug, sqlx::FromRow)]
 struct ChainCountRow {
     chain: String,
-    count: u64,
+    count: i64,
 }
 
 #[derive(Debug, sqlx::FromRow)]
 struct ChainPairCountRow {
     from_chain: String,
     to_chain: String,
-    count: u64,
+    count: i64,
 }

@@ -1,8 +1,9 @@
 /// Repository for `CsvContract` operations.
 
-use sqlx::SqlitePool;
+use sqlx::sqlite::SqliteRow;
+use sqlx::{Row, SqlitePool};
 
-use shared::{ContractFilter, ContractStatus, ContractType, CsvContract, Result};
+use csv_explorer_shared::{ContractFilter, ContractStatus, ContractType, CsvContract, Result};
 
 /// Typed repository for the `contracts` table.
 #[derive(Clone)]
@@ -33,7 +34,7 @@ impl ContractsRepository {
         .bind(contract.contract_type.to_string())
         .bind(&contract.address)
         .bind(&contract.deployed_tx)
-        .bind(contract.deployed_at.naive_utc())
+        .bind(contract.deployed_at)
         .bind(&contract.version)
         .bind(contract.status.to_string())
         .execute(&self.pool)
@@ -142,7 +143,7 @@ impl ContractsRepository {
     }
 }
 
-fn row_to_contract(row: &sqlx::SqliteRow) -> Result<CsvContract> {
+fn row_to_contract(row: &SqliteRow) -> Result<CsvContract> {
     let contract_type_str: String = row.try_get("contract_type")?;
     let contract_type = match contract_type_str.as_str() {
         "nullifier_registry" => ContractType::NullifierRegistry,
@@ -167,8 +168,8 @@ fn row_to_contract(row: &sqlx::SqliteRow) -> Result<CsvContract> {
         address: row.try_get("address")?,
         deployed_tx: row.try_get("deployed_tx")?,
         deployed_at: row
-            .try_get::<chrono::NaiveDateTime, _>("deployed_at")?
-            .and_utc(),
+            .try_get::<chrono::DateTime<chrono::Utc>, _>("deployed_at")?
+            ,
         version: row.try_get("version")?,
         status,
     })

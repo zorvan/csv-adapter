@@ -12,7 +12,7 @@ use serde::Deserialize;
 use std::sync::Arc;
 
 use super::chain_indexer::{ChainIndexer, ChainResult};
-use shared::{ChainConfig, CsvContract, ExplorerError, RightRecord, SealRecord, SealStatus, SealType, TransferRecord};
+use csv_explorer_shared::{ChainConfig, CsvContract, ExplorerError, RightRecord, SealRecord, SealStatus, SealType, TransferRecord};
 
 /// Bitcoin-specific indexer.
 pub struct BitcoinIndexer {
@@ -180,7 +180,7 @@ impl BitcoinIndexer {
                 owner: "unknown".to_string(),
                 created_at: chrono::Utc::now(),
                 created_tx: tx.txid.clone(),
-                status: shared::RightStatus::Active,
+                status: csv_explorer_shared::RightStatus::Active,
                 metadata: None,
                 transfer_count: 0,
                 last_transfer_at: None,

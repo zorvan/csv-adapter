@@ -7,7 +7,7 @@
 
 use clap::{Parser, Subcommand};
 use csv_explorer_api::ApiServer;
-use shared::{ExplorerConfig, Result};
+use csv_explorer_shared::{ExplorerConfig, Result};
 
 /// CSV Explorer API - GraphQL and REST API server
 #[derive(Parser)]
@@ -87,7 +87,7 @@ async fn run_health(config: &ExplorerConfig) -> Result<()> {
                 Ok(())
             } else {
                 println!("API server returned status: {}", resp.status());
-                Err(shared::ExplorerError::Internal(format!(
+                Err(csv_explorer_shared::ExplorerError::Internal(format!(
                     "Health check failed with status: {}",
                     resp.status()
                 )))
@@ -95,7 +95,7 @@ async fn run_health(config: &ExplorerConfig) -> Result<()> {
         }
         Err(e) => {
             println!("API server is not reachable: {}", e);
-            Err(shared::ExplorerError::Internal(format!(
+            Err(csv_explorer_shared::ExplorerError::Internal(format!(
                 "Failed to connect to API server: {}",
                 e
             )))

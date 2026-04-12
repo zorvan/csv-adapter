@@ -5,7 +5,7 @@
 
 use async_trait::async_trait;
 
-use shared::{CsvContract, ExplorerError, RightRecord, SealRecord, TransferRecord};
+use csv_explorer_shared::{CsvContract, ExplorerError, RightRecord, SealRecord, TransferRecord};
 
 /// Result type alias for chain indexer operations.
 pub type ChainResult<T> = std::result::Result<T, ExplorerError>;

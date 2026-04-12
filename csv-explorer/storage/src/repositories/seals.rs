@@ -1,8 +1,9 @@
 /// Repository for `SealRecord` operations.
 
-use sqlx::SqlitePool;
+use sqlx::sqlite::SqliteRow;
+use sqlx::{Row, SqlitePool};
 
-use shared::{Result, SealFilter, SealRecord, SealStatus, SealType};
+use csv_explorer_shared::{Result, SealFilter, SealRecord, SealStatus, SealType};
 
 /// Typed repository for the `seals` table.
 #[derive(Clone)]
@@ -19,7 +20,7 @@ impl SealsRepository {
     /// Insert a new seal record.
     pub async fn insert(&self, seal: &SealRecord) -> Result<()> {
         let right_id = seal.right_id.as_deref();
-        let consumed_at = seal.consumed_at.map(|dt| dt.naive_utc());
+        let consumed_at = seal.consumed_at.map(|dt| dt);
         let consumed_tx = seal.consumed_tx.as_deref();
 
         sqlx::query(
@@ -188,7 +189,7 @@ impl SealsRepository {
     }
 }
 
-fn row_to_seal(row: &sqlx::SqliteRow) -> Result<SealRecord> {
+fn row_to_seal(row: &SqliteRow) -> Result<SealRecord> {
     let seal_type_str: String = row.try_get("seal_type")?;
     let seal_type = match seal_type_str.as_str() {
         "utxo" => SealType::Utxo,
@@ -214,8 +215,8 @@ fn row_to_seal(row: &sqlx::SqliteRow) -> Result<SealRecord> {
         right_id: row.try_get::<Option<String>, _>("right_id")?,
         status,
         consumed_at: row
-            .try_get::<Option<chrono::NaiveDateTime>, _>("consumed_at")?
-            .map(|dt| dt.and_utc()),
+            .try_get::<Option<chrono::DateTime<chrono::Utc>>, _>("consumed_at")?
+            .map(|dt| dt),
         consumed_tx: row.try_get::<Option<String>, _>("consumed_tx")?,
         block_height: row.try_get::<i64, _>("block_height")? as u64,
     })

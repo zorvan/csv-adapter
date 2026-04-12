@@ -6,20 +6,25 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use futures::future::join_all;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::RwLock;
 use tokio::time::sleep;
 
-use super::chain_indexer::{ChainIndexer, ChainResult};
-use shared::{ChainConfig, ChainInfo, ChainStatus, ExplorerError, IndexerStatus};
+use super::chain_indexer::ChainIndexer;
+use csv_explorer_shared::{ChainConfig, ChainInfo, ChainStatus, ExplorerError, IndexerStatus};
 
-use csv_explorer_storage::repositories::SyncRepository;
+use csv_explorer_storage::repositories::{
+    ContractsRepository, RightsRepository, SealsRepository, SyncRepository, TransfersRepository,
+};
 use sqlx::SqlitePool;
 
 /// Sync coordinator that manages multiple chain indexers.
 pub struct SyncCoordinator {
     indexers: Vec<Box<dyn ChainIndexer>>,
     sync_repo: SyncRepository,
+    rights_repo: RightsRepository,
+    seals_repo: SealsRepository,
+    transfers_repo: TransfersRepository,
+    contracts_repo: ContractsRepository,
     concurrency: usize,
     batch_size: u64,
     poll_interval_ms: u64,
@@ -63,7 +68,11 @@ impl SyncCoordinator {
 
         Self {
             indexers,
-            sync_repo: SyncRepository::new(pool),
+            sync_repo: SyncRepository::new(pool.clone()),
+            rights_repo: RightsRepository::new(pool.clone()),
+            seals_repo: SealsRepository::new(pool.clone()),
+            transfers_repo: TransfersRepository::new(pool.clone()),
+            contracts_repo: ContractsRepository::new(pool),
             concurrency,
             batch_size,
             poll_interval_ms,
@@ -96,59 +105,42 @@ impl SyncCoordinator {
 
         tracing::info!("Starting sync coordinator");
 
-        let running = self.running.clone();
-        let chain_states = self.chain_states.clone();
-        let indexers: Vec<_> = self.indexers.iter().map(|idx| idx.as_ref() as &(dyn ChainIndexer)).collect();
-        let sync_repo = self.sync_repo.clone();
-        let batch_size = self.batch_size;
-        let poll_interval = self.poll_interval_ms;
-
-        // Spawn the main sync loop
-        tokio::spawn(async move {
-            while *running.read().await {
-                // Update chain states
-                {
-                    let mut states = chain_states.write().await;
-                    for (i, indexer) in indexers.iter().enumerate() {
-                        if let Ok(tip) = indexer.get_chain_tip().await {
-                            states[i].latest_block = tip;
-                            states[i].status = ChainStatus::Synced;
-                        } else {
-                            states[i].status = ChainStatus::Error;
-                        }
+        // Run the sync loop directly (not spawned) to avoid lifetime issues with trait objects
+        while *self.running.read().await {
+            // Update chain states
+            {
+                let mut states = self.chain_states.write().await;
+                for (i, indexer) in self.indexers.iter().enumerate() {
+                    if let Ok(tip) = indexer.get_chain_tip().await {
+                        states[i].latest_block = tip;
+                        states[i].status = ChainStatus::Synced;
+                    } else {
+                        states[i].status = ChainStatus::Error;
                     }
                 }
-
-                // Sync each chain
-                let mut futures = Vec::new();
-                for indexer in &indexers {
-                    let sync_repo = sync_repo.clone();
-                    let batch_size = batch_size;
-                    let chain_states = chain_states.clone();
-
-                    futures.push(tokio::spawn(async move {
-                        if let Err(e) = sync_chain(
-                            indexer,
-                            &sync_repo,
-                            batch_size,
-                            &chain_states,
-                        ).await {
-                            tracing::error!(chain = indexer.chain_id(), error = %e, "Sync error");
-                        }
-                    }));
-                }
-
-                // Wait for all sync operations to complete (up to concurrency limit)
-                for chunk in futures.chunks(self.concurrency) {
-                    join_all(chunk.iter().cloned()).await;
-                }
-
-                // Sleep before next poll
-                sleep(Duration::from_millis(poll_interval)).await;
             }
 
-            tracing::info!("Sync coordinator stopped");
-        });
+            // Sync each chain
+            for indexer in &self.indexers {
+                if let Err(e) = sync_chain(
+                    indexer.as_ref(),
+                    &self.sync_repo,
+                    &self.rights_repo,
+                    &self.seals_repo,
+                    &self.transfers_repo,
+                    &self.contracts_repo,
+                    self.batch_size,
+                    &self.chain_states,
+                ).await {
+                    tracing::error!(chain = indexer.chain_id(), error = %e, "Sync error");
+                }
+            }
+
+            // Sleep before next poll
+            sleep(Duration::from_millis(self.poll_interval_ms)).await;
+        }
+
+        tracing::info!("Sync coordinator stopped");
 
         Ok(())
     }
@@ -169,7 +161,7 @@ impl SyncCoordinator {
             .map(|state| ChainInfo {
                 id: state.chain_id.clone(),
                 name: state.chain_name.clone(),
-                network: shared::Network::Mainnet, // Would be loaded from config
+                network: csv_explorer_shared::Network::Mainnet, // Would be loaded from config
                 status: state.status,
                 latest_block: state.latest_block,
                 latest_slot: state.latest_slot,
@@ -198,6 +190,10 @@ impl SyncCoordinator {
         sync_chain(
             indexer.as_ref(),
             &self.sync_repo,
+            &self.rights_repo,
+            &self.seals_repo,
+            &self.transfers_repo,
+            &self.contracts_repo,
             self.batch_size,
             &self.chain_states,
         )
@@ -224,6 +220,10 @@ impl SyncCoordinator {
 async fn sync_chain(
     indexer: &dyn ChainIndexer,
     sync_repo: &SyncRepository,
+    rights_repo: &RightsRepository,
+    seals_repo: &SealsRepository,
+    transfers_repo: &TransfersRepository,
+    contracts_repo: &ContractsRepository,
     batch_size: u64,
     _chain_states: &Arc<RwLock<Vec<ChainSyncState>>>,
 ) -> Result<(), ExplorerError> {
@@ -262,12 +262,117 @@ async fn sync_chain(
     while current <= end {
         match indexer.process_block(current).await {
             Ok(result) => {
+                // Index and store rights
+                match indexer.index_rights(current).await {
+                    Ok(rights) => {
+                        for right in &rights {
+                            if let Err(e) = rights_repo.insert(right).await {
+                                tracing::warn!(
+                                    chain = chain_id,
+                                    block = current,
+                                    right_id = %right.id,
+                                    error = %e,
+                                    "Failed to insert right"
+                                );
+                            }
+                        }
+                        tracing::trace!(
+                            chain = chain_id,
+                            block = current,
+                            rights = rights.len(),
+                            "Indexed and stored rights"
+                        );
+                    }
+                    Err(e) => {
+                        tracing::warn!(chain = chain_id, block = current, error = %e, "Failed to index rights");
+                    }
+                }
+
+                // Index and store seals
+                match indexer.index_seals(current).await {
+                    Ok(seals) => {
+                        for seal in &seals {
+                            if let Err(e) = seals_repo.insert(seal).await {
+                                tracing::warn!(
+                                    chain = chain_id,
+                                    block = current,
+                                    seal_id = %seal.id,
+                                    error = %e,
+                                    "Failed to insert seal"
+                                );
+                            }
+                        }
+                        tracing::trace!(
+                            chain = chain_id,
+                            block = current,
+                            seals = seals.len(),
+                            "Indexed and stored seals"
+                        );
+                    }
+                    Err(e) => {
+                        tracing::warn!(chain = chain_id, block = current, error = %e, "Failed to index seals");
+                    }
+                }
+
+                // Index and store transfers
+                match indexer.index_transfers(current).await {
+                    Ok(transfers) => {
+                        for transfer in &transfers {
+                            if let Err(e) = transfers_repo.insert(transfer).await {
+                                tracing::warn!(
+                                    chain = chain_id,
+                                    block = current,
+                                    transfer_id = %transfer.id,
+                                    error = %e,
+                                    "Failed to insert transfer"
+                                );
+                            }
+                        }
+                        tracing::trace!(
+                            chain = chain_id,
+                            block = current,
+                            transfers = transfers.len(),
+                            "Indexed and stored transfers"
+                        );
+                    }
+                    Err(e) => {
+                        tracing::warn!(chain = chain_id, block = current, error = %e, "Failed to index transfers");
+                    }
+                }
+
+                // Index and store contracts
+                match indexer.index_contracts(current).await {
+                    Ok(contracts) => {
+                        for contract in &contracts {
+                            if let Err(e) = contracts_repo.insert(contract).await {
+                                tracing::warn!(
+                                    chain = chain_id,
+                                    block = current,
+                                    contract_id = %contract.id,
+                                    error = %e,
+                                    "Failed to insert contract"
+                                );
+                            }
+                        }
+                        tracing::trace!(
+                            chain = chain_id,
+                            block = current,
+                            contracts = contracts.len(),
+                            "Indexed and stored contracts"
+                        );
+                    }
+                    Err(e) => {
+                        tracing::warn!(chain = chain_id, block = current, error = %e, "Failed to index contracts");
+                    }
+                }
+
                 tracing::trace!(
                     chain = chain_id,
                     block = current,
                     rights = result.rights_count,
                     seals = result.seals_count,
                     transfers = result.transfers_count,
+                    contracts = result.contracts_count,
                     "Processed block"
                 );
             }

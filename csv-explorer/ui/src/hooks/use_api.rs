@@ -73,7 +73,7 @@ impl ApiClient {
         status: Option<&str>,
         limit: Option<usize>,
         offset: Option<usize>,
-    ) -> Result<Vec<shared::RightRecord>, ApiError> {
+    ) -> Result<Vec<csv_explorer_shared::RightRecord>, ApiError> {
         let mut url = format!("{}/api/v1/rights", self.base_url);
         let mut params = Vec::new();
 
@@ -94,14 +94,14 @@ impl ApiClient {
             url.push_str(&format!("?{}", params.join("&")));
         }
 
-        let response: ApiResponse<Vec<shared::RightRecord>> = self.client.get(&url).send().await?.json().await?;
+        let response: ApiResponse<Vec<csv_explorer_shared::RightRecord>> = self.client.get(&url).send().await?.json().await?;
         Ok(response.data)
     }
 
     /// Fetch a single right by ID.
-    pub async fn get_right(&self, id: &str) -> Result<Option<shared::RightRecord>, ApiError> {
+    pub async fn get_right(&self, id: &str) -> Result<Option<csv_explorer_shared::RightRecord>, ApiError> {
         let url = format!("{}/api/v1/rights/{}", self.base_url, id);
-        let response: ApiResponse<shared::RightRecord> = self.client.get(&url).send().await?.json().await?;
+        let response: ApiResponse<csv_explorer_shared::RightRecord> = self.client.get(&url).send().await?.json().await?;
         Ok(Some(response.data))
     }
 
@@ -114,7 +114,7 @@ impl ApiClient {
         status: Option<&str>,
         limit: Option<usize>,
         offset: Option<usize>,
-    ) -> Result<Vec<shared::TransferRecord>, ApiError> {
+    ) -> Result<Vec<csv_explorer_shared::TransferRecord>, ApiError> {
         let mut url = format!("{}/api/v1/transfers", self.base_url);
         let mut params = Vec::new();
 
@@ -141,7 +141,7 @@ impl ApiClient {
             url.push_str(&format!("?{}", params.join("&")));
         }
 
-        let response: ApiResponse<Vec<shared::TransferRecord>> = self.client.get(&url).send().await?.json().await?;
+        let response: ApiResponse<Vec<csv_explorer_shared::TransferRecord>> = self.client.get(&url).send().await?.json().await?;
         Ok(response.data)
     }
 
@@ -152,7 +152,7 @@ impl ApiClient {
         status: Option<&str>,
         limit: Option<usize>,
         offset: Option<usize>,
-    ) -> Result<Vec<shared::SealRecord>, ApiError> {
+    ) -> Result<Vec<csv_explorer_shared::SealRecord>, ApiError> {
         let mut url = format!("{}/api/v1/seals", self.base_url);
         let mut params = Vec::new();
 
@@ -173,14 +173,14 @@ impl ApiClient {
             url.push_str(&format!("?{}", params.join("&")));
         }
 
-        let response: ApiResponse<Vec<shared::SealRecord>> = self.client.get(&url).send().await?.json().await?;
+        let response: ApiResponse<Vec<csv_explorer_shared::SealRecord>> = self.client.get(&url).send().await?.json().await?;
         Ok(response.data)
     }
 
     /// Fetch aggregate statistics.
-    pub async fn get_stats(&self) -> Result<shared::ExplorerStats, ApiError> {
+    pub async fn get_stats(&self) -> Result<csv_explorer_shared::ExplorerStats, ApiError> {
         let url = format!("{}/api/v1/stats", self.base_url);
-        let response: ApiResponse<shared::ExplorerStats> = self.client.get(&url).send().await?.json().await?;
+        let response: ApiResponse<csv_explorer_shared::ExplorerStats> = self.client.get(&url).send().await?.json().await?;
         Ok(response.data)
     }
 

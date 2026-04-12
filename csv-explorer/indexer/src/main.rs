@@ -10,7 +10,7 @@
 use clap::{Parser, Subcommand};
 use csv_explorer_indexer::Indexer;
 use csv_explorer_storage::init_pool;
-use shared::{ExplorerConfig, Result};
+use csv_explorer_shared::{ExplorerConfig, Result};
 
 /// CSV Explorer Indexer - Multi-chain indexing daemon
 #[derive(Parser)]

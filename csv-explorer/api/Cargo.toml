@@ -9,7 +9,7 @@ name = "csv-explorer-api"
 path = "src/main.rs"
 
 [dependencies]
-shared = { path = "../shared" }
+csv-explorer-shared = { path = "../shared" }
 csv-explorer-storage = { path = "../storage" }
 csv-explorer-indexer = { path = "../indexer" }
 tokio.workspace = true

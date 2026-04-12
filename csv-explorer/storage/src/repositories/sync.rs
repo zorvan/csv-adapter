@@ -3,7 +3,7 @@
 use chrono::Utc;
 use sqlx::SqlitePool;
 
-use shared::Result;
+use csv_explorer_shared::Result;
 
 /// Repository for managing chain sync progress.
 #[derive(Clone)]
@@ -19,7 +19,7 @@ impl SyncRepository {
 
     /// Get the latest synced block for a chain.
     pub async fn get_latest_block(&self, chain: &str) -> Result<Option<u64>> {
-        let row = sqlx::query_scalar::<_, Option<i64>>(
+        let row = sqlx::query_scalar::<_, i64>(
             "SELECT latest_block FROM sync_progress WHERE chain = $1",
         )
         .bind(chain)
@@ -31,14 +31,14 @@ impl SyncRepository {
 
     /// Get the latest synced slot for a chain (if applicable).
     pub async fn get_latest_slot(&self, chain: &str) -> Result<Option<u64>> {
-        let row = sqlx::query_scalar::<_, Option<i64>>(
+        let row: Option<Option<i64>> = sqlx::query_scalar(
             "SELECT latest_slot FROM sync_progress WHERE chain = $1",
         )
         .bind(chain)
         .fetch_optional(&self.pool)
         .await?;
 
-        Ok(row.map(|v| v as u64))
+        Ok(row.flatten().map(|v| v as u64))
     }
 
     /// Update the sync progress for a chain.
@@ -61,7 +61,7 @@ impl SyncRepository {
         .bind(chain)
         .bind(latest_block as i64)
         .bind(latest_slot.map(|v| v as i64))
-        .bind(Utc::now().naive_utc())
+        .bind(Utc::now())
         .execute(&self.pool)
         .await?;
 
@@ -105,5 +105,5 @@ pub struct SyncProgressRow {
     pub chain: String,
     pub latest_block: i64,
     pub latest_slot: Option<i64>,
-    pub last_synced_at: Option<chrono::NaiveDateTime>,
+    pub last_synced_at: Option<chrono::DateTime<chrono::Utc>>,
 }

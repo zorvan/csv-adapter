@@ -1,8 +1,9 @@
 /// Repository for `TransferRecord` operations.
 
-use sqlx::SqlitePool;
+use sqlx::sqlite::SqliteRow;
+use sqlx::{Row, SqlitePool};
 
-use shared::{Result, TransferFilter, TransferRecord, TransferStatus};
+use csv_explorer_shared::{Result, TransferFilter, TransferRecord, TransferStatus};
 
 /// Typed repository for the `transfers` table.
 #[derive(Clone)]
@@ -20,7 +21,7 @@ impl TransfersRepository {
     pub async fn insert(&self, transfer: &TransferRecord) -> Result<()> {
         let mint_tx = transfer.mint_tx.as_deref();
         let proof_ref = transfer.proof_ref.as_deref();
-        let completed_at = transfer.completed_at.map(|dt| dt.naive_utc());
+        let completed_at = transfer.completed_at.map(|dt| dt);
 
         sqlx::query(
             r#"
@@ -47,7 +48,7 @@ impl TransfersRepository {
         .bind(mint_tx)
         .bind(proof_ref)
         .bind(transfer.status.to_string())
-        .bind(transfer.created_at.naive_utc())
+        .bind(transfer.created_at)
         .bind(completed_at)
         .bind(transfer.duration_ms.map(|v| v as i64))
         .execute(&self.pool)
@@ -195,7 +196,7 @@ impl TransfersRepository {
     }
 }
 
-fn row_to_transfer(row: &sqlx::SqliteRow) -> Result<TransferRecord> {
+fn row_to_transfer(row: &SqliteRow) -> Result<TransferRecord> {
     let status_str: String = row.try_get("status")?;
     let status = match status_str.as_str() {
         "pending" => TransferStatus::Pending,
@@ -217,11 +218,11 @@ fn row_to_transfer(row: &sqlx::SqliteRow) -> Result<TransferRecord> {
         proof_ref: row.try_get::<Option<String>, _>("proof_ref")?,
         status,
         created_at: row
-            .try_get::<chrono::NaiveDateTime, _>("created_at")?
-            .and_utc(),
+            .try_get::<chrono::DateTime<chrono::Utc>, _>("created_at")?
+            ,
         completed_at: row
-            .try_get::<Option<chrono::NaiveDateTime>, _>("completed_at")?
-            .map(|dt| dt.and_utc()),
+            .try_get::<Option<chrono::DateTime<chrono::Utc>>, _>("completed_at")?
+            .map(|dt| dt),
         duration_ms: row
             .try_get::<Option<i64>, _>("duration_ms")?
             .map(|v| v as u64),

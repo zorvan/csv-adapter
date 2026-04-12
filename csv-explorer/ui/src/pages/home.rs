@@ -2,13 +2,22 @@
 
 use dioxus::prelude::*;
 
+use crate::hooks::use_api::ApiClient;
 use crate::routes;
 
 #[component]
 pub fn Home() -> Element {
-    let stats = use_resource(move || async move {
-        // Fetch stats from API
-        fetch_stats().await
+    let api = use_resource(|| async move { ApiClient::new() });
+
+    let stats = use_resource(move || {
+        let api = api.clone();
+        async move {
+            if let Some(client) = api.value().flatten() {
+                client.get_stats().await.ok()
+            } else {
+                None
+            }
+        }
     });
 
     rsx! {

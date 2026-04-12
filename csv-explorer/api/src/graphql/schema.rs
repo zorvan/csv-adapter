@@ -45,14 +45,14 @@ impl Query {
         let limit = filter.limit.unwrap_or(20) as usize;
         let offset = filter.offset.unwrap_or(0) as usize;
 
-        let shared_filter = shared::RightFilter {
+        let shared_filter = csv_explorer_shared::RightFilter {
             chain: filter.chain,
             owner: filter.owner,
             status: filter.status.as_deref().map(|s| match s {
-                "active" => shared::RightStatus::Active,
-                "spent" => shared::RightStatus::Spent,
-                "pending" => shared::RightStatus::Pending,
-                _ => shared::RightStatus::Active,
+                "active" => csv_explorer_shared::RightStatus::Active,
+                "spent" => csv_explorer_shared::RightStatus::Spent,
+                "pending" => csv_explorer_shared::RightStatus::Pending,
+                _ => csv_explorer_shared::RightStatus::Active,
             }),
             limit: Some(limit),
             offset: Some(offset),
@@ -103,16 +103,16 @@ impl Query {
         let limit = filter.limit.unwrap_or(20) as usize;
         let offset = filter.offset.unwrap_or(0) as usize;
 
-        let shared_filter = shared::TransferFilter {
+        let shared_filter = csv_explorer_shared::TransferFilter {
             right_id: filter.right_id,
             from_chain: filter.from_chain,
             to_chain: filter.to_chain,
             status: filter.status.as_deref().map(|s| match s {
-                "pending" => shared::TransferStatus::Pending,
-                "in_progress" => shared::TransferStatus::InProgress,
-                "completed" => shared::TransferStatus::Completed,
-                "failed" => shared::TransferStatus::Failed,
-                _ => shared::TransferStatus::Pending,
+                "pending" => csv_explorer_shared::TransferStatus::Pending,
+                "in_progress" => csv_explorer_shared::TransferStatus::InProgress,
+                "completed" => csv_explorer_shared::TransferStatus::Completed,
+                "failed" => csv_explorer_shared::TransferStatus::Failed,
+                _ => csv_explorer_shared::TransferStatus::Pending,
             }),
             limit: Some(limit),
             offset: Some(offset),
@@ -163,20 +163,20 @@ impl Query {
         let limit = filter.limit.unwrap_or(20) as usize;
         let offset = filter.offset.unwrap_or(0) as usize;
 
-        let shared_filter = shared::SealFilter {
+        let shared_filter = csv_explorer_shared::SealFilter {
             chain: filter.chain,
             seal_type: filter.seal_type.as_deref().map(|s| match s {
-                "utxo" => shared::SealType::Utxo,
-                "object" => shared::SealType::Object,
-                "resource" => shared::SealType::Resource,
-                "nullifier" => shared::SealType::Nullifier,
-                "account" => shared::SealType::Account,
-                _ => shared::SealType::Utxo,
+                "utxo" => csv_explorer_shared::SealType::Utxo,
+                "object" => csv_explorer_shared::SealType::Object,
+                "resource" => csv_explorer_shared::SealType::Resource,
+                "nullifier" => csv_explorer_shared::SealType::Nullifier,
+                "account" => csv_explorer_shared::SealType::Account,
+                _ => csv_explorer_shared::SealType::Utxo,
             }),
             status: filter.status.as_deref().map(|s| match s {
-                "available" => shared::SealStatus::Available,
-                "consumed" => shared::SealStatus::Consumed,
-                _ => shared::SealStatus::Available,
+                "available" => csv_explorer_shared::SealStatus::Available,
+                "consumed" => csv_explorer_shared::SealStatus::Consumed,
+                _ => csv_explorer_shared::SealStatus::Available,
             }),
             right_id: filter.right_id,
             limit: Some(limit),
@@ -228,20 +228,20 @@ impl Query {
         let limit = filter.limit.unwrap_or(20) as usize;
         let offset = filter.offset.unwrap_or(0) as usize;
 
-        let shared_filter = shared::ContractFilter {
+        let shared_filter = csv_explorer_shared::ContractFilter {
             chain: filter.chain,
             contract_type: filter.contract_type.as_deref().map(|s| match s {
-                "nullifier_registry" => shared::ContractType::NullifierRegistry,
-                "state_commitment" => shared::ContractType::StateCommitment,
-                "right_registry" => shared::ContractType::RightRegistry,
-                "bridge" => shared::ContractType::Bridge,
-                _ => shared::ContractType::Other,
+                "nullifier_registry" => csv_explorer_shared::ContractType::NullifierRegistry,
+                "state_commitment" => csv_explorer_shared::ContractType::StateCommitment,
+                "right_registry" => csv_explorer_shared::ContractType::RightRegistry,
+                "bridge" => csv_explorer_shared::ContractType::Bridge,
+                _ => csv_explorer_shared::ContractType::Other,
             }),
             status: filter.status.as_deref().map(|s| match s {
-                "active" => shared::ContractStatus::Active,
-                "deprecated" => shared::ContractStatus::Deprecated,
-                "error" => shared::ContractStatus::Error,
-                _ => shared::ContractStatus::Active,
+                "active" => csv_explorer_shared::ContractStatus::Active,
+                "deprecated" => csv_explorer_shared::ContractStatus::Deprecated,
+                "error" => csv_explorer_shared::ContractStatus::Error,
+                _ => csv_explorer_shared::ContractStatus::Active,
             }),
             limit: Some(limit),
             offset: Some(offset),

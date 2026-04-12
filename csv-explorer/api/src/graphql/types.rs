@@ -62,8 +62,8 @@ pub struct Right {
     pub last_transfer_at: Option<DateTime<Utc>>,
 }
 
-impl From<shared::RightRecord> for Right {
-    fn from(r: shared::RightRecord) -> Self {
+impl From<csv_explorer_shared::RightRecord> for Right {
+    fn from(r: csv_explorer_shared::RightRecord) -> Self {
         Self {
             id: r.id,
             chain: r.chain,
@@ -98,8 +98,8 @@ pub struct Transfer {
     pub duration_ms: Option<i64>,
 }
 
-impl From<shared::TransferRecord> for Transfer {
-    fn from(t: shared::TransferRecord) -> Self {
+impl From<csv_explorer_shared::TransferRecord> for Transfer {
+    fn from(t: csv_explorer_shared::TransferRecord) -> Self {
         Self {
             id: t.id,
             right_id: t.right_id,
@@ -132,8 +132,8 @@ pub struct Seal {
     pub block_height: i64,
 }
 
-impl From<shared::SealRecord> for Seal {
-    fn from(s: shared::SealRecord) -> Self {
+impl From<csv_explorer_shared::SealRecord> for Seal {
+    fn from(s: csv_explorer_shared::SealRecord) -> Self {
         Self {
             id: s.id,
             chain: s.chain,
@@ -161,8 +161,8 @@ pub struct CsvContractGql {
     pub status: String,
 }
 
-impl From<shared::CsvContract> for CsvContractGql {
-    fn from(c: shared::CsvContract) -> Self {
+impl From<csv_explorer_shared::CsvContract> for CsvContractGql {
+    fn from(c: csv_explorer_shared::CsvContract) -> Self {
         Self {
             id: c.id,
             chain: c.chain,
@@ -189,8 +189,8 @@ pub struct ChainInfoGql {
     pub sync_lag: i64,
 }
 
-impl From<shared::ChainInfo> for ChainInfoGql {
-    fn from(c: shared::ChainInfo) -> Self {
+impl From<csv_explorer_shared::ChainInfo> for ChainInfoGql {
+    fn from(c: csv_explorer_shared::ChainInfo) -> Self {
         Self {
             id: c.id,
             name: c.name,
@@ -215,8 +215,8 @@ pub struct Stats {
     pub average_transfer_time_ms: Option<i64>,
 }
 
-impl From<shared::ExplorerStats> for Stats {
-    fn from(s: shared::ExplorerStats) -> Self {
+impl From<csv_explorer_shared::ExplorerStats> for Stats {
+    fn from(s: csv_explorer_shared::ExplorerStats) -> Self {
         Self {
             total_rights: s.total_rights as i64,
             total_transfers: s.total_transfers as i64,

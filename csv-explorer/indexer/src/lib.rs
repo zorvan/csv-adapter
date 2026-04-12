@@ -15,7 +15,7 @@ pub mod sync;
 pub use chain_indexer::{ChainIndexer, ChainResult};
 pub use sync::SyncCoordinator;
 
-use shared::{ChainConfig, ExplorerConfig, ExplorerError, Result};
+use csv_explorer_shared::{ChainConfig, ExplorerConfig, ExplorerError, Result};
 use sqlx::SqlitePool;
 
 /// The main indexer that wraps all chain indexers.
@@ -97,7 +97,7 @@ impl Indexer {
     }
 
     /// Get the current indexer status.
-    pub async fn status(&self) -> shared::IndexerStatus {
+    pub async fn status(&self) -> csv_explorer_shared::IndexerStatus {
         self.coordinator.status().await
     }
 
