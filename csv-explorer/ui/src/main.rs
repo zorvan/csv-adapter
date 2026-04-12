@@ -31,16 +31,15 @@ enum Commands {
     Desktop,
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let cli = Cli::parse();
 
     match cli.command {
         Commands::Serve => {
             println!("Starting CSV Explorer UI in web mode...");
             println!("Open http://localhost:3000 in your browser");
-            // In a real deployment, this would serve the WASM build
-            // For now, we just launch the dioxus app
-            launch_app();
+            launch_web().await;
         }
         Commands::Desktop => {
             println!("Starting CSV Explorer UI in desktop mode...");
@@ -50,12 +49,26 @@ fn main() {
 }
 
 #[cfg(feature = "web")]
-fn launch_app() {
-    dioxus::launch(app::App);
+async fn launch_web() {
+    let addr: std::net::SocketAddr = ([0, 0, 0, 0], 3000).into();
+    
+    println!("Starting server on {}", addr);
+    
+    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+    
+    dioxus::fullstack::axum::render::serve(
+        dioxus::fullstack::axum::ServeConfigBuilder::default()
+            .build()
+            .unwrap(),
+        app::App,
+    )
+    .listen(listener)
+    .await
+    .unwrap();
 }
 
 #[cfg(not(feature = "web"))]
-fn launch_app() {
+async fn launch_web() {
     eprintln!("Web feature not enabled. Build with --features web");
 }
 

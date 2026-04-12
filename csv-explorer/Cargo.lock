@@ -1174,6 +1174,7 @@ dependencies = [
 name = "csv-explorer-ui"
 version = "0.1.0"
 dependencies = [
+ "axum",
  "chrono",
  "clap",
  "csv-explorer-shared",
