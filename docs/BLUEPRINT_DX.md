@@ -1342,27 +1342,7 @@ Stage 5: Production (Month 1-3)
   - Becomes community advocate
 ```
 
-### 11.2 Achievement System
-
-```bash
-# Developers earn badges for milestones
-
-🏅 CSV Initiate     - Complete tutorial
-🏅 Cross-Chain Pioneer - First real transfer
-🏅 Multi-Chain Explorer - Transfer to 3+ chains
-🏅 Proof Wizard      - Verify 10 proofs
-🏅 Right Creator     - Create 5 Rights
-🏅 Community Builder - Help 5 developers in Discord
-🏅 Open Source Contributor - Submit first PR
-🏅 Production Ready  - Deploy to mainnet
-
-# Badges displayed in:
-# - GitHub profile (via verified credentials)
-# - CSV extension
-# - docs.csv.dev leaderboard
-```
-
-### 11.3 Community Support
+### 11.2 Community Support
 
 | Channel | Purpose | Response Time |
 |---------|---------|---------------|
@@ -1392,7 +1372,6 @@ Stage 5: Production (Month 1-3)
 | 3 | Testing framework mocks | SDK Team | 🟡 High |
 | 4 | API documentation site (v1) | DX Team | 🟢 Medium |
 | 4 | Code generator (CLI) | DX Team | 🟢 Medium |
-| 4 | **Agent prompt templates** | **Agent Team** | **🟢 Medium** |
 
 **Success Criteria:** Developer can complete first cross-chain transfer in < 5 minutes
 
@@ -1405,13 +1384,8 @@ Stage 5: Production (Month 1-3)
 | 5 | **MCP Server (v2) with streaming** | **Agent Team** | **🟡 High** |
 | 6 | Browser-based playground | DX Team | 🟢 Medium |
 | 6 | Property-based test suite | QA Team | 🟢 Medium |
-| 6 | **Agent testing framework** | **Agent Team** | **🟡 High** |
-| 7 | Diagnostic tools (`csv doctor`) | DX Team | 🟡 High |
 | 7 | Living examples repository | DX Team | 🟢 Medium |
-| 7 | **Curated agent examples** | **Agent Team** | **🟢 Medium** |
 | 8 | VS Code extension (v1) | DX Team | 🟢 Medium |
-| 8 | Achievement system | DX Team | ⚪ Low |
-| 8 | **JSON Schema tool definitions** | **Agent Team** | **🟢 Medium** |
 
 **Success Criteria:** 90% of tutorial participants succeed without external help
 
@@ -1421,11 +1395,9 @@ Stage 5: Production (Month 1-3)
 |------|-------------|-------|----------|
 | 9 | Go SDK (core APIs) | SDK Team | 🟢 Medium |
 | 9 | React component library | Frontend Team | 🟡 High |
-| 10 | Production monitoring guide | DX Team | 🟢 Medium |
+| 10 | Production deployment guide | DX Team | 🟢 Medium |
 | 10 | Security best practices guide | Security Team | 🟡 High |
 | 11 | Advanced tutorial series | DX Team | 🟢 Medium |
-| 11 | Community examples curation | Community Team | 🟢 Medium |
-| 12 | Developer feedback system | DX Team | 🟢 Medium |
 | 12 | DX metrics dashboard | DX Team | 🟢 Medium |
 
 **Success Criteria:** 100+ developers onboarded, 10+ production apps using CSV

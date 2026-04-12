@@ -315,17 +315,20 @@ async function transferNFT(rightId: string, toAddress: string) {
 }
 ```
 
-3. Add error handling (reads ErrorSuggestion spec)
-4. Suggest test using @csv-adapter/testing
-5. Link to docs.csv.dev/transfers
+1. Add error handling (reads ErrorSuggestion spec)
+2. Suggest test using @csv-adapter/testing
+3. Link to docs.csv.dev/transfers
+
 ```
 
 #### CLI Agent (Autonomous Operation)
 
 ```
+
 User: "Transfer Right 0xabc123 to my Ethereum wallet"
 
 Agent workflow:
+
 1. Call csv_wallet_balance to verify funds
 2. Call csv_right_get(right_id: "0xabc123") to verify ownership
 3. Call csv_transfer_cross_chain with parameters
@@ -338,14 +341,17 @@ Status updates:
 [3/4] Submitting to Ethereum... (tx: 0x789def)
 [4/4] Verifying proof... ✓
 ✅ Transfer complete! Right 0xabc123 now owned on Ethereum
+
 ```
 
 #### Audit Agent (Security Verification)
 
 ```
+
 Agent task: "Verify this CSV implementation cannot double-spend"
 
 Agent workflow:
+
 1. Read formal invariants from spec:
    - "A Right can only exist on one chain at a time"
    - "Seal consumption is atomic"
@@ -354,6 +360,7 @@ Agent workflow:
 3. Generate test cases that could violate invariants
 4. Run property-based tests
 5. Report: "✓ No double-spend vectors found in 10,000 random tests"
+
 ```
 
 ### 0.1.5 Implementation Plan
@@ -631,7 +638,7 @@ csv tutorial cross-chain-basics
 # Step 4/7: Transfer it to Sui devnet ✓
 # Step 5/7: Verify the proof locally ✓
 # Step 6/7: Transfer back to Bitcoin ✓
-# Step 7/7: Celebrate! 🎉 Earn "CSV Pioneer" badge
+# Step 7/7: Celebrate! 🎉 Tutorial complete
 ```
 
 #### Local Development Environment
@@ -1894,6 +1901,7 @@ Week 8: Documentation + example apps (marketplace, lending)
 ### Q1 2026 (Immediate) — DX Foundation
 
 **Developer Experience (Priority 1)**
+
 - [x] Developer Experience Blueprint (BLUEPRINT_DX.md)
 - [ ] TypeScript SDK (core APIs) — `npm install @csv-adapter/sdk`
 - [ ] `create-csv-app` scaffolding — `npx create-csv-app@latest`
@@ -1903,6 +1911,7 @@ Week 8: Documentation + example apps (marketplace, lending)
 - [ ] `csv doctor` diagnostic tool
 
 **Core Features (Priority 2)**
+
 - [ ] Cross-chain subscription app (easiest app)
 - [ ] Wallet encryption + BIP-39 support
 - [ ] Seal registry performance optimization
@@ -1913,6 +1922,7 @@ Week 8: Documentation + example apps (marketplace, lending)
 ### Q2 2026 — DX Polish
 
 **Developer Experience (Priority 1)**
+
 - [ ] TypeScript SDK chain providers (Bitcoin, Ethereum, Sui, Aptos)
 - [ ] WASM bindings for browser — `@csv-adapter/wasm`
 - [ ] Testing framework with mock chains — `@csv-adapter/testing`
@@ -1922,6 +1932,7 @@ Week 8: Documentation + example apps (marketplace, lending)
 - [ ] Property-based test suite
 
 **Core Features (Priority 2)**
+
 - [ ] Cross-chain NFT app
 - [ ] Multi-sig wallet support
 - [ ] Cosmos adapter
@@ -1931,16 +1942,13 @@ Week 8: Documentation + example apps (marketplace, lending)
 
 **Success Criteria:** 90% of tutorial participants succeed without external help
 
-### Q3 2026 — DX Ecosystem
+### Q3 2026 — Ecosystem
 
 **Developer Experience (Priority 1)**
 - [ ] VS Code extension (v1)
-- [ ] React component library — `@csv-adapter/react`
-- [ ] Achievement system & developer gamification
-- [ ] Production monitoring guide
-- [ ] Security best practices guide
+- [ ] React component library
+- [ ] Production deployment guide
 - [ ] Advanced tutorial series
-- [ ] Developer feedback system
 
 **Core Features (Priority 2)**
 - [ ] Supply chain provenance app
@@ -1952,12 +1960,11 @@ Week 8: Documentation + example apps (marketplace, lending)
 
 **Success Criteria:** 100+ developers onboarded, 10+ production apps using CSV
 
-### Q4 2026 — DX Maturity
+### Q4 2026 — Maturity
 
 **Developer Experience (Priority 1)**
 - [ ] Developer satisfaction survey (quarterly)
 - [ ] DX metrics dashboard
-- [ ] Community examples curation
 - [ ] "You Asked, We Built" series
 - [ ] Developer advocacy program
 
@@ -2009,7 +2016,6 @@ Week 8: Documentation + example apps (marketplace, lending)
 | **Community examples** | 10 | 50 |
 | **Discord activity** | 500 msgs/month | 2000 msgs/month |
 | **Office hours attendance** | 20/session | 100/session |
-| **Achievement badges earned** | 100 | 1000 |
 
 ---
 
@@ -2075,5 +2081,5 @@ Collect → Analyze → Act → Communicate
 
 *This is a living document. Last updated: April 11, 2026.  
 Related: [Developer Experience Blueprint](BLUEPRINT_DX.md)  
-Contribute: https://github.com/zorvan/csv-adapter  
-Discuss: https://discord.gg/csv-adapter*
+Contribute: <https://github.com/zorvan/csv-adapter>  
+Discuss: <https://discord.gg/csv-adapter>*
