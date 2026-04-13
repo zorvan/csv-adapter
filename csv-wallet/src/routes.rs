@@ -94,6 +94,8 @@ pub enum Route {
         ValidateCommitmentChain {},
 
         // Wallet
+        #[route("/wallet")]
+        WalletPage {},
         #[route("/wallet/generate")]
         GenerateWallet {},
         #[route("/wallet/import")]

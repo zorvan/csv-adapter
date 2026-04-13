@@ -50,6 +50,29 @@ pub fn Home() -> Element {
 
     rsx! {
         div { class: "space-y-8",
+            // API Status Banner
+            if api_health() == "disconnected" || api_health() == "unknown" {
+                div { class: "bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-6",
+                    div { class: "flex items-start gap-3",
+                        span { class: "text-yellow-400 text-2xl", "⚠" }
+                        div { class: "flex-1",
+                            h3 { class: "text-lg font-semibold text-yellow-400 mb-2",
+                                "API Server Not Connected"
+                            }
+                            p { class: "text-gray-300 text-sm mb-3",
+                                "The Explorer API (port 8080) is not running. Start the required services to view real blockchain data."
+                            }
+                            div { class: "bg-gray-900 rounded-lg p-4 font-mono text-xs text-gray-400 space-y-1",
+                                p { class: "text-gray-500", "# Start the API server:" }
+                                p { class: "text-green-400", "cd csv-explorer && cargo run -p csv-explorer-api -- start" }
+                                p { class: "text-gray-500 mt-2", "# (Optional) Start the indexer to sync blockchain data:" }
+                                p { class: "text-green-400", "cargo run -p csv-explorer-indexer -- start" }
+                            }
+                        }
+                    }
+                }
+            }
+
             // Hero
             div { class: "text-center py-12",
                 h1 { class: "text-4xl font-bold mb-4",

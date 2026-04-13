@@ -435,3 +435,31 @@ pub fn truncate_address(addr: &str, chars: usize) -> String {
         format!("{}...{}", &addr[..chars + 2], &addr[addr.len() - chars..])
     }
 }
+
+// ===== Chain Styling Helpers =====
+pub fn chain_badge_class(chain: &Chain) -> &'static str {
+    match chain {
+        Chain::Bitcoin => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-orange-400 bg-orange-500/20 border border-orange-500/30",
+        Chain::Ethereum => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-blue-400 bg-blue-500/20 border border-blue-500/30",
+        Chain::Sui => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-cyan-400 bg-cyan-500/20 border border-cyan-500/30",
+        Chain::Aptos => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-emerald-400 bg-emerald-500/20 border border-emerald-500/30",
+    }
+}
+
+pub fn chain_icon_emoji(chain: &Chain) -> &'static str {
+    match chain {
+        Chain::Bitcoin => "\u{1F7E0}",
+        Chain::Ethereum => "\u{1F537}",
+        Chain::Sui => "\u{1F30A}",
+        Chain::Aptos => "\u{1F7E2}",
+    }
+}
+
+pub fn chain_name(chain: &Chain) -> &'static str {
+    match chain {
+        Chain::Bitcoin => "Bitcoin",
+        Chain::Ethereum => "Ethereum",
+        Chain::Sui => "Sui",
+        Chain::Aptos => "Aptos",
+    }
+}

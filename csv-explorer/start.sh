@@ -1,90 +1,93 @@
 #!/bin/bash
-# Start CSV Explorer Services
+# Start CSV Explorer services
 
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+EXPLORER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PID_FILE="$EXPLORER_DIR/.pids"
 
-echo "==================================="
-echo "  CSV Explorer - Starting Services"
-echo "==================================="
-echo ""
+# Create PID file if it doesn't exist
+touch "$PID_FILE"
 
-# Kill any existing instances
-echo "Cleaning up old processes..."
-pkill -f csv-explorer-api 2>/dev/null || true
-pkill -f csv-explorer-ui 2>/dev/null || true
-sleep 1
-
-# Start API Server
-echo ""
-echo "[1/2] Starting API Server..."
-nohup ./target/release/csv-explorer-api start > /tmp/api.log 2>&1 &
-API_PID=$!
-echo "  API PID: $API_PID"
-
-# Wait for API
-echo "  Waiting for API..."
-for i in $(seq 1 10); do
-    if curl -s http://localhost:8080/health > /dev/null 2>&1; then
-        echo "  ✓ API ready at http://localhost:8080"
-        break
+start_api() {
+    echo "🚀 Starting CSV Explorer API server..."
+    if pgrep -f "csv-explorer-api" > /dev/null 2>&1; then
+        echo "✅ API server is already running"
+    else
+        cd "$EXPLORER_DIR"
+        nohup cargo run -p csv-explorer-api -- start > /tmp/csv-explorer-api.log 2>&1 &
+        echo $! >> "$PID_FILE"
+        sleep 3
+        
+        # Health check
+        if curl -s http://localhost:8080/health > /dev/null 2>&1; then
+            echo "✅ API server started successfully (port 8080)"
+        else
+            echo "❌ API server failed to start. Check logs: /tmp/csv-explorer-api.log"
+            exit 1
+        fi
     fi
-    sleep 1
-done
-
-# Start UI Server
-echo ""
-echo "[2/2] Starting Web UI..."
-nohup bash "$SCRIPT_DIR/serve-ui.sh" > /tmp/ui.log 2>&1 &
-UI_PID=$!
-echo "  UI PID: $UI_PID"
-
-# Wait for UI
-echo "  Waiting for UI..."
-for i in $(seq 1 5); do
-    if curl -s http://localhost:3000 > /dev/null 2>&1; then
-        echo "  ✓ UI ready at http://localhost:3000"
-        break
-    fi
-    sleep 1
-done
-
-echo "==================================="
-echo "  Services Running"
-echo "==================================="
-echo ""
-echo "  ✓ Web UI:     http://localhost:3000"
-echo "  ✓ API Server: http://localhost:8080"
-echo "  ✓ Health:     http://localhost:8080/health"
-echo "  ✓ Stats:      http://localhost:8080/api/v1/stats"
-echo ""
-echo "PIDs:"
-echo "  API: $API_PID"
-echo "  UI:  $UI_PID"
-echo ""
-echo "To stop all services:"
-echo "  kill $API_PID $UI_PID"
-echo ""
-echo "Logs:"
-echo "  API: tail -f /tmp/api.log"
-echo "  UI:  tail -f /tmp/ui.log"
-echo ""
-echo "Press Ctrl+C to stop all services..."
-echo ""
-
-# Cleanup function
-cleanup() {
-    echo ""
-    echo "Stopping services..."
-    kill $API_PID 2>/dev/null || true
-    kill $UI_PID 2>/dev/null || true
-    echo "Done."
 }
 
-# Trap Ctrl+C
-trap cleanup INT TERM
+start_ui() {
+    echo "🎨 Starting CSV Explorer UI..."
+    if pgrep -f "csv-explorer-ui" > /dev/null 2>&1; then
+        echo "✅ UI server is already running"
+    else
+        cd "$EXPLORER_DIR"
+        nohup cargo run -p csv-explorer-ui -- serve > /tmp/csv-explorer-ui.log 2>&1 &
+        echo $! >> "$PID_FILE"
+        sleep 3
+        echo "✅ UI server started (port 3000)"
+    fi
+}
 
-# Keep running
-wait
+stop_all() {
+    echo "🛑 Stopping all CSV Explorer services..."
+    pkill -f "csv-explorer-api" 2>/dev/null || true
+    pkill -f "csv-explorer-ui" 2>/dev/null || true
+    rm -f "$PID_FILE"
+    echo "✅ All services stopped"
+}
+
+status() {
+    echo "📊 CSV Explorer Status:"
+    if curl -s http://localhost:8080/health > /dev/null 2>&1; then
+        echo "  ✅ API Server (8080): Running"
+    else
+        echo "  ❌ API Server (8080): Not running"
+    fi
+    
+    if curl -s http://localhost:3000 > /dev/null 2>&1; then
+        echo "  ✅ UI Server (3000): Running"
+    else
+        echo "  ❌ UI Server (3000): Not running"
+    fi
+}
+
+case "${1:-start}" in
+    start)
+        start_api
+        start_ui
+        echo ""
+        echo "🌐 Access the explorer at: http://localhost:3000"
+        echo "📊 API at: http://localhost:8080"
+        echo "🔍 GraphQL Playground: http://localhost:8080/playground"
+        ;;
+    stop)
+        stop_all
+        ;;
+    restart)
+        stop_all
+        sleep 2
+        start_api
+        start_ui
+        ;;
+    status)
+        status
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart|status}"
+        exit 1
+        ;;
+esac

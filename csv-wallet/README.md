@@ -59,18 +59,28 @@ cargo install dioxus-cli
 cargo check -p csv-wallet
 
 # Build for web (wasm32)
+cd csv-wallet
 dx build --release
 
-# Serve locally
+# Serve locally with hot reload
 dx serve
 ```
 
-### Development
+Then open **http://localhost:8080** in your browser.
 
-```bash
-# Run in development mode with hot reload
-dx serve --hot-reload
-```
+### Available Wallet Commands (matching csv-cli)
+
+The wallet UI supports all `csv-cli` wallet commands:
+
+| Tab | Description | csv-cli Equivalent |
+|-----|-------------|-------------------|
+| **Overview** | Dashboard with quick actions | - |
+| **Generate** | Create new wallet with chain/network selection | `csv wallet generate <chain> [network]` |
+| **Import** | Import from private key or mnemonic | `csv wallet import <chain> <secret>` |
+| **Balance** | Check wallet balance | `csv wallet balance <chain>` |
+| **Fund** | Request test tokens from faucet | `csv wallet fund <chain>` |
+| **Export** | Export wallet address/data | `csv wallet export <chain>` |
+| **List** | View all wallets table | `csv wallet list` |
 
 ## Architecture
 

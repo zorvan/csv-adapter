@@ -10,8 +10,6 @@ homepage = "https://github.com/zorvan/csv-adapter"
 readme = "README.md"
 publish = false
 
-[workspace]
-
 [[bin]]
 name = "csv-wallet"
 path = "src/main.rs"

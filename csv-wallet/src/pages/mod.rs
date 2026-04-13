@@ -2,9 +2,14 @@
 
 use dioxus::prelude::*;
 use dioxus_router::*;
+use std::rc::Rc;
+use std::collections::HashMap;
 use crate::routes::Route;
-use crate::context::{use_wallet_context, Network, generate_id, truncate_address, TrackedRight, RightStatus, TrackedTransfer, TransferStatus, SealRecord, DeployedContract, ProofRecord, TestResult, TestStatus, NotificationKind};
+use crate::context::{use_wallet_context, WalletContext, Network, generate_id, truncate_address, TrackedRight, RightStatus, TrackedTransfer, TransferStatus, SealRecord, DeployedContract, ProofRecord, TestResult, TestStatus, NotificationKind};
 use csv_adapter_core::Chain;
+
+pub mod wallet_page;
+pub use wallet_page::WalletPage;
 
 // ===== Chain Styling Helpers =====
 fn chain_color(chain: &Chain) -> &'static str {
@@ -40,6 +45,47 @@ fn chain_name(chain: &Chain) -> &'static str {
         Chain::Ethereum => "Ethereum",
         Chain::Sui => "Sui",
         Chain::Aptos => "Aptos",
+    }
+}
+
+fn right_status_class(status: &RightStatus) -> &'static str {
+    match status {
+        RightStatus::Active => "text-green-400 bg-green-500/20",
+        RightStatus::Transferred => "text-blue-400 bg-blue-500/20",
+        RightStatus::Consumed => "text-gray-400 bg-gray-500/20",
+    }
+}
+
+fn transfer_status_class(status: &TransferStatus) -> &'static str {
+    match status {
+        TransferStatus::Completed => "text-green-400 bg-green-500/20",
+        TransferStatus::Failed => "text-red-400 bg-red-500/20",
+        _ => "text-yellow-400 bg-yellow-500/20",
+    }
+}
+
+fn test_status_class(status: &TestStatus) -> &'static str {
+    match status {
+        TestStatus::Passed => "text-green-400 bg-green-500/20",
+        TestStatus::Failed => "text-red-400 bg-red-500/20",
+        TestStatus::Running => "text-blue-400 bg-blue-500/20",
+        TestStatus::Pending => "text-gray-400 bg-gray-500/20",
+    }
+}
+
+fn seal_consumed_class(consumed: bool) -> &'static str {
+    if consumed {
+        "bg-red-900/30 border-red-700/50"
+    } else {
+        "bg-green-900/30 border-green-700/50"
+    }
+}
+
+fn seal_consumed_text_class(consumed: bool) -> &'static str {
+    if consumed {
+        "text-red-300"
+    } else {
+        "text-green-300"
     }
 }
 
@@ -101,12 +147,12 @@ fn network_options() -> Vec<(Network, &'static str)> {
     ]
 }
 
-fn chain_select(onchange: EventHandler<FormData>, value: Chain) -> Element {
+fn chain_select(mut onchange: impl FnMut(Rc<FormData>) + 'static, value: Chain) -> Element {
     rsx! {
         select {
             class: "{select_class()}",
             value: "{value}",
-            onchange: move |evt| onchange.call(evt.data()),
+            onchange: move |evt| onchange(evt.data()),
             for (c, label) in chain_options() {
                 option { value: "{c}", selected: c == value, "{label}" }
             }
@@ -114,12 +160,19 @@ fn chain_select(onchange: EventHandler<FormData>, value: Chain) -> Element {
     }
 }
 
-fn network_select(onchange: EventHandler<FormData>, value: Network) -> Element {
+fn network_select(mut onchange: impl FnMut(Network) + 'static, value: Network) -> Element {
     rsx! {
         select {
             class: "{select_class()}",
             value: "{value}",
-            onchange: move |evt| onchange.call(evt.data()),
+            onchange: move |evt| {
+                let n = match evt.value().as_str() {
+                    "dev" => Network::Dev,
+                    "main" => Network::Main,
+                    _ => Network::Test,
+                };
+                onchange(n);
+            },
             for (n, label) in network_options() {
                 option { value: "{n}", selected: n == value, "{label}" }
             }
@@ -136,7 +189,7 @@ fn form_field(label_text: &str, children: Element) -> Element {
     }
 }
 
-fn notification_banner(kind: NotificationKind, message: String, on_close: EventHandler<MouseEvent>) -> Element {
+fn notification_banner(kind: NotificationKind, message: String, mut on_close: impl FnMut() + 'static) -> Element {
     let (bg, border, text, icon) = match kind {
         NotificationKind::Success => ("bg-green-900/30", "border-green-700/50", "text-green-300", "\u{2705}"),
         NotificationKind::Error => ("bg-red-900/30", "border-red-700/50", "text-red-300", "\u{274C}"),
@@ -149,7 +202,7 @@ fn notification_banner(kind: NotificationKind, message: String, on_close: EventH
                 span { class: "{text}", "{icon}" }
                 p { class: "{text} text-sm", "{message}" }
             }
-            button { onclick: move |evt| on_close.call(evt), class: "{text} hover:opacity-70 text-sm", "\u{2715}" }
+            button { onclick: move |_| on_close(), class: "{text} hover:opacity-70 text-sm", "\u{2715}" }
         }
     }
 }
@@ -182,36 +235,7 @@ fn stat_card(label: &str, value: &str, icon: &str) -> Element {
 
 #[component]
 pub fn Welcome() -> Element {
-    rsx! {
-        div { class: "{card_class()} p-8 space-y-6",
-            h1 { class: "text-2xl font-bold text-center", "Welcome to CSV Wallet" }
-            p { class: "text-gray-400 text-center",
-                "A multi-chain wallet for Client-Side Validation. Create a new wallet or import an existing one."
-            }
-            div { class: "space-y-3",
-                Link {
-                    to: Route::CreateWallet {},
-                    class: "block w-full px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm font-medium transition-colors text-center",
-                    "Create New Wallet"
-                }
-                Link {
-                    to: Route::ImportWallet {},
-                    class: "block w-full px-4 py-3 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm font-medium transition-colors text-center border border-gray-700",
-                    "Import Wallet"
-                }
-            }
-            div { class: "pt-4 border-t border-gray-800",
-                p { class: "text-xs text-gray-500 mb-3 text-center", "Supported Chains" }
-                div { class: "flex items-center justify-center gap-2 flex-wrap",
-                    for chain in [Chain::Bitcoin, Chain::Ethereum, Chain::Sui, Chain::Aptos] {
-                        span { class: "{chain_badge_class(&chain)}",
-                            "{chain_icon_emoji(&chain)} {chain_name(&chain)}"
-                        }
-                    }
-                }
-            }
-        }
-    }
+    rsx! { WalletPage {} }
 }
 
 #[component]
@@ -401,7 +425,7 @@ pub fn ImportWallet() -> Element {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 enum ImportMode {
     Mnemonic,
     PrivateKey,
@@ -441,10 +465,10 @@ pub fn Dashboard() -> Element {
 
             // Stats row
             div { class: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4",
-                stat_card("Addresses", &addrs.len().to_string(), "\u{1F4B3}")
-                stat_card("Active Rights", &active_rights.to_string(), "\u{1F48E}")
-                stat_card("Transfers", &completed_transfers.to_string(), "\u{21C4}")
-                stat_card("Consumed Seals", &consumed_seals.to_string(), "\u{1F512}")
+                {stat_card("Addresses", &addrs.len().to_string(), "\u{1F4B3}")}
+                {stat_card("Active Rights", &active_rights.to_string(), "\u{1F48E}")}
+                {stat_card("Transfers", &completed_transfers.to_string(), "\u{21C4}")}
+                {stat_card("Consumed Seals", &consumed_seals.to_string(), "\u{1F512}")}
             }
 
             // Address cards
@@ -511,14 +535,14 @@ pub fn Rights() -> Element {
                 for chain in [Chain::Bitcoin, Chain::Ethereum, Chain::Sui, Chain::Aptos] {
                     button {
                         onclick: move |_| filter_chain.set(Some(chain)),
-                        class: if matches!(filter_chain.read(), Some(c) if c == chain) { "{chain_badge_class(&chain)} cursor-pointer" } else { "{chain_badge_class(&chain)} opacity-50 cursor-pointer" },
+                        class: if matches!(*filter_chain.read(), Some(c) if c == chain) { "{chain_badge_class(&chain)} cursor-pointer" } else { "{chain_badge_class(&chain)} opacity-50 cursor-pointer" },
                         "{chain_icon_emoji(&chain)} {chain_name(&chain)}"
                     }
                 }
             }
 
             if filtered.is_empty() {
-                empty_state("\u{1F48E}", "No Rights found", "Create a Right to get started.")
+                {empty_state("\u{1F48E}", "No Rights found", "Create a Right to get started.")}
             } else {
                 div { class: "{table_class()}",
                     div { class: "{card_header_class()} flex items-center justify-between",
@@ -543,12 +567,7 @@ pub fn Rights() -> Element {
                                         td { class: "px-4 py-3", span { class: "{chain_badge_class(&right.chain)}", "{chain_icon_emoji(&right.chain)} {chain_name(&right.chain)}" } }
                                         td { class: "px-4 py-3 font-mono text-xs", "{right.value}" }
                                         td { class: "px-4 py-3",
-                                            span { class: "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium",
-                                                class: match right.status {
-                                                    RightStatus::Active => "text-green-400 bg-green-500/20",
-                                                    RightStatus::Transferred => "text-blue-400 bg-blue-500/20",
-                                                    RightStatus::Consumed => "text-gray-400 bg-gray-500/20",
-                                                },
+                                            span { class: "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {right_status_class(&right.status)}",
                                                 "{right.status}"
                                             }
                                         }
@@ -569,57 +588,56 @@ pub fn Rights() -> Element {
 #[component]
 pub fn CreateRight() -> Element {
     let mut wallet_ctx = use_wallet_context();
-    let mut selected_chain = use_signal(|| Chain::Bitcoin);
-    let mut value = use_signal(|| String::new());
-    let mut result = use_signal(|| Option::<String>::None);
-    let mut error = use_signal(|| Option::<String>::None);
 
     if let Some(n) = wallet_ctx.notification() {
         return rsx! {
             div { class: "max-w-2xl space-y-6",
-                notification_banner(n.kind, n.message, move |_| wallet_ctx.clear_notification())
-                create_right_form(&mut wallet_ctx, &mut selected_chain, &mut value, &mut result, &mut error)
+                {notification_banner(n.kind, n.message, move || { wallet_ctx.clear_notification(); })}
+                CreateRightForm {}
             }
         };
     }
 
     rsx! {
         div { class: "max-w-2xl space-y-6",
-            create_right_form(&mut wallet_ctx, &mut selected_chain, &mut value, &mut result, &mut error)
+            CreateRightForm {}
         }
     }
 }
 
-fn create_right_form(
-    wallet_ctx: &mut WalletContext,
-    selected_chain: &mut Signal<Chain>,
-    value: &mut Signal<String>,
-    result: &mut Signal<Option<String>>,
-    error: &mut Signal<Option<String>>,
-) -> Element {
+#[component]
+fn CreateRightForm() -> Element {
+    let mut wallet_ctx = use_wallet_context();
+    let mut selected_chain = use_signal(|| Chain::Bitcoin);
+    let mut value = use_signal(|| String::new());
+    let mut result = use_signal(|| Option::<String>::None);
+    let mut error = use_signal(|| Option::<String>::None);
+
     rsx! {
         div { class: "{card_class()} p-6 space-y-5",
             div { class: "{card_header_class()} -mx-6 -mt-6 mb-4",
                 h2 { class: "font-semibold text-sm", "Create New Right" }
             }
 
-            form_field("Chain", chain_select(move |v| {
-                if let Ok(c) = v.value.parse::<Chain>() { selected_chain.set(c); }
-            }, *selected_chain.read()))
+            {form_field("Chain", chain_select(move |v: Rc<FormData>| {
+                if let Ok(c) = v.value().parse::<Chain>() { selected_chain.set(c); }
+            }, *selected_chain.read()))}
 
-            form_field("Value (optional)", input {
-                value: "{value.read()}",
-                oninput: move |evt| { value.set(evt.value()); },
-                class: "{input_mono_class()}",
-                r#type: "text",
-                placeholder: "e.g., 1000 (chain-native units)"
-            })
+            {form_field("Value (optional)", rsx! {
+                input {
+                    value: "{value.read()}",
+                    oninput: move |evt| { value.set(evt.value()); },
+                    class: "{input_mono_class()}",
+                    r#type: "text",
+                    placeholder: "e.g., 1000 (chain-native units)"
+                }
+            })}
 
-            if let Some(e) = error.read().as_ref() {
+            if let Some(e) = error.read().as_ref().cloned() {
                 div { class: "p-3 bg-red-900/30 border border-red-700/50 rounded-lg text-sm text-red-300", "{e}" }
             }
 
-            if let Some(right_id) = result.read().as_ref() {
+            if let Some(right_id) = result.read().clone() {
                 div { class: "p-4 bg-green-900/30 border border-green-700/50 rounded-lg space-y-2",
                     p { class: "text-green-300 font-medium", "Right Created!" }
                     p { class: "font-mono text-sm text-green-400 break-all", "{right_id}" }
@@ -694,12 +712,7 @@ pub fn ShowRight(id: String) -> Element {
                         }
                         div {
                             p { class: "text-sm text-gray-400 mb-1", "Status" }
-                            span { class: "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium",
-                                class: match right.status {
-                                    RightStatus::Active => "text-green-400 bg-green-500/20",
-                                    RightStatus::Transferred => "text-blue-400 bg-blue-500/20",
-                                    RightStatus::Consumed => "text-gray-400 bg-gray-500/20",
-                                },
+                            span { class: "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {right_status_class(&right.status)}",
                                 "{right.status}"
                             }
                         }
@@ -734,19 +747,23 @@ pub fn TransferRight() -> Element {
             }
 
             div { class: "{card_class()} p-6 space-y-5",
-                form_field("Right ID", input {
-                    value: "{right_id.read()}",
-                    oninput: move |evt| { right_id.set(evt.value()); },
-                    class: "{input_mono_class()}",
-                    placeholder: "0x..."
-                })
+                {form_field("Right ID", rsx! {
+                    input {
+                        value: "{right_id.read()}",
+                        oninput: move |evt| { right_id.set(evt.value()); },
+                        class: "{input_mono_class()}",
+                        placeholder: "0x..."
+                    }
+                })}
 
-                form_field("New Owner Address", input {
-                    value: "{to_address.read()}",
-                    oninput: move |evt| { to_address.set(evt.value()); },
-                    class: "{input_mono_class()}",
-                    placeholder: "Recipient address"
-                })
+                {form_field("New Owner Address", rsx! {
+                    input {
+                        value: "{to_address.read()}",
+                        oninput: move |evt| { to_address.set(evt.value()); },
+                        class: "{input_mono_class()}",
+                        placeholder: "Recipient address"
+                    }
+                })}
 
                 if let Some(msg) = result.read().as_ref() {
                     div { class: "p-4 bg-green-900/30 border border-green-700/50 rounded-lg",
@@ -788,12 +805,14 @@ pub fn ConsumeRight() -> Element {
             }
 
             div { class: "{card_class()} p-6 space-y-5",
-                form_field("Right ID", input {
-                    value: "{right_id.read()}",
-                    oninput: move |evt| { right_id.set(evt.value()); },
-                    class: "{input_mono_class()}",
-                    placeholder: "0x..."
-                })
+                {form_field("Right ID", rsx! {
+                    input {
+                        value: "{right_id.read()}",
+                        oninput: move |evt| { right_id.set(evt.value()); },
+                        class: "{input_mono_class()}",
+                        placeholder: "0x..."
+                    }
+                })}
 
                 if let Some(msg) = result.read().as_ref() {
                     div { class: "p-4 bg-green-900/30 border border-green-700/50 rounded-lg",
@@ -839,7 +858,7 @@ pub fn Proofs() -> Element {
             }
 
             if proofs.is_empty() {
-                empty_state("\u{1F4C4}", "No proofs generated", "Generate or verify proofs for cross-chain transfers.")
+                {empty_state("\u{1F4C4}", "No proofs generated", "Generate or verify proofs for cross-chain transfers.")}
             } else {
                 div { class: "{table_class()}",
                     div { class: "{card_header_class()}",
@@ -900,16 +919,18 @@ pub fn GenerateProof() -> Element {
             }
 
             div { class: "{card_class()} p-6 space-y-5",
-                form_field("Source Chain", chain_select(move |v| {
-                    if let Ok(c) = v.value.parse::<Chain>() { selected_chain.set(c); }
-                }, *selected_chain.read()))
+                {form_field("Source Chain", chain_select(move |v: Rc<FormData>| {
+                    if let Ok(c) = v.value().parse::<Chain>() { selected_chain.set(c); }
+                }, *selected_chain.read()))}
 
-                form_field("Right ID", input {
-                    value: "{right_id.read()}",
-                    oninput: move |evt| { right_id.set(evt.value()); },
-                    class: "{input_mono_class()}",
-                    placeholder: "0x..."
-                })
+                {form_field("Right ID", rsx! {
+                    input {
+                        value: "{right_id.read()}",
+                        oninput: move |evt| { right_id.set(evt.value()); },
+                        class: "{input_mono_class()}",
+                        placeholder: "0x..."
+                    }
+                })}
 
                 div { class: "bg-gray-800/50 rounded-lg p-3 border border-gray-700",
                     p { class: "text-xs text-gray-400", "Proof Type: " strong { class: "text-gray-300", "{proof_type}" } }
@@ -961,17 +982,19 @@ pub fn VerifyProof() -> Element {
             }
 
             div { class: "{card_class()} p-6 space-y-5",
-                form_field("Destination Chain", chain_select(move |v| {
-                    if let Ok(c) = v.value.parse::<Chain>() { selected_chain.set(c); }
-                }, *selected_chain.read()))
+                {form_field("Destination Chain", chain_select(move |v: Rc<FormData>| {
+                    if let Ok(c) = v.value().parse::<Chain>() { selected_chain.set(c); }
+                }, *selected_chain.read()))}
 
-                form_field("Proof JSON", textarea {
-                    value: "{proof_input.read()}",
-                    oninput: move |evt| { proof_input.set(evt.value()); },
-                    class: "{input_class()} font-mono",
-                    rows: "8",
-                    placeholder: "Paste proof JSON here..."
-                })
+                {form_field("Proof JSON", rsx! {
+                    textarea {
+                        value: "{proof_input.read()}",
+                        oninput: move |evt| { proof_input.set(evt.value()); },
+                        class: "{input_class()} font-mono",
+                        rows: "8",
+                        placeholder: "Paste proof JSON here..."
+                    }
+                })}
 
                 if let Some(msg) = result.read().as_ref() {
                     div { class: "p-4 bg-green-900/30 border border-green-700/50 rounded-lg",
@@ -1010,20 +1033,22 @@ pub fn VerifyCrossChainProof() -> Element {
 
             div { class: "{card_class()} p-6 space-y-5",
                 div { class: "grid grid-cols-2 gap-4",
-                    form_field("Source Chain", chain_select(move |v| {
-                        if let Ok(c) = v.value.parse::<Chain>() { selected_source.set(c); }
-                    }, *selected_source.read()))
+                    {form_field("Source Chain", chain_select(move |v: Rc<FormData>| {
+                        if let Ok(c) = v.value().parse::<Chain>() { selected_source.set(c); }
+                    }, *selected_source.read()))}
 
-                    form_field("Destination Chain", chain_select(move |v| {
-                        if let Ok(c) = v.value.parse::<Chain>() { selected_dest.set(c); }
-                    }, *selected_dest.read()))
+                    {form_field("Destination Chain", chain_select(move |v: Rc<FormData>| {
+                        if let Ok(c) = v.value().parse::<Chain>() { selected_dest.set(c); }
+                    }, *selected_dest.read()))}
                 }
 
-                form_field("Proof File", input {
-                    class: "{input_class()}",
-                    r#type: "file",
-                    placeholder: "Upload proof JSON file"
-                })
+                {form_field("Proof File", rsx! {
+                    input {
+                        class: "{input_class()}",
+                        r#type: "file",
+                        placeholder: "Upload proof JSON file"
+                    }
+                })}
 
                 if let Some(msg) = result.read().as_ref() {
                     div { class: "p-4 bg-green-900/30 border border-green-700/50 rounded-lg",
@@ -1057,7 +1082,7 @@ pub fn CrossChain() -> Element {
             }
 
             if transfers.is_empty() {
-                empty_state("\u{21C4}", "No transfers recorded", "Start a cross-chain transfer to move Rights between chains.")
+                {empty_state("\u{21C4}", "No transfers recorded", "Start a cross-chain transfer to move Rights between chains.")}
             } else {
                 div { class: "{table_class()}",
                     div { class: "{card_header_class()} flex items-center justify-between",
@@ -1083,12 +1108,7 @@ pub fn CrossChain() -> Element {
                                         td { class: "px-4 py-3", span { class: "{chain_badge_class(&t.to_chain)}", "{chain_icon_emoji(&t.to_chain)}" } }
                                         td { class: "px-4 py-3 font-mono text-xs", "{truncate_address(&t.right_id, 8)}" }
                                         td { class: "px-4 py-3",
-                                            span { class: "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium",
-                                                class: match t.status {
-                                                    TransferStatus::Completed => "text-green-400 bg-green-500/20",
-                                                    TransferStatus::Failed => "text-red-400 bg-red-500/20",
-                                                    _ => "text-yellow-400 bg-yellow-500/20",
-                                                },
+                                            span { class: "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {transfer_status_class(&t.status)}",
                                                 "{t.status}"
                                             }
                                         }
@@ -1131,28 +1151,32 @@ pub fn CrossChainTransfer() -> Element {
 
             div { class: "{card_class()} p-6 space-y-5",
                 div { class: "grid grid-cols-2 gap-4",
-                    form_field("From Chain", chain_select(move |v| {
-                        if let Ok(c) = v.value.parse::<Chain>() { from_chain.set(c); }
-                    }, *from_chain.read()))
+                    {form_field("From Chain", chain_select(move |v: Rc<FormData>| {
+                        if let Ok(c) = v.value().parse::<Chain>() { from_chain.set(c); }
+                    }, *from_chain.read()))}
 
-                    form_field("To Chain", chain_select(move |v| {
-                        if let Ok(c) = v.value.parse::<Chain>() { to_chain.set(c); }
-                    }, *to_chain.read()))
+                    {form_field("To Chain", chain_select(move |v: Rc<FormData>| {
+                        if let Ok(c) = v.value().parse::<Chain>() { to_chain.set(c); }
+                    }, *to_chain.read()))}
                 }
 
-                form_field("Right ID", input {
-                    value: "{right_id.read()}",
-                    oninput: move |evt| { right_id.set(evt.value()); },
-                    class: "{input_mono_class()}",
-                    placeholder: "0x..."
-                })
+                {form_field("Right ID", rsx! {
+                    input {
+                        value: "{right_id.read()}",
+                        oninput: move |evt| { right_id.set(evt.value()); },
+                        class: "{input_mono_class()}",
+                        placeholder: "0x..."
+                    }
+                })}
 
-                form_field("Destination Owner (optional)", input {
-                    value: "{dest_owner.read()}",
-                    oninput: move |evt| { dest_owner.set(evt.value()); },
-                    class: "{input_mono_class()}",
-                    placeholder: "0x... (defaults to your address)"
-                })
+                {form_field("Destination Owner (optional)", rsx! {
+                    input {
+                        value: "{dest_owner.read()}",
+                        oninput: move |evt| { dest_owner.set(evt.value()); },
+                        class: "{input_mono_class()}",
+                        placeholder: "0x... (defaults to your address)"
+                    }
+                })}
 
                 // Progress steps
                 if *step.read() > 0 {
@@ -1223,12 +1247,14 @@ pub fn CrossChainStatus() -> Element {
             }
 
             div { class: "{card_class()} p-6 space-y-5",
-                form_field("Transfer ID", input {
-                    value: "{transfer_id.read()}",
-                    oninput: move |evt| { transfer_id.set(evt.value()); },
-                    class: "{input_mono_class()}",
-                    placeholder: "0x..."
-                })
+                {form_field("Transfer ID", rsx! {
+                    input {
+                        value: "{transfer_id.read()}",
+                        oninput: move |evt| { transfer_id.set(evt.value()); },
+                        class: "{input_mono_class()}",
+                        placeholder: "0x..."
+                    }
+                })}
 
                 button {
                     onclick: move |_| {
@@ -1251,12 +1277,7 @@ pub fn CrossChainStatus() -> Element {
                             }
                             div { class: "flex justify-between",
                                 span { class: "text-sm text-gray-400", "Status" }
-                                span { class: "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium",
-                                    class: match t.status {
-                                        TransferStatus::Completed => "text-green-400 bg-green-500/20",
-                                        TransferStatus::Failed => "text-red-400 bg-red-500/20",
-                                        _ => "text-yellow-400 bg-yellow-500/20",
-                                    },
+                                span { class: "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {transfer_status_class(&t.status)}",
                                     "{t.status}"
                                 }
                             }
@@ -1282,12 +1303,14 @@ pub fn CrossChainRetry() -> Element {
             }
 
             div { class: "{card_class()} p-6 space-y-5",
-                form_field("Transfer ID", input {
-                    value: "{transfer_id.read()}",
-                    oninput: move |evt| { transfer_id.set(evt.value()); },
-                    class: "{input_mono_class()}",
-                    placeholder: "0x..."
-                })
+                {form_field("Transfer ID", rsx! {
+                    input {
+                        value: "{transfer_id.read()}",
+                        oninput: move |evt| { transfer_id.set(evt.value()); },
+                        class: "{input_mono_class()}",
+                        placeholder: "0x..."
+                    }
+                })}
 
                 button {
                     onclick: move |_| {
@@ -1329,7 +1352,7 @@ pub fn Contracts() -> Element {
             }
 
             if contracts.is_empty() {
-                empty_state("\u{1F4DC}", "No contracts deployed", "Deploy contracts to enable cross-chain functionality.")
+                {empty_state("\u{1F4DC}", "No contracts deployed", "Deploy contracts to enable cross-chain functionality.")}
             } else {
                 div { class: "{table_class()}",
                     div { class: "{card_header_class()}",
@@ -1379,26 +1402,23 @@ pub fn DeployContract() -> Element {
             }
 
             div { class: "{card_class()} p-6 space-y-5",
-                form_field("Chain", chain_select(move |v| {
-                    if let Ok(c) = v.value.parse::<Chain>() { selected_chain.set(c); }
-                }, *selected_chain.read()))
+                {form_field("Chain", chain_select(move |v: Rc<FormData>| {
+                    if let Ok(c) = v.value().parse::<Chain>() { selected_chain.set(c); }
+                }, *selected_chain.read()))}
 
-                form_field("Network", network_select(move |v| {
-                    let n = match v.value.as_str() {
-                        "dev" => Network::Dev,
-                        "main" => Network::Main,
-                        _ => Network::Test,
-                    };
+                {form_field("Network", network_select(move |n| {
                     selected_network.set(n);
-                }, *selected_network.read()))
+                }, *selected_network.read()))}
 
                 if !is_bitcoin {
-                    form_field("Deployer Private Key", input {
-                        value: "{deployer_key.read()}",
-                        oninput: move |evt| { deployer_key.set(evt.value()); },
-                        class: "{input_mono_class()}",
-                        placeholder: "0x..."
-                    })
+                    {form_field("Deployer Private Key", rsx! {
+                        input {
+                            value: "{deployer_key.read()}",
+                            oninput: move |evt| { deployer_key.set(evt.value()); },
+                            class: "{input_mono_class()}",
+                            placeholder: "0x..."
+                        }
+                    })}
                 }
 
                 if is_bitcoin {
@@ -1453,9 +1473,9 @@ pub fn ContractStatus() -> Element {
             }
 
             div { class: "{card_class()} p-6 space-y-5",
-                form_field("Chain", chain_select(move |v| {
-                    if let Ok(c) = v.value.parse::<Chain>() { selected_chain.set(c); }
-                }, *selected_chain.read()))
+                {form_field("Chain", chain_select(move |v: Rc<FormData>| {
+                    if let Ok(c) = v.value().parse::<Chain>() { selected_chain.set(c); }
+                }, *selected_chain.read()))}
 
                 if contracts.is_empty() {
                     div { class: "bg-gray-800/50 rounded-lg p-4 border border-gray-700 text-center",
@@ -1511,14 +1531,14 @@ pub fn Seals() -> Element {
                 for chain in [Chain::Bitcoin, Chain::Ethereum, Chain::Sui, Chain::Aptos] {
                     button {
                         onclick: move |_| filter_chain.set(Some(chain)),
-                        class: if matches!(filter_chain.read(), Some(c) if c == chain) { "{chain_badge_class(&chain)} cursor-pointer" } else { "{chain_badge_class(&chain)} opacity-50 cursor-pointer" },
+                        class: if matches!(*filter_chain.read(), Some(c) if c == chain) { "{chain_badge_class(&chain)} cursor-pointer" } else { "{chain_badge_class(&chain)} opacity-50 cursor-pointer" },
                         "{chain_icon_emoji(&chain)} {chain_name(&chain)}"
                     }
                 }
             }
 
             if filtered.is_empty() {
-                empty_state("\u{1F512}", "No seals found", "Create a seal on a chain to get started.")
+                {empty_state("\u{1F512}", "No seals found", "Create a seal on a chain to get started.")}
             } else {
                 div { class: "{table_class()}",
                     div { class: "{card_header_class()} flex items-center justify-between",
@@ -1575,16 +1595,18 @@ pub fn CreateSeal() -> Element {
             }
 
             div { class: "{card_class()} p-6 space-y-5",
-                form_field("Chain", chain_select(move |v| {
-                    if let Ok(c) = v.value.parse::<Chain>() { selected_chain.set(c); }
-                }, *selected_chain.read()))
+                {form_field("Chain", chain_select(move |v: Rc<FormData>| {
+                    if let Ok(c) = v.value().parse::<Chain>() { selected_chain.set(c); }
+                }, *selected_chain.read()))}
 
-                form_field("Value (optional)", input {
-                    value: "{value.read()}",
-                    oninput: move |evt| { value.set(evt.value()); },
-                    class: "{input_mono_class()}",
-                    placeholder: "e.g., 1000"
-                })
+                {form_field("Value (optional)", rsx! {
+                    input {
+                        value: "{value.read()}",
+                        oninput: move |evt| { value.set(evt.value()); },
+                        class: "{input_mono_class()}",
+                        placeholder: "e.g., 1000"
+                    }
+                })}
 
                 if let Some(msg) = result.read().as_ref() {
                     div { class: "p-4 bg-green-900/30 border border-green-700/50 rounded-lg",
@@ -1636,16 +1658,18 @@ pub fn ConsumeSeal() -> Element {
             }
 
             div { class: "{card_class()} p-6 space-y-5",
-                form_field("Chain", chain_select(move |v| {
-                    if let Ok(c) = v.value.parse::<Chain>() { selected_chain.set(c); }
-                }, *selected_chain.read()))
+                {form_field("Chain", chain_select(move |v: Rc<FormData>| {
+                    if let Ok(c) = v.value().parse::<Chain>() { selected_chain.set(c); }
+                }, *selected_chain.read()))}
 
-                form_field("Seal Reference (hex)", input {
-                    value: "{seal_ref.read()}",
-                    oninput: move |evt| { seal_ref.set(evt.value()); error.set(None); },
-                    class: "{input_mono_class()}",
-                    placeholder: "0x..."
-                })
+                {form_field("Seal Reference (hex)", rsx! {
+                    input {
+                        value: "{seal_ref.read()}",
+                        oninput: move |evt| { seal_ref.set(evt.value()); error.set(None); },
+                        class: "{input_mono_class()}",
+                        placeholder: "0x..."
+                    }
+                })}
 
                 if let Some(e) = error.read().as_ref() {
                     div { class: "p-3 bg-red-900/30 border border-red-700/50 rounded-lg text-sm text-red-300", "{e}" }
@@ -1696,20 +1720,22 @@ pub fn VerifySeal() -> Element {
             }
 
             div { class: "{card_class()} p-6 space-y-5",
-                form_field("Chain", chain_select(move |v| {
-                    if let Ok(c) = v.value.parse::<Chain>() { selected_chain.set(c); }
-                }, *selected_chain.read()))
+                {form_field("Chain", chain_select(move |v: Rc<FormData>| {
+                    if let Ok(c) = v.value().parse::<Chain>() { selected_chain.set(c); }
+                }, *selected_chain.read()))}
 
-                form_field("Seal Reference (hex)", input {
-                    value: "{seal_ref.read()}",
-                    oninput: move |evt| { seal_ref.set(evt.value()); result.set(None); },
-                    class: "{input_mono_class()}",
-                    placeholder: "0x..."
-                })
+                {form_field("Seal Reference (hex)", rsx! {
+                    input {
+                        value: "{seal_ref.read()}",
+                        oninput: move |evt| { seal_ref.set(evt.value()); result.set(None); },
+                        class: "{input_mono_class()}",
+                        placeholder: "0x..."
+                    }
+                })}
 
                 if let Some(consumed) = result.read().as_ref() {
-                    div { class: "p-4 {if *consumed { \"bg-red-900/30 border-red-700/50\" } else { \"bg-green-900/30 border-green-700/50\" }} border rounded-lg",
-                        p { class: "{if *consumed { \"text-red-300\" } else { \"text-green-300\" }}",
+                    div { class: "p-4 {seal_consumed_class(*consumed)} border rounded-lg",
+                        p { class: "{seal_consumed_text_class(*consumed)}",
                             if *consumed { "Seal is CONSUMED" } else { "Seal is UNCONSUMED (available)" }
                         }
                     }
@@ -1741,9 +1767,9 @@ pub fn Test() -> Element {
 
             if !results.is_empty() {
                 div { class: "grid grid-cols-1 sm:grid-cols-3 gap-4",
-                    stat_card("Total", &results.len().to_string(), "\u{1F9EA}")
-                    stat_card("Passed", &passed.to_string(), "\u{2705}")
-                    stat_card("Failed", &failed.to_string(), "\u{274C}")
+                    {stat_card("Total", &results.len().to_string(), "\u{1F9EA}")}
+                    {stat_card("Passed", &passed.to_string(), "\u{2705}")}
+                    {stat_card("Failed", &failed.to_string(), "\u{274C}")}
                 }
             }
 
@@ -1777,13 +1803,7 @@ pub fn Test() -> Element {
                                         td { class: "px-4 py-3", span { class: "{chain_badge_class(&r.from_chain)}", "{chain_icon_emoji(&r.from_chain)}" } }
                                         td { class: "px-4 py-3", span { class: "{chain_badge_class(&r.to_chain)}", "{chain_icon_emoji(&r.to_chain)}" } }
                                         td { class: "px-4 py-3",
-                                            span { class: "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium",
-                                                class: match r.status {
-                                                    TestStatus::Passed => "text-green-400 bg-green-500/20",
-                                                    TestStatus::Failed => "text-red-400 bg-red-500/20",
-                                                    TestStatus::Running => "text-blue-400 bg-blue-500/20",
-                                                    TestStatus::Pending => "text-gray-400 bg-gray-500/20",
-                                                },
+                                            span { class: "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {test_status_class(&r.status)}",
                                                 "{r.status}"
                                             }
                                         }
@@ -1837,13 +1857,13 @@ pub fn RunTests() -> Element {
 
                 if !*run_all.read() {
                     div { class: "grid grid-cols-2 gap-4",
-                        form_field("From Chain", chain_select(move |v| {
-                            if let Ok(c) = v.value.parse::<Chain>() { selected_from.set(c); }
-                        }, *selected_from.read()))
+                        {form_field("From Chain", chain_select(move |v: Rc<FormData>| {
+                            if let Ok(c) = v.value().parse::<Chain>() { selected_from.set(c); }
+                        }, *selected_from.read()))}
 
-                        form_field("To Chain", chain_select(move |v| {
-                            if let Ok(c) = v.value.parse::<Chain>() { selected_to.set(c); }
-                        }, *selected_to.read()))
+                        {form_field("To Chain", chain_select(move |v: Rc<FormData>| {
+                            if let Ok(c) = v.value().parse::<Chain>() { selected_to.set(c); }
+                        }, *selected_to.read()))}
                     }
                 }
 
@@ -1883,12 +1903,12 @@ pub fn RunTests() -> Element {
                             vec![(*selected_from.read(), *selected_to.read())]
                         };
 
-                        for (from, to) in pairs {
+                        for (from, to) in &pairs {
                             for i in 0..5 {
                                 current_step.set(i);
                                 wallet_ctx.add_test_result(TestResult {
-                                    from_chain: from,
-                                    to_chain: to,
+                                    from_chain: *from,
+                                    to_chain: *to,
                                     status: if i == 4 { TestStatus::Passed } else { TestStatus::Running },
                                     message: format!("Step {}/5", i + 1),
                                 });
@@ -1932,14 +1952,16 @@ pub fn RunScenario() -> Element {
             }
 
             div { class: "{card_class()} p-6 space-y-5",
-                form_field("Scenario", select {
-                    class: "{select_class()}",
-                    value: "{selected_scenario.read()}",
-                    onchange: move |evt| { selected_scenario.set(evt.value()); },
-                    for (id, label) in scenarios {
-                        option { value: "{id}", "{label}" }
+                {form_field("Scenario", rsx! {
+                    select {
+                        class: "{select_class()}",
+                        value: "{selected_scenario.read()}",
+                        onchange: move |evt| { selected_scenario.set(evt.value()); },
+                        for (id, label) in scenarios {
+                            option { value: "{id}", "{label}" }
+                        }
                     }
-                })
+                })}
 
                 if let Some(msg) = result.read().as_ref() {
                     div { class: "p-4 bg-green-900/30 border border-green-700/50 rounded-lg",
@@ -1996,10 +2018,12 @@ pub fn ValidateConsignment() -> Element {
             }
 
             div { class: "{card_class()} p-6 space-y-5",
-                form_field("Consignment File", input {
-                    class: "{input_class()}",
-                    r#type: "file",
-                })
+                {form_field("Consignment File", rsx! {
+                    input {
+                        class: "{input_class()}",
+                        r#type: "file",
+                    }
+                })}
 
                 if let Some(msg) = result.read().as_ref() {
                     div { class: "p-4 bg-green-900/30 border border-green-700/50 rounded-lg",
@@ -2032,14 +2056,16 @@ pub fn ValidateProof() -> Element {
             }
 
             div { class: "{card_class()} p-6 space-y-5",
-                form_field("Chain", chain_select(move |v| {
-                    if let Ok(c) = v.value.parse::<Chain>() { selected_chain.set(c); }
-                }, *selected_chain.read()))
+                {form_field("Chain", chain_select(move |v: Rc<FormData>| {
+                    if let Ok(c) = v.value().parse::<Chain>() { selected_chain.set(c); }
+                }, *selected_chain.read()))}
 
-                form_field("Proof File", input {
-                    class: "{input_class()}",
-                    r#type: "file",
-                })
+                {form_field("Proof File", rsx! {
+                    input {
+                        class: "{input_class()}",
+                        r#type: "file",
+                    }
+                })}
 
                 if let Some(msg) = result.read().as_ref() {
                     div { class: "p-4 bg-green-900/30 border border-green-700/50 rounded-lg",
@@ -2072,16 +2098,18 @@ pub fn ValidateSeal() -> Element {
             }
 
             div { class: "{card_class()} p-6 space-y-5",
-                form_field("Seal Reference (hex)", input {
-                    value: "{seal_ref.read()}",
-                    oninput: move |evt| { seal_ref.set(evt.value()); result.set(None); },
-                    class: "{input_mono_class()}",
-                    placeholder: "0x..."
-                })
+                {form_field("Seal Reference (hex)", rsx! {
+                    input {
+                        value: "{seal_ref.read()}",
+                        oninput: move |evt| { seal_ref.set(evt.value()); result.set(None); },
+                        class: "{input_mono_class()}",
+                        placeholder: "0x..."
+                    }
+                })}
 
                 if let Some(consumed) = result.read().as_ref() {
-                    div { class: "p-4 {if *consumed { \"bg-red-900/30 border-red-700/50\" } else { \"bg-green-900/30 border-green-700/50\" }} border rounded-lg",
-                        p { class: "{if *consumed { \"text-red-300\" } else { \"text-green-300\" }}",
+                    div { class: "p-4 {seal_consumed_class(*consumed)} border rounded-lg",
+                        p { class: "{seal_consumed_text_class(*consumed)}",
                             if *consumed { "Consumed (double-spend if reused)" } else { "Unconsumed (available)" }
                         }
                     }
@@ -2111,10 +2139,12 @@ pub fn ValidateCommitmentChain() -> Element {
             }
 
             div { class: "{card_class()} p-6 space-y-5",
-                form_field("Commitment Chain File", input {
-                    class: "{input_class()}",
-                    r#type: "file",
-                })
+                {form_field("Commitment Chain File", rsx! {
+                    input {
+                        class: "{input_class()}",
+                        r#type: "file",
+                    }
+                })}
 
                 if let Some(msg) = result.read().as_ref() {
                     div { class: "p-4 bg-green-900/30 border border-green-700/50 rounded-lg",
@@ -2275,7 +2305,7 @@ pub fn ListWallets() -> Element {
             h1 { class: "text-2xl font-bold", "List Wallets" }
 
             if addrs.is_empty() {
-                empty_state("\u{1F4B3}", "No wallet loaded", "Generate or import a wallet first.")
+                {empty_state("\u{1F4B3}", "No wallet loaded", "Generate or import a wallet first.")}
             } else {
                 div { class: "{table_class()}",
                     div { class: "{card_header_class()}",
