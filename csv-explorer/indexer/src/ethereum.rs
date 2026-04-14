@@ -12,7 +12,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use super::chain_indexer::{ChainIndexer, ChainResult};
+use super::chain_indexer::{AddressIndexingResult, ChainIndexer, ChainResult};
 use csv_explorer_shared::{
     ChainConfig, ContractStatus, ContractType, CsvContract, ExplorerError, RightRecord,
     SealRecord, SealStatus, SealType, TransferRecord,
@@ -197,6 +197,53 @@ impl ChainIndexer for EthereumIndexer {
         }
 
         Ok(contracts)
+    }
+
+    // -----------------------------------------------------------------------
+    // Address-based indexing methods (for priority indexing)
+    // -----------------------------------------------------------------------
+
+    async fn index_rights_by_address(&self, _address: &str) -> ChainResult<Vec<RightRecord>> {
+        Ok(Vec::new())
+    }
+
+    async fn index_seals_by_address(&self, _address: &str) -> ChainResult<Vec<SealRecord>> {
+        Ok(Vec::new())
+    }
+
+    async fn index_transfers_by_address(&self, _address: &str) -> ChainResult<Vec<TransferRecord>> {
+        Ok(Vec::new())
+    }
+
+    async fn index_addresses_with_priority(
+        &self,
+        addresses: &[String],
+        _priority: csv_explorer_shared::PriorityLevel,
+        _network: csv_explorer_shared::Network,
+    ) -> ChainResult<AddressIndexingResult> {
+        let mut result = AddressIndexingResult {
+            addresses_processed: 0,
+            rights_indexed: 0,
+            seals_indexed: 0,
+            transfers_indexed: 0,
+            contracts_indexed: 0,
+            errors: Vec::new(),
+        };
+
+        for address in addresses {
+            if let Ok(rights) = self.index_rights_by_address(address).await {
+                result.rights_indexed += rights.len() as u64;
+                result.addresses_processed += 1;
+            }
+            if let Ok(seals) = self.index_seals_by_address(address).await {
+                result.seals_indexed += seals.len() as u64;
+            }
+            if let Ok(transfers) = self.index_transfers_by_address(address).await {
+                result.transfers_indexed += transfers.len() as u64;
+            }
+        }
+
+        Ok(result)
     }
 }
 

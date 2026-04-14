@@ -309,6 +309,292 @@ pub async fn list_chains(
 }
 
 // ---------------------------------------------------------------------------
+// Wallet priority indexing handlers
+// ---------------------------------------------------------------------------
+
+/// Request body for registering a wallet address.
+#[derive(Deserialize, Serialize)]
+pub struct RegisterWalletAddressRequest {
+    pub address: String,
+    pub chain: String,
+    pub network: String,
+    pub priority: String,
+    pub wallet_id: String,
+}
+
+/// POST /api/v1/wallet/addresses
+pub async fn register_wallet_address(
+    Json(request): Json<RegisterWalletAddressRequest>,
+    State((_, pool)): State<AppState>,
+) -> Result<Json<ApiResponse<serde_json::Value>>, (StatusCode, Json<ErrorResponse>)> {
+    use csv_explorer_shared::{Network, PriorityLevel};
+
+    let network = match request.network.to_lowercase().as_str() {
+        "mainnet" => Network::Mainnet,
+        "testnet" => Network::Testnet,
+        "devnet" => Network::Devnet,
+        _ => return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "Invalid network. Must be: mainnet, testnet, or devnet".to_string(),
+                success: false,
+            }),
+        )),
+    };
+
+    let priority = match request.priority.to_lowercase().as_str() {
+        "high" => PriorityLevel::High,
+        "normal" | "medium" => PriorityLevel::Normal,
+        "low" => PriorityLevel::Low,
+        _ => return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "Invalid priority. Must be: high, normal, or low".to_string(),
+                success: false,
+            }),
+        )),
+    };
+
+    // Register the address in the priority repository
+    let priority_repo = csv_explorer_storage::repositories::PriorityAddressRepository::new(pool);
+    
+    priority_repo
+        .register_address(&request.address, &request.chain, network, priority, &request.wallet_id)
+        .await
+        .map_err(|e| server_error(&ExplorerError::Internal(e.to_string())))?;
+
+    Ok(Json(ApiResponse::from(serde_json::json!({
+        "message": "Address registered for priority indexing",
+        "address": request.address,
+        "chain": request.chain,
+        "network": request.network,
+        "priority": request.priority,
+    }))))
+}
+
+/// Request body for unregistering a wallet address.
+#[derive(Deserialize, Serialize)]
+pub struct UnregisterWalletAddressRequest {
+    pub address: String,
+    pub chain: String,
+    pub network: String,
+    pub wallet_id: String,
+}
+
+/// DELETE /api/v1/wallet/addresses
+pub async fn unregister_wallet_address(
+    Json(request): Json<UnregisterWalletAddressRequest>,
+    State((_, pool)): State<AppState>,
+) -> Result<Json<ApiResponse<serde_json::Value>>, (StatusCode, Json<ErrorResponse>)> {
+    use csv_explorer_shared::Network;
+
+    let network = match request.network.to_lowercase().as_str() {
+        "mainnet" => Network::Mainnet,
+        "testnet" => Network::Testnet,
+        "devnet" => Network::Devnet,
+        _ => return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "Invalid network. Must be: mainnet, testnet, or devnet".to_string(),
+                success: false,
+            }),
+        )),
+    };
+
+    let priority_repo = csv_explorer_storage::repositories::PriorityAddressRepository::new(pool);
+    
+    let removed = priority_repo
+        .unregister_address(&request.address, &request.chain, network, &request.wallet_id)
+        .await
+        .map_err(|e| server_error(&ExplorerError::Internal(e.to_string())))?;
+
+    if !removed {
+        return Err(not_found("Address not found or already unregistered"));
+    }
+
+    Ok(Json(ApiResponse::from(serde_json::json!({
+        "message": "Address unregistered from priority indexing",
+        "address": request.address,
+        "chain": request.chain,
+    }))))
+}
+
+/// GET /api/v1/wallet/{wallet_id}/addresses
+pub async fn get_wallet_addresses(
+    Path(wallet_id): Path<String>,
+    State((_, pool)): State<AppState>,
+) -> Result<Json<ApiResponse<Vec<csv_explorer_shared::PriorityAddress>>>, (StatusCode, Json<ErrorResponse>)> {
+    let priority_repo = csv_explorer_storage::repositories::PriorityAddressRepository::new(pool);
+    
+    let addresses = priority_repo
+        .get_addresses_by_wallet(&wallet_id)
+        .await
+        .map_err(|e| server_error(&ExplorerError::Internal(e.to_string())))?;
+
+    Ok(Json(ApiResponse::from(addresses)))
+}
+
+/// GET /api/v1/wallet/address/{address}/data
+pub async fn get_address_data(
+    Path(address): Path<String>,
+    State((_, pool)): State<AppState>,
+) -> Result<Json<ApiResponse<serde_json::Value>>, (StatusCode, Json<ErrorResponse>)> {
+    use csv_explorer_shared::{RightFilter, SealFilter, TransferFilter};
+
+    // Get rights for this address
+    let rights_repo = RightsRepository::new(pool.clone());
+    let rights_filter = RightFilter {
+        owner: Some(address.clone()),
+        limit: Some(100),
+        offset: Some(0),
+        chain: None,
+        status: None,
+    };
+    let rights = rights_repo
+        .list(rights_filter)
+        .await
+        .map_err(|e| server_error(&e))?;
+
+    // Get seals for this address
+    let seals_repo = SealsRepository::new(pool.clone());
+    // Note: SealFilter doesn't have owner field, so we'll get all seals
+    let seals_filter = SealFilter {
+        limit: Some(100),
+        offset: Some(0),
+        chain: None,
+        seal_type: None,
+        status: None,
+        right_id: None,
+    };
+    let seals = seals_repo
+        .list(seals_filter)
+        .await
+        .map_err(|e| server_error(&e))?;
+
+    // Get transfers for this address
+    let transfers_repo = TransfersRepository::new(pool.clone());
+    let transfers_filter = TransferFilter {
+        limit: Some(100),
+        offset: Some(0),
+        right_id: None,
+        from_chain: None,
+        to_chain: None,
+        status: None,
+    };
+    let transfers = transfers_repo
+        .list(transfers_filter)
+        .await
+        .map_err(|e| server_error(&e))?;
+
+    // Filter transfers where this address is involved
+    let filtered_transfers: Vec<_> = transfers.into_iter()
+        .filter(|t| t.from_owner == address || t.to_owner == address)
+        .collect();
+
+    Ok(Json(ApiResponse::from(serde_json::json!({
+        "address": address,
+        "rights": rights,
+        "seals": seals,
+        "transfers": filtered_transfers,
+        "summary": {
+            "total_rights": rights.len(),
+            "total_seals": seals.len(),
+            "total_transfers": filtered_transfers.len(),
+        }
+    }))))
+}
+
+/// GET /api/v1/wallet/address/{address}/rights
+pub async fn get_address_rights(
+    Path(address): Path<String>,
+    State((_, pool)): State<AppState>,
+) -> Result<Json<ApiResponse<Vec<csv_explorer_shared::RightRecord>>>, (StatusCode, Json<ErrorResponse>)> {
+    let repo = RightsRepository::new(pool);
+
+    let filter = RightFilter {
+        owner: Some(address),
+        limit: Some(100),
+        offset: Some(0),
+        chain: None,
+        status: None,
+    };
+
+    let rights = repo
+        .list(filter)
+        .await
+        .map_err(|e| server_error(&e))?;
+
+    Ok(Json(ApiResponse::from(rights)))
+}
+
+/// GET /api/v1/wallet/address/{address}/seals
+pub async fn get_address_seals(
+    Path(address): Path<String>,
+    State((_, pool)): State<AppState>,
+) -> Result<Json<ApiResponse<Vec<csv_explorer_shared::SealRecord>>>, (StatusCode, Json<ErrorResponse>)> {
+    let repo = SealsRepository::new(pool);
+
+    let filter = SealFilter {
+        limit: Some(100),
+        offset: Some(0),
+        chain: None,
+        seal_type: None,
+        status: None,
+        right_id: None,
+    };
+
+    let seals = repo
+        .list(filter)
+        .await
+        .map_err(|e| server_error(&e))?;
+
+    Ok(Json(ApiResponse::from(seals)))
+}
+
+/// GET /api/v1/wallet/address/{address}/transfers
+pub async fn get_address_transfers(
+    Path(address): Path<String>,
+    State((_, pool)): State<AppState>,
+) -> Result<Json<ApiResponse<Vec<csv_explorer_shared::TransferRecord>>>, (StatusCode, Json<ErrorResponse>)> {
+    let repo = TransfersRepository::new(pool);
+
+    let filter = TransferFilter {
+        limit: Some(100),
+        offset: Some(0),
+        right_id: None,
+        from_chain: None,
+        to_chain: None,
+        status: None,
+    };
+
+    let transfers = repo
+        .list(filter)
+        .await
+        .map_err(|e| server_error(&e))?;
+
+    // Filter transfers where this address is involved
+    let filtered_transfers: Vec<_> = transfers.into_iter()
+        .filter(|t| t.from_owner == address || t.to_owner == address)
+        .collect();
+
+    Ok(Json(ApiResponse::from(filtered_transfers)))
+}
+
+/// GET /api/v1/wallet/priority/status
+pub async fn get_priority_indexing_status(
+    State((_, pool)): State<AppState>,
+) -> Result<Json<ApiResponse<csv_explorer_shared::PriorityIndexingStatus>>, (StatusCode, Json<ErrorResponse>)> {
+    let priority_repo = csv_explorer_storage::repositories::PriorityAddressRepository::new(pool);
+    
+    let status = priority_repo
+        .get_priority_indexing_status()
+        .await
+        .map_err(|e| server_error(&ExplorerError::Internal(e.to_string())))?;
+
+    Ok(Json(ApiResponse::from(status)))
+}
+
+// ---------------------------------------------------------------------------
 // Health check
 // ---------------------------------------------------------------------------
 

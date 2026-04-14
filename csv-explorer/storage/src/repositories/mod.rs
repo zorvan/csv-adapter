@@ -1,6 +1,7 @@
 /// Repository modules for database access.
 
 pub mod contracts;
+pub mod priority_addresses;
 pub mod rights;
 pub mod seals;
 pub mod stats;
@@ -8,6 +9,7 @@ pub mod sync;
 pub mod transfers;
 
 pub use contracts::ContractsRepository;
+pub use priority_addresses::PriorityAddressRepository;
 pub use rights::RightsRepository;
 pub use seals::SealsRepository;
 pub use stats::StatsRepository;

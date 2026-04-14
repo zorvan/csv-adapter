@@ -5,7 +5,7 @@
 
 use async_trait::async_trait;
 
-use csv_explorer_shared::{CsvContract, ExplorerError, RightRecord, SealRecord, TransferRecord};
+use csv_explorer_shared::{CsvContract, ExplorerError, Network, PriorityLevel, RightRecord, SealRecord, TransferRecord};
 
 /// Result type alias for chain indexer operations.
 pub type ChainResult<T> = std::result::Result<T, ExplorerError>;
@@ -58,6 +58,28 @@ pub trait ChainIndexer: Send + Sync {
             contracts_count: contracts.len() as u64,
         })
     }
+
+    // -----------------------------------------------------------------------
+    // Priority address-based indexing methods
+    // -----------------------------------------------------------------------
+
+    /// Index all rights related to a specific address.
+    async fn index_rights_by_address(&self, address: &str) -> ChainResult<Vec<RightRecord>>;
+
+    /// Index all seals related to a specific address.
+    async fn index_seals_by_address(&self, address: &str) -> ChainResult<Vec<SealRecord>>;
+
+    /// Index all transfers related to a specific address.
+    async fn index_transfers_by_address(&self, address: &str) -> ChainResult<Vec<TransferRecord>>;
+
+    /// Index all data (rights, seals, transfers) for a list of addresses with priority.
+    /// Returns the count of items indexed for each type.
+    async fn index_addresses_with_priority(
+        &self,
+        addresses: &[String],
+        priority: PriorityLevel,
+        network: Network,
+    ) -> ChainResult<AddressIndexingResult>;
 }
 
 /// Result of processing a single block.
@@ -68,4 +90,15 @@ pub struct BlockIndexResult {
     pub seals_count: u64,
     pub transfers_count: u64,
     pub contracts_count: u64,
+}
+
+/// Result of indexing addresses with priority.
+#[derive(Debug, Clone)]
+pub struct AddressIndexingResult {
+    pub addresses_processed: u64,
+    pub rights_indexed: u64,
+    pub seals_indexed: u64,
+    pub transfers_indexed: u64,
+    pub contracts_indexed: u64,
+    pub errors: Vec<(String, String)>, // (address, error_message)
 }

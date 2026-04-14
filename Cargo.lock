@@ -1464,6 +1464,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4c7f02d4ea65f2c1853089ffd8d2787bdbc63de2f0d29dedbcf8ccdfa0ccd4cf"
 
 [[package]]
+name = "base58ck"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2c8d66485a3a2ea485c1913c4572ce0256067a5377ac8c75c4960e1cda98605f"
+dependencies = [
+ "bitcoin-internals",
+ "bitcoin_hashes 0.14.1",
+]
+
+[[package]]
 name = "base64"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1486,6 +1496,12 @@ name = "bech32"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d86b93f97252c47b41663388e6d155714a9d0c398b99f1005cbc5f978b29f445"
+
+[[package]]
+name = "bech32"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32637268377fc7b10a8c6d51de3e7fba1ce5dd371a96e342b34e6078db558e7f"
 
 [[package]]
 name = "bimap"
@@ -1555,7 +1571,7 @@ version = "0.30.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39f50161c4b69a2c8fd7d5d7d8b58bb83900a7ba7080010014cca7a80fe56d1d"
 dependencies = [
- "bech32",
+ "bech32 0.9.1",
  "bitcoin-private",
  "bitcoin_hashes 0.12.0",
  "bitcoinconsensus",
@@ -1564,6 +1580,29 @@ dependencies = [
  "secp256k1 0.27.0",
  "serde",
 ]
+
+[[package]]
+name = "bitcoin"
+version = "0.32.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e499f9fc0407f50fe98af744ab44fa67d409f76b6772e1689ec8485eb0c0f66"
+dependencies = [
+ "base58ck",
+ "bech32 0.11.1",
+ "bitcoin-internals",
+ "bitcoin-io",
+ "bitcoin-units",
+ "bitcoin_hashes 0.14.1",
+ "hex-conservative",
+ "hex_lit",
+ "secp256k1 0.29.1",
+]
+
+[[package]]
+name = "bitcoin-internals"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "30bdbe14aa07b06e6cfeffc529a1f099e5fbe249524f8125358604df99a4bed2"
 
 [[package]]
 name = "bitcoin-io"
@@ -1576,6 +1615,15 @@ name = "bitcoin-private"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73290177011694f38ec25e165d0387ab7ea749a4b81cd4c80dae5988229f7a57"
+
+[[package]]
+name = "bitcoin-units"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5285c8bcaa25876d07f37e3d30c303f2609179716e11d688f51e8f1fe70063e2"
+dependencies = [
+ "bitcoin-internals",
+]
 
 [[package]]
 name = "bitcoin_hashes"
@@ -1627,7 +1675,7 @@ version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d30ce6f40fb0a2e8d98522796219282504b7a4b14e2b4c26139a7bea6aec6586"
 dependencies = [
- "bitcoin",
+ "bitcoin 0.30.3",
  "bitcoin-private",
  "serde",
  "serde_json",
@@ -2198,7 +2246,7 @@ version = "0.1.0"
 dependencies = [
  "async-std",
  "bip32",
- "bitcoin",
+ "bitcoin 0.30.3",
  "csv-adapter-aptos",
  "csv-adapter-bitcoin",
  "csv-adapter-core",
@@ -2244,7 +2292,7 @@ name = "csv-adapter-bitcoin"
 version = "0.1.1"
 dependencies = [
  "bip32",
- "bitcoin",
+ "bitcoin 0.30.3",
  "bitcoin_hashes 0.12.0",
  "bitcoincore-rpc",
  "csv-adapter-core",
@@ -2265,7 +2313,7 @@ name = "csv-adapter-core"
 version = "0.1.1"
 dependencies = [
  "bincode",
- "bitcoin",
+ "bitcoin 0.30.3",
  "ed25519-dalek",
  "hex",
  "proptest",
@@ -2339,7 +2387,7 @@ dependencies = [
  "alloy-primitives 0.8.26",
  "anyhow",
  "bip32",
- "bitcoin",
+ "bitcoin 0.30.3",
  "bitcoin_hashes 0.12.0",
  "blake2",
  "chrono",
@@ -2375,6 +2423,7 @@ version = "0.1.0"
 dependencies = [
  "aes-gcm",
  "bip32",
+ "bitcoin 0.32.8",
  "blake2",
  "chrono",
  "console_error_panic_hook",
@@ -5944,6 +5993,17 @@ checksum = "d24b59d129cdadea20aea4fb2352fa053712e5d713eee47d700cd4b2bc002f10"
 dependencies = [
  "rand 0.8.5",
  "secp256k1-sys 0.9.2",
+]
+
+[[package]]
+name = "secp256k1"
+version = "0.29.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9465315bc9d4566e1724f0fffcbcc446268cb522e60f9a27bcded6b19c108113"
+dependencies = [
+ "bitcoin_hashes 0.14.1",
+ "rand 0.8.5",
+ "secp256k1-sys 0.10.1",
 ]
 
 [[package]]

@@ -419,3 +419,90 @@ pub struct IndexerStatus {
     pub started_at: Option<DateTime<Utc>>,
     pub uptime_seconds: Option<u64>,
 }
+
+// ---------------------------------------------------------------------------
+// Priority address indexing types
+// ---------------------------------------------------------------------------
+
+/// Priority level for address indexing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PriorityLevel {
+    /// High priority - index immediately and frequently
+    High,
+    /// Normal priority - index in regular cycle
+    Normal,
+    /// Low priority - index when resources available
+    Low,
+}
+
+impl Default for PriorityLevel {
+    fn default() -> Self {
+        PriorityLevel::Normal
+    }
+}
+
+impl std::fmt::Display for PriorityLevel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PriorityLevel::High => write!(f, "high"),
+            PriorityLevel::Normal => write!(f, "normal"),
+            PriorityLevel::Low => write!(f, "low"),
+        }
+    }
+}
+
+/// A registered address with its priority configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PriorityAddress {
+    /// The address to index.
+    pub address: String,
+    /// Chain this address belongs to.
+    pub chain: String,
+    /// Network (mainnet/testnet).
+    pub network: Network,
+    /// Priority level for indexing.
+    pub priority: PriorityLevel,
+    /// Wallet ID that owns this address.
+    pub wallet_id: String,
+    /// When this address was registered.
+    pub registered_at: DateTime<Utc>,
+    /// Last time this address was indexed.
+    pub last_indexed_at: Option<DateTime<Utc>>,
+    /// Whether this address is actively being indexed.
+    pub is_active: bool,
+}
+
+/// Status of priority address indexing.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PriorityIndexingStatus {
+    /// Total number of registered addresses.
+    pub total_addresses: u64,
+    /// Number of addresses currently being indexed.
+    pub active_indexing: u64,
+    /// Number of addresses fully indexed.
+    pub completed_indexing: u64,
+    /// Recent indexing activities.
+    pub recent_activities: Vec<IndexingActivity>,
+}
+
+/// A single indexing activity record.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IndexingActivity {
+    /// Address that was indexed.
+    pub address: String,
+    /// Chain that was indexed.
+    pub chain: String,
+    /// Network (mainnet/testnet).
+    pub network: Network,
+    /// What was indexed (rights, seals, transfers).
+    pub indexed_type: String,
+    /// Number of items indexed.
+    pub items_count: u64,
+    /// When this indexing occurred.
+    pub timestamp: DateTime<Utc>,
+    /// Whether indexing was successful.
+    pub success: bool,
+    /// Error message if indexing failed.
+    pub error: Option<String>,
+}

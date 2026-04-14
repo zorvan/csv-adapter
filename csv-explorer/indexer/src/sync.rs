@@ -20,6 +20,7 @@ use sqlx::SqlitePool;
 /// Sync coordinator that manages multiple chain indexers.
 pub struct SyncCoordinator {
     indexers: Vec<Box<dyn ChainIndexer>>,
+    pool: SqlitePool,
     sync_repo: SyncRepository,
     rights_repo: RightsRepository,
     seals_repo: SealsRepository,
@@ -68,6 +69,7 @@ impl SyncCoordinator {
 
         Self {
             indexers,
+            pool: pool.clone(),
             sync_repo: SyncRepository::new(pool.clone()),
             rights_repo: RightsRepository::new(pool.clone()),
             seals_repo: SealsRepository::new(pool.clone()),
@@ -79,6 +81,11 @@ impl SyncCoordinator {
             running: Arc::new(RwLock::new(false)),
             chain_states: Arc::new(RwLock::new(chain_states)),
         }
+    }
+
+    /// Get a reference to the database pool.
+    pub fn get_pool(&self) -> &SqlitePool {
+        &self.pool
     }
 
     /// Initialize all chain indexers.

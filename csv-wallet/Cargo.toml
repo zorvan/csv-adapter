@@ -32,6 +32,7 @@ blake2 = "0.10"
 hex = "0.4"
 rand = "0.8"
 bip32 = { version = "0.5", features = ["std", "mnemonic"] }
+bitcoin = { version = "0.32", features = ["std", "rand-std"] }
 
 # Encryption
 aes-gcm = "0.10"

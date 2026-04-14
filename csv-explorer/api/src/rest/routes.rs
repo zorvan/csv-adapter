@@ -2,6 +2,8 @@
 
 use axum::{
     routing::get,
+    routing::post,
+    routing::delete,
     Router,
 };
 
@@ -29,6 +31,15 @@ pub fn rest_routes() -> Router<AppState> {
         .route("/stats", get(handlers::get_stats))
         // Chains
         .route("/chains", get(handlers::list_chains))
+        // Wallet priority indexing
+        .route("/wallet/addresses", post(handlers::register_wallet_address))
+        .route("/wallet/addresses", delete(handlers::unregister_wallet_address))
+        .route("/wallet/{wallet_id}/addresses", get(handlers::get_wallet_addresses))
+        .route("/wallet/address/{address}/data", get(handlers::get_address_data))
+        .route("/wallet/address/{address}/rights", get(handlers::get_address_rights))
+        .route("/wallet/address/{address}/seals", get(handlers::get_address_seals))
+        .route("/wallet/address/{address}/transfers", get(handlers::get_address_transfers))
+        .route("/wallet/priority/status", get(handlers::get_priority_indexing_status))
 }
 
 /// Build the full API v1 router with prefix.
