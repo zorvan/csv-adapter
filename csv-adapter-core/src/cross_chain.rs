@@ -10,56 +10,15 @@ use alloc::vec::Vec;
 use serde::{Deserialize, Serialize};
 
 use crate::hash::Hash;
+use crate::protocol_version::Chain;
 use crate::right::{OwnershipProof, Right};
 use crate::seal::SealRef;
 
-/// Chain identifier for cross-chain transfers.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[allow(missing_docs)]
-pub enum ChainId {
-    /// Bitcoin (UTXO seals)
-    Bitcoin,
-    /// Sui (Object seals)
-    Sui,
-    /// Aptos (Resource seals)
-    Aptos,
-    /// Ethereum (Nullifier seals)
-    Ethereum,
-}
-
-impl ChainId {
-    /// Get a numeric identifier for serialization.
-    pub fn as_u8(&self) -> u8 {
-        match self {
-            ChainId::Bitcoin => 0,
-            ChainId::Sui => 1,
-            ChainId::Aptos => 2,
-            ChainId::Ethereum => 3,
-        }
-    }
-
-    /// Parse a chain ID from a u8.
-    pub fn from_u8(id: u8) -> Option<Self> {
-        match id {
-            0 => Some(ChainId::Bitcoin),
-            1 => Some(ChainId::Sui),
-            2 => Some(ChainId::Aptos),
-            3 => Some(ChainId::Ethereum),
-            _ => None,
-        }
-    }
-}
-
-impl core::fmt::Display for ChainId {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            ChainId::Bitcoin => write!(f, "Bitcoin"),
-            ChainId::Sui => write!(f, "Sui"),
-            ChainId::Aptos => write!(f, "Aptos"),
-            ChainId::Ethereum => write!(f, "Ethereum"),
-        }
-    }
-}
+/// Chain identifier alias for cross-chain transfers.
+///
+/// This re-exports the canonical [`Chain`] from the protocol contract.
+/// All cross-chain operations use this type.
+pub type ChainId = Chain;
 
 /// Event emitted when a Right is locked on the source chain for cross-chain transfer.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -469,11 +428,13 @@ mod tests {
             ChainId::Sui,
             ChainId::Aptos,
             ChainId::Ethereum,
+            ChainId::Solana,
         ] {
-            let id = chain.as_u8();
-            assert_eq!(ChainId::from_u8(id), Some(chain));
+            let id_str = chain.id();
+            let parsed: Result<ChainId, _> = id_str.parse();
+            assert_eq!(parsed, Ok(chain));
         }
-        assert_eq!(ChainId::from_u8(99), None);
+        assert!("unknown".parse::<ChainId>().is_err());
     }
 
     #[test]

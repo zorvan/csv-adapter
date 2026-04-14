@@ -109,11 +109,14 @@ impl Query {
             from_chain: filter.from_chain,
             to_chain: filter.to_chain,
             status: filter.status.as_deref().map(|s| match s {
-                "pending" => csv_explorer_shared::TransferStatus::Pending,
-                "in_progress" => csv_explorer_shared::TransferStatus::InProgress,
+                "pending" => csv_explorer_shared::TransferStatus::Initiated,
+                "in_progress" => csv_explorer_shared::TransferStatus::SubmittingProof,
                 "completed" => csv_explorer_shared::TransferStatus::Completed,
-                "failed" => csv_explorer_shared::TransferStatus::Failed,
-                _ => csv_explorer_shared::TransferStatus::Pending,
+                "failed" => csv_explorer_shared::TransferStatus::Failed {
+                    error_code: "UNKNOWN".to_string(),
+                    retryable: true,
+                },
+                _ => csv_explorer_shared::TransferStatus::Initiated,
             }),
             limit: Some(limit),
             offset: Some(offset),

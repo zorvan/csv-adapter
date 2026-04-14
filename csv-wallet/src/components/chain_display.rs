@@ -13,6 +13,7 @@ impl std::fmt::Display for ChainDisplay {
             Chain::Ethereum => write!(f, "\u{1F537} Ethereum"),
             Chain::Sui => write!(f, "\u{1F30A} Sui"),
             Chain::Aptos => write!(f, "\u{1F7E2} Aptos"),
+            _ => write!(f, "Unknown"),
         }
     }
 }

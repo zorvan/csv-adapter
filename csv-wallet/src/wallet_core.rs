@@ -41,6 +41,7 @@ impl ChainAccount {
             Chain::Ethereum => Self::derive_ethereum_address(&bytes),
             Chain::Sui => Self::derive_sui_address(&bytes),
             Chain::Aptos => Self::derive_aptos_address(&bytes),
+            _ => Err(format!("Unsupported chain: {:?}", chain)),
         }
     }
 

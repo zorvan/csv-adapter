@@ -215,9 +215,13 @@ impl ErrorSuggestion {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Chain {
+    /// Bitcoin chain.
     Bitcoin,
+    /// Ethereum chain.
     Ethereum,
+    /// Sui chain.
     Sui,
+    /// Aptos chain.
     Aptos,
 }
 

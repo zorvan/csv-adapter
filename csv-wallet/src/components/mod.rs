@@ -7,7 +7,7 @@ pub mod sidebar;
 pub mod header;
 
 pub use dropdown::Dropdown;
-pub use card::{Card, StatCard};
+pub use card::Card;
 pub use chain_display::{ChainDisplay, NetworkDisplay, all_chain_displays, all_network_displays};
 pub use sidebar::Sidebar;
 pub use header::Header;

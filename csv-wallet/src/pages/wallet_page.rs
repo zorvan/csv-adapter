@@ -155,6 +155,7 @@ fn chain_name(chain: &Chain) -> &'static str {
         Chain::Ethereum => "Ethereum",
         Chain::Sui => "Sui",
         Chain::Aptos => "Aptos",
+        _ => "Unknown",
     }
 }
 
@@ -399,7 +400,7 @@ fn ImportTab() -> Element {
 
 fn trigger_download(filename: &str, content: &str) {
     if let Some(window) = web_sys::window() {
-        let mut opts = web_sys::BlobPropertyBag::new();
+        let opts = web_sys::BlobPropertyBag::new();
         opts.set_type("application/json");
         let blob = web_sys::Blob::new_with_str_sequence_and_options(
             &js_sys::Array::from_iter([js_sys::JsString::from(content)]),

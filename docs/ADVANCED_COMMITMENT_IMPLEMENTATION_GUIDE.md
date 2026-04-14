@@ -3,9 +3,11 @@
 ## What Has Been Implemented ✅
 
 ### 1. Core Types (csv-adapter-core)
+
 **File**: `csv-adapter-core/src/advanced_commitments.rs`
 
 ✅ **Commitment Scheme Enum**
+
 ```rust
 pub enum CommitmentScheme {
     HashBased,     // SHA-256 (Bitcoin)
@@ -19,6 +21,7 @@ pub enum CommitmentScheme {
 ```
 
 ✅ **Inclusion Proof Type Enum**
+
 ```rust
 pub enum InclusionProofType {
     Merkle,           // Bitcoin (double-SHA256)
@@ -31,6 +34,7 @@ pub enum InclusionProofType {
 ```
 
 ✅ **Finality Proof Type Enum**
+
 ```rust
 pub enum FinalityProofType {
     ConfirmationDepth,  // Bitcoin (probabilistic)
@@ -42,6 +46,7 @@ pub enum FinalityProofType {
 ```
 
 ✅ **Proof Metadata Structure**
+
 ```rust
 pub struct ProofMetadata {
     pub inclusion_proof_type: Option<InclusionProofType>,
@@ -54,6 +59,7 @@ pub struct ProofMetadata {
 ```
 
 ✅ **Enhanced Commitment Structure**
+
 ```rust
 pub struct EnhancedCommitment {
     // Basic fields (same as core Commitment)
@@ -75,29 +81,36 @@ pub struct EnhancedCommitment {
 ```
 
 ### 2. Explorer Shared Types
+
 **File**: `csv-explorer/shared/src/advanced_types.rs`
 
 ✅ **Enhanced Record Types**
+
 - `EnhancedRightRecord` - with commitment scheme, proof types, metadata
 - `EnhancedSealRecord` - with seal proof type and verification status
 - `EnhancedInclusionProof` - with proof type, size, verification
 - `EnhancedTransferRecord` - with cross-chain proof metadata
 
 ✅ **Filter Types**
+
 - `RightProofFilter` - filter by commitment scheme, proof type
 - `SealProofFilter` - filter by seal proof type, verification status
 
 ✅ **Statistics Types**
+
 - `ProofStatistics` - aggregate stats on scheme/proof usage
 - `SchemeCount`, `InclusionProofCount`, `FinalityProofCount`, `SealProofCount`
 
 ✅ **Verification Status**
+
 - `ProofVerificationStatus` enum (Unverified, Verifying, Verified, Invalid, Error)
 
 ### 3. Database Schema
+
 **File**: `csv-explorer/storage/src/repositories/advanced_proofs.rs`
 
 ✅ **Tables Created**
+
 - `enhanced_rights` - rights with commitment scheme & proof metadata
 - `enhanced_seals` - seals with proof types
 - `enhanced_inclusion_proofs` - detailed proof records
@@ -105,12 +118,14 @@ pub struct EnhancedCommitment {
 - `proof_statistics` - cached statistics
 
 ✅ **Indexes Created**
+
 - `idx_enhanced_rights_scheme` - fast filtering by commitment scheme
 - `idx_enhanced_rights_owner` - fast owner queries
 - `idx_enhanced_seals_proof_type` - fast proof type filtering
 - `idx_inclusion_proofs_right` - fast right-based proof queries
 
 ✅ **Repository Methods**
+
 - `insert_enhanced_right()` - upsert enhanced right
 - `insert_enhanced_seal()` - upsert enhanced seal
 - `insert_enhanced_inclusion_proof()` - insert proof record
@@ -121,9 +136,11 @@ pub struct EnhancedCommitment {
 - `update_right_verification_status()` - update verification state
 
 ### 4. ChainIndexer Trait Extensions
+
 **File**: `csv-explorer/indexer/src/chain_indexer.rs`
 
 ✅ **New Trait Methods**
+
 ```rust
 // Advanced commitment indexing
 async fn index_enhanced_rights(&self, block: u64) -> ChainResult<Vec<EnhancedRightRecord>>;
@@ -137,9 +154,11 @@ fn detect_finality_proof_type(&self) -> FinalityProofType;
 ```
 
 ### 5. Bitcoin Indexer Implementation (Example)
+
 **File**: `csv-explorer/indexer/src/bitcoin.rs`
 
 ✅ **Fully Implemented**
+
 - `index_enhanced_rights()` - detects HashBased scheme, Merkle proofs, ConfirmationDepth finality
 - `index_enhanced_seals()` - tracks UTXO seals with Merkle proof type
 - `index_enhanced_transfers()` - placeholder for cross-chain transfers
@@ -152,6 +171,7 @@ fn detect_finality_proof_type(&self) -> FinalityProofType;
 ### 1. Other Chain Indexers
 
 #### Ethereum (`csv-explorer/indexer/src/ethereum.rs`)
+
 **Status**: Need to add enhanced indexing methods
 
 ```rust
@@ -189,6 +209,7 @@ fn detect_finality_proof_type(&self) -> FinalityProofType {
 ```
 
 #### Sui (`csv-explorer/indexer/src/sui.rs`)
+
 **Status**: Need to add enhanced indexing methods
 
 ```rust
@@ -208,6 +229,7 @@ fn detect_finality_proof_type(&self) -> FinalityProofType {
 ```
 
 #### Aptos (`csv-explorer/indexer/src/aptos.rs`)
+
 **Status**: Need to add enhanced indexing methods
 
 ```rust
@@ -227,6 +249,7 @@ fn detect_finality_proof_type(&self) -> FinalityProofType {
 ```
 
 #### Solana (`csv-explorer/indexer/src/solana.rs`)
+
 **Status**: Need to add enhanced indexing methods
 
 ```rust
@@ -246,9 +269,11 @@ fn detect_finality_proof_type(&self) -> FinalityProofType {
 ```
 
 ### 2. Indexer Sync Coordinator Integration
+
 **File**: `csv-explorer/indexer/src/sync.rs`
 
 **Need to add**:
+
 ```rust
 // In sync_chain() function, after indexing regular records:
 
@@ -276,9 +301,11 @@ match indexer.index_enhanced_rights(current).await {
 ```
 
 ### 3. API Endpoints
+
 **File**: `csv-explorer/api/src/rest/routes.rs`
 
 **Need to add routes**:
+
 ```rust
 // Enhanced rights with commitment metadata
 .route("/rights/enhanced", get(handlers::list_enhanced_rights))
@@ -301,6 +328,7 @@ match indexer.index_enhanced_rights(current).await {
 **File**: `csv-explorer/api/src/rest/handlers.rs`
 
 **Need to add handlers**:
+
 ```rust
 /// GET /api/v1/rights/enhanced
 pub async fn list_enhanced_rights(
@@ -333,9 +361,11 @@ pub async fn get_proof_statistics(
 ```
 
 ### 4. GraphQL Schema Updates
+
 **File**: `csv-explorer/api/src/graphql/types.rs`
 
 **Need to add**:
+
 ```rust
 /// GraphQL EnhancedRight type
 #[derive(SimpleObject)]
@@ -367,6 +397,7 @@ pub struct ProofStats {
 **File**: `csv-explorer/api/src/graphql/schema.rs`
 
 **Need to add queries**:
+
 ```rust
 /// Query enhanced rights by commitment scheme
 async fn enhanced_rights(
@@ -408,6 +439,7 @@ curl http://localhost:8181/api/v1/proofs/statistics
 ```
 
 Response:
+
 ```json
 {
   "data": {

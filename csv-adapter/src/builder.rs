@@ -225,6 +225,16 @@ impl ClientBuilder {
                 #[cfg(feature = "aptos")]
                 Ok(())
             }
+            Chain::Solana => {
+                #[cfg(not(feature = "solana"))]
+                return Err(CsvError::BuilderError(
+                    "Solana adapter requires the 'solana' feature flag".to_string(),
+                ));
+                #[cfg(feature = "solana")]
+                Ok(())
+            }
+            // Future chains added via #[non_exhaustive]
+            _ => Ok(()),
         }
     }
 }

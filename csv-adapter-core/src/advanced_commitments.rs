@@ -243,13 +243,21 @@ pub struct ProofMetadata {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EnhancedCommitment {
     // Basic fields (same as core Commitment)
+    /// Protocol version.
     pub version: u8,
+    /// Unique protocol identifier.
     pub protocol_id: [u8; 32],
+    /// Merkle root of the MPC tree.
     pub mpc_root: [u8; 32],
+    /// Unique contract identifier.
     pub contract_id: [u8; 32],
+    /// Hash of the previous commitment.
     pub previous_commitment: [u8; 32],
+    /// Hash of the transition payload.
     pub transition_payload_hash: [u8; 32],
+    /// Unique seal identifier.
     pub seal_id: [u8; 32],
+    /// Domain separator for disambiguation.
     pub domain_separator: [u8; 32],
 
     // Advanced fields

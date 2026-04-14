@@ -49,6 +49,7 @@ pub struct Wallet {
     /// Derived seed (64 bytes from BIP-39).
     seed: [u8; 64],
     /// Optional passphrase used with the mnemonic.
+    #[allow(dead_code)]
     passphrase: String,
 }
 
@@ -172,6 +173,9 @@ impl Wallet {
             Chain::Ethereum => self.eth_address(),
             Chain::Sui => self.sui_address(),
             Chain::Aptos => self.aptos_address(),
+            Chain::Solana => self.sol_address(),
+            // Future chains: derive placeholder from seed
+            _ => format!("unknown-chain:{}", hex::encode(&self.seed[..8])),
         }
     }
 
@@ -228,6 +232,13 @@ impl Wallet {
         // Path: m/44'/637'/0'/0'/0
         // In production: derive ed25519 keypair from seed
         format!("0x{}", hex::encode(&self.seed[..32]))
+    }
+
+    fn sol_address(&self) -> String {
+        // Solana address derivation
+        // Path: m/44'/501'/0'/0'
+        // In production: derive ed25519 keypair from seed -> base58
+        format!("sol:{}", hex::encode(&self.seed[..32]))
     }
 }
 

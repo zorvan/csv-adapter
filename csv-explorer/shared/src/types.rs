@@ -2,14 +2,34 @@
 ///
 /// This module defines all the data types used across the explorer,
 /// including rights, transfers, seals, contracts, and chain information.
+///
+/// ## Protocol Alignment
+///
+/// Explorer types MUST reuse canonical protocol types from `csv-adapter-core::protocol_version`
+/// where applicable. The following types are re-exported from the protocol contract:
+///
+/// - [`csv_adapter_core::Chain`] — Canonical chain identifiers
+/// - [`csv_adapter_core::TransferStatus`] — Canonical transfer lifecycle
+/// - [`csv_adapter_core::SyncStatus`] — Indexer sync status
+/// - [`csv_adapter_core::ErrorCode`] — Machine-readable error codes
+///
+/// Explorer-specific types (RightRecord, SealRecord, etc.) wrap these
+/// protocol types with additional metadata for display purposes.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 
-// ---------------------------------------------------------------------------
-// Enums
-// ---------------------------------------------------------------------------
+// ===========================================================================
+// Re-export canonical protocol types (🔒 STABLE)
+// ===========================================================================
+
+// Chain IDs, transfer status, sync status, error codes from protocol contract
+pub use csv_adapter_core::protocol_version::{Chain, ErrorCode, SyncStatus, TransferStatus, PROTOCOL_VERSION};
+
+// ===========================================================================
+// Explorer-specific enums
+// ===========================================================================
 
 /// Network type for chain configuration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -73,31 +93,6 @@ impl std::fmt::Display for RightStatus {
             RightStatus::Active => write!(f, "active"),
             RightStatus::Spent => write!(f, "spent"),
             RightStatus::Pending => write!(f, "pending"),
-        }
-    }
-}
-
-/// Status of a cross-chain transfer.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum TransferStatus {
-    /// Transfer is pending (lock submitted, waiting for proof).
-    Pending,
-    /// Transfer is in progress (proof generated, minting on destination).
-    InProgress,
-    /// Transfer completed successfully.
-    Completed,
-    /// Transfer failed.
-    Failed,
-}
-
-impl std::fmt::Display for TransferStatus {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            TransferStatus::Pending => write!(f, "pending"),
-            TransferStatus::InProgress => write!(f, "in_progress"),
-            TransferStatus::Completed => write!(f, "completed"),
-            TransferStatus::Failed => write!(f, "failed"),
         }
     }
 }

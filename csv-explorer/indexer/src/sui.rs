@@ -451,7 +451,7 @@ impl SuiIndexer {
             lock_tx: tx_digest.to_string(),
             mint_tx: None,
             proof_ref: None,
-            status: csv_explorer_shared::TransferStatus::Pending,
+            status: csv_explorer_shared::TransferStatus::Initiated,
             created_at: chrono::Utc::now(),
             completed_at: None,
             duration_ms: None,

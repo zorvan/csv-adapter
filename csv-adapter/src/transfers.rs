@@ -109,10 +109,7 @@ impl TransferManager {
         // 4. Poll the destination chain for submission status
         // 5. Return a structured TransferStatus
         let _ = transfer_id;
-        Ok(crate::TransferStatus::Initiated {
-            transfer_id: transfer_id.to_string(),
-            timestamp: iso_timestamp(),
-        })
+        Ok(crate::TransferStatus::Initiated)
     }
 
     /// List transfers matching the given filters.
@@ -145,6 +142,7 @@ pub struct TransferRecord {
 /// Created via [`TransferManager::cross_chain()`].
 pub struct TransferBuilder {
     client: Arc<ClientRef>,
+    #[allow(dead_code)]
     right_id: RightId,
     to_chain: Chain,
     to_address: Option<String>,
@@ -253,6 +251,7 @@ fn generate_salt() -> Vec<u8> {
     salt
 }
 
+#[allow(dead_code)]
 fn iso_timestamp() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
     let secs = SystemTime::now()

@@ -199,11 +199,14 @@ impl TransfersRepository {
 fn row_to_transfer(row: &SqliteRow) -> Result<TransferRecord> {
     let status_str: String = row.try_get("status")?;
     let status = match status_str.as_str() {
-        "pending" => TransferStatus::Pending,
-        "in_progress" => TransferStatus::InProgress,
+        "pending" | "initiated" => TransferStatus::Initiated,
+        "in_progress" | "locking" | "submitting_proof" | "verifying" | "minting" => TransferStatus::SubmittingProof,
         "completed" => TransferStatus::Completed,
-        "failed" => TransferStatus::Failed,
-        _ => TransferStatus::Pending,
+        "failed" => TransferStatus::Failed {
+            error_code: "UNKNOWN".to_string(),
+            retryable: true,
+        },
+        _ => TransferStatus::Initiated,
     };
 
     Ok(TransferRecord {

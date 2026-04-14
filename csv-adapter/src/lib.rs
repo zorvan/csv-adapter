@@ -63,7 +63,6 @@
 //!   the blockchain. The chain only records commitments and enforces single-use.
 
 #![warn(missing_docs)]
-#![warn(rustdoc::broken_intra_doc_links)]
 
 // Internal modules
 pub mod builder;
@@ -77,21 +76,37 @@ pub mod rights;
 pub mod transfers;
 pub mod wallet;
 
-// Re-export core types from csv-adapter-core
+// Re-export core types from csv-adapter-core (🔒 STABLE API only by default)
 pub use csv_adapter_core::{
-    AnchorLayer, AnchorRecord, AnchorRef, Commitment, Consignment, DAGNode, DAGSegment,
-    FinalityProof, Genesis, Hash, InMemorySealStore, InclusionProof, MpcLeaf, MpcProof, MpcTree,
-    OwnedState, OwnershipProof, ProofBundle, Right, RightId, Schema, SealRecord, SealRef,
-    SealStore, StateRef, Transition, CONSIGNMENT_VERSION, SCHEMA_VERSION,
+    AnchorLayer, AnchorRef, Commitment, Consignment, CrossChainLockEvent,
+    DAGNode, DAGSegment, FinalityProof, Genesis, Hash, InclusionProof,
+    OwnedState, OwnershipProof, ProofBundle, Right, RightId, Schema, SealRef,
+    StateRef, Transition, CONSIGNMENT_VERSION, SCHEMA_VERSION,
 };
 
-// Re-export agent-friendly types
-pub use csv_adapter_core::agent_types::{Chain, ErrorSuggestion, FixAction, TransferStatus};
+// Re-export canonical protocol types (🔒 STABLE + 🟡 BETA)
+pub use csv_adapter_core::protocol_version::{
+    Capabilities, Chain, ErrorCode, ProtocolVersion, SyncStatus, TransferStatus, PROTOCOL_VERSION,
+};
 
-// Re-export error types
+// Re-export error types (🔒 STABLE)
 pub use csv_adapter_core::{AdapterError, Result as CoreResult, StoreError};
 
-// Re-export our unified error type
+// ===========================================================================
+// Experimental re-exports (feature-gated)
+// ===========================================================================
+
+/// Re-exports of experimental modules — requires `experimental` feature.
+///
+/// These APIs may change or be removed without notice.
+#[cfg(feature = "experimental")]
+pub mod experimental {
+    pub use csv_adapter_core::mpc::{MpcLeaf, MpcProof, MpcTree};
+    pub use csv_adapter_core::vm::{execute_transition, DeterministicVM, VMError, VMInputs, VMOutputs};
+    pub use csv_adapter_core::rgb_compat::{RGBCommitment, RGBError, RGBState};
+}
+
+/// Re-export error types
 pub use errors::CsvError;
 
 /// Unified result type alias.

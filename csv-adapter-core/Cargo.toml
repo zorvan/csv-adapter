@@ -32,6 +32,9 @@ ed25519-dalek = { version = "2.0", features = ["rand_core"] }
 default = ["std"]
 std = ["serde/std", "sha2/std", "hex/std"]
 tapret = ["bitcoin"]
+# Experimental features that may change or be removed without notice.
+# Includes: MPC tree, deterministic VM, RGB compatibility.
+experimental = []
 
 [dev-dependencies]
 ed25519-dalek = { version = "2.0", features = ["rand_core"] }

@@ -519,7 +519,7 @@ impl EthereumIndexer {
             lock_tx: tx_hash.to_string(),
             mint_tx: None,
             proof_ref: Some(log.transaction_hash.clone()),
-            status: csv_explorer_shared::TransferStatus::Pending,
+            status: csv_explorer_shared::TransferStatus::Initiated,
             created_at: chrono::Utc::now(),
             completed_at: None,
             duration_ms: None,

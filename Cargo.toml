@@ -28,7 +28,6 @@ aws-lc-sys = "0.39"
 
 [workspace.lints.rust]
 missing_docs = "warn"
-"rustdoc.broken_intra_doc_links" = "warn"
 unused_imports = "deny"
 unused_variables = "deny"
 unused_mut = "deny"

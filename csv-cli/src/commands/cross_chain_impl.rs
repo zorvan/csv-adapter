@@ -281,6 +281,7 @@ impl TransferVerifier for UniversalTransferVerifier {
             ChainId::Sui => 1,
             ChainId::Aptos => 1,
             ChainId::Ethereum => 15,
+            _ => 1,
         };
 
         // Only trust is_finalized flag for chains with deterministic finality.

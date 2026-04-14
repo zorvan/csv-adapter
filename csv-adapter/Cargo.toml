@@ -72,6 +72,12 @@ in-memory = []
 # Wallet / crypto
 wallet = ["dep:ed25519-dalek", "dep:bip32"]
 
+# Experimental features
+experimental = []
+
+# Placeholder for future chain support
+solana = []
+
 [dev-dependencies]
 rand = "0.8"
 tempfile = "3"

@@ -154,6 +154,7 @@ impl CsvClient {
     }
 
     /// Emit an event to all event stream subscribers.
+    #[allow(dead_code)]
     pub(crate) fn emit_event(&self, event: crate::events::Event) {
         // Best-effort: ignore if no receivers
         let _ = self.event_tx.send(event);
@@ -175,10 +176,14 @@ impl CsvClient {
 ///
 /// This is an internal type that allows managers to hold a reference
 /// to the client without the full `CsvClient` struct.
+#[allow(dead_code)]
 pub(crate) struct ClientRef {
     pub(crate) enabled_chains: HashSet<Chain>,
+    #[allow(dead_code)]
     pub(crate) wallet: Option<Wallet>,
+    #[allow(dead_code)]
     pub(crate) store: Arc<std::sync::Mutex<StoreHandle>>,
+    #[allow(dead_code)]
     pub(crate) config: Config,
     pub(crate) event_tx: broadcast::Sender<crate::events::Event>,
 }

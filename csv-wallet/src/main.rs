@@ -1,6 +1,7 @@
 //! CSV Wallet — Standalone Multi-Chain Wallet with Dioxus UI
 
 #![warn(missing_docs)]
+#![allow(dead_code)]
 
 use dioxus::prelude::*;
 
@@ -200,6 +201,7 @@ html { scroll-behavior: smooth; }
 "#;
 
 // ===== Layout =====
+/// Main application layout component.
 #[component]
 pub fn Layout() -> Element {
     let mut sidebar_open = use_signal(|| true);
