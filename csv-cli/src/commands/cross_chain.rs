@@ -91,6 +91,12 @@ fn cmd_transfer(
     // Parse right ID
     let bytes = hex::decode(right_id.trim_start_matches("0x"))
         .map_err(|e| anyhow::anyhow!("Invalid Right ID: {}", e))?;
+    if bytes.len() < 32 {
+        return Err(anyhow::anyhow!(
+            "Invalid Right ID: expected at least 32 bytes, got {} bytes",
+            bytes.len()
+        ));
+    }
     let mut right_bytes = [0u8; 32];
     right_bytes.copy_from_slice(&bytes[..32]);
     let right_id_hash = Hash::new(right_bytes);
@@ -157,15 +163,22 @@ fn cmd_transfer(
     // TODO: Replace with real RPC calls once contracts are deployed
     // For now, use realistic testnet heights from config
     let source_height = get_chain_height(&from, config);
+    let confirmations = get_chain_confirmations(&from);
+    let current_height = source_height + confirmations;
+
+    // Only mark as finalized for chains with deterministic finality.
+    // Bitcoin and Ethereum use probabilistic finality (confirmation depth).
+    let is_finalized = matches!(source_chain_id, ChainId::Sui | ChainId::Aptos);
+
     let transfer_proof = CrossChainTransferProof {
         lock_event,
         inclusion_proof,
         finality_proof: CrossChainFinalityProof {
             source_chain: source_chain_id.clone(),
             height: source_height,
-            current_height: source_height + get_chain_confirmations(&from),
-            is_finalized: true,
-            depth: get_chain_confirmations(&from),
+            current_height,
+            is_finalized,
+            depth: confirmations,
         },
         source_state_root: Hash::new([0u8; 32]),
     };

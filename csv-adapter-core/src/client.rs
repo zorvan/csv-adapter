@@ -24,6 +24,8 @@
 use alloc::string::String;
 use alloc::vec::Vec;
 
+use sha2::{Digest, Sha256};
+
 use crate::commitment::Commitment;
 use crate::commitment_chain::{
     verify_ordered_commitment_chain, ChainError, ChainVerificationResult,
@@ -229,47 +231,75 @@ impl ValidationClient {
     ///
     /// Commitments come from:
     /// - Genesis (the root commitment)
-    /// - Anchors (each anchor contains a commitment)
+    /// - Anchors (each anchor contains a commitment hash)
     /// - Transitions (each transition has a payload hash that links to a commitment)
     fn extract_commitments(&self, consignment: &Consignment) -> Vec<Commitment> {
-        // In a full implementation, commitments would be extracted from
-        // the consignment's anchors and transitions.
-        // For now, we construct synthetic commitments from the seal assignments.
         let mut commitments = Vec::new();
 
-        // The genesis provides the root commitment
-        let genesis_commitment = {
-            let domain = [0u8; 32];
-            let seal = SealRef::new(consignment.genesis.contract_id.as_bytes().to_vec(), None)
-                .unwrap_or_else(|_| SealRef::new(vec![0x01], None).unwrap());
-            Commitment::simple(
-                consignment.genesis.contract_id,
-                Hash::new([0u8; 32]), // Genesis has no previous commitment
-                Hash::new([0u8; 32]),
-                &seal,
-                domain,
-            )
-        };
-        commitments.push(genesis_commitment);
+        // First, extract commitments from anchors — these are the real
+        // on-chain anchored commitments with inclusion/finality proofs.
+        for anchor in &consignment.anchors {
+            // The anchor carries the actual commitment hash that was published.
+            // We construct a Commitment around it using the anchored data.
+            let seal = consignment
+                .seal_assignments
+                .first()
+                .map(|a| a.seal_ref.clone())
+                .unwrap_or_else(|| SealRef::new(vec![0x01], None).unwrap());
 
-        // Each seal assignment represents a state transition with a commitment
-        for (i, assignment) in consignment.seal_assignments.iter().enumerate() {
-            let previous = if i == 0 {
-                commitments[0].hash()
-            } else {
-                commitments[i].hash()
-            };
-
-            let domain = [0u8; 32];
-            let seal = assignment.seal_ref.clone();
             let commitment = Commitment::simple(
-                consignment.schema_id,
-                previous,
-                Hash::new([0u8; 32]), // Would come from transition payload
+                consignment.genesis.contract_id,
+                consignment.genesis.hash(),
+                anchor.commitment,
                 &seal,
-                domain,
+                [0u8; 32], // Domain separator from anchor context
             );
             commitments.push(commitment);
+        }
+
+        // If no anchors are present yet (consignment not published),
+        // derive commitments from the state transition chain.
+        if commitments.is_empty() {
+            // Root commitment from genesis
+            let root_seal = consignment
+                .seal_assignments
+                .first()
+                .map(|a| a.seal_ref.clone())
+                .unwrap_or_else(|| SealRef::new(vec![0x01], None).unwrap());
+
+            let root_commitment = Commitment::simple(
+                consignment.genesis.contract_id,
+                Hash::new([0u8; 32]),
+                consignment.genesis.hash(),
+                &root_seal,
+                [0u8; 32],
+            );
+            commitments.push(root_commitment);
+
+            // Each seal assignment represents a state transition
+            for (i, assignment) in consignment.seal_assignments.iter().enumerate().skip(1) {
+                let previous = commitments[i].hash();
+                // Derive commitment from the actual assignment data.
+                // Hash the seal bytes + assignment data to produce a transition payload hash.
+                let payload_hash = {
+                    let seal_bytes = assignment.seal_ref.to_vec();
+                    let mut hasher = Sha256::new();
+                    hasher.update(&seal_bytes);
+                    hasher.update(&assignment.assignment.data);
+                    let result = hasher.finalize();
+                    let mut arr = [0u8; 32];
+                    arr.copy_from_slice(&result);
+                    crate::hash::Hash::new(arr)
+                };
+                let commitment = Commitment::simple(
+                    consignment.schema_id,
+                    previous,
+                    payload_hash,
+                    &assignment.seal_ref,
+                    [0u8; 32],
+                );
+                commitments.push(commitment);
+            }
         }
 
         commitments
@@ -352,7 +382,7 @@ impl ValidationClient {
         chain: &ChainId,
     ) -> Result<(), ValidationError> {
         match (inclusion, chain) {
-            (CrossChainInclusionProof::Bitcoin(proof), _) => {
+            (CrossChainInclusionProof::Bitcoin(proof), ChainId::Bitcoin) => {
                 // Verify Merkle branch is non-empty and structurally valid
                 if proof.merkle_branch.is_empty() {
                     return Err(ValidationError::InclusionProofFailed(
@@ -367,7 +397,7 @@ impl ValidationClient {
                 // In production: verify Merkle root matches block header
                 // verify_merkle_proof(txid, &proof.merkle_branch) == header.merkle_root
             }
-            (CrossChainInclusionProof::Ethereum(proof), _) => {
+            (CrossChainInclusionProof::Ethereum(proof), ChainId::Ethereum) => {
                 if proof.receipt_rlp.is_empty() && proof.merkle_nodes.is_empty() {
                     return Err(ValidationError::InclusionProofFailed(
                         "Empty MPT proof".to_string(),
@@ -375,7 +405,7 @@ impl ValidationClient {
                 }
                 // In production: verify MPT proof via alloy-trie
             }
-            (CrossChainInclusionProof::Sui(proof), _) => {
+            (CrossChainInclusionProof::Sui(proof), ChainId::Sui) => {
                 if !proof.certified {
                     return Err(ValidationError::InclusionProofFailed(
                         "Checkpoint not certified".to_string(),
@@ -383,13 +413,23 @@ impl ValidationClient {
                 }
                 // In production: verify checkpoint certification
             }
-            (CrossChainInclusionProof::Aptos(proof), _) => {
+            (CrossChainInclusionProof::Aptos(proof), ChainId::Aptos) => {
                 if !proof.success {
                     return Err(ValidationError::InclusionProofFailed(
                         "Transaction failed".to_string(),
                     ));
                 }
                 // In production: verify HotStuff ledger signatures
+            }
+            // Mismatched proof type and chain — reject
+            (CrossChainInclusionProof::Bitcoin(_), _)
+            | (CrossChainInclusionProof::Ethereum(_), _)
+            | (CrossChainInclusionProof::Sui(_), _)
+            | (CrossChainInclusionProof::Aptos(_), _) => {
+                return Err(ValidationError::InclusionProofFailed(format!(
+                    "Proof type does not match expected chain: {:?}",
+                    chain
+                )));
             }
         }
 

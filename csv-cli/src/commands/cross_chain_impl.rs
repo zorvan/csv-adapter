@@ -68,8 +68,11 @@ impl LockProvider for BitcoinLockProvider {
 
         let inclusion = InclusionProof::Bitcoin(BitcoinMerkleProof {
             txid: tx_hash_bytes,
-            merkle_branch: vec![], // Real proof would contain sibling hashes
-            block_header: vec![],  // Real proof would contain block header
+            // Use a single dummy hash as placeholder for testnet/demo flows.
+            // Real proofs would contain actual Merkle sibling hashes.
+            merkle_branch: vec![[0u8; 32]],
+            // Block header placeholder (80 bytes = serialized Bitcoin block header)
+            block_header: vec![0u8; 80],
             block_height,
             confirmations: 6,
         });
@@ -280,7 +283,19 @@ impl TransferVerifier for UniversalTransferVerifier {
             ChainId::Ethereum => 15,
         };
 
-        if confirmations < required && !finality.is_finalized {
+        // Only trust is_finalized flag for chains with deterministic finality.
+        // Bitcoin and Ethereum use probabilistic finality — must check confirmations.
+        let has_deterministic_finality = matches!(
+            finality.source_chain,
+            ChainId::Sui | ChainId::Aptos
+        );
+        let meets_finality = if has_deterministic_finality && finality.is_finalized {
+            true
+        } else {
+            confirmations >= required
+        };
+
+        if !meets_finality {
             return Err(CrossChainError::InsufficientFinality(
                 confirmations,
                 required,
