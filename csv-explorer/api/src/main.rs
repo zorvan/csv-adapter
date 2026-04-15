@@ -4,7 +4,6 @@
 ///   start       - Start the API server
 ///   graphql     - Open GraphQL playground URL
 ///   health      - Check API health
-
 use clap::{Parser, Subcommand};
 use csv_explorer_api::ApiServer;
 use csv_explorer_shared::{ExplorerConfig, Result};
@@ -52,16 +51,12 @@ async fn main() -> Result<()> {
     };
 
     match cli.command {
-        Commands::Start => {
-            run_start(config).await
-        }
+        Commands::Start => run_start(config).await,
         Commands::Graphql => {
             run_graphql_url(&config);
             Ok(())
         }
-        Commands::Health => {
-            run_health(&config).await
-        }
+        Commands::Health => run_health(&config).await,
     }
 }
 

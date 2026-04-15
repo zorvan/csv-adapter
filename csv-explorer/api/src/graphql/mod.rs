@@ -1,5 +1,4 @@
 /// GraphQL module for the API.
-
 pub mod schema;
 pub mod types;
 

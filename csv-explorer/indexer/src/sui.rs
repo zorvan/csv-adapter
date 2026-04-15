@@ -4,22 +4,27 @@
 /// - Object creation/deletion for seals
 /// - Move events from CSV packages
 /// - Checkpoint finality
-
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
-use super::chain_indexer::{AddressIndexingResult, ChainIndexer, ChainResult};
+use super::chain_indexer::ChainIndexer;
+use super::chain_indexer::ChainResult;
+use super::rpc_manager::RpcManager;
 use csv_explorer_shared::{
     ChainConfig, CommitmentScheme, ContractStatus, ContractType, CsvContract, EnhancedRightRecord,
-    EnhancedSealRecord, EnhancedTransferRecord, ExplorerError, FinalityProofType, InclusionProofType,
-    Network, PriorityLevel, RightRecord, SealRecord, SealStatus, SealType, TransferRecord,
+    EnhancedSealRecord, EnhancedTransferRecord, ExplorerError, FinalityProofType,
+    InclusionProofType, Network, PriorityLevel, RightRecord, SealRecord, SealStatus, SealType,
+    TransferRecord,
 };
+
+use crate::chain_indexer::AddressIndexingResult;
 
 /// Sui-specific indexer.
 pub struct SuiIndexer {
     config: ChainConfig,
-    http_client: Client,
+    rpc_manager: Option<Arc<RpcManager>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -68,6 +73,16 @@ impl ChainIndexer for SuiIndexer {
     }
 
     async fn get_chain_tip(&self) -> ChainResult<u64> {
+        let rpc_url = if let Some(ref manager) = self.rpc_manager {
+            if let Some(endpoint) = manager.get_endpoint("sui") {
+                endpoint.url.clone()
+            } else {
+                self.config.rpc_url.clone()
+            }
+        } else {
+            self.config.rpc_url.clone()
+        };
+
         let req = SuiRpcRequest {
             jsonrpc: "2.0".to_string(),
             method: "suix_getLatestCheckpointSequenceNumber".to_string(),
@@ -75,8 +90,9 @@ impl ChainIndexer for SuiIndexer {
             id: 1,
         };
 
-        let resp: serde_json::Value = self.http_client
-            .post(&self.config.rpc_url)
+        let client = self.rpc_manager.as_ref().and_then(|m| m.get_client("sui")).unwrap_or_else(|| Client::new());
+        let resp: serde_json::Value = client
+            .post(&rpc_url)
             .json(&req)
             .send()
             .await?
@@ -157,71 +173,28 @@ impl ChainIndexer for SuiIndexer {
             }
         }
 
-        tracing::debug!(chain = "sui", block, count = transfers.len(), "Indexed transfers");
+        tracing::debug!(
+            chain = "sui",
+            block,
+            count = transfers.len(),
+            "Indexed transfers"
+        );
         Ok(transfers)
     }
 
     async fn index_contracts(&self, _block: u64) -> ChainResult<Vec<CsvContract>> {
         // Return known CSV packages on Sui
-        Ok(vec![
-            CsvContract {
-                id: "sui-csv-package".to_string(),
-                chain: "sui".to_string(),
-                contract_type: ContractType::RightRegistry,
-                address: "0x0000000000000000000000000000000000000000000000000000000000000000".to_string(),
-                deployed_tx: "genesis".to_string(),
-                deployed_at: chrono::Utc::now(),
-                version: "1.0.0".to_string(),
-                status: ContractStatus::Active,
-            },
-        ])
-    }
-
-    // -----------------------------------------------------------------------
-    // Address-based indexing methods (for priority indexing)
-    // -----------------------------------------------------------------------
-
-    async fn index_rights_by_address(&self, _address: &str) -> ChainResult<Vec<RightRecord>> {
-        Ok(Vec::new())
-    }
-
-    async fn index_seals_by_address(&self, _address: &str) -> ChainResult<Vec<SealRecord>> {
-        Ok(Vec::new())
-    }
-
-    async fn index_transfers_by_address(&self, _address: &str) -> ChainResult<Vec<TransferRecord>> {
-        Ok(Vec::new())
-    }
-
-    async fn index_addresses_with_priority(
-        &self,
-        addresses: &[String],
-        _priority: csv_explorer_shared::PriorityLevel,
-        _network: csv_explorer_shared::Network,
-    ) -> ChainResult<AddressIndexingResult> {
-        let mut result = AddressIndexingResult {
-            addresses_processed: 0,
-            rights_indexed: 0,
-            seals_indexed: 0,
-            transfers_indexed: 0,
-            contracts_indexed: 0,
-            errors: Vec::new(),
-        };
-
-        for address in addresses {
-            if let Ok(rights) = self.index_rights_by_address(address).await {
-                result.rights_indexed += rights.len() as u64;
-                result.addresses_processed += 1;
-            }
-            if let Ok(seals) = self.index_seals_by_address(address).await {
-                result.seals_indexed += seals.len() as u64;
-            }
-            if let Ok(transfers) = self.index_transfers_by_address(address).await {
-                result.transfers_indexed += transfers.len() as u64;
-            }
-        }
-
-        Ok(result)
+        Ok(vec![CsvContract {
+            id: "sui-csv-package".to_string(),
+            chain: "sui".to_string(),
+            contract_type: ContractType::RightRegistry,
+            address: "0x0000000000000000000000000000000000000000000000000000000000000000"
+                .to_string(),
+            deployed_tx: "genesis".to_string(),
+            deployed_at: chrono::Utc::now(),
+            version: "1.0.0".to_string(),
+            status: ContractStatus::Active,
+        }])
     }
 
     // -----------------------------------------------------------------------
@@ -301,7 +274,10 @@ impl ChainIndexer for SuiIndexer {
         Ok(seals)
     }
 
-    async fn index_enhanced_transfers(&self, block: u64) -> ChainResult<Vec<EnhancedTransferRecord>> {
+    async fn index_enhanced_transfers(
+        &self,
+        block: u64,
+    ) -> ChainResult<Vec<EnhancedTransferRecord>> {
         let checkpoint = self.fetch_checkpoint(block).await?;
         let mut transfers = Vec::new();
 
@@ -349,14 +325,46 @@ impl ChainIndexer for SuiIndexer {
     fn detect_finality_proof_type(&self) -> FinalityProofType {
         FinalityProofType::Checkpoint
     }
+
+    // -----------------------------------------------------------------------
+    // Address-based indexing methods (for priority indexing)
+    // -----------------------------------------------------------------------
+
+    async fn index_rights_by_address(&self, _address: &str) -> ChainResult<Vec<RightRecord>> {
+        Ok(Vec::new())
+    }
+
+    async fn index_seals_by_address(&self, _address: &str) -> ChainResult<Vec<SealRecord>> {
+        Ok(Vec::new())
+    }
+
+    async fn index_transfers_by_address(&self, _address: &str) -> ChainResult<Vec<TransferRecord>> {
+        Ok(Vec::new())
+    }
+
+    async fn index_addresses_with_priority(
+        &self,
+        _addresses: &[String],
+        _priority: PriorityLevel,
+        _network: Network,
+    ) -> ChainResult<AddressIndexingResult> {
+        Ok(AddressIndexingResult {
+            addresses_processed: 0,
+            rights_indexed: 0,
+            seals_indexed: 0,
+            transfers_indexed: 0,
+            contracts_indexed: 0,
+            errors: Vec::new(),
+        })
+    }
 }
 
 impl SuiIndexer {
-    /// Create a new Sui indexer.
-    pub fn new(config: ChainConfig) -> Self {
+    /// Create a new Sui indexer with RPC manager support.
+    pub fn new(config: ChainConfig, rpc_manager: RpcManager) -> Self {
         Self {
             config,
-            http_client: Client::new(),
+            rpc_manager: Some(Arc::new(rpc_manager)),
         }
     }
 
@@ -369,8 +377,30 @@ impl SuiIndexer {
             id: 1,
         };
 
-        let resp: serde_json::Value = self.http_client
-            .post(&self.config.rpc_url)
+        let rpc_url = if let Some(ref manager) = self.rpc_manager {
+            if let Some(endpoint) = manager.get_endpoint("sui") {
+                endpoint.url.clone()
+            } else {
+                self.config.rpc_url.clone()
+            }
+        } else {
+            self.config.rpc_url.clone()
+        };
+
+          let client = if let Some(ref manager) = self.rpc_manager {
+            manager.get_client("sui")
+        } else {
+            Some(Client::new())
+        };
+
+       let client = if let Some(ref manager) = self.rpc_manager {
+            manager.get_client("sui").unwrap_or_else(Client::new)
+        } else {
+            Client::new()
+        };
+
+        let resp: serde_json::Value = client
+            .post(&rpc_url)
             .json(&req)
             .send()
             .await?
@@ -378,12 +408,13 @@ impl SuiIndexer {
             .await?;
 
         if let Some(result) = resp.get("result") {
-            let checkpoint: CheckpointData = serde_json::from_value(result.clone()).map_err(|e| {
-                ExplorerError::RpcParseError {
-                    chain: "sui".to_string(),
-                    message: e.to_string(),
-                }
-            })?;
+            let checkpoint: CheckpointData =
+                serde_json::from_value(result.clone()).map_err(|e| {
+                    ExplorerError::RpcParseError {
+                        chain: "sui".to_string(),
+                        message: e.to_string(),
+                    }
+                })?;
             Ok(checkpoint)
         } else {
             Err(ExplorerError::RpcError {
@@ -435,7 +466,11 @@ impl SuiIndexer {
         })
     }
 
-    fn parse_transfer_from_event(&self, event: &EventData, tx_digest: &str) -> Option<TransferRecord> {
+    fn parse_transfer_from_event(
+        &self,
+        event: &EventData,
+        tx_digest: &str,
+    ) -> Option<TransferRecord> {
         let parsed = event.parsed_json.as_ref()?;
         let right_id = parsed.get("right_id")?.as_str()?.to_string();
         let from_chain = parsed.get("from_chain")?.as_str()?.to_string();
@@ -456,52 +491,5 @@ impl SuiIndexer {
             completed_at: None,
             duration_ms: None,
         })
-    }
-
-    // -----------------------------------------------------------------------
-    // Address-based indexing methods (for priority indexing)
-    // -----------------------------------------------------------------------
-
-    async fn index_rights_by_address(&self, _address: &str) -> ChainResult<Vec<RightRecord>> {
-        Ok(Vec::new())
-    }
-
-    async fn index_seals_by_address(&self, _address: &str) -> ChainResult<Vec<SealRecord>> {
-        Ok(Vec::new())
-    }
-
-    async fn index_transfers_by_address(&self, _address: &str) -> ChainResult<Vec<TransferRecord>> {
-        Ok(Vec::new())
-    }
-
-    async fn index_addresses_with_priority(
-        &self,
-        addresses: &[String],
-        _priority: PriorityLevel,
-        _network: Network,
-    ) -> ChainResult<AddressIndexingResult> {
-        let mut result = AddressIndexingResult {
-            addresses_processed: 0,
-            rights_indexed: 0,
-            seals_indexed: 0,
-            transfers_indexed: 0,
-            contracts_indexed: 0,
-            errors: Vec::new(),
-        };
-
-        for address in addresses {
-            if let Ok(rights) = self.index_rights_by_address(address).await {
-                result.rights_indexed += rights.len() as u64;
-                result.addresses_processed += 1;
-            }
-            if let Ok(seals) = self.index_seals_by_address(address).await {
-                result.seals_indexed += seals.len() as u64;
-            }
-            if let Ok(transfers) = self.index_transfers_by_address(address).await {
-                result.transfers_indexed += transfers.len() as u64;
-            }
-        }
-
-        Ok(result)
     }
 }

@@ -1,5 +1,4 @@
 /// Contracts list page showing deployed CSV contracts across all chains.
-
 use dioxus::prelude::*;
 
 #[component]
@@ -103,7 +102,15 @@ pub fn ContractsList() -> Element {
 }
 
 #[component]
-fn ContractRow(id: String, chain: String, contract_type: String, address: String, version: String, status: String, deployed_at: String) -> Element {
+fn ContractRow(
+    id: String,
+    chain: String,
+    contract_type: String,
+    address: String,
+    version: String,
+    status: String,
+    deployed_at: String,
+) -> Element {
     rsx! {
         tr { class: "hover:bg-gray-800/50 transition-colors",
             td { class: "px-6 py-4 font-mono text-sm text-blue-400 hover:text-blue-300",
@@ -140,7 +147,9 @@ fn ChainBadge(chain: String) -> Element {
         "ethereum" => "bg-blue-500/20 text-blue-400 border-blue-500/30",
         "sui" => "bg-cyan-500/20 text-cyan-400 border-cyan-500/30",
         "aptos" => "bg-purple-500/20 text-purple-400 border-purple-500/30",
-        "solana" => "bg-gradient-to-r from-purple-500/20 to-green-500/20 text-green-400 border-green-500/30",
+        "solana" => {
+            "bg-gradient-to-r from-purple-500/20 to-green-500/20 text-green-400 border-green-500/30"
+        }
         _ => "bg-gray-800 text-gray-400 border-gray-700",
     };
 

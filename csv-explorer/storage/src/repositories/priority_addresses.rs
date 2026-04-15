@@ -1,10 +1,11 @@
 /// Repository for priority address management.
 ///
 /// Handles registration and tracking of wallet addresses for priority indexing.
-
 use chrono::{DateTime, Utc};
-use csv_explorer_shared::{IndexingActivity, Network, PriorityAddress, PriorityIndexingStatus, PriorityLevel};
-use sqlx::{SqlitePool, Row};
+use csv_explorer_shared::{
+    IndexingActivity, Network, PriorityAddress, PriorityIndexingStatus, PriorityLevel,
+};
+use sqlx::{Row, SqlitePool};
 
 /// Repository for managing priority addresses.
 pub struct PriorityAddressRepository {
@@ -439,7 +440,10 @@ impl PriorityAddressRepository {
     }
 
     /// Get recent indexing activities.
-    pub async fn get_recent_activities(&self, limit: usize) -> Result<Vec<IndexingActivity>, sqlx::Error> {
+    pub async fn get_recent_activities(
+        &self,
+        limit: usize,
+    ) -> Result<Vec<IndexingActivity>, sqlx::Error> {
         let rows = sqlx::query(
             r#"
             SELECT address, chain, network, indexed_type, items_count, 
@@ -487,7 +491,9 @@ impl PriorityAddressRepository {
     }
 
     /// Get priority indexing status.
-    pub async fn get_priority_indexing_status(&self) -> Result<PriorityIndexingStatus, sqlx::Error> {
+    pub async fn get_priority_indexing_status(
+        &self,
+    ) -> Result<PriorityIndexingStatus, sqlx::Error> {
         let total_row = sqlx::query(
             r#"
             SELECT COUNT(*) as count

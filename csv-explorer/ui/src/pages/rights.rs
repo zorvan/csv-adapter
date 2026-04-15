@@ -1,11 +1,10 @@
-/// Rights list page with filtering, sorting, and pagination.
-
-use dioxus::prelude::*;
 use csv_explorer_shared::RightRecord;
+/// Rights list page with filtering, sorting, and pagination.
+use dioxus::prelude::*;
 
 use crate::app::routes::Route;
-use crate::hooks::use_api::ApiClient;
 use crate::components::ChainBadge;
+use crate::hooks::use_api::ApiClient;
 
 #[component]
 pub fn RightsList() -> Element {
@@ -25,11 +24,22 @@ pub fn RightsList() -> Element {
             let client = ApiClient::new();
             let chain_str = chain_filter.read().clone();
             let status_str = status_filter.read().clone();
-            let chain = if chain_str.is_empty() { None } else { Some(chain_str.as_str()) };
-            let status = if status_str.is_empty() { None } else { Some(status_str.as_str()) };
+            let chain = if chain_str.is_empty() {
+                None
+            } else {
+                Some(chain_str.as_str())
+            };
+            let status = if status_str.is_empty() {
+                None
+            } else {
+                Some(status_str.as_str())
+            };
             let offset = ((*page.read() - 1) * limit as u64) as usize;
-            
-            if let Ok(records) = client.get_rights(chain, status, Some(limit), Some(offset)).await {
+
+            if let Ok(records) = client
+                .get_rights(chain, status, Some(limit), Some(offset))
+                .await
+            {
                 rights.set(records);
             }
             loading.set(false);
@@ -153,7 +163,14 @@ pub fn RightsList() -> Element {
 }
 
 #[component]
-fn RightRow(id: String, chain: String, owner: String, status: String, created_at: chrono::DateTime<chrono::Utc>, transfer_count: u64) -> Element {
+fn RightRow(
+    id: String,
+    chain: String,
+    owner: String,
+    status: String,
+    created_at: chrono::DateTime<chrono::Utc>,
+    transfer_count: u64,
+) -> Element {
     rsx! {
         tr { class: "hover:bg-gray-800/50 transition-colors",
             td { class: "px-6 py-4",

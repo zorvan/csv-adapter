@@ -2,13 +2,12 @@
 ///
 /// Each chain implementation implements this trait to provide a uniform
 /// interface for block scanning, event parsing, and data indexing.
-
 use async_trait::async_trait;
 
 use csv_explorer_shared::{
-    CommitmentScheme, CsvContract, EnhancedInclusionProof, EnhancedRightRecord,
-    EnhancedSealRecord, EnhancedTransferRecord, ExplorerError, FinalityProofType,
-    InclusionProofType, Network, PriorityLevel, RightRecord, SealRecord, TransferRecord,
+    CommitmentScheme, CsvContract, EnhancedInclusionProof, EnhancedRightRecord, EnhancedSealRecord,
+    EnhancedTransferRecord, ExplorerError, FinalityProofType, InclusionProofType, Network,
+    PriorityLevel, RightRecord, SealRecord, TransferRecord,
 };
 
 /// Result type alias for chain indexer operations.
@@ -68,16 +67,10 @@ pub trait ChainIndexer: Send + Sync {
     // -----------------------------------------------------------------------
 
     /// Index rights with enhanced commitment metadata.
-    async fn index_enhanced_rights(
-        &self,
-        block: u64,
-    ) -> ChainResult<Vec<EnhancedRightRecord>>;
+    async fn index_enhanced_rights(&self, block: u64) -> ChainResult<Vec<EnhancedRightRecord>>;
 
     /// Index seals with enhanced proof metadata.
-    async fn index_enhanced_seals(
-        &self,
-        block: u64,
-    ) -> ChainResult<Vec<EnhancedSealRecord>>;
+    async fn index_enhanced_seals(&self, block: u64) -> ChainResult<Vec<EnhancedSealRecord>>;
 
     /// Index transfers with cross-chain proof metadata.
     async fn index_enhanced_transfers(

@@ -6,11 +6,10 @@
 ///   sync        - Force sync a specific chain
 ///   reindex     - Reindex from a specific block
 ///   reset       - Reset sync progress
-
 use clap::{Parser, Subcommand};
 use csv_explorer_indexer::Indexer;
-use csv_explorer_storage::init_pool;
 use csv_explorer_shared::{ExplorerConfig, Result};
+use csv_explorer_storage::init_pool;
 
 /// CSV Explorer Indexer - Multi-chain indexing daemon
 #[derive(Parser)]
@@ -83,9 +82,7 @@ async fn main() -> Result<()> {
         Commands::Start => run_start(&indexer).await,
         Commands::Status => run_status(&indexer).await,
         Commands::Sync { chain, from_block } => run_sync(&indexer, &chain, from_block).await,
-        Commands::Reindex { chain, from_block } => {
-            run_reindex(&indexer, &chain, from_block).await
-        }
+        Commands::Reindex { chain, from_block } => run_reindex(&indexer, &chain, from_block).await,
         Commands::Reset { chain } => run_reset(&indexer, chain).await,
     }
 }
@@ -173,7 +170,8 @@ async fn wait_for_shutdown() {
     #[cfg(unix)]
     {
         use tokio::signal::unix::{signal, SignalKind};
-        let mut sigterm = signal(SignalKind::terminate()).expect("Failed to create SIGTERM handler");
+        let mut sigterm =
+            signal(SignalKind::terminate()).expect("Failed to create SIGTERM handler");
         let mut sighup = signal(SignalKind::hangup()).expect("Failed to create SIGHUP handler");
 
         tokio::select! {

@@ -1,9 +1,11 @@
 /// Routes module for the CSV Explorer UI.
-
 use dioxus::prelude::*;
 use dioxus_router::*;
 
-use crate::pages::{Home, RightsList, TransfersList, SealsList, Stats, Wallet, RightDetail, TransferDetail, SealDetail, ContractsList, Chains};
+use crate::pages::{
+    Chains, ContractsList, Home, RightDetail, RightsList, SealDetail, SealsList, Stats,
+    TransferDetail, TransfersList, Wallet,
+};
 
 #[derive(Routable, Clone, PartialEq)]
 #[rustfmt::skip]

@@ -1,5 +1,4 @@
 /// Repository for `RightRecord` operations.
-
 use sqlx::sqlite::SqliteRow;
 use sqlx::{Row, SqlitePool};
 
@@ -221,9 +220,7 @@ fn row_to_right(row: &SqliteRow) -> Result<RightRecord> {
         seal_ref: row.try_get("seal_ref")?,
         commitment: row.try_get("commitment")?,
         owner: row.try_get("owner")?,
-        created_at: row
-            .try_get::<chrono::DateTime<chrono::Utc>, _>("created_at")?
-            ,
+        created_at: row.try_get::<chrono::DateTime<chrono::Utc>, _>("created_at")?,
         created_tx: row.try_get("created_tx")?,
         status,
         metadata,

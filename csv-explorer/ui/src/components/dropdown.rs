@@ -1,5 +1,4 @@
 /// Reusable dropdown select component.
-
 use dioxus::prelude::*;
 
 /// Dropdown option button component.
@@ -12,7 +11,7 @@ fn DropdownOption<T: PartialEq + Clone + std::fmt::Display + 'static>(
     on_close: EventHandler<()>,
 ) -> Element {
     let is_selected = option.to_string() == selected_str;
-    
+
     rsx! {
         button {
             key: "{idx}",
@@ -44,7 +43,7 @@ pub fn Dropdown<T: PartialEq + Clone + std::fmt::Display + 'static>(
                 onclick: move |_| is_open.toggle(),
                 class: "w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-left text-gray-100 hover:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-between",
                 span { "{selected_str}" }
-                span { class: "text-gray-400", 
+                span { class: "text-gray-400",
                     if is_open() { "▲" } else { "▼" }
                 }
             }

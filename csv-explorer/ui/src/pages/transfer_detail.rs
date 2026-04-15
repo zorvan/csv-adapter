@@ -1,5 +1,4 @@
 /// Transfer detail page showing full information about a cross-chain transfer.
-
 use dioxus::prelude::*;
 
 use crate::app::routes::Route;
@@ -125,7 +124,13 @@ fn StatusBadge(status: String) -> Element {
 }
 
 #[component]
-fn TransferTimeline(status: String, lock_tx: String, mint_tx: Option<String>, created_at: chrono::DateTime<chrono::Utc>, completed_at: Option<chrono::DateTime<chrono::Utc>>) -> Element {
+fn TransferTimeline(
+    status: String,
+    lock_tx: String,
+    mint_tx: Option<String>,
+    created_at: chrono::DateTime<chrono::Utc>,
+    completed_at: Option<chrono::DateTime<chrono::Utc>>,
+) -> Element {
     let steps = vec![
         TimelineStep {
             label: "Lock Submitted".to_string(),
@@ -142,7 +147,9 @@ fn TransferTimeline(status: String, lock_tx: String, mint_tx: Option<String>, cr
         TimelineStep {
             label: "Mint Completed".to_string(),
             description: "Right minted on destination chain".to_string(),
-            time: completed_at.map(|t| t.format("%Y-%m-%d %H:%M").to_string()).unwrap_or_default(),
+            time: completed_at
+                .map(|t| t.format("%Y-%m-%d %H:%M").to_string())
+                .unwrap_or_default(),
             completed: status.to_lowercase() == "completed",
         },
     ];
@@ -214,7 +221,7 @@ fn format_duration(duration_ms: u64) -> String {
     let seconds = duration_ms / 1000;
     let minutes = seconds / 60;
     let hours = minutes / 60;
-    
+
     if hours > 0 {
         format!("{}h {}m", hours, minutes % 60)
     } else if minutes > 0 {

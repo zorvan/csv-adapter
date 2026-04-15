@@ -1,5 +1,4 @@
 /// Chains status page showing indexer status for all supported chains.
-
 use dioxus::prelude::*;
 
 #[component]
@@ -103,7 +102,16 @@ pub fn Chains() -> Element {
 }
 
 #[component]
-fn ChainCard(id: String, name: String, network: String, status: String, latest_block: u64, latest_slot: Option<u64>, rpc_url: String, sync_lag: u64) -> Element {
+fn ChainCard(
+    id: String,
+    name: String,
+    network: String,
+    status: String,
+    latest_block: u64,
+    latest_slot: Option<u64>,
+    rpc_url: String,
+    sync_lag: u64,
+) -> Element {
     let status_color = match status.to_lowercase().as_str() {
         "synced" => "bg-green-500",
         "syncing" => "bg-yellow-500",
@@ -121,7 +129,7 @@ fn ChainCard(id: String, name: String, network: String, status: String, latest_b
                 }
                 NetworkBadge { network }
             }
-            
+
             div { class: "space-y-3 text-sm",
                 div { class: "flex justify-between",
                     span { class: "text-gray-500", "Status" }
@@ -173,7 +181,12 @@ fn NetworkBadge(network: String) -> Element {
 }
 
 #[component]
-fn ChainInfo(name: &'static str, seal_type: &'static str, description: &'static str, features: Vec<&'static str>) -> Element {
+fn ChainInfo(
+    name: &'static str,
+    seal_type: &'static str,
+    description: &'static str,
+    features: Vec<&'static str>,
+) -> Element {
     rsx! {
         div { class: "space-y-3",
             div { class: "flex items-center justify-between",

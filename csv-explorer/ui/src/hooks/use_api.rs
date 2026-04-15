@@ -2,7 +2,6 @@
 ///
 /// Provides a unified interface for making HTTP requests to the GraphQL
 /// or REST API endpoints.
-
 use reqwest::Client;
 use std::sync::Arc;
 
@@ -63,7 +62,10 @@ impl ApiClient {
             return Err(ApiError::GraphQLError(errors.to_string()));
         }
 
-        Ok(response.get("data").cloned().unwrap_or(serde_json::Value::Null))
+        Ok(response
+            .get("data")
+            .cloned()
+            .unwrap_or(serde_json::Value::Null))
     }
 
     /// Fetch rights from the REST API.
@@ -94,14 +96,19 @@ impl ApiClient {
             url.push_str(&format!("?{}", params.join("&")));
         }
 
-        let response: ApiResponse<Vec<csv_explorer_shared::RightRecord>> = self.client.get(&url).send().await?.json().await?;
+        let response: ApiResponse<Vec<csv_explorer_shared::RightRecord>> =
+            self.client.get(&url).send().await?.json().await?;
         Ok(response.data)
     }
 
     /// Fetch a single right by ID.
-    pub async fn get_right(&self, id: &str) -> Result<Option<csv_explorer_shared::RightRecord>, ApiError> {
+    pub async fn get_right(
+        &self,
+        id: &str,
+    ) -> Result<Option<csv_explorer_shared::RightRecord>, ApiError> {
         let url = format!("{}/api/v1/rights/{}", self.base_url, id);
-        let response: ApiResponse<csv_explorer_shared::RightRecord> = self.client.get(&url).send().await?.json().await?;
+        let response: ApiResponse<csv_explorer_shared::RightRecord> =
+            self.client.get(&url).send().await?.json().await?;
         Ok(Some(response.data))
     }
 
@@ -141,7 +148,8 @@ impl ApiClient {
             url.push_str(&format!("?{}", params.join("&")));
         }
 
-        let response: ApiResponse<Vec<csv_explorer_shared::TransferRecord>> = self.client.get(&url).send().await?.json().await?;
+        let response: ApiResponse<Vec<csv_explorer_shared::TransferRecord>> =
+            self.client.get(&url).send().await?.json().await?;
         Ok(response.data)
     }
 
@@ -173,14 +181,16 @@ impl ApiClient {
             url.push_str(&format!("?{}", params.join("&")));
         }
 
-        let response: ApiResponse<Vec<csv_explorer_shared::SealRecord>> = self.client.get(&url).send().await?.json().await?;
+        let response: ApiResponse<Vec<csv_explorer_shared::SealRecord>> =
+            self.client.get(&url).send().await?.json().await?;
         Ok(response.data)
     }
 
     /// Fetch aggregate statistics.
     pub async fn get_stats(&self) -> Result<csv_explorer_shared::ExplorerStats, ApiError> {
         let url = format!("{}/api/v1/stats", self.base_url);
-        let response: ApiResponse<csv_explorer_shared::ExplorerStats> = self.client.get(&url).send().await?.json().await?;
+        let response: ApiResponse<csv_explorer_shared::ExplorerStats> =
+            self.client.get(&url).send().await?.json().await?;
         Ok(response.data)
     }
 

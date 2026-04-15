@@ -1,7 +1,6 @@
-/// Statistics dashboard with charts and aggregate data.
-
-use dioxus::prelude::*;
 use csv_explorer_shared::ExplorerStats;
+/// Statistics dashboard with charts and aggregate data.
+use dioxus::prelude::*;
 
 use crate::hooks::use_api::ApiClient;
 
@@ -132,7 +131,11 @@ fn SummaryCard(label: String, value: String) -> Element {
 
 #[component]
 fn ChainBar(chain: String, count: u64, max: u64) -> Element {
-    let width_pct = if max > 0 { (count as f64 / max as f64) * 100.0 } else { 0.0 };
+    let width_pct = if max > 0 {
+        (count as f64 / max as f64) * 100.0
+    } else {
+        0.0
+    };
     rsx! {
         div {
             div { class: "flex items-center justify-between text-sm mb-1",

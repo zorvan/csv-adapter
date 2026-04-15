@@ -5,7 +5,6 @@
 /// Usage:
 ///   csv-explorer-ui serve    - Serve the UI (web mode)
 ///   csv-explorer-ui desktop  - Launch desktop app
-
 use clap::{Parser, Subcommand};
 
 mod app;

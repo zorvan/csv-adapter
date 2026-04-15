@@ -1,11 +1,10 @@
-/// Transfers list page with filtering and pagination.
-
-use dioxus::prelude::*;
 use csv_explorer_shared::TransferRecord;
+/// Transfers list page with filtering and pagination.
+use dioxus::prelude::*;
 
 use crate::app::routes::Route;
-use crate::hooks::use_api::ApiClient;
 use crate::components::ChainBadge;
+use crate::hooks::use_api::ApiClient;
 
 #[component]
 pub fn TransfersList() -> Element {
@@ -25,12 +24,34 @@ pub fn TransfersList() -> Element {
             let from_chain_str = from_chain_filter.read().clone();
             let to_chain_str = to_chain_filter.read().clone();
             let status_str = status_filter.read().clone();
-            let from_chain = if from_chain_str.is_empty() { None } else { Some(from_chain_str.as_str()) };
-            let to_chain = if to_chain_str.is_empty() { None } else { Some(to_chain_str.as_str()) };
-            let status = if status_str.is_empty() { None } else { Some(status_str.as_str()) };
+            let from_chain = if from_chain_str.is_empty() {
+                None
+            } else {
+                Some(from_chain_str.as_str())
+            };
+            let to_chain = if to_chain_str.is_empty() {
+                None
+            } else {
+                Some(to_chain_str.as_str())
+            };
+            let status = if status_str.is_empty() {
+                None
+            } else {
+                Some(status_str.as_str())
+            };
             let offset = ((*page.read() - 1) * limit as u64) as usize;
-            
-            if let Ok(records) = client.get_transfers(None, from_chain, to_chain, status, Some(limit), Some(offset)).await {
+
+            if let Ok(records) = client
+                .get_transfers(
+                    None,
+                    from_chain,
+                    to_chain,
+                    status,
+                    Some(limit),
+                    Some(offset),
+                )
+                .await
+            {
                 transfers.set(records);
             }
             loading.set(false);
@@ -49,7 +70,7 @@ pub fn TransfersList() -> Element {
             // Filters
             div { class: "bg-gray-900 rounded-xl border border-gray-800 p-4",
                 div { class: "flex flex-wrap gap-4",
-                    select { 
+                    select {
                         class: "bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm",
                         onchange: move |evt| from_chain_filter.set(evt.value()),
                         option { value: "", "All Source Chains" }
@@ -59,7 +80,7 @@ pub fn TransfersList() -> Element {
                         option { value: "aptos", "Aptos" }
                         option { value: "solana", "Solana" }
                     }
-                    select { 
+                    select {
                         class: "bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm",
                         onchange: move |evt| to_chain_filter.set(evt.value()),
                         option { value: "", "All Destination Chains" }
@@ -69,7 +90,7 @@ pub fn TransfersList() -> Element {
                         option { value: "aptos", "Aptos" }
                         option { value: "solana", "Solana" }
                     }
-                    select { 
+                    select {
                         class: "bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm",
                         onchange: move |evt| status_filter.set(evt.value()),
                         option { value: "", "All Statuses" }
@@ -129,7 +150,15 @@ pub fn TransfersList() -> Element {
 }
 
 #[component]
-fn TransferRow(id: String, from_chain: String, to_chain: String, right_id: String, status: String, lock_tx: String, created_at: chrono::DateTime<chrono::Utc>) -> Element {
+fn TransferRow(
+    id: String,
+    from_chain: String,
+    to_chain: String,
+    right_id: String,
+    status: String,
+    lock_tx: String,
+    created_at: chrono::DateTime<chrono::Utc>,
+) -> Element {
     rsx! {
         tr { class: "hover:bg-gray-800/50 transition-colors",
             td { class: "px-6 py-4",

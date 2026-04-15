@@ -4,22 +4,25 @@
 /// - Resource creation/destruction for seals
 /// - Move events from CSV modules
 /// - Transaction finality
-
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::Deserialize;
 
 use super::chain_indexer::{AddressIndexingResult, ChainIndexer, ChainResult};
+use super::rpc_manager::RpcManager;
 use csv_explorer_shared::{
     ChainConfig, CommitmentScheme, ContractStatus, ContractType, CsvContract, EnhancedRightRecord,
-    EnhancedSealRecord, EnhancedTransferRecord, ExplorerError, FinalityProofType, InclusionProofType,
-    Network, PriorityLevel, RightRecord, SealRecord, SealStatus, SealType, TransferRecord,
+    EnhancedSealRecord, EnhancedTransferRecord, ExplorerError, FinalityProofType,
+    InclusionProofType, Network, PriorityLevel, RightRecord, SealRecord, SealStatus, SealType,
+    TransferRecord,
 };
 
 /// Aptos-specific indexer.
 pub struct AptosIndexer {
     config: ChainConfig,
     http_client: Client,
+    /// RPC manager for handling multiple RPC endpoints
+    rpc_manager: Option<RpcManager>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -66,8 +69,30 @@ impl ChainIndexer for AptosIndexer {
     }
 
     async fn get_chain_tip(&self) -> ChainResult<u64> {
-        let url = format!("{}/v1", self.config.rpc_url.trim_end_matches("/v1"));
-        let info: LedgerInfo = self.http_client.get(&url).send().await?.json().await?;
+        let rpc_url = if let Some(ref manager) = self.rpc_manager {
+            if let Some(endpoint) = manager.get_endpoint("aptos") {
+                endpoint.url.clone()
+            } else {
+                self.config.rpc_url.clone()
+            }
+        } else {
+            self.config.rpc_url.clone()
+        };
+
+        let client = if let Some(ref manager) = self.rpc_manager {
+            manager.get_client("aptos")
+        } else {
+            Some(Client::new())
+        };
+
+        let url = format!("{}/v1", rpc_url.trim_end_matches("/v1"));
+        let info: LedgerInfo = match client {
+            Some(ref client) => client.get(&url).send().await?.json().await?,
+            None => {
+                let client = Client::new();
+                client.get(&url).send().await?.json().await?
+            }
+        };
         Ok(info.ledger_version.parse::<u64>().unwrap_or(0))
     }
 
@@ -93,7 +118,12 @@ impl ChainIndexer for AptosIndexer {
             }
         }
 
-        tracing::debug!(chain = "aptos", block, count = rights.len(), "Indexed rights");
+        tracing::debug!(
+            chain = "aptos",
+            block,
+            count = rights.len(),
+            "Indexed rights"
+        );
         Ok(rights)
     }
 
@@ -126,7 +156,8 @@ impl ChainIndexer for AptosIndexer {
             if let Some(events) = &txn.events {
                 for event in events {
                     // Match cross-chain transfer events
-                    if event.type_.contains("CrossChain") || event.type_.contains("bridge_transfer") {
+                    if event.type_.contains("CrossChain") || event.type_.contains("bridge_transfer")
+                    {
                         if let Some(transfer) = self.parse_transfer_from_event(event, &txn.hash) {
                             transfers.push(transfer);
                         }
@@ -135,23 +166,27 @@ impl ChainIndexer for AptosIndexer {
             }
         }
 
-        tracing::debug!(chain = "aptos", block, count = transfers.len(), "Indexed transfers");
+        tracing::debug!(
+            chain = "aptos",
+            block,
+            count = transfers.len(),
+            "Indexed transfers"
+        );
         Ok(transfers)
     }
 
     async fn index_contracts(&self, _block: u64) -> ChainResult<Vec<CsvContract>> {
-        Ok(vec![
-            CsvContract {
-                id: "aptos-csv-module".to_string(),
-                chain: "aptos".to_string(),
-                contract_type: ContractType::NullifierRegistry,
-                address: "0x0000000000000000000000000000000000000000000000000000000000000001".to_string(),
-                deployed_tx: "genesis".to_string(),
-                deployed_at: chrono::Utc::now(),
-                version: "1.0.0".to_string(),
-                status: ContractStatus::Active,
-            },
-        ])
+        Ok(vec![CsvContract {
+            id: "aptos-csv-module".to_string(),
+            chain: "aptos".to_string(),
+            contract_type: ContractType::NullifierRegistry,
+            address: "0x0000000000000000000000000000000000000000000000000000000000000001"
+                .to_string(),
+            deployed_tx: "genesis".to_string(),
+            deployed_at: chrono::Utc::now(),
+            version: "1.0.0".to_string(),
+            status: ContractStatus::Active,
+        }])
     }
 
     // -----------------------------------------------------------------------
@@ -278,14 +313,18 @@ impl ChainIndexer for AptosIndexer {
         Ok(seals)
     }
 
-    async fn index_enhanced_transfers(&self, block: u64) -> ChainResult<Vec<EnhancedTransferRecord>> {
+    async fn index_enhanced_transfers(
+        &self,
+        block: u64,
+    ) -> ChainResult<Vec<EnhancedTransferRecord>> {
         let txns = self.fetch_block_transactions(block).await?;
         let mut transfers = Vec::new();
 
         for txn in &txns {
             if let Some(events) = &txn.events {
                 for event in events {
-                    if event.type_.contains("CrossChain") || event.type_.contains("bridge_transfer") {
+                    if event.type_.contains("CrossChain") || event.type_.contains("bridge_transfer")
+                    {
                         if let Some(transfer) = self.parse_transfer_from_event(event, &txn.hash) {
                             let enhanced = EnhancedTransferRecord {
                                 id: transfer.id.clone(),
@@ -330,20 +369,43 @@ impl ChainIndexer for AptosIndexer {
 
 impl AptosIndexer {
     /// Create a new Aptos indexer.
-    pub fn new(config: ChainConfig) -> Self {
+    pub fn new(config: ChainConfig, rpc_manager: RpcManager) -> Self {
         Self {
             config,
             http_client: Client::new(),
+            rpc_manager: Some(rpc_manager),
         }
     }
 
     /// Fetch transactions for a specific block/version.
     async fn fetch_block_transactions(&self, version: u64) -> ChainResult<Vec<AptosTxn>> {
         // Aptos uses version-based indexing
-        let base_url = self.config.rpc_url.trim_end_matches('/');
+        let rpc_url = if let Some(ref manager) = self.rpc_manager {
+            if let Some(endpoint) = manager.get_endpoint("aptos") {
+                endpoint.url.clone()
+            } else {
+                self.config.rpc_url.clone()
+            }
+        } else {
+            self.config.rpc_url.clone()
+        };
+
+        let client = if let Some(ref manager) = self.rpc_manager {
+            manager.get_client("aptos")
+        } else {
+            Some(Client::new())
+         };
+
+        let base_url = rpc_url.trim_end_matches('/');
         let url = format!("{}/v1/transactions?start={}&limit=100", base_url, version);
 
-        let resp: Vec<AptosTxn> = self.http_client.get(&url).send().await?.json().await?;
+        let resp: Vec<AptosTxn> = match client {
+            Some(ref client) => client.get(&url).send().await?.json().await?,
+            None => {
+                let client = Client::new();
+                client.get(&url).send().await?.json().await?
+            }
+        };
         Ok(resp)
     }
 
@@ -394,7 +456,11 @@ impl AptosIndexer {
         })
     }
 
-    fn parse_transfer_from_event(&self, event: &AptosEvent, tx_hash: &str) -> Option<TransferRecord> {
+    fn parse_transfer_from_event(
+        &self,
+        event: &AptosEvent,
+        tx_hash: &str,
+    ) -> Option<TransferRecord> {
         let right_id = event.data.get("right_id")?.as_str()?.to_string();
         let from_chain = event.data.get("from_chain")?.as_str()?.to_string();
         let to_chain = event.data.get("to_chain")?.as_str()?.to_string();
@@ -414,52 +480,5 @@ impl AptosIndexer {
             completed_at: None,
             duration_ms: None,
         })
-    }
-
-    // -----------------------------------------------------------------------
-    // Address-based indexing methods (for priority indexing)
-    // -----------------------------------------------------------------------
-
-    async fn index_rights_by_address(&self, _address: &str) -> ChainResult<Vec<RightRecord>> {
-        Ok(Vec::new())
-    }
-
-    async fn index_seals_by_address(&self, _address: &str) -> ChainResult<Vec<SealRecord>> {
-        Ok(Vec::new())
-    }
-
-    async fn index_transfers_by_address(&self, _address: &str) -> ChainResult<Vec<TransferRecord>> {
-        Ok(Vec::new())
-    }
-
-    async fn index_addresses_with_priority(
-        &self,
-        addresses: &[String],
-        _priority: PriorityLevel,
-        _network: Network,
-    ) -> ChainResult<AddressIndexingResult> {
-        let mut result = AddressIndexingResult {
-            addresses_processed: 0,
-            rights_indexed: 0,
-            seals_indexed: 0,
-            transfers_indexed: 0,
-            contracts_indexed: 0,
-            errors: Vec::new(),
-        };
-
-        for address in addresses {
-            if let Ok(rights) = self.index_rights_by_address(address).await {
-                result.rights_indexed += rights.len() as u64;
-                result.addresses_processed += 1;
-            }
-            if let Ok(seals) = self.index_seals_by_address(address).await {
-                result.seals_indexed += seals.len() as u64;
-            }
-            if let Ok(transfers) = self.index_transfers_by_address(address).await {
-                result.transfers_indexed += transfers.len() as u64;
-            }
-        }
-
-        Ok(result)
     }
 }

@@ -1,5 +1,4 @@
 /// Right detail page showing full information about a CSV right.
-
 use dioxus::prelude::*;
 
 use crate::app::routes::Route;
@@ -7,7 +6,8 @@ use crate::app::routes::Route;
 #[component]
 pub fn RightDetail(id: String) -> Element {
     let mut right: Signal<Option<csv_explorer_shared::RightRecord>> = use_signal(|| None);
-    let mut transfers: Signal<Option<Vec<csv_explorer_shared::TransferRecord>>> = use_signal(|| None);
+    let mut transfers: Signal<Option<Vec<csv_explorer_shared::TransferRecord>>> =
+        use_signal(|| None);
     let mut seals: Signal<Option<Vec<csv_explorer_shared::SealRecord>>> = use_signal(|| None);
 
     use_effect({
@@ -187,7 +187,13 @@ fn StatusBadge(status: String) -> Element {
 }
 
 #[component]
-fn SealCard(id: String, chain: String, seal_type: String, status: String, block_height: u64) -> Element {
+fn SealCard(
+    id: String,
+    chain: String,
+    seal_type: String,
+    status: String,
+    block_height: u64,
+) -> Element {
     rsx! {
         Link { to: Route::SealDetail { id: id.clone() },
             div { class: "bg-gray-900 rounded-xl border border-gray-800 p-4 hover:bg-gray-800/50 transition-colors",

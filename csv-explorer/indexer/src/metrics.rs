@@ -2,7 +2,6 @@
 ///
 /// Exposes counters, gauges, and histograms for monitoring indexer health
 /// and performance.
-
 use prometheus::{CounterVec, GaugeVec, HistogramOpts, HistogramVec, Registry};
 use std::sync::Arc;
 
@@ -153,7 +152,9 @@ pub fn record_block_processed(
     BLOCK_PROCESSING_DURATION
         .with_label_values(&[chain])
         .observe(processing_time_seconds);
-    LATEST_BLOCK.with_label_values(&[chain]).set(latest_block as f64);
+    LATEST_BLOCK
+        .with_label_values(&[chain])
+        .set(latest_block as f64);
 }
 
 /// Record a sync lag measurement.
@@ -165,9 +166,7 @@ pub fn record_sync_lag(chain: &str, lag_seconds: f64) {
 
 /// Record an error.
 pub fn record_error(chain: &str, error_type: &str) {
-    ERRORS_TOTAL
-        .with_label_values(&[chain, error_type])
-        .inc();
+    ERRORS_TOTAL.with_label_values(&[chain, error_type]).inc();
 }
 
 /// Encode all metrics in Prometheus text format.

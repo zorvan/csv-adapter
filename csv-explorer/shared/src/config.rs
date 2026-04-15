@@ -2,7 +2,6 @@
 ///
 /// Provides a unified configuration structure loaded from TOML files
 /// and environment variables.
-
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
@@ -153,7 +152,8 @@ impl ExplorerConfig {
     /// Load configuration from a TOML file.
     pub fn from_file(path: &Path) -> Result<Self, crate::ExplorerError> {
         let content = std::fs::read_to_string(path).map_err(|e| crate::ExplorerError::Io(e))?;
-        let config: ExplorerConfig = toml::from_str(&content).map_err(|e| crate::ExplorerError::Toml(e.to_string()))?;
+        let config: ExplorerConfig =
+            toml::from_str(&content).map_err(|e| crate::ExplorerError::Toml(e.to_string()))?;
         Ok(config)
     }
 

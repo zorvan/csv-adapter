@@ -1,5 +1,4 @@
 /// Repository modules for database access.
-
 pub mod advanced_proofs;
 pub mod contracts;
 pub mod priority_addresses;

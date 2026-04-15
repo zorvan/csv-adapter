@@ -1,5 +1,4 @@
 /// Repository for `CsvContract` operations.
-
 use sqlx::sqlite::SqliteRow;
 use sqlx::{Row, SqlitePool};
 
@@ -167,9 +166,7 @@ fn row_to_contract(row: &SqliteRow) -> Result<CsvContract> {
         contract_type,
         address: row.try_get("address")?,
         deployed_tx: row.try_get("deployed_tx")?,
-        deployed_at: row
-            .try_get::<chrono::DateTime<chrono::Utc>, _>("deployed_at")?
-            ,
+        deployed_at: row.try_get::<chrono::DateTime<chrono::Utc>, _>("deployed_at")?,
         version: row.try_get("version")?,
         status,
     })

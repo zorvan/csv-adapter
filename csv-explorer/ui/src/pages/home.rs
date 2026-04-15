@@ -1,11 +1,10 @@
+use csv_explorer_shared::{ExplorerStats, RightRecord, SealRecord, TransferRecord};
 /// Home / landing page with stats, recent activity, and chain status.
-
 use dioxus::prelude::*;
-use csv_explorer_shared::{ExplorerStats, RightRecord, TransferRecord, SealRecord};
 
-use crate::hooks::use_api::ApiClient;
 use crate::app::routes::Route;
 use crate::components::StatCard;
+use crate::hooks::use_api::ApiClient;
 
 #[component]
 pub fn Home() -> Element {
@@ -18,27 +17,30 @@ pub fn Home() -> Element {
     use_effect(move || {
         spawn(async move {
             let client = ApiClient::new();
-            
+
             // Fetch stats
             if let Ok(s) = client.get_stats().await {
                 stats.set(Some(s));
             }
-            
+
             // Fetch recent rights
             if let Ok(rights) = client.get_rights(None, None, Some(5), Some(0)).await {
                 recent_rights.set(rights);
             }
-            
+
             // Fetch recent transfers
-            if let Ok(transfers) = client.get_transfers(None, None, None, None, Some(5), Some(0)).await {
+            if let Ok(transfers) = client
+                .get_transfers(None, None, None, None, Some(5), Some(0))
+                .await
+            {
                 recent_transfers.set(transfers);
             }
-            
+
             // Fetch recent seals
             if let Ok(seals) = client.get_seals(None, None, Some(5), Some(0)).await {
                 recent_seals.set(seals);
             }
-            
+
             // Check API health
             api_health.set(if client.health_check().await.unwrap_or(false) {
                 "connected".to_string()
@@ -85,29 +87,29 @@ pub fn Home() -> Element {
 
             // Stats cards
             div { class: "grid grid-cols-1 md:grid-cols-4 gap-4",
-                StatCard { 
-                    label: "Total Rights", 
+                StatCard {
+                    label: "Total Rights",
                     value: stats.with(|s| s.as_ref().map(|s| {
                         s.rights_by_chain.iter().map(|c| c.count).sum::<u64>().to_string()
-                    }).unwrap_or_else(|| "Loading...".to_string())), 
-                    icon: "◆" 
+                    }).unwrap_or_else(|| "Loading...".to_string())),
+                    icon: "◆"
                 }
-                StatCard { 
-                    label: "Total Transfers", 
+                StatCard {
+                    label: "Total Transfers",
                     value: stats.with(|s| s.as_ref().map(|s| {
                         s.transfers_by_chain_pair.iter().map(|c| c.count).sum::<u64>().to_string()
-                    }).unwrap_or_else(|| "Loading...".to_string())), 
-                    icon: "⇄" 
+                    }).unwrap_or_else(|| "Loading...".to_string())),
+                    icon: "⇄"
                 }
-                StatCard { 
-                    label: "Active Seals", 
-                    value: stats.with(|s| s.as_ref().map(|s| s.total_seals.to_string()).unwrap_or_else(|| "Loading...".to_string())), 
-                    icon: "🔒" 
+                StatCard {
+                    label: "Active Seals",
+                    value: stats.with(|s| s.as_ref().map(|s| s.total_seals.to_string()).unwrap_or_else(|| "Loading...".to_string())),
+                    icon: "🔒"
                 }
-                StatCard { 
-                    label: "Contracts", 
-                    value: stats.with(|s| s.as_ref().map(|s| s.total_contracts.to_string()).unwrap_or_else(|| "Loading...".to_string())), 
-                    icon: "📄" 
+                StatCard {
+                    label: "Contracts",
+                    value: stats.with(|s| s.as_ref().map(|s| s.total_contracts.to_string()).unwrap_or_else(|| "Loading...".to_string())),
+                    icon: "📄"
                 }
             }
 
@@ -134,27 +136,27 @@ pub fn Home() -> Element {
                 div { class: "bg-gray-900 rounded-xl border border-gray-800 overflow-hidden",
                     div { class: "divide-y divide-gray-800",
                         for right in recent_rights.read().clone() {
-                            ActivityRow { 
-                                action: "Right Created".to_string(), 
-                                chain: right.chain.clone(), 
-                                id: right.id.clone(), 
-                                time: format!("{} ago", format_datetime(right.created_at)) 
+                            ActivityRow {
+                                action: "Right Created".to_string(),
+                                chain: right.chain.clone(),
+                                id: right.id.clone(),
+                                time: format!("{} ago", format_datetime(right.created_at))
                             }
                         }
                         for transfer in recent_transfers.read().clone() {
-                            ActivityRow { 
-                                action: "Transfer".to_string(), 
-                                chain: format!("{} → {}", transfer.from_chain, transfer.to_chain), 
-                                id: transfer.id.clone(), 
-                                time: format!("{} ago", format_datetime(transfer.created_at)) 
+                            ActivityRow {
+                                action: "Transfer".to_string(),
+                                chain: format!("{} → {}", transfer.from_chain, transfer.to_chain),
+                                id: transfer.id.clone(),
+                                time: format!("{} ago", format_datetime(transfer.created_at))
                             }
                         }
                         for seal in recent_seals.read().clone() {
-                            ActivityRow { 
-                                action: format!("Seal {:?}", seal.seal_type), 
-                                chain: seal.chain.clone(), 
-                                id: seal.id.clone(), 
-                                time: format!("Block {} ago", seal.block_height) 
+                            ActivityRow {
+                                action: format!("Seal {:?}", seal.seal_type),
+                                chain: seal.chain.clone(),
+                                id: seal.id.clone(),
+                                time: format!("Block {} ago", seal.block_height)
                             }
                         }
                         if recent_rights.read().is_empty() && recent_transfers.read().is_empty() && recent_seals.read().is_empty() {
@@ -181,12 +183,12 @@ pub fn Home() -> Element {
                     }
                 }
             }
-            
+
             // API status
             div { class: "flex items-center justify-between text-sm",
                 span { class: "text-gray-500", "API Status" }
                 span { class: "flex items-center gap-2",
-                    span { class: "w-2 h-2 rounded-full", 
+                    span { class: "w-2 h-2 rounded-full",
                         class: if api_health() == "connected" { "bg-green-500" } else { "bg-red-500" }
                     }
                     "{api_health()}"

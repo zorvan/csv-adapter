@@ -1,5 +1,4 @@
 /// Repository for aggregate statistics queries.
-
 use sqlx::SqlitePool;
 
 use csv_explorer_shared::{ChainCount, ChainPairCount, ExplorerStats, Result};
@@ -18,17 +17,21 @@ impl StatsRepository {
 
     /// Get full aggregate statistics.
     pub async fn get_stats(&self) -> Result<ExplorerStats> {
-        let total_rights: i64 =
-            sqlx::query_scalar("SELECT COUNT(*) FROM rights").fetch_one(&self.pool).await?;
+        let total_rights: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM rights")
+            .fetch_one(&self.pool)
+            .await?;
 
-        let total_transfers: i64 =
-            sqlx::query_scalar("SELECT COUNT(*) FROM transfers").fetch_one(&self.pool).await?;
+        let total_transfers: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM transfers")
+            .fetch_one(&self.pool)
+            .await?;
 
-        let total_seals: i64 =
-            sqlx::query_scalar("SELECT COUNT(*) FROM seals").fetch_one(&self.pool).await?;
+        let total_seals: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM seals")
+            .fetch_one(&self.pool)
+            .await?;
 
-        let total_contracts: i64 =
-            sqlx::query_scalar("SELECT COUNT(*) FROM contracts").fetch_one(&self.pool).await?;
+        let total_contracts: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM contracts")
+            .fetch_one(&self.pool)
+            .await?;
 
         // Rights by chain
         let rights_by_chain_rows = sqlx::query_as::<_, ChainCountRow>(
@@ -76,17 +79,15 @@ impl StatsRepository {
             .collect();
 
         // Transfer success rate
-        let completed: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM transfers WHERE status = 'completed'",
-        )
-        .fetch_one(&self.pool)
-        .await?;
+        let completed: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM transfers WHERE status = 'completed'")
+                .fetch_one(&self.pool)
+                .await?;
 
-        let failed: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM transfers WHERE status = 'failed'",
-        )
-        .fetch_one(&self.pool)
-        .await?;
+        let failed: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM transfers WHERE status = 'failed'")
+                .fetch_one(&self.pool)
+                .await?;
 
         let total_finished = completed + failed;
         let transfer_success_rate = if total_finished > 0 {
@@ -117,29 +118,33 @@ impl StatsRepository {
 
     /// Get total rights count.
     pub async fn total_rights(&self) -> Result<u64> {
-        let count: i64 =
-            sqlx::query_scalar("SELECT COUNT(*) FROM rights").fetch_one(&self.pool).await?;
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM rights")
+            .fetch_one(&self.pool)
+            .await?;
         Ok(count as u64)
     }
 
     /// Get total transfers count.
     pub async fn total_transfers(&self) -> Result<u64> {
-        let count: i64 =
-            sqlx::query_scalar("SELECT COUNT(*) FROM transfers").fetch_one(&self.pool).await?;
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM transfers")
+            .fetch_one(&self.pool)
+            .await?;
         Ok(count as u64)
     }
 
     /// Get total seals count.
     pub async fn total_seals(&self) -> Result<u64> {
-        let count: i64 =
-            sqlx::query_scalar("SELECT COUNT(*) FROM seals").fetch_one(&self.pool).await?;
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM seals")
+            .fetch_one(&self.pool)
+            .await?;
         Ok(count as u64)
     }
 
     /// Get total contracts count.
     pub async fn total_contracts(&self) -> Result<u64> {
-        let count: i64 =
-            sqlx::query_scalar("SELECT COUNT(*) FROM contracts").fetch_one(&self.pool).await?;
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM contracts")
+            .fetch_one(&self.pool)
+            .await?;
         Ok(count as u64)
     }
 }

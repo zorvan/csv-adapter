@@ -1,10 +1,9 @@
 /// API server setup and configuration.
 ///
 /// Combines GraphQL and REST APIs with CORS, tracing, and metrics.
-
 use async_graphql::http::{playground_source, GraphQLPlaygroundConfig};
-use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
 use async_graphql::Request;
+use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
 use axum::{
     extract::State,
     response::{Html, IntoResponse},
@@ -45,10 +44,7 @@ impl ApiServer {
         // Merge REST API into main router
         let app = Router::new()
             // GraphQL endpoint
-            .route(
-                "/graphql",
-                axum::routing::post(graphql_handler),
-            )
+            .route("/graphql", axum::routing::post(graphql_handler))
             // GraphQL Playground
             .route("/playground", get(graphql_playground))
             // REST API v1
@@ -65,12 +61,18 @@ impl ApiServer {
 
         let listener = tokio::net::TcpListener::bind(&self.config.bind())
             .await
-            .map_err(|e| csv_explorer_shared::ExplorerError::Internal(format!("Failed to bind to {}: {}", self.config.bind(), e)))?;
+            .map_err(|e| {
+                csv_explorer_shared::ExplorerError::Internal(format!(
+                    "Failed to bind to {}: {}",
+                    self.config.bind(),
+                    e
+                ))
+            })?;
 
         tracing::info!(addr = %self.config.bind(), "API server started");
-        axum::serve(listener, app)
-            .await
-            .map_err(|e| csv_explorer_shared::ExplorerError::Internal(format!("Server error: {}", e)))?;
+        axum::serve(listener, app).await.map_err(|e| {
+            csv_explorer_shared::ExplorerError::Internal(format!("Server error: {}", e))
+        })?;
 
         Ok(())
     }

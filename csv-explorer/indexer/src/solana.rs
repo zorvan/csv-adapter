@@ -1,25 +1,29 @@
 /// Solana chain indexer implementation.
+
 ///
 /// Subscribes to Solana slot updates and tracks:
 /// - Account creation/closure for seals
 /// - Transaction logs for CSV program interactions
 /// - SPL token account state
-
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
 use super::chain_indexer::{AddressIndexingResult, ChainIndexer, ChainResult};
+use super::rpc_manager::RpcManager;
 use csv_explorer_shared::{
     ChainConfig, CommitmentScheme, ContractStatus, ContractType, CsvContract, EnhancedRightRecord,
-    EnhancedSealRecord, EnhancedTransferRecord, ExplorerError, FinalityProofType, InclusionProofType,
-    Network, PriorityLevel, RightRecord, SealRecord, SealStatus, SealType, TransferRecord,
+    EnhancedSealRecord, EnhancedTransferRecord, ExplorerError, FinalityProofType,
+    InclusionProofType, Network, PriorityLevel, RightRecord, SealRecord, SealStatus, SealType,
+    TransferRecord,
 };
 
 /// Solana-specific indexer.
 pub struct SolanaIndexer {
     config: ChainConfig,
     http_client: Client,
+    /// RPC manager for handling multiple RPC endpoints
+    rpc_manager: Option<RpcManager>,
 }
 
 #[derive(Debug, Serialize)]
@@ -74,7 +78,8 @@ impl ChainIndexer for SolanaIndexer {
             id: 1,
         };
 
-        let resp: SolanaRpcResponse = self.http_client
+        let resp: SolanaRpcResponse = self
+            .http_client
             .post(&self.config.rpc_url)
             .json(&req)
             .send()
@@ -107,7 +112,9 @@ impl ChainIndexer for SolanaIndexer {
                 if let Some(logs) = meta.get("logMessages").and_then(|v| v.as_array()) {
                     for log in logs {
                         if let Some(log_str) = log.as_str() {
-                            if log_str.contains("csv_right_created") || log_str.contains("RightCreated") {
+                            if log_str.contains("csv_right_created")
+                                || log_str.contains("RightCreated")
+                            {
                                 if let Some(right) = self.parse_right_from_log(txn_info, log_str) {
                                     rights.push(right);
                                 }
@@ -118,7 +125,12 @@ impl ChainIndexer for SolanaIndexer {
             }
         }
 
-        tracing::debug!(chain = "solana", block, count = rights.len(), "Indexed rights");
+        tracing::debug!(
+            chain = "solana",
+            block,
+            count = rights.len(),
+            "Indexed rights"
+        );
         Ok(rights)
     }
 
@@ -147,7 +159,12 @@ impl ChainIndexer for SolanaIndexer {
             }
         }
 
-        tracing::debug!(chain = "solana", block, count = seals.len(), "Indexed seals");
+        tracing::debug!(
+            chain = "solana",
+            block,
+            count = seals.len(),
+            "Indexed seals"
+        );
         Ok(seals)
     }
 
@@ -160,7 +177,9 @@ impl ChainIndexer for SolanaIndexer {
                 if let Some(logs) = meta.get("logMessages").and_then(|v| v.as_array()) {
                     for log in logs {
                         if let Some(log_str) = log.as_str() {
-                            if log_str.contains("csv_transfer") || log_str.contains("CrossChainTransfer") {
+                            if log_str.contains("csv_transfer")
+                                || log_str.contains("CrossChainTransfer")
+                            {
                                 if let Some(transfer) = self.parse_transfer_from_log(txn_info) {
                                     transfers.push(transfer);
                                 }
@@ -171,23 +190,26 @@ impl ChainIndexer for SolanaIndexer {
             }
         }
 
-        tracing::debug!(chain = "solana", block, count = transfers.len(), "Indexed transfers");
+        tracing::debug!(
+            chain = "solana",
+            block,
+            count = transfers.len(),
+            "Indexed transfers"
+        );
         Ok(transfers)
     }
 
     async fn index_contracts(&self, _block: u64) -> ChainResult<Vec<CsvContract>> {
-        Ok(vec![
-            CsvContract {
-                id: "solana-csv-program".to_string(),
-                chain: "solana".to_string(),
-                contract_type: ContractType::RightRegistry,
-                address: "CsvProgram11111111111111111111111111111111111".to_string(),
-                deployed_tx: "genesis".to_string(),
-                deployed_at: chrono::Utc::now(),
-                version: "1.0.0".to_string(),
-                status: ContractStatus::Active,
-            },
-        ])
+        Ok(vec![CsvContract {
+            id: "solana-csv-program".to_string(),
+            chain: "solana".to_string(),
+            contract_type: ContractType::RightRegistry,
+            address: "CsvProgram11111111111111111111111111111111111".to_string(),
+            deployed_tx: "genesis".to_string(),
+            deployed_at: chrono::Utc::now(),
+            version: "1.0.0".to_string(),
+            status: ContractStatus::Active,
+        }])
     }
 
     // -----------------------------------------------------------------------
@@ -322,7 +344,10 @@ impl ChainIndexer for SolanaIndexer {
         Ok(seals)
     }
 
-    async fn index_enhanced_transfers(&self, block: u64) -> ChainResult<Vec<EnhancedTransferRecord>> {
+    async fn index_enhanced_transfers(
+        &self,
+        block: u64,
+    ) -> ChainResult<Vec<EnhancedTransferRecord>> {
         // Cross-chain transfers on Solana would be handled through bridge programs
         Ok(Vec::new())
     }
@@ -342,10 +367,11 @@ impl ChainIndexer for SolanaIndexer {
 
 impl SolanaIndexer {
     /// Create a new Solana indexer.
-    pub fn new(config: ChainConfig) -> Self {
+    pub fn new(config: ChainConfig, rpc_manager: RpcManager) -> Self {
         Self {
             config,
             http_client: Client::new(),
+            rpc_manager: Some(rpc_manager),
         }
     }
 
@@ -364,8 +390,24 @@ impl SolanaIndexer {
             id: 1,
         };
 
-        let resp: SolanaRpcResponse = self.http_client
-            .post(&self.config.rpc_url)
+        let rpc_url = if let Some(ref manager) = self.rpc_manager {
+            if let Some(endpoint) = manager.get_endpoint("solana") {
+                endpoint.url.clone()
+            } else {
+                self.config.rpc_url.clone()
+            }
+        } else {
+            self.config.rpc_url.clone()
+        };
+
+        let client = if let Some(ref manager) = self.rpc_manager {
+            manager.get_client("solana").unwrap_or_else(Client::new)
+        } else {
+            Client::new()
+        };
+
+        let resp: SolanaRpcResponse = client
+            .post(&rpc_url)
             .json(&req)
             .send()
             .await?
@@ -388,7 +430,13 @@ impl SolanaIndexer {
         // Parse the log message to extract right data
         // Solana logs are in format: "Program log: <message>"
         let _ = log;
-        let tx_sig = txn.transaction.as_ref()?.get("signatures")?.as_array()?.first()?.as_str()?;
+        let tx_sig = txn
+            .transaction
+            .as_ref()?
+            .get("signatures")?
+            .as_array()?
+            .first()?
+            .as_str()?;
 
         Some(RightRecord {
             id: format!("sol-right-{}", tx_sig),
@@ -406,7 +454,13 @@ impl SolanaIndexer {
     }
 
     fn parse_seal_from_log(&self, txn: &TransactionInfo, block: u64) -> Option<SealRecord> {
-        let tx_sig = txn.transaction.as_ref()?.get("signatures")?.as_array()?.first()?.as_str()?;
+        let tx_sig = txn
+            .transaction
+            .as_ref()?
+            .get("signatures")?
+            .as_array()?
+            .first()?
+            .as_str()?;
 
         Some(SealRecord {
             id: format!("sol-seal-{}", tx_sig),
@@ -415,14 +469,23 @@ impl SolanaIndexer {
             seal_ref: tx_sig.to_string(),
             right_id: None,
             status: SealStatus::Consumed,
-            consumed_at: txn.block_time.map(|t| chrono::DateTime::from_timestamp(t, 0)).flatten(),
+            consumed_at: txn
+                .block_time
+                .map(|t| chrono::DateTime::from_timestamp(t, 0))
+                .flatten(),
             consumed_tx: Some(tx_sig.to_string()),
             block_height: block,
         })
     }
 
     fn parse_transfer_from_log(&self, txn: &TransactionInfo) -> Option<TransferRecord> {
-        let tx_sig = txn.transaction.as_ref()?.get("signatures")?.as_array()?.first()?.as_str()?;
+        let tx_sig = txn
+            .transaction
+            .as_ref()?
+            .get("signatures")?
+            .as_array()?
+            .first()?
+            .as_str()?;
 
         Some(TransferRecord {
             id: format!("sol-xfer-{}", tx_sig),
@@ -439,52 +502,5 @@ impl SolanaIndexer {
             completed_at: None,
             duration_ms: None,
         })
-    }
-
-    // -----------------------------------------------------------------------
-    // Address-based indexing methods (for priority indexing)
-    // -----------------------------------------------------------------------
-
-    async fn index_rights_by_address(&self, _address: &str) -> ChainResult<Vec<RightRecord>> {
-        Ok(Vec::new())
-    }
-
-    async fn index_seals_by_address(&self, _address: &str) -> ChainResult<Vec<SealRecord>> {
-        Ok(Vec::new())
-    }
-
-    async fn index_transfers_by_address(&self, _address: &str) -> ChainResult<Vec<TransferRecord>> {
-        Ok(Vec::new())
-    }
-
-    async fn index_addresses_with_priority(
-        &self,
-        addresses: &[String],
-        _priority: PriorityLevel,
-        _network: Network,
-    ) -> ChainResult<AddressIndexingResult> {
-        let mut result = AddressIndexingResult {
-            addresses_processed: 0,
-            rights_indexed: 0,
-            seals_indexed: 0,
-            transfers_indexed: 0,
-            contracts_indexed: 0,
-            errors: Vec::new(),
-        };
-
-        for address in addresses {
-            if let Ok(rights) = self.index_rights_by_address(address).await {
-                result.rights_indexed += rights.len() as u64;
-                result.addresses_processed += 1;
-            }
-            if let Ok(seals) = self.index_seals_by_address(address).await {
-                result.seals_indexed += seals.len() as u64;
-            }
-            if let Ok(transfers) = self.index_transfers_by_address(address).await {
-                result.transfers_indexed += transfers.len() as u64;
-            }
-        }
-
-        Ok(result)
     }
 }

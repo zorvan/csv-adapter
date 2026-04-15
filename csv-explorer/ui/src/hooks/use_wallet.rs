@@ -2,7 +2,6 @@
 ///
 /// Manages wallet connection state and provides methods for
 /// interacting with the connected wallet.
-
 use std::sync::Arc;
 
 /// Wallet connection state.

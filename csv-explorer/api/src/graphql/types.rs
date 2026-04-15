@@ -1,5 +1,4 @@
 /// GraphQL type mappings and input types for the CSV Explorer API.
-
 use async_graphql::*;
 use chrono::{DateTime, Utc};
 use serde_json::Value as JsonValue;
@@ -41,7 +40,9 @@ impl ScalarType for JsonValueScalar {
             Value::String(s) => s.clone(),
             _ => value.to_string(),
         };
-        serde_json::from_str(&json_str).map(JsonValueScalar).map_err(|e| InputValueError::custom(e.to_string()))
+        serde_json::from_str(&json_str)
+            .map(JsonValueScalar)
+            .map_err(|e| InputValueError::custom(e.to_string()))
     }
 
     fn to_value(&self) -> Value {
@@ -320,7 +321,12 @@ pub struct PageInfo {
 }
 
 impl PageInfo {
-    pub fn new(has_next_page: bool, has_previous_page: bool, start_cursor: Option<String>, end_cursor: Option<String>) -> Self {
+    pub fn new(
+        has_next_page: bool,
+        has_previous_page: bool,
+        start_cursor: Option<String>,
+        end_cursor: Option<String>,
+    ) -> Self {
         Self {
             has_next_page,
             has_previous_page,
@@ -476,10 +482,26 @@ impl From<csv_explorer_shared::ProofStatistics> for ProofStatisticsGql {
         Self {
             total_rights: s.total_rights as i64,
             total_seals: s.total_seals as i64,
-            rights_by_commitment_scheme: s.rights_by_commitment_scheme.into_iter().map(|c| c.into()).collect(),
-            rights_by_inclusion_proof: s.rights_by_inclusion_proof.into_iter().map(|c| c.into()).collect(),
-            rights_by_finality_proof: s.rights_by_finality_proof.into_iter().map(|c| c.into()).collect(),
-            seals_by_proof_type: s.seals_by_proof_type.into_iter().map(|c| c.into()).collect(),
+            rights_by_commitment_scheme: s
+                .rights_by_commitment_scheme
+                .into_iter()
+                .map(|c| c.into())
+                .collect(),
+            rights_by_inclusion_proof: s
+                .rights_by_inclusion_proof
+                .into_iter()
+                .map(|c| c.into())
+                .collect(),
+            rights_by_finality_proof: s
+                .rights_by_finality_proof
+                .into_iter()
+                .map(|c| c.into())
+                .collect(),
+            seals_by_proof_type: s
+                .seals_by_proof_type
+                .into_iter()
+                .map(|c| c.into())
+                .collect(),
         }
     }
 }

@@ -1,5 +1,4 @@
 /// Error types for the CSV Explorer.
-
 use thiserror::Error;
 
 /// Top-level error type for the explorer.
@@ -21,25 +20,16 @@ pub enum ExplorerError {
     Migration(String),
 
     #[error("Entity not found: {entity_type} with id {id}")]
-    NotFound {
-        entity_type: String,
-        id: String,
-    },
+    NotFound { entity_type: String, id: String },
 
     #[error("HTTP error: {0}")]
     Http(#[from] reqwest::Error),
 
     #[error("RPC error on chain {chain}: {message}")]
-    RpcError {
-        chain: String,
-        message: String,
-    },
+    RpcError { chain: String, message: String },
 
     #[error("RPC parse error on chain {chain}: {message}")]
-    RpcParseError {
-        chain: String,
-        message: String,
-    },
+    RpcParseError { chain: String, message: String },
 
     #[error("Indexer stopped")]
     IndexerStopped,

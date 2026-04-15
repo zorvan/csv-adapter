@@ -15,7 +15,6 @@
 ///
 /// Explorer-specific types (RightRecord, SealRecord, etc.) wrap these
 /// protocol types with additional metadata for display purposes.
-
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
@@ -25,7 +24,9 @@ use serde_json::Value as JsonValue;
 // ===========================================================================
 
 // Chain IDs, transfer status, sync status, error codes from protocol contract
-pub use csv_adapter_core::protocol_version::{Chain, ErrorCode, SyncStatus, TransferStatus, PROTOCOL_VERSION};
+pub use csv_adapter_core::protocol_version::{
+    Chain, ErrorCode, SyncStatus, TransferStatus, PROTOCOL_VERSION,
+};
 
 // ===========================================================================
 // Explorer-specific enums

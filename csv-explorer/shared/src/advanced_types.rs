@@ -2,13 +2,12 @@
 ///
 /// This module provides extended types for indexing and querying
 /// commitments and proofs with metadata about scheme types, proof types, etc.
-
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 
 // Re-export core commitment types
-pub use csv_adapter_core::{CommitmentScheme, InclusionProofType, FinalityProofType};
+pub use csv_adapter_core::{CommitmentScheme, FinalityProofType, InclusionProofType};
 
 // ---------------------------------------------------------------------------
 // Enhanced Record Types for Indexer/API

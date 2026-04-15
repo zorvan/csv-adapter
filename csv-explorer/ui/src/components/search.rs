@@ -1,5 +1,4 @@
 /// Global search component for the header.
-
 use dioxus::prelude::*;
 
 use crate::app::routes::Route;

@@ -1,9 +1,8 @@
 /// Main application component with routing.
-
 use dioxus::prelude::*;
 
 use crate::app::routes::Route;
-use crate::pages::{Home, RightsList, TransfersList, SealsList, Stats, Wallet};
+use crate::pages::{Home, RightsList, SealsList, Stats, TransfersList, Wallet};
 
 pub mod routes;
 

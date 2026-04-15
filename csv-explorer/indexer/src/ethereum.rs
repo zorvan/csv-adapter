@@ -6,17 +6,18 @@
 /// - CrossChainTransfer events
 /// - Contract deployments
 /// - Nullifier registry state
-
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use super::chain_indexer::{AddressIndexingResult, ChainIndexer, ChainResult};
+use super::rpc_manager::RpcManager;
 use csv_explorer_shared::{
     ChainConfig, CommitmentScheme, ContractStatus, ContractType, CsvContract, EnhancedRightRecord,
-    EnhancedSealRecord, EnhancedTransferRecord, ExplorerError, FinalityProofType, InclusionProofType,
-    Network, PriorityLevel, RightRecord, SealRecord, SealStatus, SealType, TransferRecord,
+    EnhancedSealRecord, EnhancedTransferRecord, ExplorerError, FinalityProofType,
+    InclusionProofType, Network, PriorityLevel, RightRecord, SealRecord, SealStatus, SealType,
+    TransferRecord,
 };
 
 /// Ethereum-specific indexer.
@@ -25,6 +26,8 @@ pub struct EthereumIndexer {
     http_client: Client,
     /// Known CSV contract addresses on Ethereum.
     csv_contracts: HashMap<String, ContractType>,
+    /// RPC manager for handling multiple RPC endpoints
+    rpc_manager: Option<RpcManager>,
 }
 
 /// JSON-RPC request body for Ethereum.
@@ -68,14 +71,12 @@ struct LogData {
 // CSV event signatures
 // In production, compute with: keccak256("EventName(types)")
 // These are placeholders - replace with actual computed values from contracts.
-const SEAL_USED_SIG: &str =
-    "0x9c7c75d4d371383965b3a8fb0693141996068cfb672f4a7f0eb8b8c1f3e0e8a2";
+const SEAL_USED_SIG: &str = "0x9c7c75d4d371383965b3a8fb0693141996068cfb672f4a7f0eb8b8c1f3e0e8a2";
 const RIGHT_CREATED_SIG: &str =
     "0x1a51e5a4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4";
 const CROSS_CHAIN_LOCK_SIG: &str =
     "0x2b52f5b5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5";
-const RIGHT_MINTED_SIG: &str =
-    "0x3c63g6c6g6g6g6g6g6g6g6g6g6g6g6g6g6g6g6g6g6g6g6g6g6g6g6g6g6g6g6g6";
+const RIGHT_MINTED_SIG: &str = "0x3c63g6c6g6g6g6g6g6g6g6g6g6g6g6g6g6g6g6g6g6g6g6g6g6g6g6g6g6g6g6g6";
 
 /// Compute keccak256 event signature (in production, use a proper keccak256 library)
 fn compute_event_signature(event_name: &str) -> String {
@@ -106,8 +107,24 @@ impl ChainIndexer for EthereumIndexer {
             id: 1,
         };
 
-        let resp: JsonRpcResponse = self.http_client
-            .post(&self.config.rpc_url)
+       let rpc_url = if let Some(ref manager) = self.rpc_manager {
+            if let Some(endpoint) = manager.get_endpoint("ethereum") {
+                endpoint.url
+            } else {
+                self.config.rpc_url.clone()
+            }
+        } else {
+            self.config.rpc_url.clone()
+        };
+
+        let client = if let Some(ref manager) = self.rpc_manager {
+            manager.get_client("ethereum").unwrap_or_else(Client::new)
+        } else {
+            Client::new()
+        };
+
+        let resp: JsonRpcResponse = client
+            .post(&rpc_url)
             .json(&req)
             .send()
             .await?
@@ -147,7 +164,12 @@ impl ChainIndexer for EthereumIndexer {
             }
         }
 
-        tracing::debug!(chain = "ethereum", block, count = rights.len(), "Indexed rights");
+        tracing::debug!(
+            chain = "ethereum",
+            block,
+            count = rights.len(),
+            "Indexed rights"
+        );
         Ok(rights)
     }
 
@@ -167,7 +189,12 @@ impl ChainIndexer for EthereumIndexer {
             }
         }
 
-        tracing::debug!(chain = "ethereum", block, count = seals.len(), "Indexed seals");
+        tracing::debug!(
+            chain = "ethereum",
+            block,
+            count = seals.len(),
+            "Indexed seals"
+        );
         Ok(seals)
     }
 
@@ -179,9 +206,10 @@ impl ChainIndexer for EthereumIndexer {
             if let Some(logs) = &tx.logs {
                 for log in logs {
                     // Match CrossChainLock or RightMinted events
-                    let is_lock = log.topics.first().map(|s| s.as_str()) == Some(CROSS_CHAIN_LOCK_SIG);
+                    let is_lock =
+                        log.topics.first().map(|s| s.as_str()) == Some(CROSS_CHAIN_LOCK_SIG);
                     let is_mint = log.topics.first().map(|s| s.as_str()) == Some(RIGHT_MINTED_SIG);
-                    
+
                     if is_lock || is_mint {
                         if let Some(transfer) = self.parse_transfer_from_log(log, &tx.hash) {
                             transfers.push(transfer);
@@ -191,7 +219,12 @@ impl ChainIndexer for EthereumIndexer {
             }
         }
 
-        tracing::debug!(chain = "ethereum", block, count = transfers.len(), "Indexed transfers");
+        tracing::debug!(
+            chain = "ethereum",
+            block,
+            count = transfers.len(),
+            "Indexed transfers"
+        );
         Ok(transfers)
     }
 
@@ -339,14 +372,18 @@ impl ChainIndexer for EthereumIndexer {
         Ok(seals)
     }
 
-    async fn index_enhanced_transfers(&self, block: u64) -> ChainResult<Vec<EnhancedTransferRecord>> {
+    async fn index_enhanced_transfers(
+        &self,
+        block: u64,
+    ) -> ChainResult<Vec<EnhancedTransferRecord>> {
         let block_data = self.fetch_block(block).await?;
         let mut transfers = Vec::new();
 
         for tx in &block_data.transactions {
             if let Some(logs) = &tx.logs {
                 for log in logs {
-                    let is_lock = log.topics.first().map(|s| s.as_str()) == Some(CROSS_CHAIN_LOCK_SIG);
+                    let is_lock =
+                        log.topics.first().map(|s| s.as_str()) == Some(CROSS_CHAIN_LOCK_SIG);
                     let is_mint = log.topics.first().map(|s| s.as_str()) == Some(RIGHT_MINTED_SIG);
 
                     if is_lock || is_mint {
@@ -394,17 +431,27 @@ impl ChainIndexer for EthereumIndexer {
 
 impl EthereumIndexer {
     /// Create a new Ethereum indexer.
-    pub fn new(config: ChainConfig) -> Self {
+    pub fn new(config: ChainConfig, rpc_manager: RpcManager) -> Self {
         let mut csv_contracts = HashMap::new();
         // In production, these would be loaded from configuration
-        csv_contracts.insert("0x0000000000000000000000000000000000000000".to_string(), ContractType::NullifierRegistry);
-        csv_contracts.insert("0x0000000000000000000000000000000000000001".to_string(), ContractType::RightRegistry);
-        csv_contracts.insert("0x0000000000000000000000000000000000000002".to_string(), ContractType::Bridge);
+        csv_contracts.insert(
+            "0x0000000000000000000000000000000000000000".to_string(),
+            ContractType::NullifierRegistry,
+        );
+        csv_contracts.insert(
+            "0x0000000000000000000000000000000000000001".to_string(),
+            ContractType::RightRegistry,
+        );
+        csv_contracts.insert(
+            "0x0000000000000000000000000000000000000002".to_string(),
+            ContractType::Bridge,
+        );
 
         Self {
             config,
             http_client: Client::new(),
             csv_contracts,
+            rpc_manager: Some(rpc_manager),
         }
     }
 
@@ -421,8 +468,24 @@ impl EthereumIndexer {
             id: 1,
         };
 
-        let resp: JsonRpcResponse = self.http_client
-            .post(&self.config.rpc_url)
+      let rpc_url = if let Some(ref manager) = self.rpc_manager {
+            if let Some(endpoint) = manager.get_endpoint("ethereum") {
+                endpoint.url
+            } else {
+                self.config.rpc_url.clone()
+            }
+        } else {
+            self.config.rpc_url.clone()
+        };
+
+        let client = if let Some(ref manager) = self.rpc_manager {
+            manager.get_client("ethereum").unwrap_or_else(Client::new)
+        } else {
+            Client::new()
+        };
+
+        let resp: JsonRpcResponse = client
+            .post(&rpc_url)
             .json(&req)
             .send()
             .await?
@@ -430,10 +493,11 @@ impl EthereumIndexer {
             .await?;
 
         if let Some(result) = resp.result {
-            let block_data: BlockData = serde_json::from_value(result).map_err(|e| ExplorerError::RpcParseError {
-                chain: "ethereum".to_string(),
-                message: e.to_string(),
-            })?;
+            let block_data: BlockData =
+                serde_json::from_value(result).map_err(|e| ExplorerError::RpcParseError {
+                    chain: "ethereum".to_string(),
+                    message: e.to_string(),
+                })?;
             Ok(block_data)
         } else {
             Err(ExplorerError::RpcError {
@@ -448,18 +512,22 @@ impl EthereumIndexer {
         // topics[0] = event signature
         // topics[1] = indexed sealId
         // data = commitment (32 bytes, unpadded)
-        
+
         if log.topics.len() < 2 {
             return None;
         }
 
         let seal_id = log.topics.get(1).cloned().unwrap_or_default();
-        
+
         // Parse commitment from data (remove 0x prefix)
         let commitment = log.data.strip_prefix("0x").unwrap_or(&log.data).to_string();
-        
+
         // Owner is the contract address that emitted the event
-        let owner = log.address.strip_prefix("0x").unwrap_or(&log.address).to_string();
+        let owner = log
+            .address
+            .strip_prefix("0x")
+            .unwrap_or(&log.address)
+            .to_string();
 
         Some(RightRecord {
             id: format!("eth-{}-{}", tx_hash, &seal_id[..18].to_string()),
@@ -484,7 +552,7 @@ impl EthereumIndexer {
     fn parse_seal_from_log(&self, log: &LogData, block: u64) -> Option<SealRecord> {
         // SealUsed event data: 64 bytes = seal_id(32) || commitment(32)
         let seal_id = log.topics.get(1).cloned().unwrap_or_default();
-        
+
         Some(SealRecord {
             id: format!("eth-seal-{}", &seal_id[0..18]),
             chain: "ethereum".to_string(),
@@ -501,7 +569,7 @@ impl EthereumIndexer {
     fn parse_transfer_from_log(&self, log: &LogData, tx_hash: &str) -> Option<TransferRecord> {
         // CrossChainLock event: CrossChainLock(bytes32 indexed rightId, bytes32 indexed commitment, address indexed owner, uint8 destinationChain, bytes destinationOwner, bytes32 sourceTxHash)
         // topics[1] = rightId, topics[2] = commitment, topics[3] = owner
-        
+
         if log.topics.len() < 4 {
             return None;
         }
@@ -524,52 +592,5 @@ impl EthereumIndexer {
             completed_at: None,
             duration_ms: None,
         })
-    }
-
-    // -----------------------------------------------------------------------
-    // Address-based indexing methods (for priority indexing)
-    // -----------------------------------------------------------------------
-
-    async fn index_rights_by_address(&self, _address: &str) -> ChainResult<Vec<RightRecord>> {
-        Ok(Vec::new())
-    }
-
-    async fn index_seals_by_address(&self, _address: &str) -> ChainResult<Vec<SealRecord>> {
-        Ok(Vec::new())
-    }
-
-    async fn index_transfers_by_address(&self, _address: &str) -> ChainResult<Vec<TransferRecord>> {
-        Ok(Vec::new())
-    }
-
-    async fn index_addresses_with_priority(
-        &self,
-        addresses: &[String],
-        _priority: PriorityLevel,
-        _network: Network,
-    ) -> ChainResult<AddressIndexingResult> {
-        let mut result = AddressIndexingResult {
-            addresses_processed: 0,
-            rights_indexed: 0,
-            seals_indexed: 0,
-            transfers_indexed: 0,
-            contracts_indexed: 0,
-            errors: Vec::new(),
-        };
-
-        for address in addresses {
-            if let Ok(rights) = self.index_rights_by_address(address).await {
-                result.rights_indexed += rights.len() as u64;
-                result.addresses_processed += 1;
-            }
-            if let Ok(seals) = self.index_seals_by_address(address).await {
-                result.seals_indexed += seals.len() as u64;
-            }
-            if let Ok(transfers) = self.index_transfers_by_address(address).await {
-                result.transfers_indexed += transfers.len() as u64;
-            }
-        }
-
-        Ok(result)
     }
 }

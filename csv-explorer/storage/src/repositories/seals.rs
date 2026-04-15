@@ -1,5 +1,4 @@
 /// Repository for `SealRecord` operations.
-
 use sqlx::sqlite::SqliteRow;
 use sqlx::{Row, SqlitePool};
 

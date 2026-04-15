@@ -1,5 +1,4 @@
 /// REST API handlers for the CSV Explorer.
-
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
@@ -19,11 +18,14 @@ use csv_explorer_shared::{ExplorerError, RightFilter, SealFilter, TransferFilter
 // ---------------------------------------------------------------------------
 
 // The full application state tuple
-type AppState = (async_graphql::Schema<
-    crate::graphql::schema::Query,
-    crate::graphql::schema::Mutation,
-    crate::graphql::schema::EmptySubscription,
->, sqlx::SqlitePool);
+type AppState = (
+    async_graphql::Schema<
+        crate::graphql::schema::Query,
+        crate::graphql::schema::Mutation,
+        crate::graphql::schema::EmptySubscription,
+    >,
+    sqlx::SqlitePool,
+);
 
 // ---------------------------------------------------------------------------
 // Response wrappers
@@ -76,7 +78,10 @@ pub struct ListRightsQuery {
 pub async fn list_rights(
     Query(query): Query<ListRightsQuery>,
     State((_, pool)): State<AppState>,
-) -> Result<Json<ApiResponse<PaginatedResponse<csv_explorer_shared::RightRecord>>>, (StatusCode, Json<ErrorResponse>)> {
+) -> Result<
+    Json<ApiResponse<PaginatedResponse<csv_explorer_shared::RightRecord>>>,
+    (StatusCode, Json<ErrorResponse>),
+> {
     let repo = RightsRepository::new(pool);
 
     let limit = query.limit.unwrap_or(20);
@@ -95,13 +100,9 @@ pub async fn list_rights(
         offset: Some(offset),
     };
 
-    let total = repo.count(filter.clone())
-        .await
-        .map_err(explorer_error)?;
+    let total = repo.count(filter.clone()).await.map_err(explorer_error)?;
 
-    let data = repo.list(filter)
-        .await
-        .map_err(explorer_error)?;
+    let data = repo.list(filter).await.map_err(explorer_error)?;
 
     Ok(Json(ApiResponse::from(PaginatedResponse {
         data,
@@ -115,12 +116,11 @@ pub async fn list_rights(
 pub async fn get_right(
     Path(id): Path<String>,
     State((_, pool)): State<AppState>,
-) -> Result<Json<ApiResponse<csv_explorer_shared::RightRecord>>, (StatusCode, Json<ErrorResponse>)> {
+) -> Result<Json<ApiResponse<csv_explorer_shared::RightRecord>>, (StatusCode, Json<ErrorResponse>)>
+{
     let repo = RightsRepository::new(pool);
 
-    let right = repo.get(&id)
-        .await
-        .map_err(explorer_error)?;
+    let right = repo.get(&id).await.map_err(explorer_error)?;
 
     match right {
         Some(r) => Ok(Json(ApiResponse::from(r))),
@@ -147,7 +147,10 @@ pub struct ListTransfersQuery {
 pub async fn list_transfers(
     Query(query): Query<ListTransfersQuery>,
     State((_, pool)): State<AppState>,
-) -> Result<Json<ApiResponse<PaginatedResponse<csv_explorer_shared::TransferRecord>>>, (StatusCode, Json<ErrorResponse>)> {
+) -> Result<
+    Json<ApiResponse<PaginatedResponse<csv_explorer_shared::TransferRecord>>>,
+    (StatusCode, Json<ErrorResponse>),
+> {
     let repo = TransfersRepository::new(pool);
 
     let limit = query.limit.unwrap_or(20);
@@ -171,13 +174,9 @@ pub async fn list_transfers(
         offset: Some(offset),
     };
 
-    let total = repo.count(filter.clone())
-        .await
-        .map_err(explorer_error)?;
+    let total = repo.count(filter.clone()).await.map_err(explorer_error)?;
 
-    let data = repo.list(filter)
-        .await
-        .map_err(explorer_error)?;
+    let data = repo.list(filter).await.map_err(explorer_error)?;
 
     Ok(Json(ApiResponse::from(PaginatedResponse {
         data,
@@ -191,12 +190,11 @@ pub async fn list_transfers(
 pub async fn get_transfer(
     Path(id): Path<String>,
     State((_, pool)): State<AppState>,
-) -> Result<Json<ApiResponse<csv_explorer_shared::TransferRecord>>, (StatusCode, Json<ErrorResponse>)> {
+) -> Result<Json<ApiResponse<csv_explorer_shared::TransferRecord>>, (StatusCode, Json<ErrorResponse>)>
+{
     let repo = TransfersRepository::new(pool);
 
-    let transfer = repo.get(&id)
-        .await
-        .map_err(explorer_error)?;
+    let transfer = repo.get(&id).await.map_err(explorer_error)?;
 
     match transfer {
         Some(t) => Ok(Json(ApiResponse::from(t))),
@@ -223,7 +221,10 @@ pub struct ListSealsQuery {
 pub async fn list_seals(
     Query(query): Query<ListSealsQuery>,
     State((_, pool)): State<AppState>,
-) -> Result<Json<ApiResponse<PaginatedResponse<csv_explorer_shared::SealRecord>>>, (StatusCode, Json<ErrorResponse>)> {
+) -> Result<
+    Json<ApiResponse<PaginatedResponse<csv_explorer_shared::SealRecord>>>,
+    (StatusCode, Json<ErrorResponse>),
+> {
     let repo = SealsRepository::new(pool);
 
     let limit = query.limit.unwrap_or(20);
@@ -249,13 +250,9 @@ pub async fn list_seals(
         offset: Some(offset),
     };
 
-    let total = repo.count(filter.clone())
-        .await
-        .map_err(explorer_error)?;
+    let total = repo.count(filter.clone()).await.map_err(explorer_error)?;
 
-    let data = repo.list(filter)
-        .await
-        .map_err(explorer_error)?;
+    let data = repo.list(filter).await.map_err(explorer_error)?;
 
     Ok(Json(ApiResponse::from(PaginatedResponse {
         data,
@@ -272,9 +269,7 @@ pub async fn get_seal(
 ) -> Result<Json<ApiResponse<csv_explorer_shared::SealRecord>>, (StatusCode, Json<ErrorResponse>)> {
     let repo = SealsRepository::new(pool);
 
-    let seal = repo.get(&id)
-        .await
-        .map_err(explorer_error)?;
+    let seal = repo.get(&id).await.map_err(explorer_error)?;
 
     match seal {
         Some(s) => Ok(Json(ApiResponse::from(s))),
@@ -289,12 +284,11 @@ pub async fn get_seal(
 /// GET /api/v1/stats
 pub async fn get_stats(
     State((_, pool)): State<AppState>,
-) -> Result<Json<ApiResponse<csv_explorer_shared::ExplorerStats>>, (StatusCode, Json<ErrorResponse>)> {
+) -> Result<Json<ApiResponse<csv_explorer_shared::ExplorerStats>>, (StatusCode, Json<ErrorResponse>)>
+{
     let repo = StatsRepository::new(pool);
 
-    let stats = repo.get_stats()
-        .await
-        .map_err(explorer_error)?;
+    let stats = repo.get_stats().await.map_err(explorer_error)?;
 
     Ok(Json(ApiResponse::from(stats)))
 }
@@ -306,7 +300,8 @@ pub async fn get_stats(
 /// GET /api/v1/chains
 pub async fn list_chains(
     _state: State<AppState>,
-) -> Result<Json<ApiResponse<Vec<csv_explorer_shared::ChainInfo>>>, (StatusCode, Json<ErrorResponse>)> {
+) -> Result<Json<ApiResponse<Vec<csv_explorer_shared::ChainInfo>>>, (StatusCode, Json<ErrorResponse>)>
+{
     // In production, this would query the indexer for current chain status
     Ok(Json(ApiResponse::from(Vec::new())))
 }
@@ -336,33 +331,43 @@ pub async fn register_wallet_address(
         "mainnet" => Network::Mainnet,
         "testnet" => Network::Testnet,
         "devnet" => Network::Devnet,
-        _ => return Err((
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "Invalid network. Must be: mainnet, testnet, or devnet".to_string(),
-                success: false,
-            }),
-        )),
+        _ => {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    error: "Invalid network. Must be: mainnet, testnet, or devnet".to_string(),
+                    success: false,
+                }),
+            ))
+        }
     };
 
     let priority = match request.priority.to_lowercase().as_str() {
         "high" => PriorityLevel::High,
         "normal" | "medium" => PriorityLevel::Normal,
         "low" => PriorityLevel::Low,
-        _ => return Err((
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "Invalid priority. Must be: high, normal, or low".to_string(),
-                success: false,
-            }),
-        )),
+        _ => {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    error: "Invalid priority. Must be: high, normal, or low".to_string(),
+                    success: false,
+                }),
+            ))
+        }
     };
 
     // Register the address in the priority repository
     let priority_repo = csv_explorer_storage::repositories::PriorityAddressRepository::new(pool);
 
     priority_repo
-        .register_address(&request.address, &request.chain, network, priority, &request.wallet_id)
+        .register_address(
+            &request.address,
+            &request.chain,
+            network,
+            priority,
+            &request.wallet_id,
+        )
         .await
         .map_err(internal_error)?;
 
@@ -395,19 +400,26 @@ pub async fn unregister_wallet_address(
         "mainnet" => Network::Mainnet,
         "testnet" => Network::Testnet,
         "devnet" => Network::Devnet,
-        _ => return Err((
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "Invalid network. Must be: mainnet, testnet, or devnet".to_string(),
-                success: false,
-            }),
-        )),
+        _ => {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    error: "Invalid network. Must be: mainnet, testnet, or devnet".to_string(),
+                    success: false,
+                }),
+            ))
+        }
     };
 
     let priority_repo = csv_explorer_storage::repositories::PriorityAddressRepository::new(pool);
 
     let removed = priority_repo
-        .unregister_address(&request.address, &request.chain, network, &request.wallet_id)
+        .unregister_address(
+            &request.address,
+            &request.chain,
+            network,
+            &request.wallet_id,
+        )
         .await
         .map_err(internal_error)?;
 
@@ -426,9 +438,12 @@ pub async fn unregister_wallet_address(
 pub async fn get_wallet_addresses(
     Path(wallet_id): Path<String>,
     State((_, pool)): State<AppState>,
-) -> Result<Json<ApiResponse<Vec<csv_explorer_shared::PriorityAddress>>>, (StatusCode, Json<ErrorResponse>)> {
+) -> Result<
+    Json<ApiResponse<Vec<csv_explorer_shared::PriorityAddress>>>,
+    (StatusCode, Json<ErrorResponse>),
+> {
     let priority_repo = csv_explorer_storage::repositories::PriorityAddressRepository::new(pool);
-    
+
     let addresses = priority_repo
         .get_addresses_by_wallet(&wallet_id)
         .await
@@ -490,7 +505,8 @@ pub async fn get_address_data(
         .map_err(explorer_error)?;
 
     // Filter transfers where this address is involved
-    let filtered_transfers: Vec<_> = transfers.into_iter()
+    let filtered_transfers: Vec<_> = transfers
+        .into_iter()
         .filter(|t| t.from_owner == address || t.to_owner == address)
         .collect();
 
@@ -511,7 +527,10 @@ pub async fn get_address_data(
 pub async fn get_address_rights(
     Path(address): Path<String>,
     State((_, pool)): State<AppState>,
-) -> Result<Json<ApiResponse<Vec<csv_explorer_shared::RightRecord>>>, (StatusCode, Json<ErrorResponse>)> {
+) -> Result<
+    Json<ApiResponse<Vec<csv_explorer_shared::RightRecord>>>,
+    (StatusCode, Json<ErrorResponse>),
+> {
     let repo = RightsRepository::new(pool);
 
     let filter = RightFilter {
@@ -522,10 +541,7 @@ pub async fn get_address_rights(
         status: None,
     };
 
-    let rights = repo
-        .list(filter)
-        .await
-        .map_err(explorer_error)?;
+    let rights = repo.list(filter).await.map_err(explorer_error)?;
 
     Ok(Json(ApiResponse::from(rights)))
 }
@@ -534,7 +550,10 @@ pub async fn get_address_rights(
 pub async fn get_address_seals(
     Path(address): Path<String>,
     State((_, pool)): State<AppState>,
-) -> Result<Json<ApiResponse<Vec<csv_explorer_shared::SealRecord>>>, (StatusCode, Json<ErrorResponse>)> {
+) -> Result<
+    Json<ApiResponse<Vec<csv_explorer_shared::SealRecord>>>,
+    (StatusCode, Json<ErrorResponse>),
+> {
     let repo = SealsRepository::new(pool);
 
     let filter = SealFilter {
@@ -546,10 +565,7 @@ pub async fn get_address_seals(
         right_id: None,
     };
 
-    let seals = repo
-        .list(filter)
-        .await
-        .map_err(explorer_error)?;
+    let seals = repo.list(filter).await.map_err(explorer_error)?;
 
     Ok(Json(ApiResponse::from(seals)))
 }
@@ -558,7 +574,10 @@ pub async fn get_address_seals(
 pub async fn get_address_transfers(
     Path(address): Path<String>,
     State((_, pool)): State<AppState>,
-) -> Result<Json<ApiResponse<Vec<csv_explorer_shared::TransferRecord>>>, (StatusCode, Json<ErrorResponse>)> {
+) -> Result<
+    Json<ApiResponse<Vec<csv_explorer_shared::TransferRecord>>>,
+    (StatusCode, Json<ErrorResponse>),
+> {
     let repo = TransfersRepository::new(pool);
 
     let filter = TransferFilter {
@@ -570,13 +589,11 @@ pub async fn get_address_transfers(
         status: None,
     };
 
-    let transfers = repo
-        .list(filter)
-        .await
-        .map_err(explorer_error)?;
+    let transfers = repo.list(filter).await.map_err(explorer_error)?;
 
     // Filter transfers where this address is involved
-    let filtered_transfers: Vec<_> = transfers.into_iter()
+    let filtered_transfers: Vec<_> = transfers
+        .into_iter()
         .filter(|t| t.from_owner == address || t.to_owner == address)
         .collect();
 
@@ -586,9 +603,12 @@ pub async fn get_address_transfers(
 /// GET /api/v1/wallet/priority/status
 pub async fn get_priority_indexing_status(
     State((_, pool)): State<AppState>,
-) -> Result<Json<ApiResponse<csv_explorer_shared::PriorityIndexingStatus>>, (StatusCode, Json<ErrorResponse>)> {
+) -> Result<
+    Json<ApiResponse<csv_explorer_shared::PriorityIndexingStatus>>,
+    (StatusCode, Json<ErrorResponse>),
+> {
     let priority_repo = csv_explorer_storage::repositories::PriorityAddressRepository::new(pool);
-    
+
     let status = priority_repo
         .get_priority_indexing_status()
         .await
@@ -660,7 +680,10 @@ pub struct EnhancedRightsQuery {
 pub async fn list_enhanced_rights(
     Query(query): Query<EnhancedRightsQuery>,
     State((_, pool)): State<AppState>,
-) -> Result<Json<ApiResponse<Vec<csv_explorer_shared::EnhancedRightRecord>>>, (StatusCode, Json<ErrorResponse>)> {
+) -> Result<
+    Json<ApiResponse<Vec<csv_explorer_shared::EnhancedRightRecord>>>,
+    (StatusCode, Json<ErrorResponse>),
+> {
     use csv_explorer_shared::RightProofFilter;
     use csv_explorer_storage::repositories::AdvancedProofRepository;
 
@@ -669,8 +692,14 @@ pub async fn list_enhanced_rights(
     let filter = RightProofFilter {
         chain: query.chain,
         owner: query.owner,
-        commitment_scheme: query.commitment_scheme.as_deref().and_then(|s| csv_explorer_shared::CommitmentScheme::from_str(s)),
-        inclusion_proof_type: query.inclusion_proof_type.as_deref().and_then(|s| csv_explorer_shared::InclusionProofType::from_str(s)),
+        commitment_scheme: query
+            .commitment_scheme
+            .as_deref()
+            .and_then(|s| csv_explorer_shared::CommitmentScheme::from_str(s)),
+        inclusion_proof_type: query
+            .inclusion_proof_type
+            .as_deref()
+            .and_then(|s| csv_explorer_shared::InclusionProofType::from_str(s)),
         finality_proof_type: None,
         limit: query.limit,
         offset: query.offset,
@@ -688,7 +717,10 @@ pub async fn list_enhanced_rights(
 pub async fn get_enhanced_right(
     Path(id): Path<String>,
     State((_, pool)): State<AppState>,
-) -> Result<Json<ApiResponse<csv_explorer_shared::EnhancedRightRecord>>, (StatusCode, Json<ErrorResponse>)> {
+) -> Result<
+    Json<ApiResponse<csv_explorer_shared::EnhancedRightRecord>>,
+    (StatusCode, Json<ErrorResponse>),
+> {
     use csv_explorer_shared::RightProofFilter;
     use csv_explorer_storage::repositories::AdvancedProofRepository;
 
@@ -721,7 +753,10 @@ pub async fn get_enhanced_right(
 pub async fn list_enhanced_seals(
     Query(query): Query<crate::rest::handlers::ListSealsQuery>,
     State((_, pool)): State<AppState>,
-) -> Result<Json<ApiResponse<Vec<csv_explorer_shared::EnhancedSealRecord>>>, (StatusCode, Json<ErrorResponse>)> {
+) -> Result<
+    Json<ApiResponse<Vec<csv_explorer_shared::EnhancedSealRecord>>>,
+    (StatusCode, Json<ErrorResponse>),
+> {
     use csv_explorer_shared::SealProofFilter;
     use csv_explorer_storage::repositories::AdvancedProofRepository;
 
@@ -748,7 +783,10 @@ pub async fn list_enhanced_seals(
 pub async fn get_enhanced_seal(
     Path(id): Path<String>,
     State((_, pool)): State<AppState>,
-) -> Result<Json<ApiResponse<csv_explorer_shared::EnhancedSealRecord>>, (StatusCode, Json<ErrorResponse>)> {
+) -> Result<
+    Json<ApiResponse<csv_explorer_shared::EnhancedSealRecord>>,
+    (StatusCode, Json<ErrorResponse>),
+> {
     use csv_explorer_shared::SealProofFilter;
     use csv_explorer_storage::repositories::AdvancedProofRepository;
 
@@ -779,15 +817,15 @@ pub async fn get_enhanced_seal(
 /// GET /api/v1/proofs/statistics
 pub async fn get_proof_statistics(
     State((_, pool)): State<AppState>,
-) -> Result<Json<ApiResponse<csv_explorer_shared::ProofStatistics>>, (StatusCode, Json<ErrorResponse>)> {
+) -> Result<
+    Json<ApiResponse<csv_explorer_shared::ProofStatistics>>,
+    (StatusCode, Json<ErrorResponse>),
+> {
     use csv_explorer_storage::repositories::AdvancedProofRepository;
 
     let repo = AdvancedProofRepository::new(pool);
 
-    let stats = repo
-        .get_proof_statistics()
-        .await
-        .map_err(internal_error)?;
+    let stats = repo.get_proof_statistics().await.map_err(internal_error)?;
 
     Ok(Json(ApiResponse::from(stats)))
 }
@@ -796,7 +834,10 @@ pub async fn get_proof_statistics(
 pub async fn get_rights_by_scheme(
     Path(scheme): Path<String>,
     State((_, pool)): State<AppState>,
-) -> Result<Json<ApiResponse<Vec<csv_explorer_shared::EnhancedRightRecord>>>, (StatusCode, Json<ErrorResponse>)> {
+) -> Result<
+    Json<ApiResponse<Vec<csv_explorer_shared::EnhancedRightRecord>>>,
+    (StatusCode, Json<ErrorResponse>),
+> {
     use csv_explorer_shared::{CommitmentScheme, RightProofFilter};
     use csv_explorer_storage::repositories::AdvancedProofRepository;
 
@@ -827,7 +868,10 @@ pub async fn get_rights_by_scheme(
 pub async fn get_rights_by_proof_type(
     Path(proof_type): Path<String>,
     State((_, pool)): State<AppState>,
-) -> Result<Json<ApiResponse<Vec<csv_explorer_shared::EnhancedRightRecord>>>, (StatusCode, Json<ErrorResponse>)> {
+) -> Result<
+    Json<ApiResponse<Vec<csv_explorer_shared::EnhancedRightRecord>>>,
+    (StatusCode, Json<ErrorResponse>),
+> {
     use csv_explorer_shared::{InclusionProofType, RightProofFilter};
     use csv_explorer_storage::repositories::AdvancedProofRepository;
 

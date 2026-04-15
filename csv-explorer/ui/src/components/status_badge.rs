@@ -1,5 +1,4 @@
 /// Status indicator component for various entity statuses.
-
 use dioxus::prelude::*;
 
 /// Display a badge indicating the status of an entity.

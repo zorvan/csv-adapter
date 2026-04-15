@@ -37,8 +37,8 @@ impl Default for WalletIndexerBridgeConfig {
     fn default() -> Self {
         Self {
             high_priority_interval_ms: 10_000,   // 10 seconds
-            normal_priority_interval_ms: 60_000,  // 1 minute
-            low_priority_interval_ms: 300_000,    // 5 minutes
+            normal_priority_interval_ms: 60_000, // 1 minute
+            low_priority_interval_ms: 300_000,   // 5 minutes
             max_batch_size: 50,
         }
     }
@@ -75,7 +75,10 @@ impl WalletIndexerBridge {
     /// Initialize the bridge (create tables, etc.).
     pub async fn initialize(&self) -> Result<()> {
         self.priority_repo.init().await.map_err(|e| {
-            ExplorerError::Internal(format!("Failed to initialize priority address tables: {}", e))
+            ExplorerError::Internal(format!(
+                "Failed to initialize priority address tables: {}",
+                e
+            ))
         })?;
         tracing::info!("Wallet-indexer bridge initialized");
         Ok(())
@@ -93,9 +96,7 @@ impl WalletIndexerBridge {
         self.priority_repo
             .register_address(&address, &chain, network, priority, &wallet_id)
             .await
-            .map_err(|e| {
-                ExplorerError::Internal(format!("Failed to register address: {}", e))
-            })?;
+            .map_err(|e| ExplorerError::Internal(format!("Failed to register address: {}", e)))?;
 
         tracing::info!(
             address = %address,
@@ -121,9 +122,7 @@ impl WalletIndexerBridge {
             .priority_repo
             .unregister_address(&address, &chain, network, &wallet_id)
             .await
-            .map_err(|e| {
-                ExplorerError::Internal(format!("Failed to unregister address: {}", e))
-            })?;
+            .map_err(|e| ExplorerError::Internal(format!("Failed to unregister address: {}", e)))?;
 
         if removed {
             tracing::info!(
@@ -138,10 +137,7 @@ impl WalletIndexerBridge {
     }
 
     /// Get all registered addresses for a wallet.
-    pub async fn get_wallet_addresses(
-        &self,
-        wallet_id: &str,
-    ) -> Result<Vec<PriorityAddress>> {
+    pub async fn get_wallet_addresses(&self, wallet_id: &str) -> Result<Vec<PriorityAddress>> {
         self.priority_repo
             .get_addresses_by_wallet(wallet_id)
             .await
@@ -149,10 +145,7 @@ impl WalletIndexerBridge {
     }
 
     /// Get indexed rights for a specific address across all chains.
-    pub async fn get_rights_by_address(
-        &self,
-        address: &str,
-    ) -> Result<Vec<RightRecord>> {
+    pub async fn get_rights_by_address(&self, address: &str) -> Result<Vec<RightRecord>> {
         let mut all_rights = Vec::new();
 
         for indexer in &self.indexers {
@@ -173,10 +166,7 @@ impl WalletIndexerBridge {
     }
 
     /// Get indexed seals for a specific address across all chains.
-    pub async fn get_seals_by_address(
-        &self,
-        address: &str,
-    ) -> Result<Vec<SealRecord>> {
+    pub async fn get_seals_by_address(&self, address: &str) -> Result<Vec<SealRecord>> {
         let mut all_seals = Vec::new();
 
         for indexer in &self.indexers {
@@ -197,10 +187,7 @@ impl WalletIndexerBridge {
     }
 
     /// Get indexed transfers for a specific address across all chains.
-    pub async fn get_transfers_by_address(
-        &self,
-        address: &str,
-    ) -> Result<Vec<TransferRecord>> {
+    pub async fn get_transfers_by_address(&self, address: &str) -> Result<Vec<TransferRecord>> {
         let mut all_transfers = Vec::new();
 
         for indexer in &self.indexers {
@@ -221,10 +208,7 @@ impl WalletIndexerBridge {
     }
 
     /// Get complete data (rights, seals, transfers) for an address.
-    pub async fn get_address_data(
-        &self,
-        address: &str,
-    ) -> Result<AddressDataResult> {
+    pub async fn get_address_data(&self, address: &str) -> Result<AddressDataResult> {
         let rights = self.get_rights_by_address(address).await?;
         let seals = self.get_seals_by_address(address).await?;
         let transfers = self.get_transfers_by_address(address).await?;
@@ -272,9 +256,13 @@ impl WalletIndexerBridge {
 
     /// Run one cycle of priority indexing.
     async fn run_priority_indexing_cycle(&self) -> Result<()> {
-        let all_addresses = self.priority_repo.get_all_active_addresses().await.map_err(|e| {
-            ExplorerError::Internal(format!("Failed to get active addresses: {}", e))
-        })?;
+        let all_addresses = self
+            .priority_repo
+            .get_all_active_addresses()
+            .await
+            .map_err(|e| {
+                ExplorerError::Internal(format!("Failed to get active addresses: {}", e))
+            })?;
 
         if all_addresses.is_empty() {
             return Ok(());
@@ -336,10 +324,7 @@ impl WalletIndexerBridge {
                 .unwrap_or(Network::Mainnet);
 
             // Find the indexer for this chain
-            let indexer = self
-                .indexers
-                .iter()
-                .find(|idx| idx.chain_id() == chain_id);
+            let indexer = self.indexers.iter().find(|idx| idx.chain_id() == chain_id);
 
             if let Some(indexer) = indexer {
                 // Limit batch size

@@ -2,7 +2,6 @@
 ///
 /// Manages sync progress per chain, handles reorgs, and coordinates
 /// concurrent chain syncing.
-
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -13,7 +12,8 @@ use super::chain_indexer::ChainIndexer;
 use csv_explorer_shared::{ChainConfig, ChainInfo, ChainStatus, ExplorerError, IndexerStatus};
 
 use csv_explorer_storage::repositories::{
-    AdvancedProofRepository, ContractsRepository, RightsRepository, SealsRepository, SyncRepository, TransfersRepository,
+    AdvancedProofRepository, ContractsRepository, RightsRepository, SealsRepository,
+    SyncRepository, TransfersRepository,
 };
 use sqlx::SqlitePool;
 
@@ -109,7 +109,10 @@ impl SyncCoordinator {
     }
 
     /// Initialize all chain indexers.
-    pub async fn initialize(&self, chain_configs: &std::collections::HashMap<String, ChainConfig>) -> Result<(), ExplorerError> {
+    pub async fn initialize(
+        &self,
+        chain_configs: &std::collections::HashMap<String, ChainConfig>,
+    ) -> Result<(), ExplorerError> {
         for indexer in &self.indexers {
             if let Some(config) = chain_configs.get(indexer.chain_id()) {
                 if config.enabled {
@@ -163,7 +166,9 @@ impl SyncCoordinator {
                     &self.chain_states,
                     &self.total_indexed,
                     chain_config,
-                ).await {
+                )
+                .await
+                {
                     tracing::error!(chain = indexer.chain_id(), error = %e, "Sync error");
                 }
             }
@@ -192,7 +197,8 @@ impl SyncCoordinator {
             .iter()
             .map(|state| {
                 // Get network from chain config instead of hardcoding Mainnet
-                let network = self.chain_configs
+                let network = self
+                    .chain_configs
                     .get(&state.chain_id)
                     .map(|c| c.network)
                     .unwrap_or(csv_explorer_shared::Network::Mainnet);
@@ -229,12 +235,20 @@ impl SyncCoordinator {
     }
 
     /// Force sync a specific chain from a specific block (overrides config).
-    pub async fn sync_chain_from_block(&self, chain_id: &str, from_block: u64) -> Result<(), ExplorerError> {
+    pub async fn sync_chain_from_block(
+        &self,
+        chain_id: &str,
+        from_block: u64,
+    ) -> Result<(), ExplorerError> {
         self.sync_chain_from(chain_id, Some(from_block)).await
     }
 
     /// Internal: sync a specific chain with optional override start block.
-    async fn sync_chain_from(&self, chain_id: &str, override_start_block: Option<u64>) -> Result<(), ExplorerError> {
+    async fn sync_chain_from(
+        &self,
+        chain_id: &str,
+        override_start_block: Option<u64>,
+    ) -> Result<(), ExplorerError> {
         let indexer = self
             .indexers
             .iter()
@@ -303,27 +317,35 @@ async fn sync_chain(
     let chain_id = indexer.chain_id();
 
     // Get last synced block from database
-    let db_block = sync_repo
-        .get_latest_block(chain_id)
-        .await?;
+    let db_block = sync_repo.get_latest_block(chain_id).await?;
 
     // Determine starting block:
     // 1. If database has data, use the last synced block
     // 2. Otherwise, use start_block from chain config if provided
     // 3. Fall back to 0 (genesis) if neither is available
-    let from_block = if let Some(block) = db_block {
-        tracing::info!(chain = chain_id, block, "Resuming sync from database");
-        block
-    } else if let Some(config) = chain_config {
+    let from_block = if let Some(config) = chain_config {
         if let Some(start) = config.start_block {
-            tracing::info!(chain = chain_id, start_block = start, "Starting initial sync from configured start_block");
+            tracing::info!(
+                chain = chain_id,
+                start_block = start,
+                "Starting initial sync from configured start_block"
+            );
             start
+        } else if let Some(block) = db_block {
+            tracing::info!(chain = chain_id, block, "Resuming sync from database");
+            block
         } else {
-            tracing::warn!(chain = chain_id, "No start_block configured, syncing from genesis (block 0)");
+            tracing::warn!(
+                chain = chain_id,
+                "No start_block configured, syncing from genesis (block 0)"
+            );
             0
         }
     } else {
-        tracing::warn!(chain = chain_id, "No chain config provided, syncing from genesis (block 0)");
+        tracing::warn!(
+            chain = chain_id,
+            "No chain config provided, syncing from genesis (block 0)"
+        );
         0
     };
 
@@ -344,12 +366,7 @@ async fn sync_chain(
     let mut current = from_block + 1;
     let end = std::cmp::min(current + batch_size - 1, tip);
 
-    tracing::debug!(
-        chain = chain_id,
-        from = current,
-        to = end,
-        "Syncing chain"
-    );
+    tracing::debug!(chain = chain_id, from = current, to = end, "Syncing chain");
 
     while current <= end {
         match indexer.process_block(current).await {

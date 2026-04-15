@@ -1,11 +1,10 @@
-/// Seals list page with filtering and pagination.
-
-use dioxus::prelude::*;
 use csv_explorer_shared::SealRecord;
+/// Seals list page with filtering and pagination.
+use dioxus::prelude::*;
 
 use crate::app::routes::Route;
-use crate::hooks::use_api::ApiClient;
 use crate::components::ChainBadge;
+use crate::hooks::use_api::ApiClient;
 
 #[component]
 pub fn SealsList() -> Element {
@@ -25,16 +24,28 @@ pub fn SealsList() -> Element {
             let chain_str = chain_filter.read().clone();
             let type_str = type_filter.read().clone();
             let status_str = status_filter.read().clone();
-            let chain = if chain_str.is_empty() { None } else { Some(chain_str.as_str()) };
-            let status = if status_str.is_empty() { None } else { Some(status_str.as_str()) };
+            let chain = if chain_str.is_empty() {
+                None
+            } else {
+                Some(chain_str.as_str())
+            };
+            let status = if status_str.is_empty() {
+                None
+            } else {
+                Some(status_str.as_str())
+            };
             let offset = ((*page.read() - 1) * limit as u64) as usize;
-            
-            if let Ok(records) = client.get_seals(chain, status, Some(limit), Some(offset)).await {
+
+            if let Ok(records) = client
+                .get_seals(chain, status, Some(limit), Some(offset))
+                .await
+            {
                 // Filter by type client-side if needed
                 let filtered = if type_str.is_empty() {
                     records
                 } else {
-                    records.into_iter()
+                    records
+                        .into_iter()
                         .filter(|s| s.seal_type.to_string() == type_str)
                         .collect()
                 };
@@ -56,7 +67,7 @@ pub fn SealsList() -> Element {
             // Filters
             div { class: "bg-gray-900 rounded-xl border border-gray-800 p-4",
                 div { class: "flex flex-wrap gap-4",
-                    select { 
+                    select {
                         class: "bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm",
                         onchange: move |evt| chain_filter.set(evt.value()),
                         option { value: "", "All Chains" }
@@ -66,7 +77,7 @@ pub fn SealsList() -> Element {
                         option { value: "aptos", "Aptos" }
                         option { value: "solana", "Solana" }
                     }
-                    select { 
+                    select {
                         class: "bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm",
                         onchange: move |evt| type_filter.set(evt.value()),
                         option { value: "", "All Types" }
@@ -76,7 +87,7 @@ pub fn SealsList() -> Element {
                         option { value: "nullifier", "Nullifier" }
                         option { value: "account", "Account" }
                     }
-                    select { 
+                    select {
                         class: "bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm",
                         onchange: move |evt| status_filter.set(evt.value()),
                         option { value: "", "All Statuses" }
@@ -133,7 +144,14 @@ pub fn SealsList() -> Element {
 }
 
 #[component]
-fn SealRow(id: String, chain: String, seal_type: String, status: String, right_id: Option<String>, block_height: u64) -> Element {
+fn SealRow(
+    id: String,
+    chain: String,
+    seal_type: String,
+    status: String,
+    right_id: Option<String>,
+    block_height: u64,
+) -> Element {
     rsx! {
         tr { class: "hover:bg-gray-800/50 transition-colors",
             td { class: "px-6 py-4",

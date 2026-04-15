@@ -1,5 +1,4 @@
 /// Color-coded chain badge component.
-
 use dioxus::prelude::*;
 
 /// Display a badge indicating which chain an entity belongs to.

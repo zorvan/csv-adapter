@@ -1,5 +1,4 @@
 /// Repository for `TransferRecord` operations.
-
 use sqlx::sqlite::SqliteRow;
 use sqlx::{Row, SqlitePool};
 
@@ -200,7 +199,9 @@ fn row_to_transfer(row: &SqliteRow) -> Result<TransferRecord> {
     let status_str: String = row.try_get("status")?;
     let status = match status_str.as_str() {
         "pending" | "initiated" => TransferStatus::Initiated,
-        "in_progress" | "locking" | "submitting_proof" | "verifying" | "minting" => TransferStatus::SubmittingProof,
+        "in_progress" | "locking" | "submitting_proof" | "verifying" | "minting" => {
+            TransferStatus::SubmittingProof
+        }
         "completed" => TransferStatus::Completed,
         "failed" => TransferStatus::Failed {
             error_code: "UNKNOWN".to_string(),
@@ -220,9 +221,7 @@ fn row_to_transfer(row: &SqliteRow) -> Result<TransferRecord> {
         mint_tx: row.try_get::<Option<String>, _>("mint_tx")?,
         proof_ref: row.try_get::<Option<String>, _>("proof_ref")?,
         status,
-        created_at: row
-            .try_get::<chrono::DateTime<chrono::Utc>, _>("created_at")?
-            ,
+        created_at: row.try_get::<chrono::DateTime<chrono::Utc>, _>("created_at")?,
         completed_at: row
             .try_get::<Option<chrono::DateTime<chrono::Utc>>, _>("completed_at")?
             .map(|dt| dt),

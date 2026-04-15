@@ -1,10 +1,13 @@
 /// Transfer timeline visualization component.
-
 use dioxus::prelude::*;
 
 /// Visual timeline of a transfer's lifecycle.
 #[component]
-pub fn TransferTimeline(status: String, created_at: String, completed_at: Option<String>) -> Element {
+pub fn TransferTimeline(
+    status: String,
+    created_at: String,
+    completed_at: Option<String>,
+) -> Element {
     let steps = vec![
         TimelineStep {
             label: "Lock Submitted".to_string(),

@@ -2,15 +2,14 @@
 ///
 /// Handles storage and querying of commitment schemes, proof types,
 /// and enhanced right/seal records with metadata.
-
 use chrono::{DateTime, Utc};
 use csv_explorer_shared::{
-    CommitmentScheme, EnhancedRightRecord, EnhancedSealRecord, EnhancedInclusionProof,
-    EnhancedTransferRecord, FinalityProofType, InclusionProofType,
-    ProofStatistics, ProofVerificationStatus, RightProofFilter, SchemeCount,
-    SealProofCount, SealProofFilter, InclusionProofCount, FinalityProofCount,
+    CommitmentScheme, EnhancedInclusionProof, EnhancedRightRecord, EnhancedSealRecord,
+    EnhancedTransferRecord, FinalityProofCount, FinalityProofType, InclusionProofCount,
+    InclusionProofType, ProofStatistics, ProofVerificationStatus, RightProofFilter, SchemeCount,
+    SealProofCount, SealProofFilter,
 };
-use sqlx::{SqlitePool, Row};
+use sqlx::{Row, SqlitePool};
 
 /// Repository for advanced commitment and proof data.
 pub struct AdvancedProofRepository {
@@ -192,7 +191,10 @@ impl AdvancedProofRepository {
     }
 
     /// Insert or update an enhanced right record.
-    pub async fn insert_enhanced_right(&self, record: &EnhancedRightRecord) -> Result<(), sqlx::Error> {
+    pub async fn insert_enhanced_right(
+        &self,
+        record: &EnhancedRightRecord,
+    ) -> Result<(), sqlx::Error> {
         let metadata_json = record.metadata.as_ref().map(|v| v.to_string());
 
         sqlx::query(
@@ -236,7 +238,10 @@ impl AdvancedProofRepository {
     }
 
     /// Insert or update an enhanced seal record.
-    pub async fn insert_enhanced_seal(&self, record: &EnhancedSealRecord) -> Result<(), sqlx::Error> {
+    pub async fn insert_enhanced_seal(
+        &self,
+        record: &EnhancedSealRecord,
+    ) -> Result<(), sqlx::Error> {
         sqlx::query(
             r#"
             INSERT INTO enhanced_seals (
@@ -266,7 +271,10 @@ impl AdvancedProofRepository {
     }
 
     /// Insert an enhanced inclusion proof.
-    pub async fn insert_enhanced_inclusion_proof(&self, record: &EnhancedInclusionProof) -> Result<(), sqlx::Error> {
+    pub async fn insert_enhanced_inclusion_proof(
+        &self,
+        record: &EnhancedInclusionProof,
+    ) -> Result<(), sqlx::Error> {
         sqlx::query(
             r#"
             INSERT INTO enhanced_inclusion_proofs (
@@ -290,7 +298,10 @@ impl AdvancedProofRepository {
     }
 
     /// Insert or update an enhanced transfer record.
-    pub async fn insert_enhanced_transfer(&self, record: &EnhancedTransferRecord) -> Result<(), sqlx::Error> {
+    pub async fn insert_enhanced_transfer(
+        &self,
+        record: &EnhancedTransferRecord,
+    ) -> Result<(), sqlx::Error> {
         sqlx::query(
             r#"
             INSERT INTO enhanced_transfers (
@@ -348,7 +359,10 @@ impl AdvancedProofRepository {
             query.push_str(&format!(" AND commitment_scheme = '{}'", scheme.as_str()));
         }
         if let Some(proof_type) = filter.inclusion_proof_type {
-            query.push_str(&format!(" AND inclusion_proof_type = '{}'", proof_type.as_str()));
+            query.push_str(&format!(
+                " AND inclusion_proof_type = '{}'",
+                proof_type.as_str()
+            ));
         }
 
         query.push_str(&format!(" LIMIT {} OFFSET {}", limit, offset));
@@ -366,18 +380,39 @@ impl AdvancedProofRepository {
                 created_at: row.get("created_at"),
                 created_tx: row.get("created_tx"),
                 status: row.get("status"),
-                metadata: row.try_get::<Option<String>, _>("metadata").ok().flatten().and_then(|s| serde_json::from_str(&s).ok()),
+                metadata: row
+                    .try_get::<Option<String>, _>("metadata")
+                    .ok()
+                    .flatten()
+                    .and_then(|s| serde_json::from_str(&s).ok()),
                 transfer_count: row.get::<i64, _>("transfer_count") as u64,
                 last_transfer_at: row.get("last_transfer_at"),
-                commitment_scheme: CommitmentScheme::from_str(&row.get::<String, _>("commitment_scheme")).unwrap_or_default(),
+                commitment_scheme: CommitmentScheme::from_str(
+                    &row.get::<String, _>("commitment_scheme"),
+                )
+                .unwrap_or_default(),
                 commitment_version: row.get::<i64, _>("commitment_version") as u8,
                 protocol_id: row.get("protocol_id"),
                 mpc_root: row.get("mpc_root"),
                 domain_separator: row.get("domain_separator"),
-                inclusion_proof_type: InclusionProofType::from_str(&row.get::<String, _>("inclusion_proof_type")).unwrap_or_default(),
-                finality_proof_type: FinalityProofType::from_str(&row.get::<String, _>("finality_proof_type")).unwrap_or_default(),
-                proof_size_bytes: row.try_get::<Option<i64>, _>("proof_size_bytes").ok().flatten().map(|v| v as u64),
-                confirmations: row.try_get::<Option<i64>, _>("confirmations").ok().flatten().map(|v| v as u64),
+                inclusion_proof_type: InclusionProofType::from_str(
+                    &row.get::<String, _>("inclusion_proof_type"),
+                )
+                .unwrap_or_default(),
+                finality_proof_type: FinalityProofType::from_str(
+                    &row.get::<String, _>("finality_proof_type"),
+                )
+                .unwrap_or_default(),
+                proof_size_bytes: row
+                    .try_get::<Option<i64>, _>("proof_size_bytes")
+                    .ok()
+                    .flatten()
+                    .map(|v| v as u64),
+                confirmations: row
+                    .try_get::<Option<i64>, _>("confirmations")
+                    .ok()
+                    .flatten()
+                    .map(|v| v as u64),
             });
         }
 
@@ -456,12 +491,18 @@ impl AdvancedProofRepository {
         .fetch_all(&self.pool)
         .await?;
 
-        let rights_by_scheme: Vec<SchemeCount> = scheme_rows.into_iter().map(|row| {
-            let scheme_str: String = row.get("commitment_scheme");
-            let scheme = CommitmentScheme::from_str(&scheme_str).unwrap_or_default();
-            let count: i64 = row.get("count");
-            SchemeCount { scheme, count: count as u64 }
-        }).collect();
+        let rights_by_scheme: Vec<SchemeCount> = scheme_rows
+            .into_iter()
+            .map(|row| {
+                let scheme_str: String = row.get("commitment_scheme");
+                let scheme = CommitmentScheme::from_str(&scheme_str).unwrap_or_default();
+                let count: i64 = row.get("count");
+                SchemeCount {
+                    scheme,
+                    count: count as u64,
+                }
+            })
+            .collect();
 
         // Rights by inclusion proof type
         let incl_rows = sqlx::query(
@@ -474,12 +515,18 @@ impl AdvancedProofRepository {
         .fetch_all(&self.pool)
         .await?;
 
-        let rights_by_inclusion: Vec<InclusionProofCount> = incl_rows.into_iter().map(|row| {
-            let proof_str: String = row.get("inclusion_proof_type");
-            let proof_type = InclusionProofType::from_str(&proof_str).unwrap_or_default();
-            let count: i64 = row.get("count");
-            InclusionProofCount { proof_type, count: count as u64 }
-        }).collect();
+        let rights_by_inclusion: Vec<InclusionProofCount> = incl_rows
+            .into_iter()
+            .map(|row| {
+                let proof_str: String = row.get("inclusion_proof_type");
+                let proof_type = InclusionProofType::from_str(&proof_str).unwrap_or_default();
+                let count: i64 = row.get("count");
+                InclusionProofCount {
+                    proof_type,
+                    count: count as u64,
+                }
+            })
+            .collect();
 
         // Rights by finality proof type
         let final_rows = sqlx::query(
@@ -492,12 +539,18 @@ impl AdvancedProofRepository {
         .fetch_all(&self.pool)
         .await?;
 
-        let rights_by_finality: Vec<FinalityProofCount> = final_rows.into_iter().map(|row| {
-            let proof_str: String = row.get("finality_proof_type");
-            let proof_type = FinalityProofType::from_str(&proof_str).unwrap_or_default();
-            let count: i64 = row.get("count");
-            FinalityProofCount { proof_type, count: count as u64 }
-        }).collect();
+        let rights_by_finality: Vec<FinalityProofCount> = final_rows
+            .into_iter()
+            .map(|row| {
+                let proof_str: String = row.get("finality_proof_type");
+                let proof_type = FinalityProofType::from_str(&proof_str).unwrap_or_default();
+                let count: i64 = row.get("count");
+                FinalityProofCount {
+                    proof_type,
+                    count: count as u64,
+                }
+            })
+            .collect();
 
         // Seals by proof type
         let seal_rows = sqlx::query(
@@ -510,11 +563,17 @@ impl AdvancedProofRepository {
         .fetch_all(&self.pool)
         .await?;
 
-        let seals_by_type: Vec<SealProofCount> = seal_rows.into_iter().map(|row| {
-            let proof_type: String = row.get("proof_type");
-            let count: i64 = row.get("count");
-            SealProofCount { proof_type, count: count as u64 }
-        }).collect();
+        let seals_by_type: Vec<SealProofCount> = seal_rows
+            .into_iter()
+            .map(|row| {
+                let proof_type: String = row.get("proof_type");
+                let count: i64 = row.get("count");
+                SealProofCount {
+                    proof_type,
+                    count: count as u64,
+                }
+            })
+            .collect();
 
         Ok(ProofStatistics {
             total_rights: total_rights as u64,
