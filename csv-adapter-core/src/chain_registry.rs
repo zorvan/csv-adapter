@@ -1,10 +1,11 @@
 //! Chain registry for dynamic chain management.
 
 use std::collections::HashMap;
+use super::chain_adapter::ChainAdapter;
 
 /// Registry for managing chain adapters
 pub struct ChainRegistry {
-    adapters: HashMap<String, Box<dyn super::ChainAdapter>>,
+    adapters: HashMap<String, Box<dyn ChainAdapter>>,
 }
 
 impl ChainRegistry {
@@ -16,13 +17,13 @@ impl ChainRegistry {
     }
     
     /// Register a new chain adapter
-    pub fn register_adapter(&mut self, adapter: Box<dyn super::ChainAdapter>) {
+    pub fn register_adapter(&mut self, adapter: Box<dyn ChainAdapter>) {
         let chain_id = adapter.chain_id();
         self.adapters.insert(chain_id.to_string(), adapter);
     }
     
     /// Get adapter by chain ID
-    pub fn get_adapter(&self, chain_id: &str) -> Option<&dyn super::ChainAdapter>> {
+    pub fn get_adapter(&self, chain_id: &str) -> Option<&dyn ChainAdapter> {
         self.adapters.get(chain_id)
     }
     

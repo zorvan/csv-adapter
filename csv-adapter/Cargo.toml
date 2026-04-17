@@ -77,9 +77,6 @@ wallet = ["dep:ed25519-dalek", "dep:bip32"]
 # Experimental features
 experimental = []
 
-# Solana chain support
-solana = ["dep:csv-adapter-solana"]
-
 [dev-dependencies]
 rand = "0.8"
 tempfile = "3"

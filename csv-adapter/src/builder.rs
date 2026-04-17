@@ -48,6 +48,7 @@ struct BuilderState {
     wallet: Option<Wallet>,
     store_backend: Option<StoreBackend>,
     config: Option<Config>,
+    chain_registry: Option<csv_adapter_core::chain_system::ChainRegistry>,
 }
 
 /// Fluent builder for constructing a [`CsvClient`](crate::client::CsvClient).
@@ -187,6 +188,7 @@ impl ClientBuilder {
             wallet: self.state.wallet,
             store: Arc::new(std::sync::Mutex::new(store)),
             config,
+            chain_registry: self.state.chain_registry.clone(),
             event_tx: tokio::sync::broadcast::channel(256).0,
         })
     }

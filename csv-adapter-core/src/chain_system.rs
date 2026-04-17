@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 
 /// Chain adapter registry for dynamic chain management
+#[derive(Clone)]
 pub struct ChainRegistry {
     adapters: HashMap<String, ChainInfo>,
 }

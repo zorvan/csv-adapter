@@ -45,6 +45,10 @@ pub enum SolanaError {
     #[error("Keypair error: {0}")]
     Keypair(String),
 
+    /// Wallet error
+    #[error("Wallet error: {0}")]
+    Wallet(String),
+
     /// Commitment error
     #[error("Commitment error: {0}")]
     Commitment(String),
@@ -92,5 +96,11 @@ impl From<serde_json::Error> for SolanaError {
 impl From<ed25519_dalek::ed25519::Error> for SolanaError {
     fn from(err: ed25519_dalek::ed25519::Error) -> Self {
         Self::Keypair(format!("Ed25519 error: {}", err))
+    }
+}
+
+impl From<SolanaError> for csv_adapter_core::error::AdapterError {
+    fn from(err: SolanaError) -> Self {
+        csv_adapter_core::error::AdapterError::NetworkError(format!("Solana: {}", err))
     }
 }

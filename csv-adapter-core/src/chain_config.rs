@@ -44,13 +44,14 @@ impl ChainConfigLoader {
         
         for entry in entries {
             let entry = entry?;
-            if entry.path().extension() == Some("toml") {
+            if entry.path().extension() == Some(std::ffi::OsStr::new("toml")) {
                 let content = std::fs::read_to_string(entry.path())?;
                 let config: ChainConfig = toml::from_str(&content)
                     .map_err(|e| format!("Failed to parse {}: {}", entry.path().display(), e))?;
                     
-                self.configs.insert(config.chain_id.clone(), config);
-                println!("Loaded chain config: {}", config.chain_id);
+                let chain_id = config.chain_id.clone();
+                self.configs.insert(chain_id.clone(), config);
+                println!("Loaded chain config: {}", chain_id);
             }
         }
         

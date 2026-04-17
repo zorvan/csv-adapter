@@ -105,15 +105,11 @@ pub mod state_store;
 pub mod validator;
 
 // Chain adapter system for dynamic chain support
-pub mod chain_adapter;
 pub mod chain_config;
-pub mod chain_registry;
 pub mod chain_system;
-pub mod chain_discovery;
-pub mod adapters;
-
-// Cross-chain transfer (Sprint 4 - NORTH STAR) - 🔒 STABLE
-pub mod cross_chain;
+// pub mod chain_adapter;  // Temporarily disabled due to dyn compatibility issues
+// pub mod chain_discovery;  // Temporarily disabled due to dyn compatibility issues
+// pub mod adapters;  // Temporarily disabled due to dyn compatibility issues
 
 // RGB protocol compatibility (Sprint 5) - 🧪 EXPERIMENTAL
 #[cfg(feature = "experimental")]

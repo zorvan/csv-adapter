@@ -34,12 +34,12 @@ impl Network {
     }
 
     /// Get the cluster name for Solana SDK
-    pub fn cluster(&self) -> solana_sdk::commitment_config::CommitmentConfig {
+    pub fn cluster(&self) -> String {
         match self {
-            Self::Mainnet => solana_sdk::commitment_config::CommitmentConfig::confirmed(),
-            Self::Devnet => solana_sdk::commitment_config::CommitmentConfig::confirmed(),
-            Self::Testnet => solana_sdk::commitment_config::CommitmentConfig::confirmed(),
-            Self::Local => solana_sdk::commitment_config::CommitmentConfig::processed(),
+            Self::Mainnet => "mainnet-beta".to_string(),
+            Self::Devnet => "devnet".to_string(),
+            Self::Testnet => "testnet".to_string(),
+            Self::Local => "local".to_string(),
         }
     }
 }
@@ -134,12 +134,12 @@ impl SolanaConfig {
     }
 
     /// Get commitment configuration for Solana SDK
-    pub fn commitment_config(&self) -> solana_sdk::commitment_config::CommitmentConfig {
+    pub fn commitment_config(&self) -> String {
         match self.commitment.as_deref() {
-            Some("processed") => solana_sdk::commitment_config::CommitmentConfig::processed(),
-            Some("confirmed") => solana_sdk::commitment_config::CommitmentConfig::confirmed(),
-            Some("finalized") => solana_sdk::commitment_config::CommitmentConfig::finalized(),
-            _ => self.network.cluster(),
+            Some("processed") => "processed".to_string(),
+            Some("confirmed") => "confirmed".to_string(),
+            Some("finalized") => "finalized".to_string(),
+            _ => "confirmed".to_string(), // Default to confirmed
         }
     }
 }

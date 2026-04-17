@@ -75,6 +75,7 @@ pub mod proofs;
 pub mod rights;
 pub mod transfers;
 pub mod wallet;
+pub mod scalable_builder_v2;
 
 // Re-export core types from csv-adapter-core (🔒 STABLE API only by default)
 pub use csv_adapter_core::{
