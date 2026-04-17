@@ -1,39 +1,19 @@
-[workspace]
-members = ["indexer", "storage", "api", "ui", "shared"]
-resolver = "2"
-
-[workspace.package]
+[package]
+name = "csv-explorer"
 version = "0.2.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
+description = "Real-time indexing and visualization for CSV Adapter cross-chain rights"
 
-[workspace.dependencies]
+[dependencies]
+csv-adapter-core = { path = "../csv-adapter-core" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1", features = ["full"] }
-sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "chrono"] }
-axum = "0.8"
-async-graphql = { version = "7.0", features = ["dataloader"] }
-async-graphql-axum = "7.0"
-dioxus = { version = "0.7", features = ["fullstack", "router", "server"] }
-dioxus-web = { version = "0.7" }
-dioxus-desktop = { version = "0.7" }
-csv-adapter-core = { path = "../csv-adapter-core" }
-csv-adapter-solana = { path = "../csv-adapter-solana" }
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-chrono = { version = "0.4", features = ["serde"] }
-uuid = { version = "1.0", features = ["v4", "serde"] }
-thiserror = "1.0"
-hex = "0.4"
-reqwest = { version = "0.11", features = ["json"] }
-async-trait = "0.1"
+warp = "0.3"
 futures = "0.3"
-tower = "0.4"
-tower-http = { version = "0.5", features = ["cors", "trace"] }
-prometheus = "0.13"
-toml = "0.8"
-config = "0.14"
-clap = { version = "4.0", features = ["derive"] }
+uuid = { version = "1.0", features = ["v4", "serde"] }
+reqwest = { version = "0.11", features = ["json"] }
+tokio-tungstenite = "0.20"
+thiserror = "1.0"
 anyhow = "1.0"
-lazy_static = "1.4"
