@@ -59,6 +59,13 @@ impl ChainConfig {
                     "https://fullnode.mainnet.aptoslabs.com/v1".to_string()
                 }
             }
+            Chain::Solana => {
+                if is_testnet {
+                    "https://api.devnet.solana.com".to_string()
+                } else {
+                    "https://api.mainnet-beta.solana.com".to_string()
+                }
+            }
         };
         Self::new(api_url, is_testnet)
     }
@@ -162,6 +169,7 @@ impl ChainApi {
             Chain::Ethereum => self.get_ethereum_balance(address).await,
             Chain::Sui => self.get_sui_balance(address).await,
             Chain::Aptos => self.get_aptos_balance(address).await,
+            Chain::Solana => self.get_solana_balance(address).await,
         }
     }
 

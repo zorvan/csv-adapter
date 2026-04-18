@@ -112,6 +112,7 @@ pub mod chain_system;
 pub mod chain_adapter;
 pub mod chain_discovery;
 pub mod adapters;
+pub mod adapter_factory;
 
 // RGB protocol compatibility (Sprint 5) - 🧪 EXPERIMENTAL
 #[cfg(feature = "experimental")]
@@ -195,6 +196,7 @@ pub use chain_config::{
 };
 pub use chain_discovery::ChainDiscovery;
 pub use chain_system::{ChainInfo, SimpleChainRegistry};
+pub use adapter_factory::{AdapterFactory, create_adapter, is_chain_supported};
 
 // ===========================================================================
 // Re-exports: Experimental API (feature-gated, may change)
@@ -213,4 +215,4 @@ pub use vm::{execute_transition, DeterministicVM, PassthroughVM, VMError, VMInpu
 /// Experimental module — feature-gated behind `experimental`.
 /// These APIs may change or be removed without notice.
 #[cfg(feature = "experimental")]
-pub use rgb_compat::{RGBCommitment, RGBError, RGBState};
+pub use rgb_compat::{RgbValidationResult, RgbValidationError, RgbConsignmentValidator};

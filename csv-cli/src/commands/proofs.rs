@@ -111,6 +111,9 @@ fn cmd_generate(
             output::progress(3, 3, "Building proof bundle...");
             output::success("Aptos ledger proof generated");
         }
+        Chain::Solana => {
+            output::info("Solana proof generation not yet implemented");
+        }
     }
 
     // Generate proof JSON
@@ -122,6 +125,7 @@ fn cmd_generate(
             Chain::Ethereum => "mpt",
             Chain::Sui => "checkpoint",
             Chain::Aptos => "ledger",
+            Chain::Solana => "epoch",
         },
         "data": "proof_data_placeholder",
     });

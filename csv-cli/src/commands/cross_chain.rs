@@ -293,6 +293,7 @@ fn create_lock_provider(chain: &Chain, chain_id: ChainId) -> Box<dyn LockProvide
         Chain::Aptos => Box::new(AptosLockProvider {
             _chain_id: chain_id,
         }),
+        Chain::Solana => todo!("Solana lock provider not yet implemented"),
         Chain::Ethereum => Box::new(EthereumLockProvider {
             _chain_id: chain_id,
         }),
@@ -304,6 +305,7 @@ fn create_mint_provider(chain: &Chain, chain_id: ChainId) -> Result<Box<dyn Mint
         Chain::Bitcoin => Err("Bitcoin is UTXO-native and does not support minting Rights. Bitcoin can only be used as a source chain for cross-chain transfers.".to_string()),
         Chain::Sui => Ok(Box::new(SuiMintProvider { chain_id })),
         Chain::Aptos => Ok(Box::new(AptosMintProvider { chain_id })),
+        Chain::Solana => Err("Solana mint provider not yet implemented".to_string()),
         Chain::Ethereum => Ok(Box::new(EthereumMintProvider { chain_id })),
     }
 }
@@ -314,6 +316,7 @@ fn chain_to_chain_id(chain: &Chain) -> ChainId {
         Chain::Ethereum => ChainId::Ethereum,
         Chain::Sui => ChainId::Sui,
         Chain::Aptos => ChainId::Aptos,
+        Chain::Solana => ChainId::Solana,
     }
 }
 
@@ -456,6 +459,7 @@ fn get_chain_height(chain: &Chain, config: &Config) -> u64 {
         Chain::Ethereum => 7_000_000,
         Chain::Sui => 350_000_000,
         Chain::Aptos => 15_000_000,
+        Chain::Solana => 250_000_000, // Solana has very high block numbers
     }
 }
 
@@ -549,6 +553,33 @@ async fn fetch_chain_height_rpc(chain: &Chain, config: &Config) -> anyhow::Resul
                 .or_else(|_| version.parse())?;
             Ok(height)
         }
+        Chain::Solana => {
+            // Solana JSON-RPC - getEpochInfo
+            let body = serde_json::json!({
+                "jsonrpc": "2.0",
+                "method": "getEpochInfo",
+                "params": [],
+                "id": 1
+            });
+            
+            let response = client.post(&chain_config.rpc_url)
+                .json(&body)
+                .send().await?;
+            
+            let rpc_response: JsonRpcResponse<serde_json::Value> = response.json().await?;
+            
+            if let Some(error) = rpc_response.error {
+                return Err(anyhow::anyhow!("RPC error: {}", error.message));
+            }
+            
+            let epoch_info = rpc_response.result
+                .ok_or_else(|| anyhow::anyhow!("No result in response"))?;
+            
+            let slot = epoch_info["absoluteSlot"]
+                .as_u64()
+                .ok_or_else(|| anyhow::anyhow!("No slot in response"))?;
+            Ok(slot)
+        }
     }
 }
 
@@ -558,6 +589,7 @@ fn get_chain_confirmations(chain: &Chain) -> u64 {
         Chain::Bitcoin => 6,   // ~1 hour on signet
         Chain::Ethereum => 15, // ~3 minutes
         Chain::Sui => 1,       // Finality is ~1 checkpoint
-        Chain::Aptos => 1,     // Finality is ~1 block (HotStuff)
+        Chain::Aptos => 1,     // Finality is ~1 block (HotStuff),
+        Chain::Solana => 1,    // Finality is ~1 block (Proof of History)
     }
 }

@@ -51,12 +51,9 @@ pub trait EthereumRpc: Send + Sync {
     ) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>>;
 
     /// Downcast to `Any` for feature-gated real implementations.
-    /// Default returns self; concrete types may override for explicit downcasting.
-    fn as_any(&self) -> &dyn std::any::Any
-    where
-        Self: Sized + 'static,
-    {
-        self
+    /// Concrete types may override for explicit downcasting.
+    fn as_any(&self) -> Option<&dyn std::any::Any> {
+        None
     }
 }
 
@@ -258,8 +255,8 @@ impl EthereumRpc for MockEthereumRpc {
         Ok([0xAB; 32])
     }
 
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
+    fn as_any(&self) -> Option<&dyn std::any::Any> {
+        Some(self)
     }
 }
 

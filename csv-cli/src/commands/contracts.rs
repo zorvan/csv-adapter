@@ -81,6 +81,9 @@ fn cmd_deploy(
         Chain::Aptos => {
             deploy_aptos(config, state)?;
         }
+        Chain::Solana => {
+            deploy_solana(config, state)?;
+        }
     }
 
     Ok(())
@@ -379,6 +382,16 @@ fn deploy_aptos(config: &Config, state: &mut State) -> Result<()> {
     output::success("Aptos Move package deployed");
     output::kv("Account", &account);
 
+    Ok(())
+}
+
+/// Deploy Solana programs via solana CLI (stub for now)
+fn deploy_solana(_config: &Config, _state: &mut State) -> Result<()> {
+    output::info("Solana program deployment uses Anchor framework");
+    output::info("Building...");
+    output::warning("Solana deployment not yet fully implemented");
+    output::info("To deploy manually:");
+    output::info("  cd csv-adapter-solana && anchor build && anchor deploy");
     Ok(())
 }
 

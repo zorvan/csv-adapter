@@ -166,6 +166,10 @@ fn generate_wallet_for_chain(chain: &Chain, network: &Network, mnemonic: &str, s
             let address = generate_aptos_from_mnemonic(mnemonic, state)?;
             Ok(address)
         },
+        Chain::Solana => {
+            let address = generate_solana_from_mnemonic(mnemonic, state)?;
+            Ok(address)
+        },
     }
 }
 
@@ -235,6 +239,18 @@ fn generate_aptos_from_mnemonic(_mnemonic: &str, state: &mut State) -> Result<St
     Ok(address)
 }
 
+fn generate_solana_from_mnemonic(_mnemonic: &str, state: &mut State) -> Result<String> {
+    use rand::RngCore;
+    
+    // Generate a simple Solana-like address (simplified - real impl uses ed25519)
+    let mut address_bytes = [0u8; 32];
+    rand::rngs::OsRng.fill_bytes(&mut address_bytes);
+    
+    let address = format!("{}", bs58::encode(address_bytes).into_string());
+    state.store_address(Chain::Solana, address.clone());
+    Ok(address)
+}
+
 fn save_wallet_config(mnemonic: &str, addresses: &std::collections::HashMap<Chain, String>, _config: &Config) -> Result<()> {
     use std::path::PathBuf;
     use std::fs;
@@ -291,6 +307,9 @@ fn fund_wallet_from_faucet(chain: &Chain, address: &str, network: &Network) -> R
         Chain::Aptos => {
             output::info(&format!("Visit: https://faucet.testnet.aptoslabs.com/ to fund {}", address));
         },
+        Chain::Solana => {
+            output::info(&format!("Visit: https://faucet.solana.com/ to fund {}", address));
+        },
     }
     Ok(())
 }
@@ -301,6 +320,7 @@ fn cmd_generate(chain: Chain, network: Network, _config: &Config, state: &mut St
         Chain::Ethereum => generate_ethereum(state),
         Chain::Sui => generate_sui(state),
         Chain::Aptos => generate_aptos(state),
+        Chain::Solana => generate_solana(state),
     }
 }
 
@@ -437,6 +457,33 @@ fn generate_aptos(state: &mut State) -> Result<()> {
     println!();
     output::warning("Save this private key securely. It cannot be recovered.");
     output::info("Fund this wallet with: csv wallet fund --chain aptos");
+
+    Ok(())
+}
+
+fn generate_solana(state: &mut State) -> Result<()> {
+    use ed25519_dalek::SigningKey;
+    use rand::RngCore;
+    use bs58;
+
+    let mut seed = [0u8; 32];
+    rand::rngs::OsRng.fill_bytes(&mut seed);
+
+    let signing_key = SigningKey::from_bytes(&seed);
+    let verifying_key = signing_key.verifying_key();
+
+    // Solana address: base58-encoded public key
+    let address = bs58::encode(verifying_key.as_bytes()).into_string();
+
+    state.store_address(Chain::Solana, address.clone());
+
+    output::header("Solana Wallet Generated");
+    output::kv("Address", &address);
+    output::kv_hash("Private Key", &seed);
+
+    println!();
+    output::warning("Save this private key securely. It cannot be recovered.");
+    output::info("Fund this wallet with: csv wallet fund --chain solana");
 
     Ok(())
 }

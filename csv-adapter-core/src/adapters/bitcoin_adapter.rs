@@ -1,21 +1,19 @@
 //! Bitcoin chain adapter implementation for the new interface.
 
+use async_trait::async_trait;
+use crate::chain_adapter::{ChainAdapter, ChainResult, ChainError, RpcClient, Wallet, ChainCapabilities, AccountModel};
+use crate::chain_config::ChainConfig;
+use crate::Chain;
 use super::super::chain_system::ChainInfo;
 
 /// Bitcoin chain adapter for the new scalable system
-#[allow(dead_code)]
-pub struct BitcoinAdapter {
-    chain_id: &'static str,
-    chain_name: &'static str,
-}
+#[derive(Debug, Clone)]
+pub struct BitcoinAdapter;
 
 impl BitcoinAdapter {
     /// Create new Bitcoin adapter
     pub fn new() -> Self {
-        Self {
-            chain_id: "bitcoin",
-            chain_name: "Bitcoin",
-        }
+        Self
     }
     
     /// Get Bitcoin-specific chain info
@@ -36,6 +34,61 @@ impl BitcoinAdapter {
             "regtest" => BitcoinNetworkConfig::Regtest,
             _ => BitcoinNetworkConfig::Mainnet,
         }
+    }
+    
+    /// Get Bitcoin capabilities
+    pub fn capabilities() -> ChainCapabilities {
+        ChainCapabilities {
+            supports_nfts: true,
+            supports_smart_contracts: false,
+            account_model: AccountModel::UTXO,
+            confirmation_blocks: 6,
+            max_batch_size: 100,
+            supported_networks: vec!["mainnet".to_string(), "testnet".to_string(), "regtest".to_string()],
+            supports_cross_chain: true,
+            custom_features: Default::default(),
+        }
+    }
+}
+
+impl Default for BitcoinAdapter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[async_trait]
+impl ChainAdapter for BitcoinAdapter {
+    fn chain_id(&self) -> &'static str {
+        "bitcoin"
+    }
+    
+    fn chain_name(&self) -> &'static str {
+        "Bitcoin"
+    }
+    
+    fn capabilities(&self) -> ChainCapabilities {
+        Self::capabilities()
+    }
+    
+    async fn create_client(&self, _config: &ChainConfig) -> ChainResult<Box<dyn RpcClient>> {
+        Err(ChainError::NotImplemented("Bitcoin RPC client creation".to_string()))
+    }
+    
+    async fn create_wallet(&self, _config: &ChainConfig) -> ChainResult<Box<dyn Wallet>> {
+        Err(ChainError::NotImplemented("Bitcoin wallet creation".to_string()))
+    }
+    
+    fn csv_program_id(&self) -> Option<&'static str> {
+        None
+    }
+    
+    fn to_core_chain(&self) -> Chain {
+        Chain::Bitcoin
+    }
+    
+    fn default_network(&self) -> &'static str {
+        "mainnet"
     }
 }
 
@@ -86,8 +139,8 @@ mod tests {
     #[test]
     fn test_bitcoin_adapter() {
         let adapter = BitcoinAdapter::new();
-        assert_eq!(adapter.chain_id, "bitcoin");
-        assert_eq!(adapter.chain_name, "Bitcoin");
+        assert_eq!(adapter.chain_id(), "bitcoin");
+        assert_eq!(adapter.chain_name(), "Bitcoin");
     }
     
     #[test]

@@ -32,6 +32,7 @@ pub enum Chain {
     Ethereum,
     Sui,
     Aptos,
+    Solana,
 }
 
 impl std::fmt::Display for Chain {
@@ -41,6 +42,7 @@ impl std::fmt::Display for Chain {
             Chain::Ethereum => write!(f, "ethereum"),
             Chain::Sui => write!(f, "sui"),
             Chain::Aptos => write!(f, "aptos"),
+            Chain::Solana => write!(f, "solana"),
         }
     }
 }

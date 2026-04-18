@@ -183,7 +183,7 @@ impl AnchorLayer for EthereumAnchorLayer {
                 .rpc
                 .as_ref()
                 .as_any()
-                .downcast_ref::<RealEthereumRpc>()
+                .and_then(|any| any.downcast_ref::<RealEthereumRpc>())
                 .ok_or_else(|| {
                     AdapterError::PublishFailed(
                         "publish() requires a RealEthereumRpc instance".to_string(),
@@ -240,7 +240,7 @@ impl AnchorLayer for EthereumAnchorLayer {
             // Try to get real proof data from RPC
             use crate::real_rpc::RealEthereumRpc;
 
-            if let Some(_real_rpc) = self.rpc.as_ref().as_any().downcast_ref::<RealEthereumRpc>() {
+            if let Some(_real_rpc) = self.rpc.as_ref().as_any().and_then(|any| any.downcast_ref::<RealEthereumRpc>()) {
                 // Get the block header for receipt root
                 let block_hash = self.rpc.get_block_hash(anchor.block_number).map_err(|e| {
                     AdapterError::InclusionProofFailed(format!("Failed to get block hash: {}", e))

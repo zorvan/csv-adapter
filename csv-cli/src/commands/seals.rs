@@ -71,6 +71,10 @@ fn cmd_create(chain: Chain, value: Option<u64>, _config: &Config, state: &mut St
             // Resource seal: account address
             vec![0x04; 32] // placeholder
         }
+        Chain::Solana => {
+            // Program-derived address seal
+            vec![0x05; 32] // placeholder
+        }
     };
 
     state.record_seal_consumption(seal_bytes.clone());
@@ -156,6 +160,7 @@ fn cmd_list(chain: Option<Chain>, state: &State) -> Result<()> {
                     Chain::Ethereum => 0x02,
                     Chain::Sui => 0x03,
                     Chain::Aptos => 0x04,
+                    Chain::Solana => 0x05,
                 };
                 if seal.first() != Some(&filter_prefix) {
                     continue;

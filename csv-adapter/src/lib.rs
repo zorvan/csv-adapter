@@ -104,7 +104,7 @@ pub use csv_adapter_core::{AdapterError, Result as CoreResult, StoreError};
 pub mod experimental {
     pub use csv_adapter_core::mpc::{MpcLeaf, MpcProof, MpcTree};
     pub use csv_adapter_core::vm::{execute_transition, DeterministicVM, VMError, VMInputs, VMOutputs};
-    pub use csv_adapter_core::rgb_compat::{RGBCommitment, RGBError, RGBState};
+    pub use csv_adapter_core::rgb_compat::{CrossChainError, RgbValidationError, RgbValidationResult};
 }
 
 /// Re-export error types

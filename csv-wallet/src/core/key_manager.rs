@@ -103,6 +103,18 @@ impl KeyManager {
         Ok((signing_key, verifying_key))
     }
 
+    /// Derive Solana key pair (ed25519).
+    pub fn derive_solana_keys(&self) -> Result<(SigningKey, VerifyingKey), KeyError> {
+        // Use a different portion of seed for Solana (bytes 16-48)
+        let mut key_bytes = [0u8; 32];
+        key_bytes.copy_from_slice(&self.seed[16..48]);
+        
+        let signing_key = SigningKey::from_bytes(&key_bytes);
+        let verifying_key: VerifyingKey = signing_key.verifying_key();
+        
+        Ok((signing_key, verifying_key))
+    }
+
     /// Sign a message with the appropriate key for the given chain.
     pub fn sign(&self, chain: Chain, message: &[u8; 32]) -> Result<Vec<u8>, KeyError> {
         match chain {
@@ -110,6 +122,7 @@ impl KeyManager {
             Chain::Ethereum => self.sign_ethereum(message),
             Chain::Sui => self.sign_sui(message),
             Chain::Aptos => self.sign_aptos(message),
+            Chain::Solana => self.sign_solana(message),
         }
     }
 

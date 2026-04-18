@@ -208,6 +208,10 @@ fn check_chain_connectivity(chain: &Chain, config: &Config) -> Result<()> {
                 ))
             }
         }
+        Chain::Solana => {
+            output::info("Solana test support coming soon");
+            Ok(())
+        }
     }
 }
 

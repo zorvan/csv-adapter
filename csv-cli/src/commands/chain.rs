@@ -176,6 +176,10 @@ fn cmd_info(chain: &Chain, config: &Config) -> Result<()> {
                 Err(e) => output::warning(&format!("Could not fetch ledger info: {}", e)),
             }
         }
+        Chain::Solana => {
+            output::info("Solana RPC info requires JSON-RPC call (getEpochInfo)");
+            output::kv("Endpoint", &chain_config.rpc_url);
+        }
     }
 
     Ok(())

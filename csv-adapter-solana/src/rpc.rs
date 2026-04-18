@@ -1,11 +1,14 @@
 //! RPC client for Solana adapter
 
 use solana_sdk::{
-    pubkey::Pubkey, 
+    pubkey::Pubkey,
     signature::Signature,
     transaction::Transaction,
     account::Account,
 };
+
+
+use tokio::time::Duration;
 
 use crate::error::{SolanaError, SolanaResult};
 use crate::types::{AccountChange, ConfirmationStatus};
@@ -56,7 +59,7 @@ impl RealSolanaRpc {
     }
 
     /// Create with commitment
-    pub fn with_commitment(rpc_url: &str, _commitment: CommitmentConfig, timeout_seconds: u64) -> Self {
+    pub fn with_commitment(rpc_url: &str, _commitment: &str, timeout_seconds: u64) -> Self {
         Self {
             rpc_url: rpc_url.to_string(),
             timeout: Duration::from_secs(timeout_seconds),

@@ -453,8 +453,8 @@ mod real_rpc_impl {
             Ok(parse_hex_bytes32(&hash_str))
         }
 
-        fn as_any(&self) -> &dyn std::any::Any {
-            self
+        fn as_any(&self) -> Option<&dyn std::any::Any> {
+            Some(self)
         }
     }
 
