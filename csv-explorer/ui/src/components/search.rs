@@ -1,5 +1,6 @@
 /// Global search component for the header.
 use dioxus::prelude::*;
+use dioxus_router::components::Link;
 
 use crate::app::routes::Route;
 

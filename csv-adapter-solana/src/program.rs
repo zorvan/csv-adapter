@@ -2,14 +2,12 @@
 
 use solana_sdk::{
     pubkey::Pubkey,
-    signature::Signature,
-    transaction::Transaction,
     instruction::{Instruction, AccountMeta},
     account::Account,
+    transaction::Transaction,
 };
 
 use crate::error::{SolanaError, SolanaResult};
-use crate::types::SolanaAnchorRef;
 
 /// Solana program interface for CSV operations
 pub struct SolanaProgram {
@@ -157,6 +155,6 @@ impl SolanaProgram {
 
 impl Default for SolanaProgram {
     fn default() -> Self {
-        Self::new(Pubkey::default())
+        Self::new(solana_sdk::pubkey::Pubkey::default())
     }
 }

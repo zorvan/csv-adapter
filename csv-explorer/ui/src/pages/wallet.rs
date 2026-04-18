@@ -1,5 +1,6 @@
 /// Wallet connection page.
 use dioxus::prelude::*;
+use dioxus_router::components::Link;
 
 use crate::app::routes::Route;
 

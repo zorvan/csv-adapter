@@ -1,16 +1,9 @@
 //! Solana adapter implementation for CSV
 
 use csv_adapter_core::traits::AnchorLayer;
-use csv_adapter_core::error::AdapterError;
-use solana_sdk::{
-    pubkey::Pubkey,
-    signature::Signature,
-    transaction::Transaction,
-    account::Account,
-};
 
 use crate::config::SolanaConfig;
-use crate::error::{SolanaError, SolanaResult};
+use crate::error::SolanaError;
 use crate::rpc::SolanaRpc;
 use crate::types::SolanaAnchorRef;
 use crate::wallet::ProgramWallet;

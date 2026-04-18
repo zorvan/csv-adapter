@@ -1,6 +1,7 @@
 use csv_explorer_shared::TransferRecord;
 /// Transfers list page with filtering and pagination.
 use dioxus::prelude::*;
+use dioxus_router::components::Link;
 
 use crate::app::routes::Route;
 use crate::components::ChainBadge;

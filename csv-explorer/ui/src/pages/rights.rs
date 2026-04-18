@@ -1,6 +1,7 @@
 use csv_explorer_shared::RightRecord;
 /// Rights list page with filtering, sorting, and pagination.
 use dioxus::prelude::*;
+use dioxus_router::components::Link;
 
 use crate::app::routes::Route;
 use crate::components::ChainBadge;

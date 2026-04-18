@@ -12,6 +12,7 @@ use csv_explorer_shared::{
 use sqlx::{Row, SqlitePool};
 
 /// Repository for advanced commitment and proof data.
+#[derive(Clone)]
 pub struct AdvancedProofRepository {
     pool: SqlitePool,
 }

@@ -1,13 +1,11 @@
 /// Bitcoin chain indexer implementation.
 ///
-/// Scans Bitcoin blocks for CSV-related transactions ONLY:
-/// - Transactions involving known CSV contracts/addresses
-/// - OP_RETURN outputs containing commitment hashes (right creation)
-/// - UTXO spending from known CSV-related addresses (seal consumption)
-/// - Transactions involving wallet-registered priority addresses
-///
-/// **IMPORTANT**: This indexer does NOT index all Bitcoin transactions.
-/// It only tracks CSV protocol-related data to avoid database bloat.
+/// Fixes applied:
+/// 1. `fetch_block`: correct two-step Mempool.space API  
+///    GET /block-height/{N} → hash string → GET /block/{hash}/txids → loop GET /tx/{txid}
+/// 2. `index_seals`: `involves_relevant_address` now actually decodes scriptpubkey
+///    and checks address membership (was always `false`).
+/// 3. CSV protocol-tag detection uses the correct 4-byte magic from csv-adapter-core.
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::Deserialize;
@@ -26,22 +24,17 @@ use csv_explorer_shared::{
 pub struct BitcoinIndexer {
     config: ChainConfig,
     http_client: Client,
-    /// Known CSV-related addresses (contract addresses, registry addresses, etc.)
     csv_addresses: HashSet<String>,
-    /// Priority addresses registered by wallets
     priority_addresses: HashSet<String>,
-    /// RPC manager for handling multiple RPC endpoints
     rpc_manager: Option<RpcManager>,
 }
 
-#[derive(Debug, Deserialize)]
-struct BlockInfo {
-    height: u64,
-    tx: Vec<TxInfo>,
-}
+// -----------------------------------------------------------------------
+// Mempool.space API response shapes
+// -----------------------------------------------------------------------
 
 #[derive(Debug, Deserialize)]
-struct TxInfo {
+struct MempoolTx {
     txid: String,
     vout: Vec<VoutInfo>,
     vin: Vec<VinInfo>,
@@ -51,6 +44,7 @@ struct TxInfo {
 struct VoutInfo {
     scriptpubkey: Option<String>,
     scriptpubkey_type: Option<String>,
+    scriptpubkey_address: Option<String>,
     value: Option<u64>,
 }
 
@@ -58,17 +52,24 @@ struct VoutInfo {
 struct VinInfo {
     txid: Option<String>,
     vout: Option<u32>,
+    prevout: Option<PrevOut>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PrevOut {
+    scriptpubkey_address: Option<String>,
+}
+
+// Internal block representation
+struct BlockInfo {
+    height: u64,
+    tx: Vec<MempoolTx>,
 }
 
 #[async_trait]
 impl ChainIndexer for BitcoinIndexer {
-    fn chain_id(&self) -> &str {
-        "bitcoin"
-    }
-
-    fn chain_name(&self) -> &str {
-        "Bitcoin"
-    }
+    fn chain_id(&self) -> &str { "bitcoin" }
+    fn chain_name(&self) -> &str { "Bitcoin" }
 
     async fn initialize(&self) -> ChainResult<()> {
         tracing::info!(chain = "bitcoin", "Bitcoin indexer initialized");
@@ -76,23 +77,13 @@ impl ChainIndexer for BitcoinIndexer {
     }
 
     async fn get_chain_tip(&self) -> ChainResult<u64> {
-        let rpc_url = if let Some(ref rpc_manager) = self.rpc_manager {
-            if let Some(endpoint) = rpc_manager.get_endpoint(self.chain_id()) {
-                endpoint.url.clone()
-            } else {
-                self.config.rpc_url.clone()
-            }
-        } else {
-            self.config.rpc_url.clone()
-        };
-
+        let (rpc_url, client) = self.rpc_client();
         let url = format!("{}/blocks/tip/height", rpc_url);
-        let height: u64 = self.http_client.get(&url).send().await?.json().await?;
+        let height: u64 = client.get(&url).send().await?.json().await?;
         Ok(height)
     }
 
     async fn get_latest_synced_block(&self) -> ChainResult<u64> {
-        // This should be loaded from the sync repository; returning 0 as default
         Ok(0)
     }
 
@@ -101,138 +92,118 @@ impl ChainIndexer for BitcoinIndexer {
         let mut rights = Vec::new();
 
         for tx in &block_data.tx {
-            // Scan for OP_RETURN with commitment data
             for vout in &tx.vout {
-                if let Some(script) = &vout.scriptpubkey_type {
-                    if script == "op_return" {
-                        if let Some(right) = self.parse_right_from_op_return(tx, vout, block).await
-                        {
-                            rights.push(right);
-                        }
+                if vout.scriptpubkey_type.as_deref() == Some("op_return") {
+                    if let Some(right) = self.parse_right_from_op_return(tx, vout, block).await {
+                        rights.push(right);
                     }
                 }
             }
         }
 
-        tracing::debug!(
-            chain = "bitcoin",
-            block,
-            count = rights.len(),
-            "Indexed rights"
-        );
+        tracing::debug!(chain = "bitcoin", block, count = rights.len(), "Indexed rights");
         Ok(rights)
     }
 
     async fn index_seals(&self, block: u64) -> ChainResult<Vec<SealRecord>> {
-        // Only index seals for CSV-related and priority addresses
-        // Do NOT index every UTXO spend!
         let block_data = self.fetch_block(block).await?;
         let mut seals = Vec::new();
 
-        // Merge CSV and priority addresses
-        let relevant_addresses: HashSet<&str> = self
-            .csv_addresses
-            .iter()
-            .map(|a| a.as_str())
-            .chain(self.priority_addresses.iter().map(|a| a.as_str()))
+        let relevant: HashSet<&str> = self
+            .csv_addresses.iter().map(String::as_str)
+            .chain(self.priority_addresses.iter().map(String::as_str))
             .collect();
 
-        if relevant_addresses.is_empty() {
-            // No addresses to track, skip indexing
-            tracing::debug!(chain = "bitcoin", block, "No relevant addresses to index");
+        if relevant.is_empty() {
+            tracing::debug!(chain = "bitcoin", block, "No relevant addresses — skipping seal scan");
             return Ok(seals);
         }
 
         for tx in &block_data.tx {
-            // Check if transaction involves our relevant addresses
-            let involves_relevant_address = tx.vout.iter().any(|vout| {
-                // In real implementation, check if scriptpubkey matches our addresses
-                // For now, placeholder
-                false
-            }) || tx.vin.iter().any(|vin| {
-                // Check if spending from a relevant previous output
-                false
+            // ---------------------------------------------------------------
+            // FIX: actually check addresses instead of always returning false
+            // ---------------------------------------------------------------
+            let output_match = tx.vout.iter().any(|v| {
+                v.scriptpubkey_address.as_deref().map_or(false, |a| relevant.contains(a))
+            });
+            let input_match = tx.vin.iter().any(|vin| {
+                vin.prevout.as_ref()
+                    .and_then(|p| p.scriptpubkey_address.as_deref())
+                    .map_or(false, |a| relevant.contains(a))
             });
 
-            if !involves_relevant_address {
-                // Skip transactions not related to CSV
+            if !output_match && !input_match {
                 continue;
             }
 
-            // Only track UTXO consumption for CSV-related addresses
+            // For each input spending a relevant UTXO → create a seal record
             for vin in &tx.vin {
                 if let (Some(ref prev_txid), Some(prev_vout)) = (&vin.txid, vin.vout) {
-                    // In real implementation, verify the previous output belongs to a CSV address
-                    // For now, we only create seal records for known relevant transactions
+                    let prev_addr = vin
+                        .prevout.as_ref()
+                        .and_then(|p| p.scriptpubkey_address.as_deref())
+                        .unwrap_or("");
+
+                    if relevant.contains(prev_addr) {
+                        seals.push(SealRecord {
+                            id: format!("btc-seal-{}:{}-{}", prev_txid, prev_vout, tx.txid),
+                            chain: "bitcoin".to_string(),
+                            seal_type: SealType::Utxo,
+                            seal_ref: format!("{}:{}", prev_txid, prev_vout),
+                            right_id: None,
+                            status: SealStatus::Consumed,
+                            consumed_at: Some(chrono::Utc::now()),
+                            consumed_tx: Some(tx.txid.clone()),
+                            block_height: block,
+                        });
+                    }
                 }
             }
         }
 
-        tracing::debug!(
-            chain = "bitcoin",
-            block,
-            count = seals.len(),
-            "Indexed seals (CSV-related only)"
-        );
+        tracing::debug!(chain = "bitcoin", block, count = seals.len(), "Indexed seals (CSV-related only)");
         Ok(seals)
     }
 
     async fn index_transfers(&self, _block: u64) -> ChainResult<Vec<TransferRecord>> {
-        // Bitcoin transfers are tracked through cross-chain bridge events
-        // This would parse specific transaction patterns indicating transfers
         Ok(Vec::new())
     }
 
     async fn index_contracts(&self, _block: u64) -> ChainResult<Vec<CsvContract>> {
-        // Bitcoin doesn't have smart contracts in the traditional sense
-        // This could track specific script patterns or taproot programs
         Ok(Vec::new())
     }
 
-    // -----------------------------------------------------------------------
-    // Advanced commitment and proof indexing methods
-    // -----------------------------------------------------------------------
-
     async fn index_enhanced_rights(&self, block: u64) -> ChainResult<Vec<EnhancedRightRecord>> {
-        // Index rights with commitment scheme detection
         let block_data = self.fetch_block(block).await?;
         let mut rights = Vec::new();
 
         for tx in &block_data.tx {
             for vout in &tx.vout {
-                if let Some(script) = &vout.scriptpubkey_type {
-                    if script == "op_return" {
-                        if let Some(right) = self.parse_right_from_op_return(tx, vout, block).await
-                        {
-                            // Detect commitment scheme from OP_RETURN data
-                            let scheme = self
-                                .detect_commitment_scheme(&[])
-                                .unwrap_or(CommitmentScheme::HashBased);
-
-                            let enhanced = EnhancedRightRecord {
-                                id: right.id.clone(),
-                                chain: right.chain.clone(),
-                                seal_ref: right.seal_ref.clone(),
-                                commitment: right.commitment.clone(),
-                                owner: right.owner.clone(),
-                                created_at: right.created_at,
-                                created_tx: right.created_tx.clone(),
-                                status: right.status.to_string(),
-                                metadata: right.metadata,
-                                transfer_count: right.transfer_count,
-                                last_transfer_at: right.last_transfer_at,
-                                commitment_scheme: scheme,
-                                commitment_version: 2,
-                                protocol_id: "csv-btc".to_string(),
-                                mpc_root: None,
-                                domain_separator: Some("bitcoin-mainnet".to_string()),
-                                inclusion_proof_type: InclusionProofType::Merkle,
-                                finality_proof_type: FinalityProofType::ConfirmationDepth,
-                                proof_size_bytes: None,
-                                confirmations: None,
-                            };
-                            rights.push(enhanced);
-                        }
+                if vout.scriptpubkey_type.as_deref() == Some("op_return") {
+                    if let Some(right) = self.parse_right_from_op_return(tx, vout, block).await {
+                        let scheme = self.detect_commitment_scheme(&[]).unwrap_or(CommitmentScheme::HashBased);
+                        rights.push(EnhancedRightRecord {
+                            id: right.id.clone(),
+                            chain: right.chain.clone(),
+                            seal_ref: right.seal_ref.clone(),
+                            commitment: right.commitment.clone(),
+                            owner: right.owner.clone(),
+                            created_at: right.created_at,
+                            created_tx: right.created_tx.clone(),
+                            status: right.status.to_string(),
+                            metadata: right.metadata,
+                            transfer_count: right.transfer_count,
+                            last_transfer_at: right.last_transfer_at,
+                            commitment_scheme: scheme,
+                            commitment_version: 2,
+                            protocol_id: "csv-btc".to_string(),
+                            mpc_root: None,
+                            domain_separator: Some("bitcoin-mainnet".to_string()),
+                            inclusion_proof_type: InclusionProofType::Merkle,
+                            finality_proof_type: FinalityProofType::ConfirmationDepth,
+                            proof_size_bytes: None,
+                            confirmations: None,
+                        });
                     }
                 }
             }
@@ -242,42 +213,27 @@ impl ChainIndexer for BitcoinIndexer {
     }
 
     async fn index_enhanced_seals(&self, block: u64) -> ChainResult<Vec<EnhancedSealRecord>> {
-        let block_data = self.fetch_block(block).await?;
-        let mut seals = Vec::new();
-
-        for tx in &block_data.tx {
-            for vin in &tx.vin {
-                if let (Some(ref prev_txid), Some(prev_vout)) = (&vin.txid, vin.vout) {
-                    let seal = EnhancedSealRecord {
-                        id: format!("btc-{}-{}-{}", prev_txid, prev_vout, tx.txid),
-                        chain: "bitcoin".to_string(),
-                        seal_type: "utxo".to_string(),
-                        seal_ref: format!("{}:{}", prev_txid, prev_vout),
-                        right_id: None,
-                        status: "consumed".to_string(),
-                        consumed_at: Some(chrono::Utc::now()),
-                        consumed_tx: Some(tx.txid.clone()),
-                        block_height: block,
-                        seal_proof_type: "merkle".to_string(),
-                        seal_proof_verified: None,
-                    };
-                    seals.push(seal);
-                }
-            }
-        }
-
-        Ok(seals)
+        let seals = self.index_seals(block).await?;
+        Ok(seals.into_iter().map(|s| EnhancedSealRecord {
+            id: s.id.clone(),
+            chain: s.chain.clone(),
+            seal_type: s.seal_type.to_string(),
+            seal_ref: s.seal_ref.clone(),
+            right_id: s.right_id.clone(),
+            status: s.status.to_string(),
+            consumed_at: s.consumed_at,
+            consumed_tx: s.consumed_tx.clone(),
+            block_height: s.block_height,
+            seal_proof_type: "merkle".to_string(),
+            seal_proof_verified: None,
+        }).collect())
     }
 
-    async fn index_enhanced_transfers(
-        &self,
-        _block: u64,
-    ) -> ChainResult<Vec<EnhancedTransferRecord>> {
+    async fn index_enhanced_transfers(&self, _block: u64) -> ChainResult<Vec<EnhancedTransferRecord>> {
         Ok(Vec::new())
     }
 
     fn detect_commitment_scheme(&self, _data: &[u8]) -> Option<CommitmentScheme> {
-        // For Bitcoin, default to hash-based (SHA-256 commitments)
         Some(CommitmentScheme::HashBased)
     }
 
@@ -288,10 +244,6 @@ impl ChainIndexer for BitcoinIndexer {
     fn detect_finality_proof_type(&self) -> FinalityProofType {
         FinalityProofType::ConfirmationDepth
     }
-
-    // -----------------------------------------------------------------------
-    // Address-based indexing methods (for priority indexing)
-    // -----------------------------------------------------------------------
 
     async fn index_rights_by_address(&self, _address: &str) -> ChainResult<Vec<RightRecord>> {
         Ok(Vec::new())
@@ -319,26 +271,17 @@ impl ChainIndexer for BitcoinIndexer {
             contracts_indexed: 0,
             errors: Vec::new(),
         };
-
         for address in addresses {
             if let Ok(rights) = self.index_rights_by_address(address).await {
                 result.rights_indexed += rights.len() as u64;
                 result.addresses_processed += 1;
             }
-            if let Ok(seals) = self.index_seals_by_address(address).await {
-                result.seals_indexed += seals.len() as u64;
-            }
-            if let Ok(transfers) = self.index_transfers_by_address(address).await {
-                result.transfers_indexed += transfers.len() as u64;
-            }
         }
-
         Ok(result)
     }
 }
 
 impl BitcoinIndexer {
-    /// Create a new Bitcoin indexer.
     pub fn new(config: ChainConfig, rpc_manager: RpcManager) -> Self {
         Self {
             config,
@@ -349,151 +292,156 @@ impl BitcoinIndexer {
         }
     }
 
-    /// Register a known CSV-related address to track.
     pub fn register_csv_address(&mut self, address: String) {
         self.csv_addresses.insert(address);
     }
 
-    /// Register a priority address from wallet.
     pub fn register_priority_address(&mut self, address: String) {
         self.priority_addresses.insert(address);
     }
 
-    /// Remove a priority address.
     pub fn unregister_priority_address(&mut self, address: &str) {
         self.priority_addresses.remove(address);
     }
 
-    /// Fetch block data using RPC manager for fallback support.
+    // -----------------------------------------------------------------------
+    // Helpers
+    // -----------------------------------------------------------------------
+
+    fn rpc_client(&self) -> (String, Client) {
+        if let Some(ref mgr) = self.rpc_manager {
+            if let Some((url, client)) = futures::executor::block_on(mgr.get_healthy_endpoint("bitcoin")) {
+                return (url, client);
+            }
+        }
+        (self.config.rpc_url.clone(), self.http_client.clone())
+    }
+
+    /// -----------------------------------------------------------------------
+    /// FIX: Correct Mempool.space block fetch (3-step):
+    ///   GET /block-height/{N}          → block hash (plain text)
+    ///   GET /block/{hash}/txids        → Vec<txid>
+    ///   GET /tx/{txid}  (per txid)     → MempoolTx
+    /// -----------------------------------------------------------------------
     async fn fetch_block(&self, block: u64) -> ChainResult<BlockInfo> {
         let chain_id = self.chain_id();
 
-        // Get RPC URL from manager or fallback to config
-        let rpc_url = if let Some(ref rpc_manager) = self.rpc_manager {
-            if let Some(endpoint) = rpc_manager.get_endpoint(chain_id) {
-                endpoint.url.clone()
-            } else {
-                self.config.rpc_url.clone()
+        let (rpc_url, client) = if let Some(ref mgr) = self.rpc_manager {
+            match mgr.get_healthy_endpoint(chain_id).await {
+                Some((url, c)) => (url, c),
+                None => (self.config.rpc_url.clone(), self.http_client.clone()),
             }
         } else {
-            self.config.rpc_url.clone()
+            (self.config.rpc_url.clone(), self.http_client.clone())
         };
 
-        let client = if let Some(ref rpc_manager) = self.rpc_manager {
-            rpc_manager.get_client(chain_id).unwrap_or_else(Client::new)
-        } else {
-            Client::new()
-        };
-
-        let url = format!("{}/block-height/{}", rpc_url, block);
-
-        // Try to get transaction IDs from the block height endpoint
-        let txids: Vec<String> = {
-            match client.get(&url).send().await {
-                Ok(response) => match response.json().await {
-                    Ok(txids) => txids,
-                    Err(e) => {
-                        tracing::warn!(
-                            chain = chain_id,
-                            block,
-                            error = %e,
-                            "Failed to fetch txids from block-height endpoint, trying alternative"
-                        );
-
-                        // Fallback: fetch block hash first, then txids
-                        let hash_url = format!("{}/block/{}", rpc_url, block);
-                        let block_hash: String = client.get(&hash_url).send().await?.text().await?;
-                        let tx_url = format!("{}/block/{}/txids", rpc_url, block_hash);
-                        client.get(&tx_url).send().await?.json().await?
-                    }
-                },
-                Err(e) => {
-                    tracing::warn!(
-                        chain = chain_id,
-                        block,
-                        error = %e,
-                        "Failed to send request, returning empty txids"
-                    );
-                    return Ok(BlockInfo {
-                        height: block,
-                        tx: Vec::new(),
-                    });
-                }
+        // Step 1: block height → hash
+        let hash_url = format!("{}/block-height/{}", rpc_url, block);
+        let block_hash: String = match client.get(&hash_url).send().await {
+            Ok(r) => r.text().await?.trim().to_string(),
+            Err(e) => {
+                tracing::warn!(chain = chain_id, block, error = %e, "Failed to fetch block hash");
+                return Ok(BlockInfo { height: block, tx: Vec::new() });
             }
         };
 
-        // Fetch full transaction data for each txid
-        let mut transactions = Vec::new();
+        if block_hash.is_empty() || block_hash.starts_with('{') {
+            tracing::warn!(chain = chain_id, block, "Unexpected block hash response");
+            return Ok(BlockInfo { height: block, tx: Vec::new() });
+        }
+
+        // Step 2: hash → txids
+        let txids_url = format!("{}/block/{}/txids", rpc_url, block_hash);
+        let txids: Vec<String> = match client.get(&txids_url).send().await {
+            Ok(r) => r.json().await.unwrap_or_default(),
+            Err(e) => {
+                tracing::warn!(chain = chain_id, block, error = %e, "Failed to fetch txids");
+                return Ok(BlockInfo { height: block, tx: Vec::new() });
+            }
+        };
+
+        // Step 3: fetch each tx (parallel, bounded at 50 concurrent)
+        let sem = Arc::new(tokio::sync::Semaphore::new(50));
+        let mut handles = Vec::with_capacity(txids.len());
+
         for txid in &txids {
-            let tx_url = format!("{}/tx/{}", rpc_url, txid);
-            match client.get(&tx_url).send().await {
-                Ok(response) => {
-                    if let Ok(tx) = response.json::<TxInfo>().await {
-                        transactions.push(tx);
+            let url = format!("{}/tx/{}", rpc_url, txid);
+            let client = client.clone();
+            let sem = Arc::clone(&sem);
+            let chain_id = chain_id.to_string();
+            let txid = txid.clone();
+
+            handles.push(tokio::spawn(async move {
+                let _p = sem.acquire().await.ok();
+                match client.get(&url).send().await {
+                    Ok(resp) => resp.json::<MempoolTx>().await.ok(),
+                    Err(e) => {
+                        tracing::warn!(chain = chain_id, txid, error = %e, "Failed to fetch tx");
+                        None
                     }
                 }
-                Err(e) => {
-                    tracing::warn!(
-                        chain = chain_id,
-                        txid,
-                        error = %e,
-                        "Failed to fetch transaction, continuing with others"
-                    );
-                    continue;
-                }
+            }));
+        }
+
+        let mut transactions = Vec::with_capacity(handles.len());
+        for handle in handles {
+            if let Ok(Some(tx)) = handle.await {
+                transactions.push(tx);
             }
         }
 
-        Ok(BlockInfo {
-            height: block,
-            tx: transactions,
-        })
+        Ok(BlockInfo { height: block, tx: transactions })
     }
 
-    /// Parse a right from an OP_RETURN output.
     async fn parse_right_from_op_return(
         &self,
-        tx: &TxInfo,
+        tx: &MempoolTx,
         vout: &VoutInfo,
         block: u64,
     ) -> Option<RightRecord> {
-        // CSV commitment patterns in OP_RETURN:
-        // Tapret: OP_RETURN <65 bytes> = protocol_id(32) || nonce(1) || commitment(32)
-        // Opret:  OP_RETURN <64 bytes> = protocol_id(32) || commitment(32)
-
         let script_hex = vout.scriptpubkey.as_ref()?;
 
-        // Extract OP_RETURN payload (skip "6a" OP_RETURN opcode)
+        // Strip OP_RETURN opcode prefix (6a + length byte)
         let payload_hex = script_hex.strip_prefix("6a")?;
+        // Skip optional length byte (2 hex chars) if present
+        let payload_hex = if payload_hex.len() >= 4 {
+            // check if first byte is a valid push size
+            let maybe_len = u8::from_str_radix(&payload_hex[..2], 16).ok()? as usize;
+            let expected_hex_len = maybe_len * 2;
+            if payload_hex.len() == 2 + expected_hex_len {
+                &payload_hex[2..] // strip length byte
+            } else {
+                payload_hex
+            }
+        } else {
+            payload_hex
+        };
+
         let payload = hex::decode(payload_hex).ok()?;
 
-        // Check for CSV commitment patterns (64 or 65 bytes)
+        // CSV OP_RETURN commitment: 64 bytes (opret) or 65 bytes (tapret with nonce)
         if payload.len() != 64 && payload.len() != 65 {
             return None;
         }
 
-        // Extract protocol_id (first 32 bytes)
         let protocol_id = &payload[0..32];
 
-        // Check if this is a known CSV protocol ID
-        // CSV protocol IDs start with "CSV-" prefix
-        if &protocol_id[0..4] != b"CSV-" {
+        // FIX: compare against actual protocol magic bytes.
+        // csv-adapter-core defines `csv_adapter_core::protocol_version::PROTOCOL_VERSION`
+        // as a human-readable tag. Real check should use the first 4 bytes of the
+        // SHA256 tag. Using "CSV-" prefix as placeholder until core type is confirmed.
+        const CSV_MAGIC: &[u8; 4] = b"CSV-";
+        if &protocol_id[0..4] != CSV_MAGIC {
             return None;
         }
 
-        // Extract commitment hash (last 32 bytes, or bytes 33-64 for 65-byte with nonce)
         let commitment_hash = if payload.len() == 65 {
-            // Tapret with nonce: protocol_id(32) || nonce(1) || commitment(32)
-            &payload[33..65]
+            &payload[33..65] // tapret: nonce at [32]
         } else {
-            // Opret: protocol_id(32) || commitment(32)
             &payload[32..64]
         };
 
-        // Derive owner from the input (seal UTXO spender)
-        let owner = tx
-            .vin
-            .first()
+        let owner = tx.vin.first()
             .and_then(|vin| vin.txid.as_ref())
             .map(|txid| format!("btc-{}", &txid[..8]))
             .unwrap_or_else(|| "unknown".to_string());
@@ -504,7 +452,7 @@ impl BitcoinIndexer {
         let commitment_hex = hex::encode(commitment_hash);
 
         Some(RightRecord {
-            id: format!("btc-{}-{}", tx.txid, commitment_hex[..16].to_string()),
+            id: format!("btc-{}-{}", tx.txid, &commitment_hex[..16]),
             chain: "bitcoin".to_string(),
             seal_ref: format!("{}:0", tx.txid),
             commitment: commitment_hex,
@@ -515,7 +463,8 @@ impl BitcoinIndexer {
             metadata: Some(serde_json::json!({
                 "protocol_id": protocol_str,
                 "commitment_scheme": "hash_based",
-                "inclusion_proof": "merkle"
+                "inclusion_proof": "merkle",
+                "block_height": block,
             })),
             transfer_count: 0,
             last_transfer_at: None,

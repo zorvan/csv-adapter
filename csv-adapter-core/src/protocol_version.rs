@@ -281,6 +281,32 @@ impl std::fmt::Display for TransferStatus {
     }
 }
 
+impl std::str::FromStr for TransferStatus {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "initiated" => Ok(Self::Initiated),
+            "locking" => Ok(Self::Locking {
+                current_confirmations: 0,
+                required_confirmations: 1,
+            }),
+            "generating_proof" => Ok(Self::GeneratingProof {
+                progress_percent: 0,
+            }),
+            "submitting_proof" => Ok(Self::SubmittingProof),
+            "verifying" => Ok(Self::Verifying),
+            "minting" => Ok(Self::Minting),
+            "completed" => Ok(Self::Completed),
+            "failed" => Ok(Self::Failed {
+                error_code: "unknown".to_string(),
+                retryable: false,
+            }),
+            _ => Err(format!("Unknown transfer status: '{}'", s)),
+        }
+    }
+}
+
 // ===========================================================================
 // Error Code Registry [🟡 BETA]
 // ===========================================================================

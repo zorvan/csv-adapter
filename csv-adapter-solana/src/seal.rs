@@ -1,11 +1,5 @@
 //! Solana seal implementation for CSV
 
-use solana_sdk::{
-    pubkey::Pubkey,
-    signature::Signature,
-    transaction::Transaction,
-};
-
 use crate::error::{SolanaError, SolanaResult};
 use crate::types::SolanaSealRef;
 

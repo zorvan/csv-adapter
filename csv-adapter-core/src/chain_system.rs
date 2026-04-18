@@ -11,9 +11,13 @@ pub struct ChainRegistry {
 /// Basic chain information
 #[derive(Debug, Clone)]
 pub struct ChainInfo {
+    /// Unique identifier for the chain
     pub chain_id: String,
+    /// Human-readable name of the chain
     pub chain_name: String,
+    /// Whether the chain supports NFTs
     pub supports_nfts: bool,
+    /// Whether the chain supports smart contracts
     pub supports_smart_contracts: bool,
 }
 

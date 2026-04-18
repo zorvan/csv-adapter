@@ -4,8 +4,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
 
-use super::Chain;
-
 /// Chain-specific configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChainConfig {

@@ -1,6 +1,7 @@
 use csv_explorer_shared::{ExplorerStats, RightRecord, SealRecord, TransferRecord};
 /// Home / landing page with stats, recent activity, and chain status.
 use dioxus::prelude::*;
+use dioxus_router::components::Link;
 
 use crate::app::routes::Route;
 use crate::components::StatCard;

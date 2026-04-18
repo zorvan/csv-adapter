@@ -6,7 +6,6 @@ use solana_sdk::{
     transaction::Transaction,
     account::Account,
 };
-use std::time::Duration;
 
 use crate::error::{SolanaError, SolanaResult};
 use crate::types::{AccountChange, ConfirmationStatus};

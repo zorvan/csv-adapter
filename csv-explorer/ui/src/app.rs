@@ -1,5 +1,6 @@
 /// Main application component with routing.
 use dioxus::prelude::*;
+use dioxus_router::components::{Link, Outlet};
 
 use crate::app::routes::Route;
 use crate::pages::{Home, RightsList, SealsList, Stats, TransfersList, Wallet};

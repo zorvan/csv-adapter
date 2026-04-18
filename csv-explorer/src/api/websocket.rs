@@ -7,7 +7,8 @@ use std::sync::Arc;
 use futures::{SinkExt, StreamExt};
 use tokio::sync::RwLock;
 use warp::ws::WebSocket;
-use crate::indexing::{IndexingManager, IndexingEvent};
+use crate::indexing::events::IndexingEvent;
+use crate::indexing::IndexingManager;
 
 /// WebSocket connection manager
 pub struct WebSocketManager {
@@ -69,7 +70,7 @@ impl WebSocketManager {
     pub async fn handle_connection(&self, websocket: WebSocket) {
         use futures::channel::mpsc;
         
-        let (tx, rx) = mpsc::unbounded();
+        let (tx, mut rx) = mpsc::unbounded();
         let (mut ws_tx, mut ws_rx) = websocket.split();
         
         let connection_id = uuid::Uuid::new_v4().to_string();
@@ -78,55 +79,43 @@ impl WebSocketManager {
             sender: tx,
             subscriptions: Vec::new(),
         };
-        
+
         // Add connection to manager
         {
             let mut connections = self.connections.write().await;
             connections.push(connection);
         }
-        
+
         // Handle incoming messages from WebSocket
         let connections = self.connections.clone();
         let indexing_manager = self.indexing_manager.clone();
-        
+        let connection_id_for_handler = connection_id.clone();
+
         tokio::spawn(async move {
             while let Some(message) = ws_rx.next().await {
                 if let Ok(message) = message {
-                    match message {
-                        warp::ws::Message::Text(text) => {
-                            if let Ok(ws_message) = serde_json::from_str::<WebSocketMessage>(&text) {
-                                Self::handle_websocket_message(
-                                    ws_message,
-                                    &connection_id,
-                                    &connections,
-                                    &indexing_manager,
-                                ).await;
-                            }
+                    // Handle different message types
+                    if let Ok(text) = message.to_str() {
+                        if let Ok(ws_message) = serde_json::from_str::<WebSocketMessage>(text) {
+                            Self::handle_websocket_message(
+                                ws_message,
+                                &connection_id_for_handler,
+                                &connections,
+                                &indexing_manager,
+                            ).await;
                         }
-                        warp::ws::Message::Close(_) => {
-                            break;
-                        }
-                        _ => {}
+                    } else if message.is_close() {
+                        break;
                     }
                 }
             }
-            
+
             // Remove connection when closed
             let mut connections = connections.write().await;
-            connections.retain(|conn| conn.id != connection_id);
+            connections.retain(|conn| conn.id != connection_id_for_handler);
         });
-        
-        // Handle outgoing messages to WebSocket
-        let connections = self.connections.clone();
-        tokio::spawn(async move {
-            while let Some(message) = rx.recv().await {
-                if ws_tx.send(message).await.is_err() {
-                    break;
-                }
-            }
-        });
-        
-        // Send initial connection message
+
+        // Send initial connection message first
         let welcome_message = WebSocketMessage::Update {
             subscription_type: "connection".to_string(),
             data: serde_json::json!({
@@ -134,10 +123,19 @@ impl WebSocketManager {
                 "message": "Connected to CSV Explorer WebSocket"
             }),
         };
-        
+
         if let Ok(text) = serde_json::to_string(&welcome_message) {
             let _ = ws_tx.send(warp::ws::Message::text(text)).await;
         }
+
+        // Handle outgoing messages to WebSocket
+        tokio::spawn(async move {
+            while let Ok(message) = rx.recv().await {
+                if ws_tx.send(message).await.is_err() {
+                    break;
+                }
+            }
+        });
     }
     
     /// Handle WebSocket message
@@ -197,7 +195,7 @@ impl WebSocketManager {
         // Send initial data based on subscription type
         match subscription_type {
             "rights" => {
-                if let Some(owner) = indexing_manager.get_rights_by_owner("default").await.ok() {
+                if let Ok(owner) = indexing_manager.get_rights_by_owner("default").await {
                     let update = WebSocketMessage::Update {
                         subscription_type: "rights".to_string(),
                         data: serde_json::json!(owner),
@@ -206,24 +204,22 @@ impl WebSocketManager {
                 }
             }
             "transfers" => {
-                if let Ok(metrics) = indexing_manager.get_metrics().await {
-                    let update = WebSocketMessage::Update {
-                        subscription_type: "transfers".to_string(),
-                        data: serde_json::json!({
-                            "total_transfers": metrics.transfers_indexed
-                        }),
-                    };
-                    Self::send_message_to_connection(connection_id, update, connections).await;
-                }
+                let metrics = indexing_manager.get_metrics().await;
+                let update = WebSocketMessage::Update {
+                    subscription_type: "transfers".to_string(),
+                    data: serde_json::json!({
+                        "total_transfers": metrics.transfers_indexed
+                    }),
+                };
+                Self::send_message_to_connection(connection_id, update, connections).await;
             }
             "metrics" => {
-                if let Ok(metrics) = indexing_manager.get_metrics().await {
-                    let update = WebSocketMessage::Update {
-                        subscription_type: "metrics".to_string(),
-                        data: serde_json::json!(metrics),
-                    };
-                    Self::send_message_to_connection(connection_id, update, connections).await;
-                }
+                let metrics = indexing_manager.get_metrics().await;
+                let update = WebSocketMessage::Update {
+                    subscription_type: "metrics".to_string(),
+                    data: serde_json::json!(metrics),
+                };
+                Self::send_message_to_connection(connection_id, update, connections).await;
             }
             _ => {
                 Self::send_error(connection_id, format!("Unknown subscription type: {}", subscription_type), connections).await;
@@ -264,7 +260,7 @@ impl WebSocketManager {
         let connections_guard = connections.read().await;
         if let Some(connection) = connections_guard.iter().find(|c| c.id == connection_id) {
             if let Ok(text) = serde_json::to_string(&message) {
-                let _ = connection.sender.send(warp::ws::Message::text(text));
+                let _ = connection.sender.unbounded_send(warp::ws::Message::text(text));
             }
         }
     }
@@ -272,10 +268,10 @@ impl WebSocketManager {
     /// Broadcast message to all connections
     pub async fn broadcast(&self, message: WebSocketMessage) {
         let connections_guard = self.connections.read().await;
-        
+
         for connection in connections_guard.iter() {
             if let Ok(text) = serde_json::to_string(&message) {
-                let _ = connection.sender.send(warp::ws::Message::text(text));
+                let _ = connection.sender.unbounded_send(warp::ws::Message::text(text));
             }
         }
     }
@@ -283,11 +279,12 @@ impl WebSocketManager {
     /// Broadcast message to connections subscribed to specific type
     pub async fn broadcast_to_subscribers(&self, subscription_type: &str, message: WebSocketMessage) {
         let connections_guard = self.connections.read().await;
-        
+
         for connection in connections_guard.iter() {
+            // Check if this connection is subscribed to the given type
             if connection.subscriptions.iter().any(|s| s.subscription_type == subscription_type) {
                 if let Ok(text) = serde_json::to_string(&message) {
-                    let _ = connection.sender.send(warp::ws::Message::text(text));
+                    let _ = connection.sender.unbounded_send(warp::ws::Message::text(text));
                 }
             }
         }

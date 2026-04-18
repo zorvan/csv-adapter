@@ -99,6 +99,8 @@ impl ProofCache {
 #[derive(Clone)]
 struct CachedProof {
     proof: ProofBundle,
+    /// Last access time (for future LRU implementation)
+    #[allow(dead_code)]
     accessed_at: Instant,
     expires_at: Instant,
 }
@@ -106,9 +108,13 @@ struct CachedProof {
 /// Cache statistics
 #[derive(Debug, Clone)]
 pub struct CacheStats {
+    /// Number of cache hits
     pub hits: u64,
+    /// Number of cache misses
     pub misses: u64,
+    /// Cache hit rate (0.0 to 1.0)
     pub hit_rate: f64,
+    /// Current cache size
     pub size: usize,
 }
 
@@ -162,8 +168,11 @@ impl SealRegistryFilter {
 /// Filter statistics
 #[derive(Debug, Clone)]
 pub struct FilterStats {
+    /// Number of bits in the filter
     pub bit_count: usize,
+    /// Number of hash functions used
     pub hash_count: usize,
+    /// Configured false positive rate
     pub false_positive_rate: f64,
 }
 
@@ -218,9 +227,13 @@ impl SequentialVerifier {
 /// Verification result for a single proof
 #[derive(Debug, Clone)]
 pub struct VerificationResult {
+    /// Hash of the proof that was verified
     pub proof_hash: Hash,
+    /// Whether the proof is valid
     pub is_valid: bool,
+    /// Time taken to verify the proof
     pub verification_time: Duration,
+    /// Error message if verification failed
     pub error: Option<String>,
 }
 
@@ -282,7 +295,9 @@ impl PerformanceMetrics {
 /// Comprehensive performance statistics
 #[derive(Debug, Clone)]
 pub struct PerformanceStats {
+    /// Cache performance statistics
     pub cache_stats: CacheStats,
+    /// Bloom filter statistics
     pub filter_stats: FilterStats,
 }
 
@@ -356,10 +371,10 @@ mod tests {
         use crate::proof::{InclusionProof, FinalityProof};
         
         ProofBundle {
-            transition_dag: DAGSegment::new(),
+            transition_dag: DAGSegment::new(vec![], Hash::zero()),
             signatures: vec![],
-            seal_ref: SealRef::zero(),
-            anchor_ref: AnchorRef::zero(),
+            seal_ref: SealRef::new_unchecked(vec![0], Some(0)),
+            anchor_ref: AnchorRef::new_unchecked(vec![0], 0, vec![]),
             inclusion_proof: InclusionProof::new_unchecked(vec![], Hash::zero(), 0),
             finality_proof: FinalityProof::new_unchecked(vec![], 0, true),
         }

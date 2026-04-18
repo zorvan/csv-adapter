@@ -8,7 +8,9 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use warp::{Filter, Reply};
-use crate::indexing::{IndexingManager, RightsQuery, TransferQuery, IndexedRight, IndexedTransfer};
+use std::net::SocketAddr;
+use tokio_tungstenite::WebSocketStream;
+use crate::indexing::{IndexingManager, RightsQuery, TransferQuery, IndexedRight, IndexedTransfer, IndexingMetrics};
 
 pub mod handlers;
 pub mod websocket;
@@ -121,7 +123,7 @@ pub struct TransferStatusUpdate {
 
 impl ExplorerApi {
     /// Create a new API server
-    pub fn new(indexing_manager: Arc<IndexingManager>) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(indexing_manager: Arc<IndexingManager>) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         Ok(Self {
             indexing_manager,
             port: 8080,
@@ -130,7 +132,7 @@ impl ExplorerApi {
     }
     
     /// Start the API server
-    pub async fn start(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn start(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         if self.is_running {
             return Err("API server already running".into());
         }
@@ -141,14 +143,14 @@ impl ExplorerApi {
         let routes = self.create_routes();
         
         // Start the server
-        let addr = ([0, 0, 0, 0], self.port).into();
+        let addr: std::net::SocketAddr = ([0, 0, 0, 0], self.port).into();
         warp::serve(routes).run(addr).await;
         
         Ok(())
     }
     
     /// Stop the API server
-    pub fn stop(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn stop(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         println!("Stopping Explorer API server");
         // In a real implementation, we'd use a graceful shutdown mechanism
         Ok(())
@@ -166,51 +168,69 @@ impl ExplorerApi {
             });
         
         // Get rights by owner
-        let rights_by_owner = warp::path("rights")
-            .and(warp::path("owner"))
-            .and(warp::path::param::<String>())
-            .and(warp::get())
-            .and(warp::any().map(move || indexing_manager.clone()))
-            .and_then(handlers::get_rights_by_owner);
-        
+        let rights_by_owner = {
+            let indexing_manager = indexing_manager.clone();
+            warp::path("rights")
+                .and(warp::path("owner"))
+                .and(warp::path::param::<String>())
+                .and(warp::get())
+                .and(warp::any().map(move || indexing_manager.clone()))
+                .and_then(handlers::get_rights_by_owner)
+        };
+
         // Search rights
-        let search_rights = warp::path("rights")
-            .and(warp::path("search"))
-            .and(warp::post())
-            .and(warp::body::json())
-            .and(warp::any().map(move || indexing_manager.clone()))
-            .and_then(handlers::search_rights);
-        
+        let search_rights = {
+            let indexing_manager = indexing_manager.clone();
+            warp::path("rights")
+                .and(warp::path("search"))
+                .and(warp::post())
+                .and(warp::body::json())
+                .and(warp::any().map(move || indexing_manager.clone()))
+                .and_then(handlers::search_rights)
+        };
+
         // Get transfer by hash
-        let transfer_by_hash = warp::path("transfers")
-            .and(warp::path::param::<String>())
-            .and(warp::get())
-            .and(warp::any().map(move || indexing_manager.clone()))
-            .and_then(handlers::get_transfer_by_hash);
-        
+        let transfer_by_hash = {
+            let indexing_manager = indexing_manager.clone();
+            warp::path("transfers")
+                .and(warp::path::param::<String>())
+                .and(warp::get())
+                .and(warp::any().map(move || indexing_manager.clone()))
+                .and_then(handlers::get_transfer_by_hash)
+        };
+
         // Search transfers
-        let search_transfers = warp::path("transfers")
-            .and(warp::path("search"))
-            .and(warp::post())
-            .and(warp::body::json())
-            .and(warp::any().map(move || indexing_manager.clone()))
-            .and_then(handlers::search_transfers);
-        
+        let search_transfers = {
+            let indexing_manager = indexing_manager.clone();
+            warp::path("transfers")
+                .and(warp::path("search"))
+                .and(warp::post())
+                .and(warp::body::json())
+                .and(warp::any().map(move || indexing_manager.clone()))
+                .and_then(handlers::search_transfers)
+        };
+
         // Get indexing metrics
-        let metrics = warp::path("metrics")
-            .and(warp::get())
-            .and(warp::any().map(move || indexing_manager.clone()))
-            .and_then(handlers::get_metrics);
-        
+        let metrics = {
+            let indexing_manager = indexing_manager.clone();
+            warp::path("metrics")
+                .and(warp::get())
+                .and(warp::any().map(move || indexing_manager.clone()))
+                .and_then(handlers::get_metrics)
+        };
+
         // WebSocket for real-time updates
-        let websocket = warp::path("ws")
-            .and(warp::ws())
-            .and(warp::any().map(move || indexing_manager.clone()))
-            .map(|ws: warp::ws::Ws, indexing_manager| {
-                ws.on_upgrade(move |websocket| {
-                    websocket::handle_websocket(websocket, indexing_manager)
+        let websocket = {
+            let indexing_manager = indexing_manager.clone();
+            warp::path("ws")
+                .and(warp::ws())
+                .and(warp::any().map(move || indexing_manager.clone()))
+                .map(|ws: warp::ws::Ws, indexing_manager| {
+                    ws.on_upgrade(move |websocket| {
+                        websocket::handle_websocket(websocket, indexing_manager)
+                    })
                 })
-            });
+        };
         
         // CORS headers
         let cors = warp::cors()
@@ -257,7 +277,7 @@ impl ExplorerApiClient {
     }
     
     /// Get rights by owner
-    pub async fn get_rights_by_owner(&self, owner: &str) -> Result<RightsResponse, Box<dyn std::error::Error>> {
+    pub async fn get_rights_by_owner(&self, owner: &str) -> Result<RightsResponse, Box<dyn std::error::Error + Send + Sync>> {
         let url = format!("{}/rights/owner/{}", self.base_url, owner);
         let response = self.client.get(&url).send().await?;
         let api_response: ApiResponse<RightsResponse> = response.json().await?;
@@ -270,7 +290,7 @@ impl ExplorerApiClient {
     }
     
     /// Search rights
-    pub async fn search_rights(&self, request: &RightsSearchRequest) -> Result<RightsResponse, Box<dyn std::error::Error>> {
+    pub async fn search_rights(&self, request: &RightsSearchRequest) -> Result<RightsResponse, Box<dyn std::error::Error + Send + Sync>> {
         let url = format!("{}/rights/search", self.base_url);
         let response = self.client.post(&url).json(request).send().await?;
         let api_response: ApiResponse<RightsResponse> = response.json().await?;
@@ -283,7 +303,7 @@ impl ExplorerApiClient {
     }
     
     /// Get transfer by hash
-    pub async fn get_transfer_by_hash(&self, hash: &str) -> Result<Option<IndexedTransfer>, Box<dyn std::error::Error>> {
+    pub async fn get_transfer_by_hash(&self, hash: &str) -> Result<Option<IndexedTransfer>, Box<dyn std::error::Error + Send + Sync>> {
         let url = format!("{}/transfers/{}", self.base_url, hash);
         let response = self.client.get(&url).send().await?;
         let api_response: ApiResponse<IndexedTransfer> = response.json().await?;
@@ -296,7 +316,7 @@ impl ExplorerApiClient {
     }
     
     /// Search transfers
-    pub async fn search_transfers(&self, request: &TransfersSearchRequest) -> Result<TransfersResponse, Box<dyn std::error::Error>> {
+    pub async fn search_transfers(&self, request: &TransfersSearchRequest) -> Result<TransfersResponse, Box<dyn std::error::Error + Send + Sync>> {
         let url = format!("{}/transfers/search", self.base_url);
         let response = self.client.post(&url).json(request).send().await?;
         let api_response: ApiResponse<TransfersResponse> = response.json().await?;
@@ -308,21 +328,16 @@ impl ExplorerApiClient {
         }
     }
     
-    /// Get indexing metrics
-    pub async fn get_metrics(&self) -> Result<crate::indexing::IndexingMetrics, Box<dyn std::error::Error>> {
-        let url = format!("{}/metrics", self.base_url);
-        let response = self.client.get(&url).send().await?;
-        let api_response: ApiResponse<crate::indexing::IndexingMetrics> = response.json().await?;
-        
-        if api_response.success {
-            api_response.data.ok_or_else(|| "No data in response".into())
-        } else {
-            Err(api_response.error.unwrap_or_else(|| "Unknown error".to_string()).into())
-        }
-    }
+/// Get indexing metrics
+pub async fn get_metrics(&self) -> Result<IndexingMetrics, Box<dyn std::error::Error + Send + Sync>> {
+    let url = format!("{}/metrics", self.base_url);
+    let response = self.client.get(&url).send().await?;
+    let metrics: IndexingMetrics = response.json().await?;
+    Ok(metrics)
+}
     
     /// Create WebSocket connection for real-time updates
-    pub async fn connect_websocket(&self) -> Result<tokio_tungstenite::tungstenite::WebSocketStream<tokio::net::TcpStream>, Box<dyn std::error::Error>> {
+    pub async fn connect_websocket(&self) -> Result<WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>, Box<dyn std::error::Error + Send + Sync>> {
         let ws_url = format!("{}/ws", self.base_url.replace("http", "ws"));
         let (stream, _) = tokio_tungstenite::connect_async(&ws_url).await?;
         Ok(stream)

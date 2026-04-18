@@ -26,7 +26,7 @@ pub struct DashboardStatus {
 
 impl DashboardServer {
     /// Create a new dashboard server
-    pub fn new(indexing_manager: Arc<IndexingManager>) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(indexing_manager: Arc<IndexingManager>) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         Ok(Self {
             indexing_manager,
             port: 3000,
@@ -35,7 +35,7 @@ impl DashboardServer {
     }
     
     /// Start the dashboard server
-    pub async fn start(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn start(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         if self.is_running {
             return Err("Dashboard server already running".into());
         }
@@ -46,51 +46,64 @@ impl DashboardServer {
         let routes = self.create_routes();
         
         // Start the server
-        let addr = ([0, 0, 0, 0], self.port).into();
+        let addr: std::net::SocketAddr = ([0, 0, 0, 0], self.port).into();
         warp::serve(routes).run(addr).await;
         
         Ok(())
     }
     
     /// Stop the dashboard server
-    pub fn stop(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn stop(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         println!("Stopping Dashboard server");
         Ok(())
     }
     
     /// Create dashboard routes
     fn create_routes(&self) -> impl Filter<Extract = impl Reply, Error = warp::Rejection> + Clone {
-        let indexing_manager = self.indexing_manager.clone();
-        
         // Main dashboard page
         let dashboard = warp::path::end()
             .and(warp::get())
-            .and(warp::any().map(move || indexing_manager.clone()))
+            .and(warp::any().map({
+                let indexing_manager = self.indexing_manager.clone();
+                move || indexing_manager.clone()
+            }))
             .and_then(handlers::serve_dashboard);
         
         // API endpoints for dashboard data
         let api_metrics = warp::path("api")
             .and(warp::path("metrics"))
             .and(warp::get())
-            .and(warp::any().map(move || indexing_manager.clone()))
+            .and(warp::any().map({
+                let indexing_manager = self.indexing_manager.clone();
+                move || indexing_manager.clone()
+            }))
             .and_then(handlers::get_metrics);
         
         let api_rights = warp::path("api")
             .and(warp::path("rights"))
             .and(warp::get())
-            .and(warp::any().map(move || indexing_manager.clone()))
+            .and(warp::any().map({
+                let indexing_manager = self.indexing_manager.clone();
+                move || indexing_manager.clone()
+            }))
             .and_then(handlers::get_rights_summary);
         
         let api_transfers = warp::path("api")
             .and(warp::path("transfers"))
             .and(warp::get())
-            .and(warp::any().map(move || indexing_manager.clone()))
+            .and(warp::any().map({
+                let indexing_manager = self.indexing_manager.clone();
+                move || indexing_manager.clone()
+            }))
             .and_then(handlers::get_transfers_summary);
         
         let api_chains = warp::path("api")
             .and(warp::path("chains"))
             .and(warp::get())
-            .and(warp::any().map(move || indexing_manager.clone()))
+            .and(warp::any().map({
+                let indexing_manager = self.indexing_manager.clone();
+                move || indexing_manager.clone()
+            }))
             .and_then(handlers::get_chain_status);
         
         // Static assets (CSS, JS)
@@ -132,7 +145,7 @@ pub mod handlers {
     
     /// Serve the main dashboard HTML page
     pub async fn serve_dashboard(
-        indexing_manager: Arc<IndexingManager>,
+        _indexing_manager: Arc<IndexingManager>,
     ) -> Result<impl Reply, warp::Rejection> {
         let html = generate_dashboard_html().await;
         Ok(warp::reply::html(html))
@@ -142,12 +155,8 @@ pub mod handlers {
     pub async fn get_metrics(
         indexing_manager: Arc<IndexingManager>,
     ) -> Result<impl Reply, warp::Rejection> {
-        match indexing_manager.get_metrics().await {
-            Ok(metrics) => Ok(warp::reply::json(&metrics)),
-            Err(e) => Ok(warp::reply::json(&serde_json::json!({
-                "error": e.to_string()
-            }))),
-        }
+        let metrics = indexing_manager.get_metrics().await;
+        Ok(warp::reply::json(&metrics))
     }
     
     /// Get rights summary for dashboard
@@ -214,7 +223,7 @@ pub mod handlers {
         indexing_manager: Arc<IndexingManager>,
     ) -> Result<impl Reply, warp::Rejection> {
         let metrics = indexing_manager.get_metrics().await;
-        
+
         let chain_status = serde_json::json!({
             "active_chains": metrics.active_chains,
             "chains": [
@@ -250,7 +259,7 @@ pub mod handlers {
                 }
             ]
         });
-        
+
         Ok(warp::reply::json(&chain_status))
     }
     

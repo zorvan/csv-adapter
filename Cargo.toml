@@ -10,13 +10,13 @@ members = [
     "csv-adapter",
     "csv-cli",
     "csv-wallet",
-    "csv-explorer",
+    "csv-explorer"
 ]
 resolver = "2"
 
 [workspace.package]
 version = "0.2.0"
-authors = ["Amin Razavi, Qwen3"]
+authors = ["Amin Razavi, ALL FREE LLMs"]
 repository = "https://github.com/zorvan/csv-adapter"
 homepage = "https://github.com/zorvan/csv-adapter"
 license = "MIT OR Apache-2.0"

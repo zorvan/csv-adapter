@@ -1,5 +1,6 @@
 /// Seal detail page showing full information about a CSV seal.
 use dioxus::prelude::*;
+use dioxus_router::components::Link;
 
 use crate::app::routes::Route;
 

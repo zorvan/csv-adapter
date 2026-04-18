@@ -1,5 +1,6 @@
 /// Transfer detail page showing full information about a cross-chain transfer.
 use dioxus::prelude::*;
+use dioxus_router::components::Link;
 
 use crate::app::routes::Route;
 

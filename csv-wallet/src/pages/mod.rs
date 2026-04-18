@@ -11,7 +11,7 @@ use csv_adapter_core::Chain;
 pub mod wallet_page;
 pub mod nft_page;
 pub use wallet_page::WalletPage;
-pub use nft_page::{NftPage, NftGallery, NftCollections, NftDetail};
+pub use nft_page::{NftGallery, NftCollections, NftDetail};
 
 // ===== Chain Styling Helpers =====
 fn chain_color(chain: &Chain) -> &'static str {

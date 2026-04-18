@@ -9,6 +9,7 @@ pub mod dashboard;
 
 use std::sync::Arc;
 use std::time::Instant;
+use chrono::{DateTime, Utc};
 use indexing::IndexingManager;
 use api::ExplorerApi;
 use dashboard::DashboardServer;
@@ -22,7 +23,7 @@ pub struct ExplorerService {
 
 impl ExplorerService {
     /// Create a new explorer service
-    pub async fn new() -> Result<Self, Box<dyn std::error::Error>> {
+    pub async fn new() -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let indexing_manager = Arc::new(IndexingManager::new()?);
         let api_server = Arc::new(ExplorerApi::new(indexing_manager.clone())?);
         let dashboard_server = Arc::new(DashboardServer::new(indexing_manager.clone())?);
@@ -35,30 +36,27 @@ impl ExplorerService {
     }
     
     /// Start the explorer service
-    pub async fn start(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn start(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         println!("Starting CSV Explorer service...");
-        
+
         // Start indexing pipeline
-        let mut indexing_manager = Arc::try_unwrap(Arc::downgrade(&self.indexing_manager))
-            .unwrap_or_else(|| self.indexing_manager.clone());
-        
-        // This is a bit of a hack since we can't get a mutable reference from Arc
-        // In a real implementation, we'd use a different pattern
-        unsafe {
-            let ptr = Arc::as_ptr(&self.indexing_manager) as *mut IndexingManager;
-            (*ptr).start().await?;
-        }
-        
+        let indexing_manager = self.indexing_manager.clone();
+        tokio::spawn(async move {
+            if let Err(e) = indexing_manager.start().await {
+                eprintln!("Error starting indexing manager: {}", e);
+            }
+        });
+
         // Start API server
         self.api_server.start().await?;
-        
+
         // Start dashboard server
         self.dashboard_server.start().await?;
-        
+
         println!("Explorer service started successfully");
         println!("API available at: http://localhost:8080");
         println!("Dashboard available at: http://localhost:3000");
-        
+
         Ok(())
     }
     
@@ -67,21 +65,21 @@ impl ExplorerService {
         let indexing_metrics = self.indexing_manager.get_metrics().await;
         let api_status = self.api_server.get_status().await;
         let dashboard_status = self.dashboard_server.get_status().await;
-        
+
         ExplorerStatus {
             indexing_metrics,
             api_status,
             dashboard_status,
-            uptime: Instant::now(),
+            uptime: Utc::now(),
         }
     }
     
     /// Stop the explorer service
-    pub async fn stop(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn stop(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         println!("Stopping CSV Explorer service...");
         
-        self.api_server.stop().await?;
-        self.dashboard_server.stop().await?;
+        self.api_server.stop()?;
+        self.dashboard_server.stop()?;
         
         println!("Explorer service stopped");
         Ok(())
@@ -94,7 +92,7 @@ pub struct ExplorerStatus {
     pub indexing_metrics: indexing::IndexingMetrics,
     pub api_status: api::ApiStatus,
     pub dashboard_status: dashboard::DashboardStatus,
-    pub uptime: Instant,
+    pub uptime: DateTime<Utc>,
 }
 
 #[cfg(test)]

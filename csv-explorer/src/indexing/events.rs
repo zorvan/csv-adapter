@@ -5,7 +5,7 @@
 
 use csv_adapter_core::{Hash, Right, Chain};
 use serde::{Deserialize, Serialize};
-use std::time::Instant;
+use chrono::{DateTime, Utc};
 
 /// Indexing event types
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -15,7 +15,7 @@ pub enum IndexingEvent {
         right_id: Hash,
         chain: Chain,
         owner: String,
-        created_at: Instant,
+        created_at: DateTime<Utc>,
         metadata: serde_json::Value,
     },
     
@@ -25,7 +25,7 @@ pub enum IndexingEvent {
         from_chain: Chain,
         to_chain: Chain,
         transfer_id: Hash,
-        created_at: Instant,
+        created_at: DateTime<Utc>,
         proof_bundle: Option<csv_adapter_core::proof::ProofBundle>,
     },
     
@@ -34,31 +34,31 @@ pub enum IndexingEvent {
         transfer_id: Hash,
         old_status: csv_adapter_core::TransferStatus,
         new_status: csv_adapter_core::TransferStatus,
-        updated_at: Instant,
+        updated_at: DateTime<Utc>,
     },
-    
+
     /// Right metadata updated
     RightUpdated {
         right_id: Hash,
         chain: Chain,
         old_metadata: serde_json::Value,
         new_metadata: serde_json::Value,
-        updated_at: Instant,
+        updated_at: DateTime<Utc>,
     },
-    
+
     /// Chain synchronization event
     ChainSynced {
         chain: Chain,
         block_height: u64,
         last_block_hash: Hash,
-        synced_at: Instant,
+        synced_at: DateTime<Utc>,
     },
-    
+
     /// Error event
     Error {
         error: String,
         chain: Option<Chain>,
-        timestamp: Instant,
+        timestamp: DateTime<Utc>,
         context: serde_json::Value,
     },
 }
@@ -89,7 +89,7 @@ impl IndexingEvent {
     }
     
     /// Get timestamp for event
-    pub fn timestamp(&self) -> Instant {
+    pub fn timestamp(&self) -> DateTime<Utc> {
         match self {
             IndexingEvent::RightCreated { created_at, .. } => *created_at,
             IndexingEvent::RightTransferred { created_at, .. } => *created_at,
@@ -122,8 +122,8 @@ impl IndexingEvent {
 pub struct EventFilter {
     pub chains: Option<Vec<Chain>>,
     pub event_types: Option<Vec<String>>,
-    pub start_time: Option<Instant>,
-    pub end_time: Option<Instant>,
+    pub start_time: Option<DateTime<Utc>>,
+    pub end_time: Option<DateTime<Utc>>,
 }
 
 impl EventFilter {
@@ -150,7 +150,7 @@ impl EventFilter {
     }
     
     /// Filter by time range
-    pub fn time_range(mut self, start: Instant, end: Instant) -> Self {
+    pub fn time_range(mut self, start: DateTime<Utc>, end: DateTime<Utc>) -> Self {
         self.start_time = Some(start);
         self.end_time = Some(end);
         self
@@ -202,7 +202,7 @@ impl Default for EventFilter {
 pub struct EventBatch {
     pub events: Vec<IndexingEvent>,
     pub batch_id: String,
-    pub created_at: Instant,
+    pub created_at: DateTime<Utc>,
     pub size_bytes: usize,
 }
 
@@ -212,11 +212,11 @@ impl EventBatch {
         let size_bytes = events.iter()
             .map(|e| e.to_json().unwrap_or_default().to_string().len())
             .sum();
-        
+
         Self {
             events,
             batch_id: uuid::Uuid::new_v4().to_string(),
-            created_at: Instant::now(),
+            created_at: Utc::now(),
             size_bytes,
         }
     }
@@ -292,18 +292,18 @@ mod tests {
         let filter = EventFilter::new()
             .chains(vec![Chain::Ethereum])
             .event_types(vec!["right_created".to_string()]);
-        
+
         let event = IndexingEvent::RightCreated {
             right_id: Hash::zero(),
             chain: Chain::Ethereum,
             owner: "test".to_string(),
-            created_at: Instant::now(),
+            created_at: Utc::now(),
             metadata: serde_json::json!({}),
         };
-        
+
         assert!(filter.matches(&event));
     }
-    
+
     #[test]
     fn test_event_batch() {
         let events = vec![
@@ -311,11 +311,11 @@ mod tests {
                 right_id: Hash::zero(),
                 chain: Chain::Ethereum,
                 owner: "test".to_string(),
-                created_at: Instant::now(),
+                created_at: Utc::now(),
                 metadata: serde_json::json!({}),
             }
         ];
-        
+
         let batch = EventBatch::new(events);
         assert_eq!(batch.len(), 1);
         assert!(!batch.is_empty());

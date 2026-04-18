@@ -171,7 +171,6 @@ fn generate_wallet_for_chain(chain: &Chain, network: &Network, mnemonic: &str, s
 
 fn generate_bitcoin_from_mnemonic(network: &Network, mnemonic: &str, state: &mut State) -> Result<String> {
     use bitcoin::Network as BtcNetwork;
-    use rand::RngCore;
     
     // Simple seed generation from mnemonic (simplified)
     let mut seed = [0u8; 64];
@@ -200,16 +199,8 @@ fn generate_bitcoin_from_mnemonic(network: &Network, mnemonic: &str, state: &mut
     Ok(address)
 }
 
-fn generate_ethereum_from_mnemonic(mnemonic: &str, state: &mut State) -> Result<String> {
+fn generate_ethereum_from_mnemonic(_mnemonic: &str, state: &mut State) -> Result<String> {
     use rand::RngCore;
-    
-    // Simple seed generation from mnemonic (simplified)
-    let mut seed = [0u8; 32];
-    for (i, byte) in mnemonic.as_bytes().iter().enumerate() {
-        if i < 32 {
-            seed[i] = *byte;
-        }
-    }
     
     // Generate a simple Ethereum-like address (simplified)
     let mut address_bytes = [0u8; 20];
@@ -220,7 +211,7 @@ fn generate_ethereum_from_mnemonic(mnemonic: &str, state: &mut State) -> Result<
     Ok(address)
 }
 
-fn generate_sui_from_mnemonic(mnemonic: &str, state: &mut State) -> Result<String> {
+fn generate_sui_from_mnemonic(_mnemonic: &str, state: &mut State) -> Result<String> {
     use rand::RngCore;
     
     // Generate a simple Sui-like address (simplified)
@@ -232,7 +223,7 @@ fn generate_sui_from_mnemonic(mnemonic: &str, state: &mut State) -> Result<Strin
     Ok(address)
 }
 
-fn generate_aptos_from_mnemonic(mnemonic: &str, state: &mut State) -> Result<String> {
+fn generate_aptos_from_mnemonic(_mnemonic: &str, state: &mut State) -> Result<String> {
     use rand::RngCore;
     
     // Generate a simple Aptos-like address (simplified)
@@ -244,7 +235,7 @@ fn generate_aptos_from_mnemonic(mnemonic: &str, state: &mut State) -> Result<Str
     Ok(address)
 }
 
-fn save_wallet_config(mnemonic: &str, addresses: &std::collections::HashMap<Chain, String>, config: &Config) -> Result<()> {
+fn save_wallet_config(mnemonic: &str, addresses: &std::collections::HashMap<Chain, String>, _config: &Config) -> Result<()> {
     use std::path::PathBuf;
     use std::fs;
     use std::io::Write;
