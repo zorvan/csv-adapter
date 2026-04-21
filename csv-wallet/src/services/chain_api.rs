@@ -40,9 +40,9 @@ impl ChainConfig {
             }
             Chain::Ethereum => {
                 if is_testnet {
-                    "https://rpc.sepolia.org".to_string()
+                    "https://ethereum-sepolia-rpc.publicnode.com".to_string()
                 } else {
-                    "https://rpc.ankr.com/eth".to_string()
+                    "https://ethereum-rpc.publicnode.com".to_string()
                 }
             }
             Chain::Sui => {
@@ -274,15 +274,12 @@ impl ChainApi {
             .get(&Chain::Sui)
             .ok_or_else(|| ChainApiError::ApiError("Sui config not found".to_string()))?;
 
-        // Sui uses coin type 0x2::sui::SUI::SUI for native SUI
+        // Sui uses coin type 0x2::sui::SUI for native SUI
         let body = serde_json::json!({
             "jsonrpc": "2.0",
             "id": 1,
             "method": "suix_getBalance",
-            "params": {
-                "owner": address,
-                "coin_type": "0x2::sui::SUI::SUI"
-            }
+            "params": [address, "0x2::sui::SUI"]
         });
 
         let response = self.client.post(&config.api_url).json(&body).send().await?;
@@ -318,11 +315,11 @@ impl ChainApi {
             .get(&Chain::Aptos)
             .ok_or_else(|| ChainApiError::ApiError("Aptos config not found".to_string()))?;
 
-        // Get account resource for CoinStore
-        let resource_type = "0x1::coin::CoinStore<0x1::aptos_coin::AptosCoin>";
+        // Use the balance endpoint (same as csv-cli)
         let url = format!(
-            "{}/accounts/{}/resource/{}",
-            config.api_url, address, resource_type
+            "{}/accounts/{}/balance/0x1::aptos_coin::AptosCoin",
+            config.api_url.trim_end_matches('/'),
+            address
         );
 
         let response = self.client.get(&url).send().await?;
@@ -338,20 +335,28 @@ impl ChainApi {
             )));
         }
 
-        let json: serde_json::Value = response.json().await?;
-        let balance_str = json
-            .get("data")
-            .and_then(|v| v.get("coin"))
-            .and_then(|v| v.get("value"))
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| ChainApiError::ApiError("Missing balance in response".to_string()))?;
+        let body = response.text().await?;
 
-        let balance_octas: f64 = balance_str
-            .parse()
-            .map_err(|e| ChainApiError::ApiError(format!("Invalid balance: {}", e)))?;
+        // API may return a plain number string or JSON
+        let balance_octas: u64 = if body.starts_with('{') {
+            // Try parsing as JSON
+            if let Ok(info) = serde_json::from_str::<serde_json::Value>(&body) {
+                info.get("amount")
+                    .and_then(|b| b.as_str())
+                    .or_else(|| info.as_str())
+                    .unwrap_or("0")
+                    .parse()
+                    .unwrap_or(0)
+            } else {
+                0
+            }
+        } else {
+            // Plain number string
+            body.trim().parse().unwrap_or(0)
+        };
 
         // 1 APT = 10^8 octas
-        Ok(balance_octas / 1e8)
+        Ok(balance_octas as f64 / 1e8)
     }
 
     /// Query Solana balance via JSON-RPC.
@@ -410,7 +415,7 @@ mod tests {
         assert!(!btc_mainnet.api_url.contains("testnet"));
 
         let eth_testnet = ChainConfig::for_chain(Chain::Ethereum, NetworkType::Testnet);
-        assert!(eth_testnet.api_url.contains("sepolia"));
+        assert!(eth_testnet.api_url.contains("sepolia") || eth_testnet.api_url.contains("publicnode"));
     }
 
     #[test]
