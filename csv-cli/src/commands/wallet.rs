@@ -71,7 +71,11 @@ pub enum WalletAction {
 
 pub fn execute(action: WalletAction, config: &Config, state: &mut State) -> Result<()> {
     match action {
-        WalletAction::Init { network, words, fund } => cmd_init(network, words, fund, config, state),
+        WalletAction::Init {
+            network,
+            words,
+            fund,
+        } => cmd_init(network, words, fund, config, state),
         WalletAction::Generate { chain, network } => cmd_generate(chain, network, config, state),
         WalletAction::Balance { chain, address } => cmd_balance(chain, address, config, state),
         WalletAction::Fund { chain, address } => cmd_fund(chain, address, config, state),
@@ -81,96 +85,117 @@ pub fn execute(action: WalletAction, config: &Config, state: &mut State) -> Resu
     }
 }
 
-fn cmd_init(network: Network, words: u8, fund: bool, config: &Config, state: &mut State) -> Result<()> {
+fn cmd_init(
+    network: Network,
+    words: u8,
+    fund: bool,
+    config: &Config,
+    state: &mut State,
+) -> Result<()> {
     use std::collections::HashMap;
-    
+
     output::header("CSV Wallet Initialization");
     output::info("Setting up your cross-chain wallet...");
-    
+
     // Step 1: Generate mnemonic
     let mnemonic = generate_mnemonic(words)?;
     output::success(&format!("Generated {}-word mnemonic", words));
     output::secret(&format!("Mnemonic: {}", mnemonic));
-    
+
     // Step 2: Generate wallets for all supported chains
     let mut addresses = HashMap::new();
-    
-    for chain in [Chain::Bitcoin, Chain::Ethereum, Chain::Sui, Chain::Aptos, Chain::Solana] {
+
+    for chain in [
+        Chain::Bitcoin,
+        Chain::Ethereum,
+        Chain::Sui,
+        Chain::Aptos,
+        Chain::Solana,
+    ] {
         output::info(&format!("Generating {} wallet...", chain));
         let address = generate_wallet_for_chain(&chain, &network, &mnemonic, state)?;
         addresses.insert(chain.clone(), address.clone());
         output::success(&format!("{} wallet generated", chain));
     }
-    
+
     // Step 3: Save configuration
     output::info("Saving wallet configuration...");
     save_wallet_config(&mnemonic, &addresses, config)?;
     output::success("Configuration saved to ~/.csv/config.toml");
-    
+
     // Step 4: Fund wallets if requested
     if fund {
         output::info("Funding wallets from faucets...");
         fund_all_wallets(&addresses, &network)?;
         output::success("All wallets funded with test tokens");
     }
-    
+
     // Step 5: Summary
     output::header("Wallet Setup Complete! Ready to build!");
     output::info("Your wallet addresses:");
     for (chain, address) in &addresses {
         output::info(&format!("  {}: {}", chain, address));
     }
-    
+
     if fund {
         output::info("Check balances with: csv wallet balance --chain <chain>");
     }
-    
+
     output::success("Start building: csv right create --chain bitcoin --value 100000");
-    
+
     Ok(())
 }
 
 // Helper functions for wallet initialization
 fn generate_mnemonic(_words: u8) -> Result<String> {
+    use bip32::{Language, Mnemonic};
     use rand::RngCore;
-    use bip32::{Mnemonic, Language};
-    
+
     // Generate 256-bit entropy for 24-word BIP39 mnemonic
     let mut entropy = [0u8; 32];
     rand::rngs::OsRng.fill_bytes(&mut entropy);
     let mnemonic = Mnemonic::from_entropy(entropy, Language::English);
-    
+
     Ok(mnemonic.phrase().to_string())
 }
 
-fn generate_wallet_for_chain(chain: &Chain, network: &Network, mnemonic: &str, state: &mut State) -> Result<String> {
+fn generate_wallet_for_chain(
+    chain: &Chain,
+    network: &Network,
+    mnemonic: &str,
+    state: &mut State,
+) -> Result<String> {
     match chain {
         Chain::Bitcoin => {
             let address = generate_bitcoin_from_mnemonic(network, mnemonic, state)?;
             Ok(address)
-        },
+        }
         Chain::Ethereum => {
             let address = generate_ethereum_from_mnemonic(mnemonic, state)?;
             Ok(address)
-        },
+        }
         Chain::Sui => {
             let address = generate_sui_from_mnemonic(mnemonic, state)?;
             Ok(address)
-        },
+        }
         Chain::Aptos => {
             let address = generate_aptos_from_mnemonic(mnemonic, state)?;
             Ok(address)
-        },
+        }
         Chain::Solana => {
             let address = generate_solana_from_mnemonic(mnemonic, state)?;
             Ok(address)
-        },
+        }
     }
 }
 
-fn generate_bitcoin_from_mnemonic(network: &Network, mnemonic: &str, state: &mut State) -> Result<String> {
+fn generate_bitcoin_from_mnemonic(
+    network: &Network,
+    mnemonic: &str,
+    state: &mut State,
+) -> Result<String> {
     use bitcoin::Network as BtcNetwork;
-    
+
     // Simple seed generation from mnemonic (simplified)
     let mut seed = [0u8; 64];
     for (i, byte) in mnemonic.as_bytes().iter().enumerate() {
@@ -178,21 +203,21 @@ fn generate_bitcoin_from_mnemonic(network: &Network, mnemonic: &str, state: &mut
             seed[i] = *byte;
         }
     }
-    
+
     let btc_network = match network {
         Network::Dev => BtcNetwork::Regtest,
         Network::Test => BtcNetwork::Signet,
         Network::Main => BtcNetwork::Bitcoin,
     };
-    
+
     let wallet = csv_adapter_bitcoin::wallet::SealWallet::from_seed(&seed, btc_network)
         .map_err(|e| anyhow::anyhow!("Failed to create Bitcoin wallet: {}", e))?;
-    
+
     let path = csv_adapter_bitcoin::wallet::Bip86Path::external(0, 0);
     let key = wallet
         .derive_key(&path)
         .map_err(|e| anyhow::anyhow!("Failed to derive Bitcoin key: {}", e))?;
-    
+
     let address = key.address.to_string();
     state.store_address(Chain::Bitcoin, address.clone());
     Ok(address)
@@ -200,11 +225,11 @@ fn generate_bitcoin_from_mnemonic(network: &Network, mnemonic: &str, state: &mut
 
 fn generate_ethereum_from_mnemonic(_mnemonic: &str, state: &mut State) -> Result<String> {
     use rand::RngCore;
-    
+
     // Generate a simple Ethereum-like address (simplified)
     let mut address_bytes = [0u8; 20];
     rand::rngs::OsRng.fill_bytes(&mut address_bytes);
-    
+
     let address = format!("0x{}", hex::encode(address_bytes));
     state.store_address(Chain::Ethereum, address.clone());
     Ok(address)
@@ -212,11 +237,11 @@ fn generate_ethereum_from_mnemonic(_mnemonic: &str, state: &mut State) -> Result
 
 fn generate_sui_from_mnemonic(_mnemonic: &str, state: &mut State) -> Result<String> {
     use rand::RngCore;
-    
+
     // Generate a simple Sui-like address (simplified)
     let mut address_bytes = [0u8; 32];
     rand::rngs::OsRng.fill_bytes(&mut address_bytes);
-    
+
     let address = format!("0x{}", hex::encode(address_bytes));
     state.store_address(Chain::Sui, address.clone());
     Ok(address)
@@ -224,11 +249,11 @@ fn generate_sui_from_mnemonic(_mnemonic: &str, state: &mut State) -> Result<Stri
 
 fn generate_aptos_from_mnemonic(_mnemonic: &str, state: &mut State) -> Result<String> {
     use rand::RngCore;
-    
+
     // Generate a simple Aptos-like address (simplified)
     let mut address_bytes = [0u8; 32];
     rand::rngs::OsRng.fill_bytes(&mut address_bytes);
-    
+
     let address = format!("0x{}", hex::encode(address_bytes));
     state.store_address(Chain::Aptos, address.clone());
     Ok(address)
@@ -236,45 +261,52 @@ fn generate_aptos_from_mnemonic(_mnemonic: &str, state: &mut State) -> Result<St
 
 fn generate_solana_from_mnemonic(_mnemonic: &str, state: &mut State) -> Result<String> {
     use rand::RngCore;
-    
+
     // Generate a simple Solana-like address (simplified - real impl uses ed25519)
     let mut address_bytes = [0u8; 32];
     rand::rngs::OsRng.fill_bytes(&mut address_bytes);
-    
+
     let address = bs58::encode(address_bytes).into_string();
     state.store_address(Chain::Solana, address.clone());
     Ok(address)
 }
 
-fn save_wallet_config(mnemonic: &str, addresses: &std::collections::HashMap<Chain, String>, _config: &Config) -> Result<()> {
-    use std::path::PathBuf;
+fn save_wallet_config(
+    mnemonic: &str,
+    addresses: &std::collections::HashMap<Chain, String>,
+    _config: &Config,
+) -> Result<()> {
     use std::fs;
     use std::io::Write;
-    
+    use std::path::PathBuf;
+
     let config_dir = dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join(".csv");
-    
+
     fs::create_dir_all(&config_dir)?;
-    
+
     let config_file = config_dir.join("config.toml");
     let mut file = fs::File::create(&config_file)?;
-    
+
     writeln!(file, "[wallet]")?;
     writeln!(file, "mnemonic = \"{}\"", mnemonic)?;
     writeln!(file, "network = \"dev\"")?;
     writeln!(file)?;
-    
+
     for (chain, address) in addresses {
         writeln!(file, "[wallet.{}]", chain.to_string().to_lowercase())?;
         writeln!(file, "address = \"{}\"", address)?;
         writeln!(file)?;
     }
-    
+
     Ok(())
 }
 
-fn fund_all_wallets(addresses: &std::collections::HashMap<Chain, String>, network: &Network) -> Result<()> {
+fn fund_all_wallets(
+    addresses: &std::collections::HashMap<Chain, String>,
+    network: &Network,
+) -> Result<()> {
     for (chain, address) in addresses {
         output::info(&format!("Funding {} wallet...", chain));
         match fund_wallet_from_faucet(chain, address, network) {
@@ -289,22 +321,37 @@ fn fund_wallet_from_faucet(chain: &Chain, address: &str, network: &Network) -> R
     match chain {
         Chain::Bitcoin => {
             if network == &Network::Test {
-                output::info(&format!("Visit: https://signetfaucet.com/ to fund {}", address));
+                output::info(&format!(
+                    "Visit: https://signetfaucet.com/ to fund {}",
+                    address
+                ));
                 output::info("Or use: curl -sL https://signetfaucet.com/api/v1/faucet | jq '.[] | select(.address == null)'");
             }
-        },
+        }
         Chain::Ethereum => {
-            output::info(&format!("Visit: https://faucet.sepolia.dev/ to fund {}", address));
-        },
+            output::info(&format!(
+                "Visit: https://faucet.sepolia.dev/ to fund {}",
+                address
+            ));
+        }
         Chain::Sui => {
-            output::info(&format!("Visit: https://faucet.sui.io/ to fund {}", address));
-        },
+            output::info(&format!(
+                "Visit: https://faucet.sui.io/ to fund {}",
+                address
+            ));
+        }
         Chain::Aptos => {
-            output::info(&format!("Visit: https://faucet.testnet.aptoslabs.com/ to fund {}", address));
-        },
+            output::info(&format!(
+                "Visit: https://faucet.testnet.aptoslabs.com/ to fund {}",
+                address
+            ));
+        }
         Chain::Solana => {
-            output::info(&format!("Visit: https://faucet.solana.com/ to fund {}", address));
-        },
+            output::info(&format!(
+                "Visit: https://faucet.solana.com/ to fund {}",
+                address
+            ));
+        }
     }
     Ok(())
 }
@@ -457,9 +504,9 @@ fn generate_aptos(state: &mut State) -> Result<()> {
 }
 
 fn generate_solana(state: &mut State) -> Result<()> {
+    use bs58;
     use ed25519_dalek::SigningKey;
     use rand::RngCore;
-    use bs58;
 
     let mut seed = [0u8; 32];
     rand::rngs::OsRng.fill_bytes(&mut seed);
@@ -963,7 +1010,13 @@ fn cmd_list(config: &Config, state: &State) -> Result<()> {
     let headers = vec!["Chain", "Address", "Balance", "Network"];
     let mut rows = Vec::new();
 
-    for chain in [Chain::Bitcoin, Chain::Ethereum, Chain::Sui, Chain::Aptos, Chain::Solana] {
+    for chain in [
+        Chain::Bitcoin,
+        Chain::Ethereum,
+        Chain::Sui,
+        Chain::Aptos,
+        Chain::Solana,
+    ] {
         let address = state
             .get_address(&chain)
             .map(|a| a.as_str())

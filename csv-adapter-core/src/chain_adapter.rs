@@ -7,7 +7,7 @@ use thiserror::Error;
 use crate::Chain;
 
 // Re-export from chain_config for convenience
-pub use crate::chain_config::{ChainConfig, ChainCapabilities, AccountModel};
+pub use crate::chain_config::{AccountModel, ChainCapabilities, ChainConfig};
 
 /// Chain-specific error types
 #[derive(Debug, Error)]
@@ -49,35 +49,37 @@ pub type ChainResult<T> = Result<T, ChainError>;
 pub trait ChainAdapter: Send + Sync {
     /// Get unique identifier for this chain
     fn chain_id(&self) -> &'static str;
-    
+
     /// Get human-readable name for this chain
     fn chain_name(&self) -> &'static str;
-    
+
     /// Get chain capabilities
     fn capabilities(&self) -> ChainCapabilities;
-    
+
     /// Validate chain configuration
     fn validate_config(&self, config: &ChainConfig) -> ChainResult<()> {
         if config.chain_id != self.chain_id() {
-            return Err(ChainError::InvalidConfig(
-                format!("Chain ID mismatch: expected {}, got {}", self.chain_id(), config.chain_id)
-            ));
+            return Err(ChainError::InvalidConfig(format!(
+                "Chain ID mismatch: expected {}, got {}",
+                self.chain_id(),
+                config.chain_id
+            )));
         }
         Ok(())
     }
-    
+
     /// Create RPC client for this chain
     async fn create_client(&self, config: &ChainConfig) -> ChainResult<Box<dyn RpcClient>>;
-    
+
     /// Create wallet for this chain
     async fn create_wallet(&self, config: &ChainConfig) -> ChainResult<Box<dyn Wallet>>;
-    
+
     /// Get chain-specific CSV program ID
     fn csv_program_id(&self) -> Option<&'static str>;
-    
+
     /// Convert chain to core Chain enum
     fn to_core_chain(&self) -> Chain;
-    
+
     /// Get default network for this chain
     fn default_network(&self) -> &'static str;
 }
@@ -100,19 +102,19 @@ impl<T: ChainAdapter + 'static> ChainAdapterExt for T {}
 pub trait RpcClient: Send + Sync {
     /// Send transaction to blockchain
     async fn send_transaction(&self, tx: &[u8]) -> ChainResult<String>;
-    
+
     /// Get transaction by hash/signature
     async fn get_transaction(&self, hash: &str) -> ChainResult<serde_json::Value>;
-    
+
     /// Get latest block height
     async fn get_latest_block(&self) -> ChainResult<u64>;
-    
+
     /// Get account balance
     async fn get_balance(&self, address: &str) -> ChainResult<u64>;
-    
+
     /// Check transaction confirmation
     async fn is_transaction_confirmed(&self, hash: &str) -> ChainResult<bool>;
-    
+
     /// Get chain-specific metadata
     async fn get_chain_info(&self) -> ChainResult<serde_json::Value>;
 }
@@ -122,19 +124,19 @@ pub trait RpcClient: Send + Sync {
 pub trait Wallet: Send + Sync {
     /// Get wallet address
     fn address(&self) -> &str;
-    
+
     /// Get private key (encrypted)
     fn private_key(&self) -> &str;
-    
+
     /// Sign transaction data
     async fn sign_transaction(&self, data: &[u8]) -> ChainResult<Vec<u8>>;
-    
+
     /// Verify signature
     fn verify_signature(&self, data: &[u8], signature: &[u8]) -> bool;
-    
+
     /// Generate new address
     fn generate_address(&self) -> ChainResult<String>;
-    
+
     /// Import from private key
     fn import_from_private_key(&self, private_key: &str) -> ChainResult<()>;
 }
@@ -153,31 +155,31 @@ impl ChainRegistry {
             capabilities: HashMap::new(),
         }
     }
-    
+
     /// Register a new chain adapter
     pub fn register_adapter(&mut self, adapter: Box<dyn ChainAdapter>) {
         let chain_id = adapter.chain_id();
         let capabilities = adapter.capabilities();
-        
+
         self.adapters.insert(chain_id.to_string(), adapter);
         self.capabilities.insert(chain_id.to_string(), capabilities);
     }
-    
+
     /// Get adapter by chain ID
     pub fn get_adapter(&self, chain_id: &str) -> Option<&dyn ChainAdapter> {
         self.adapters.get(chain_id).map(|b| b.as_ref())
     }
-    
+
     /// Get all supported chain IDs
     pub fn supported_chains(&self) -> Vec<&str> {
         self.adapters.keys().map(|k| k.as_str()).collect()
     }
-    
+
     /// Get capabilities for a chain
     pub fn get_capabilities(&self, chain_id: &str) -> Option<&ChainCapabilities> {
         self.capabilities.get(chain_id)
     }
-    
+
     /// Find chains by capability
     pub fn find_chains_with_capability<F>(&self, capability_check: F) -> Vec<&str>
     where
@@ -189,17 +191,17 @@ impl ChainRegistry {
             .map(|(id, _)| id.as_str())
             .collect()
     }
-    
+
     /// Find chains that support NFTs
     pub fn nft_supported_chains(&self) -> Vec<&str> {
         self.find_chains_with_capability(|cap| cap.supports_nfts)
     }
-    
+
     /// Find chains that support smart contracts
     pub fn smart_contract_chains(&self) -> Vec<&str> {
         self.find_chains_with_capability(|cap| cap.supports_smart_contracts)
     }
-    
+
     /// Find chains that support cross-chain transfers
     pub fn cross_chain_supported_chains(&self) -> Vec<&str> {
         self.find_chains_with_capability(|cap| cap.supports_cross_chain)
@@ -215,7 +217,7 @@ impl Default for ChainRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_chain_capabilities() {
         let caps = ChainCapabilities {
@@ -228,20 +230,20 @@ mod tests {
             supports_cross_chain: true,
             custom_features: HashMap::new(),
         };
-        
+
         assert!(caps.supports_nfts);
         assert!(caps.supports_smart_contracts);
         assert_eq!(caps.confirmation_blocks, 12);
     }
-    
+
     #[test]
     fn test_chain_registry() {
         let registry = ChainRegistry::new();
         assert_eq!(registry.supported_chains().len(), 0);
-        
+
         // Test registration would go here
         // registry.register_adapter(Box::new(MockAdapter::new()));
-        
+
         assert_eq!(registry.supported_chains().len(), 0);
     }
 }

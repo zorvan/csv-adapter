@@ -12,8 +12,8 @@ use tokio::sync::RwLock;
 use tokio::time::sleep;
 
 use csv_explorer_shared::{
-    ExplorerError, Network, PriorityAddress, PriorityIndexingStatus,
-    PriorityLevel, Result, RightRecord, SealRecord, TransferRecord,
+    ExplorerError, Network, PriorityAddress, PriorityIndexingStatus, PriorityLevel, Result,
+    RightRecord, SealRecord, TransferRecord,
 };
 
 use crate::chain_indexer::ChainIndexer;
@@ -350,7 +350,13 @@ impl WalletIndexerBridge {
                                         result.rights_indexed,
                                         result.errors.is_empty(),
                                     )
-                                    .with_error(result.errors.first().map(|(_, e)| e.as_str()).unwrap_or("")),
+                                    .with_error(
+                                        result
+                                            .errors
+                                            .first()
+                                            .map(|(_, e)| e.as_str())
+                                            .unwrap_or(""),
+                                    ),
                                 )
                                 .await
                                 .ok();
@@ -365,7 +371,13 @@ impl WalletIndexerBridge {
                                         result.seals_indexed,
                                         result.errors.is_empty(),
                                     )
-                                    .with_error(result.errors.first().map(|(_, e)| e.as_str()).unwrap_or("")),
+                                    .with_error(
+                                        result
+                                            .errors
+                                            .first()
+                                            .map(|(_, e)| e.as_str())
+                                            .unwrap_or(""),
+                                    ),
                                 )
                                 .await
                                 .ok();
@@ -380,7 +392,13 @@ impl WalletIndexerBridge {
                                         result.transfers_indexed,
                                         result.errors.is_empty(),
                                     )
-                                    .with_error(result.errors.first().map(|(_, e)| e.as_str()).unwrap_or("")),
+                                    .with_error(
+                                        result
+                                            .errors
+                                            .first()
+                                            .map(|(_, e)| e.as_str())
+                                            .unwrap_or(""),
+                                    ),
                                 )
                                 .await
                                 .ok();
@@ -415,12 +433,7 @@ impl WalletIndexerBridge {
                             self.priority_repo
                                 .record_indexing_activity(
                                     IndexingActivityRequest::new(
-                                        addr,
-                                        &chain_id,
-                                        network,
-                                        "error",
-                                        0,
-                                        false,
+                                        addr, &chain_id, network, "error", 0, false,
                                     )
                                     .with_error(&e.to_string()),
                                 )

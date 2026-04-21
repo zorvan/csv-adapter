@@ -458,7 +458,9 @@ async fn sync_chain(
                     }
                 }
             }
-            Err(e) => tracing::warn!(chain = chain_id, block = current, error = %e, "index_rights failed"),
+            Err(e) => {
+                tracing::warn!(chain = chain_id, block = current, error = %e, "index_rights failed")
+            }
         }
 
         match seals_res {
@@ -469,7 +471,9 @@ async fn sync_chain(
                     }
                 }
             }
-            Err(e) => tracing::warn!(chain = chain_id, block = current, error = %e, "index_seals failed"),
+            Err(e) => {
+                tracing::warn!(chain = chain_id, block = current, error = %e, "index_seals failed")
+            }
         }
 
         match transfers_res {
@@ -480,7 +484,9 @@ async fn sync_chain(
                     }
                 }
             }
-            Err(e) => tracing::warn!(chain = chain_id, block = current, error = %e, "index_transfers failed"),
+            Err(e) => {
+                tracing::warn!(chain = chain_id, block = current, error = %e, "index_transfers failed")
+            }
         }
 
         match contracts_res {
@@ -491,7 +497,9 @@ async fn sync_chain(
                     }
                 }
             }
-            Err(e) => tracing::warn!(chain = chain_id, block = current, error = %e, "index_contracts failed"),
+            Err(e) => {
+                tracing::warn!(chain = chain_id, block = current, error = %e, "index_contracts failed")
+            }
         }
 
         // Store enhanced records
@@ -520,8 +528,12 @@ async fn sync_chain(
         }
 
         // Persist progress
-        ctx.sync_repo.update_progress(chain_id, current, None).await?;
-        { *ctx.total_indexed.write().await += 1; }
+        ctx.sync_repo
+            .update_progress(chain_id, current, None)
+            .await?;
+        {
+            *ctx.total_indexed.write().await += 1;
+        }
 
         current += 1;
     }

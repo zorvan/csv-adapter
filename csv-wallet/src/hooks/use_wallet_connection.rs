@@ -1,8 +1,8 @@
 //! Browser wallet connection hook.
 
-use dioxus::prelude::*;
+use crate::services::blockchain_service::{wallet_connection, BrowserWallet, WalletType};
 use csv_adapter_core::Chain;
-use crate::services::blockchain_service::{BrowserWallet, WalletType, wallet_connection};
+use dioxus::prelude::*;
 
 /// Wallet connection state.
 #[derive(Clone, Debug, PartialEq)]
@@ -25,7 +25,7 @@ impl Default for WalletConnectionState {
 }
 
 /// Wallet connection context.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct WalletConnectionContext {
     state: Signal<WalletConnectionState>,
 }
@@ -34,36 +34,37 @@ impl WalletConnectionContext {
     pub fn wallet(&self) -> Option<BrowserWallet> {
         self.state.read().wallet.clone()
     }
-    
+
     pub fn is_connected(&self) -> bool {
         self.state.read().wallet.is_some()
     }
-    
+
     pub fn is_connecting(&self) -> bool {
         self.state.read().connecting
     }
-    
+
     pub fn error(&self) -> Option<String> {
         self.state.read().error.clone()
     }
-    
+
     pub fn clear_error(&mut self) {
         self.state.write().error = None;
     }
-    
+
     /// Connect to MetaMask (Ethereum).
     pub async fn connect_metamask(&mut self) {
         let mut state = self.state.write();
         state.connecting = true;
         state.error = None;
         drop(state);
-        
+
         if !wallet_connection::is_metamask_installed() {
-            self.state.write().error = Some("MetaMask not installed. Please install it from metamask.io".to_string());
+            self.state.write().error =
+                Some("MetaMask not installed. Please install it from metamask.io".to_string());
             self.state.write().connecting = false;
             return;
         }
-        
+
         // Real implementation would call eth_requestAccounts via JS interop
         // For now, simulate success
         match wallet_connection::connect_metamask().await {
@@ -80,44 +81,45 @@ impl WalletConnectionContext {
             }
         }
     }
-    
+
     /// Connect to Phantom (Solana).
     pub async fn connect_phantom(&mut self) {
         let mut state = self.state.write();
         state.connecting = true;
         state.error = None;
         drop(state);
-        
+
         if !wallet_connection::is_phantom_installed() {
-            self.state.write().error = Some("Phantom not installed. Please install it from phantom.app".to_string());
+            self.state.write().error =
+                Some("Phantom not installed. Please install it from phantom.app".to_string());
             self.state.write().connecting = false;
             return;
         }
-        
+
         // Real implementation would call phantom.solana.connect()
         let wallet = BrowserWallet {
             chain: Chain::Solana,
             address: String::new(), // Would come from wallet
             wallet_type: WalletType::Phantom,
         };
-        
+
         let mut state = self.state.write();
         state.wallet = Some(wallet);
         state.chain = Chain::Solana;
         state.connecting = false;
     }
-    
+
     /// Disconnect wallet.
     pub fn disconnect(&mut self) {
         self.state.write().wallet = None;
         self.state.write().error = None;
     }
-    
+
     /// Get recommended wallet type for a chain.
     pub fn recommended_wallet(&self, chain: Chain) -> WalletType {
         wallet_connection::recommended_wallet(chain)
     }
-    
+
     /// Check if wallet is installed.
     pub fn is_wallet_installed(&self, wallet_type: &WalletType) -> bool {
         match wallet_type {
@@ -131,10 +133,10 @@ impl WalletConnectionContext {
 /// Wallet connection provider component.
 #[component]
 pub fn WalletConnectionProvider(children: Element) -> Element {
-    let state = use_signal(|| WalletConnectionState::default());
-    
+    let state = use_signal(WalletConnectionState::default);
+
     use_context_provider(|| WalletConnectionContext { state });
-    
+
     rsx! { { children } }
 }
 
@@ -148,20 +150,28 @@ pub fn use_wallet_connection() -> WalletConnectionContext {
 pub fn WalletConnectButton(chain: Chain) -> Element {
     let mut wallet_ctx = use_wallet_connection();
     let state = wallet_ctx.state;
-    
+
     let wallet_type = wallet_ctx.recommended_wallet(chain);
     let is_installed = wallet_ctx.is_wallet_installed(&wallet_type);
     let is_connected = wallet_ctx.is_connected();
     let connecting = wallet_ctx.is_connecting();
-    
+
     let button_text = if connecting {
         "Connecting...".to_string()
     } else if is_connected {
-        format!("Connected ({}", state.read().wallet.as_ref().map(|w| truncate_address(&w.address, 4)).unwrap_or_default())
+        format!(
+            "Connected ({}",
+            state
+                .read()
+                .wallet
+                .as_ref()
+                .map(|w| truncate_address(&w.address, 4))
+                .unwrap_or_default()
+        )
     } else {
         format!("Connect {}", wallet_type_name(&wallet_type))
     };
-    
+
     let button_class = if is_connected {
         "px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium transition-colors"
     } else if !is_installed {
@@ -169,7 +179,7 @@ pub fn WalletConnectButton(chain: Chain) -> Element {
     } else {
         "px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium transition-colors"
     };
-    
+
     rsx! {
         div { class: "space-y-2",
             button {
@@ -179,13 +189,15 @@ pub fn WalletConnectButton(chain: Chain) -> Element {
                     } else if is_installed {
                         match chain {
                             Chain::Ethereum => {
+                                let mut ctx = wallet_ctx.clone();
                                 spawn(async move {
-                                    wallet_ctx.connect_metamask().await;
+                                    ctx.connect_metamask().await;
                                 });
                             }
                             Chain::Solana => {
+                                let mut ctx = wallet_ctx.clone();
                                 spawn(async move {
-                                    wallet_ctx.connect_phantom().await;
+                                    ctx.connect_phantom().await;
                                 });
                             }
                             _ => {}
@@ -196,11 +208,11 @@ pub fn WalletConnectButton(chain: Chain) -> Element {
                 class: "{button_class}",
                 "{button_text}"
             }
-            
+
             if let Some(error) = state.read().error.clone() {
                 div { class: "text-xs text-red-400", "{error}" }
             }
-            
+
             if !is_installed && !is_connected {
                 div { class: "text-xs text-gray-500",
                     "Install {wallet_type_name(&wallet_type)} to continue"

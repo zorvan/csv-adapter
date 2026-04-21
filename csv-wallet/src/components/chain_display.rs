@@ -1,7 +1,8 @@
 //! Display wrapper types for Chain and Network to work with Dropdown component.
 
-use csv_adapter_core::Chain;
+use crate::chains::supported_wallet_chains;
 use crate::context::Network;
+use csv_adapter_core::Chain;
 
 /// Display wrapper for Chain with emoji and name.
 pub struct ChainDisplay(pub Chain);
@@ -58,13 +59,10 @@ impl Clone for NetworkDisplay {
 
 /// Helper to get all chain display options.
 pub fn all_chain_displays() -> Vec<ChainDisplay> {
-    vec![
-        ChainDisplay(Chain::Bitcoin),
-        ChainDisplay(Chain::Ethereum),
-        ChainDisplay(Chain::Sui),
-        ChainDisplay(Chain::Aptos),
-        ChainDisplay(Chain::Solana),
-    ]
+    supported_wallet_chains()
+        .into_iter()
+        .map(ChainDisplay)
+        .collect()
 }
 
 /// Helper to get all network display options.

@@ -4,16 +4,16 @@ Q1-0 Finish Plug and Play Architecture for adding new chains to core, wallet, ex
 Q1-1 Typed error classes with suggestions
 Q1-2 Seal registry performance optimization
 Q1-3 TypeScript SDK (core APIs) — npm install @csv-adapter/sdk
-Q1-4 Cross-chain subscription app 
-Q1-5 Cross-chain NFT app 
-Q1-6 create-csv-app scaffolding 
-Q1-7 Interactive tutorial system 
-Q1-8 Multi-sig wallet support 
+Q1-4 Cross-chain subscription app
+Q1-5 Cross-chain NFT app
+Q1-6 create-csv-app scaffolding
+Q1-7 Interactive tutorial system
+Q1-8 Multi-sig wallet support
 Q1-9 ZK proof verification 
 Q1-10 RGB asset import 
 Q1-11 TypeScript SDK chain providers 
 Q1-12 WASM bindings for browser 
-Q1-13 Python SDK (Rust and Python)
+Q1-13 Python SDK
 Q1-14 Supply chain provenance app 
 Q1-15 Post-quantum signatures
 Q1-16 AluVM integration

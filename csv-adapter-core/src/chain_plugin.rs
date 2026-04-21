@@ -3,9 +3,9 @@
 //! This module provides a plugin system that allows chains to be registered
 //! and discovered dynamically at runtime, enabling true plug-and-play support.
 
+use std::any::Any;
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::any::Any;
 
 use crate::chain_adapter::{ChainAdapter, ChainCapabilities};
 use crate::chain_config::ChainConfig;
@@ -36,16 +36,16 @@ pub struct ChainPluginMetadata {
 pub trait ChainPlugin: Send + Sync + Any {
     /// Get plugin metadata
     fn metadata(&self) -> ChainPluginMetadata;
-    
+
     /// Create a chain adapter
     ///
     /// # Arguments
     /// * `config` - Optional chain configuration
     fn create_adapter(&self, config: Option<ChainConfig>) -> Box<dyn ChainAdapter>;
-    
+
     /// Get default configuration for this chain
     fn default_config(&self) -> ChainConfig;
-    
+
     /// Validate configuration for this chain
     ///
     /// # Arguments
@@ -56,7 +56,7 @@ pub trait ChainPlugin: Send + Sync + Any {
     fn validate_config(&self, config: &ChainConfig) -> bool {
         config.chain_id == self.metadata().chain_id
     }
-    
+
     /// Check if this plugin supports a specific feature
     ///
     /// # Arguments
@@ -87,7 +87,7 @@ impl ChainPluginRegistry {
             plugins: HashMap::new(),
         }
     }
-    
+
     /// Register a chain plugin
     ///
     /// # Arguments
@@ -95,6 +95,7 @@ impl ChainPluginRegistry {
     ///
     /// # Example
     /// ```rust
+    /// use std::collections::HashMap;
     /// use std::sync::Arc;
     /// use csv_adapter_core::chain_plugin::{ChainPluginRegistry, ChainPlugin, ChainPluginMetadata};
     /// use csv_adapter_core::adapters::ScalableBitcoinAdapter;
@@ -159,7 +160,7 @@ impl ChainPluginRegistry {
         let metadata = plugin.metadata();
         self.plugins.insert(metadata.chain_id.clone(), plugin);
     }
-    
+
     /// Unregister a chain plugin
     ///
     /// # Arguments
@@ -170,7 +171,7 @@ impl ChainPluginRegistry {
     pub fn unregister(&mut self, chain_id: &str) -> bool {
         self.plugins.remove(chain_id).is_some()
     }
-    
+
     /// Check if a plugin is registered
     ///
     /// # Arguments
@@ -178,7 +179,7 @@ impl ChainPluginRegistry {
     pub fn is_registered(&self, chain_id: &str) -> bool {
         self.plugins.contains_key(chain_id)
     }
-    
+
     /// Get a plugin by chain ID
     ///
     /// # Arguments
@@ -186,7 +187,7 @@ impl ChainPluginRegistry {
     pub fn get_plugin(&self, chain_id: &str) -> Option<Arc<dyn ChainPlugin>> {
         self.plugins.get(chain_id).cloned()
     }
-    
+
     /// Get plugin metadata
     ///
     /// # Arguments
@@ -194,26 +195,30 @@ impl ChainPluginRegistry {
     pub fn get_metadata(&self, chain_id: &str) -> Option<ChainPluginMetadata> {
         self.plugins.get(chain_id).map(|p| p.metadata())
     }
-    
+
     /// Get all registered chain IDs
     pub fn registered_chains(&self) -> Vec<&str> {
         self.plugins.keys().map(|k| k.as_str()).collect()
     }
-    
+
     /// Get all plugins
     pub fn all_plugins(&self) -> &HashMap<String, Arc<dyn ChainPlugin>> {
         &self.plugins
     }
-    
+
     /// Create an adapter for a registered chain
     ///
     /// # Arguments
     /// * `chain_id` - The chain ID
     /// * `config` - Optional configuration
-    pub fn create_adapter(&self, chain_id: &str, config: Option<ChainConfig>) -> Option<Box<dyn ChainAdapter>> {
+    pub fn create_adapter(
+        &self,
+        chain_id: &str,
+        config: Option<ChainConfig>,
+    ) -> Option<Box<dyn ChainAdapter>> {
         self.plugins.get(chain_id).map(|p| p.create_adapter(config))
     }
-    
+
     /// Get chains that support a specific feature
     ///
     /// # Arguments
@@ -225,7 +230,7 @@ impl ChainPluginRegistry {
             .map(|(id, _)| id.as_str())
             .collect()
     }
-    
+
     /// Get number of registered plugins
     pub fn plugin_count(&self) -> usize {
         self.plugins.len()
@@ -277,37 +282,37 @@ impl ChainPluginBuilder {
             config_factory: None,
         }
     }
-    
+
     /// Set the plugin version
     pub fn version(mut self, version: &str) -> Self {
         self.metadata.version = version.to_string();
         self
     }
-    
+
     /// Set the plugin author
     pub fn author(mut self, author: &str) -> Self {
         self.metadata.author = Some(author.to_string());
         self
     }
-    
+
     /// Set the plugin description
     pub fn description(mut self, description: &str) -> Self {
         self.metadata.description = Some(description.to_string());
         self
     }
-    
+
     /// Set the plugin homepage
     pub fn homepage(mut self, homepage: &str) -> Self {
         self.metadata.homepage = Some(homepage.to_string());
         self
     }
-    
+
     /// Set the chain capabilities
     pub fn capabilities(mut self, capabilities: ChainCapabilities) -> Self {
         self.metadata.capabilities = capabilities;
         self
     }
-    
+
     /// Set the adapter factory
     pub fn adapter_factory<F>(mut self, factory: F) -> Self
     where
@@ -316,7 +321,7 @@ impl ChainPluginBuilder {
         self.adapter_factory = Some(Box::new(factory));
         self
     }
-    
+
     /// Set the config factory
     pub fn config_factory<F>(mut self, factory: F) -> Self
     where
@@ -325,7 +330,7 @@ impl ChainPluginBuilder {
         self.config_factory = Some(Box::new(factory));
         self
     }
-    
+
     /// Build the plugin
     pub fn build(self) -> Result<Arc<dyn ChainPlugin>, ChainPluginBuildError> {
         if self.adapter_factory.is_none() {
@@ -334,7 +339,7 @@ impl ChainPluginBuilder {
         if self.config_factory.is_none() {
             return Err(ChainPluginBuildError::MissingConfigFactory);
         }
-        
+
         Ok(Arc::new(BuiltChainPlugin {
             metadata: self.metadata,
             adapter_factory: self.adapter_factory.unwrap(),
@@ -374,11 +379,11 @@ impl ChainPlugin for BuiltChainPlugin {
     fn metadata(&self) -> ChainPluginMetadata {
         self.metadata.clone()
     }
-    
+
     fn create_adapter(&self, config: Option<ChainConfig>) -> Box<dyn ChainAdapter> {
         (self.adapter_factory)(config)
     }
-    
+
     fn default_config(&self) -> ChainConfig {
         (self.config_factory)()
     }
@@ -389,9 +394,9 @@ mod tests {
     use super::*;
     use crate::adapters::ScalableBitcoinAdapter;
     use crate::chain_config::AccountModel;
-    
+
     struct TestPlugin;
-    
+
     impl ChainPlugin for TestPlugin {
         fn metadata(&self) -> ChainPluginMetadata {
             ChainPluginMetadata {
@@ -413,11 +418,11 @@ mod tests {
                 homepage: None,
             }
         }
-        
+
         fn create_adapter(&self, _config: Option<ChainConfig>) -> Box<dyn ChainAdapter> {
             Box::new(ScalableBitcoinAdapter::new())
         }
-        
+
         fn default_config(&self) -> ChainConfig {
             ChainConfig {
                 chain_id: "bitcoin".to_string(),
@@ -440,42 +445,42 @@ mod tests {
             }
         }
     }
-    
+
     #[test]
     fn test_plugin_registry() {
         let mut registry = ChainPluginRegistry::new();
-        
+
         // Register a plugin
         registry.register(Arc::new(TestPlugin));
-        
+
         assert!(registry.is_registered("test"));
         assert_eq!(registry.registered_chains(), vec!["test"]);
-        
+
         // Get metadata
         let metadata = registry.get_metadata("test").unwrap();
         assert_eq!(metadata.chain_id, "test");
         assert_eq!(metadata.chain_name, "Test Chain");
         assert!(metadata.capabilities.supports_nfts);
-        
+
         // Create adapter
         let adapter = registry.create_adapter("test", None);
         assert!(adapter.is_some());
-        
+
         // Unregister
         assert!(registry.unregister("test"));
         assert!(!registry.is_registered("test"));
     }
-    
+
     #[test]
     fn test_plugin_features() {
         let plugin = TestPlugin;
-        
+
         assert!(plugin.supports_feature("nft"));
         assert!(plugin.supports_feature("smart_contract"));
         assert!(plugin.supports_feature("cross_chain"));
         assert!(!plugin.supports_feature("unknown"));
     }
-    
+
     #[test]
     fn test_plugin_builder() {
         let plugin = ChainPluginBuilder::new("custom", "Custom Chain")
@@ -513,16 +518,16 @@ mod tests {
                 custom_settings: HashMap::new(),
             })
             .build();
-        
+
         assert!(plugin.is_ok());
-        
+
         let plugin = plugin.unwrap();
         let metadata = plugin.metadata();
         assert_eq!(metadata.chain_id, "custom");
         assert_eq!(metadata.version, "2.0.0");
         assert_eq!(metadata.author, Some("Custom Author".to_string()));
     }
-    
+
     #[test]
     fn test_plugin_builder_missing_factories() {
         let plugin = ChainPluginBuilder::new("incomplete", "Incomplete Chain").build();

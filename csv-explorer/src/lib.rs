@@ -3,15 +3,15 @@
 //! Provides real-time indexing, API contracts, and dashboard capabilities
 //! for monitoring rights, transfers, and proofs across all supported chains.
 
-pub mod indexing;
 pub mod api;
 pub mod dashboard;
+pub mod indexing;
 
-use std::sync::Arc;
-use chrono::{DateTime, Utc};
-use indexing::IndexingManager;
 use api::ExplorerApi;
+use chrono::{DateTime, Utc};
 use dashboard::DashboardServer;
+use indexing::IndexingManager;
+use std::sync::Arc;
 
 /// Main explorer service
 pub struct ExplorerService {
@@ -26,14 +26,14 @@ impl ExplorerService {
         let indexing_manager = Arc::new(IndexingManager::new()?);
         let api_server = Arc::new(ExplorerApi::new(indexing_manager.clone())?);
         let dashboard_server = Arc::new(DashboardServer::new(indexing_manager.clone())?);
-        
+
         Ok(Self {
             indexing_manager,
             api_server,
             dashboard_server,
         })
     }
-    
+
     /// Start the explorer service
     pub async fn start(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         println!("Starting CSV Explorer service...");
@@ -58,7 +58,7 @@ impl ExplorerService {
 
         Ok(())
     }
-    
+
     /// Get service status
     pub async fn get_status(&self) -> ExplorerStatus {
         let indexing_metrics = self.indexing_manager.get_metrics().await;
@@ -72,14 +72,14 @@ impl ExplorerService {
             uptime: Utc::now(),
         }
     }
-    
+
     /// Stop the explorer service
     pub async fn stop(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         println!("Stopping CSV Explorer service...");
-        
+
         self.api_server.stop()?;
         self.dashboard_server.stop()?;
-        
+
         println!("Explorer service stopped");
         Ok(())
     }
@@ -97,7 +97,7 @@ pub struct ExplorerStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[tokio::test]
     async fn test_explorer_service_creation() {
         let service = ExplorerService::new().await;

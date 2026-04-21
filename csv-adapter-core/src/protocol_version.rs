@@ -62,7 +62,11 @@ pub struct ProtocolVersion {
 impl ProtocolVersion {
     /// Current stable protocol version.
     pub const fn current() -> Self {
-        Self { major: 0, minor: 1, patch: 0 }
+        Self {
+            major: 0,
+            minor: 1,
+            patch: 0,
+        }
     }
 
     /// Check if this version is compatible with the current protocol.
@@ -134,7 +138,13 @@ impl Chain {
 
     /// All supported chains as a slice.
     pub const fn all() -> &'static [Self] {
-        &[Self::Bitcoin, Self::Ethereum, Self::Sui, Self::Aptos, Self::Solana]
+        &[
+            Self::Bitcoin,
+            Self::Ethereum,
+            Self::Sui,
+            Self::Aptos,
+            Self::Solana,
+        ]
     }
 }
 
@@ -157,7 +167,11 @@ impl std::str::FromStr for Chain {
             _ => Err(format!(
                 "Unknown chain: '{}'. Supported: {}",
                 s,
-                Self::all().iter().map(|c| c.id()).collect::<Vec<_>>().join(", ")
+                Self::all()
+                    .iter()
+                    .map(|c| c.id())
+                    .collect::<Vec<_>>()
+                    .join(", ")
             )),
         }
     }
@@ -223,10 +237,7 @@ impl TransferStatus {
     pub fn is_in_progress(&self) -> bool {
         matches!(
             self,
-            Self::GeneratingProof { .. }
-                | Self::SubmittingProof
-                | Self::Verifying
-                | Self::Minting
+            Self::GeneratingProof { .. } | Self::SubmittingProof | Self::Verifying | Self::Minting
         )
     }
 
@@ -234,7 +245,11 @@ impl TransferStatus {
     pub fn progress_percent(&self) -> u8 {
         match self {
             Self::Initiated => 0,
-            Self::Locking { current_confirmations, required_confirmations, .. } => {
+            Self::Locking {
+                current_confirmations,
+                required_confirmations,
+                ..
+            } => {
                 if *required_confirmations == 0 {
                     25
                 } else {
@@ -402,18 +417,14 @@ impl ErrorCode {
             | Self::RightAlreadySpent
             | Self::InvalidSealRef
             | Self::InvalidCommitment => "protocol",
-            Self::ChainNotSupported
-            | Self::AdapterNotInitialized
-            | Self::UnsupportedOperation => "adapter",
-            Self::RpcRequestFailed
-            | Self::NetworkTimeout
-            | Self::RateLimitExceeded => "network",
-            Self::InvalidSignature
-            | Self::InvalidProof
-            | Self::InsufficientConfirmations => "validation",
-            Self::StorageError
-            | Self::StateCorruption
-            | Self::ConcurrentModification => "storage",
+            Self::ChainNotSupported | Self::AdapterNotInitialized | Self::UnsupportedOperation => {
+                "adapter"
+            }
+            Self::RpcRequestFailed | Self::NetworkTimeout | Self::RateLimitExceeded => "network",
+            Self::InvalidSignature | Self::InvalidProof | Self::InsufficientConfirmations => {
+                "validation"
+            }
+            Self::StorageError | Self::StateCorruption | Self::ConcurrentModification => "storage",
         }
     }
 }
@@ -584,7 +595,9 @@ mod tests {
     fn test_chain_roundtrip() {
         for &chain in Chain::all() {
             let s = chain.to_string();
-            let parsed: Chain = s.parse().expect(&format!("Failed to parse: {}", s));
+            let parsed: Chain = s
+                .parse()
+                .unwrap_or_else(|_| panic!("Failed to parse: {}", s));
             assert_eq!(chain, parsed, "Chain roundtrip failed for {}", s);
         }
     }
@@ -643,7 +656,10 @@ mod tests {
 
     #[test]
     fn test_sync_status() {
-        let syncing = SyncStatus::Syncing { current: 500, target: 1000 };
+        let syncing = SyncStatus::Syncing {
+            current: 500,
+            target: 1000,
+        };
         assert_eq!(syncing.progress_percent(), 50);
         assert!(!syncing.is_synced());
 

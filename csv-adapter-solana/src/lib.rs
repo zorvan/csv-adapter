@@ -17,7 +17,7 @@ pub mod types;
 pub mod wallet;
 
 pub use adapter::SolanaAnchorLayer;
-pub use config::{SolanaConfig, Network};
+pub use config::{Network, SolanaConfig};
 pub use rpc::SolanaRpc;
 pub use types::{SolanaAnchorRef, SolanaFinalityProof, SolanaInclusionProof, SolanaSealRef};
 pub use wallet::{ProgramWallet, WalletError};

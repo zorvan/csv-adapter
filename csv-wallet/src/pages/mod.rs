@@ -1,19 +1,25 @@
 //! Page components - styled to match csv-explorer design patterns.
 
+use crate::context::{
+    generate_id, truncate_address, use_wallet_context, DeployedContract, Network, NotificationKind,
+    ProofRecord, RightStatus, SealRecord, TestResult, TestStatus, TrackedRight, TrackedTransfer,
+    TransferStatus,
+};
+use crate::hooks::{
+    format_balance, use_balance, use_wallet_connection, AccountBalance, WalletConnectButton,
+};
+use crate::routes::Route;
+use crate::wallet_core::ChainAccount;
+use csv_adapter_core::Chain;
 use dioxus::prelude::*;
 use std::rc::Rc;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsCast;
-use crate::routes::Route;
-use crate::context::{use_wallet_context, Network, generate_id, truncate_address, TrackedRight, RightStatus, TrackedTransfer, TransferStatus, SealRecord, DeployedContract, ProofRecord, TestResult, TestStatus, NotificationKind};
-use crate::wallet_core::ChainAccount;
-use crate::hooks::{use_balance, AccountBalance, format_balance, use_wallet_connection, WalletConnectButton};
-use csv_adapter_core::Chain;
 
-pub mod wallet_page;
 pub mod nft_page;
+pub mod wallet_page;
+pub use nft_page::{NftCollections, NftDetail, NftGallery};
 pub use wallet_page::WalletPage;
-pub use nft_page::{NftGallery, NftCollections, NftDetail};
 
 // ===== Chain Styling Helpers =====
 fn chain_color(chain: &Chain) -> &'static str {
@@ -148,6 +154,7 @@ fn chain_options() -> Vec<(Chain, &'static str)> {
         (Chain::Ethereum, "\u{1F537} Ethereum"),
         (Chain::Sui, "\u{1F30A} Sui"),
         (Chain::Aptos, "\u{1F7E2} Aptos"),
+        (Chain::Solana, "\u{25C8} Solana"),
     ]
 }
 
@@ -201,12 +208,36 @@ fn form_field(label_text: &str, children: Element) -> Element {
     }
 }
 
-fn notification_banner(kind: NotificationKind, message: String, mut on_close: impl FnMut() + 'static) -> Element {
+fn notification_banner(
+    kind: NotificationKind,
+    message: String,
+    mut on_close: impl FnMut() + 'static,
+) -> Element {
     let (bg, border, text, icon) = match kind {
-        NotificationKind::Success => ("bg-green-900/30", "border-green-700/50", "text-green-300", "\u{2705}"),
-        NotificationKind::Error => ("bg-red-900/30", "border-red-700/50", "text-red-300", "\u{274C}"),
-        NotificationKind::Warning => ("bg-yellow-900/30", "border-yellow-700/50", "text-yellow-300", "\u{26A0}\u{FE0F}"),
-        NotificationKind::Info => ("bg-blue-900/30", "border-blue-700/50", "text-blue-300", "\u{2139}\u{FE0F}"),
+        NotificationKind::Success => (
+            "bg-green-900/30",
+            "border-green-700/50",
+            "text-green-300",
+            "\u{2705}",
+        ),
+        NotificationKind::Error => (
+            "bg-red-900/30",
+            "border-red-700/50",
+            "text-red-300",
+            "\u{274C}",
+        ),
+        NotificationKind::Warning => (
+            "bg-yellow-900/30",
+            "border-yellow-700/50",
+            "text-yellow-300",
+            "\u{26A0}\u{FE0F}",
+        ),
+        NotificationKind::Info => (
+            "bg-blue-900/30",
+            "border-blue-700/50",
+            "text-blue-300",
+            "\u{2139}\u{FE0F}",
+        ),
     };
     rsx! {
         div { class: "flex items-center justify-between p-3 {bg} border {border} rounded-lg",
@@ -267,7 +298,7 @@ pub fn Dashboard() -> Element {
 
                         // Per-chain account cards
                         div { class: "space-y-3",
-                            for chain in [Chain::Bitcoin, Chain::Ethereum, Chain::Sui, Chain::Aptos] {
+                            for chain in [Chain::Bitcoin, Chain::Ethereum, Chain::Sui, Chain::Aptos, Chain::Solana] {
                                 AddAccountCard { chain }
                             }
                         }
@@ -288,6 +319,7 @@ pub fn Dashboard() -> Element {
                                 span { class: "{chain_badge_class(&Chain::Ethereum)}", "\u{1F537} Ethereum" }
                                 span { class: "{chain_badge_class(&Chain::Sui)}", "\u{1F30A} Sui" }
                                 span { class: "{chain_badge_class(&Chain::Aptos)}", "\u{1F7E2} Aptos" }
+                                span { class: "{chain_badge_class(&Chain::Solana)}", "\u{25C8} Solana" }
                             }
                         }
                     }
@@ -296,8 +328,14 @@ pub fn Dashboard() -> Element {
         };
     }
 
-    let active_rights = rights.iter().filter(|r| r.status == RightStatus::Active).count();
-    let completed_transfers = transfers.iter().filter(|t| t.status == TransferStatus::Completed).count();
+    let active_rights = rights
+        .iter()
+        .filter(|r| r.status == RightStatus::Active)
+        .count();
+    let completed_transfers = transfers
+        .iter()
+        .filter(|t| t.status == TransferStatus::Completed)
+        .count();
     let available_seals = seals.iter().filter(|s| !s.consumed).count();
 
     rsx! {
@@ -318,7 +356,7 @@ pub fn Dashboard() -> Element {
 
             // Per-chain account cards
             div { class: "grid grid-cols-1 md:grid-cols-2 gap-4",
-                for chain in [Chain::Bitcoin, Chain::Ethereum, Chain::Sui, Chain::Aptos] {
+                for chain in [Chain::Bitcoin, Chain::Ethereum, Chain::Sui, Chain::Aptos, Chain::Solana] {
                     DashboardChainCard { chain }
                 }
             }
@@ -436,13 +474,13 @@ fn DashboardChainCard(chain: Chain) -> Element {
     let mut show_add = use_signal(|| false);
 
     // Clone for use in effect
-    let balance_ctx_clone = balance_ctx;
+    let balance_ctx_clone = balance_ctx.clone();
     let chain_accounts_clone = chain_accounts.clone();
 
     // Fetch balances when component mounts
     use_effect(move || {
         let accounts = chain_accounts_clone.clone();
-        let mut ctx = balance_ctx_clone;
+        let mut ctx = balance_ctx_clone.clone();
         wasm_bindgen_futures::spawn_local(async move {
             let chain_api = match crate::services::chain_api::ChainApi::new() {
                 Ok(api) => api,
@@ -662,7 +700,11 @@ pub fn Rights() -> Element {
     let mut filter_chain = use_signal(|| Option::<Chain>::None);
 
     let filtered = match *filter_chain.read() {
-        Some(c) => rights.iter().filter(|r| r.chain == c).cloned().collect::<Vec<_>>(),
+        Some(c) => rights
+            .iter()
+            .filter(|r| r.chain == c)
+            .cloned()
+            .collect::<Vec<_>>(),
         None => rights,
     };
 
@@ -681,7 +723,7 @@ pub fn Rights() -> Element {
                     class: if filter_chain.read().is_none() { "{btn_primary_class()}" } else { "{btn_secondary_class()}" },
                     "All"
                 }
-                for chain in [Chain::Bitcoin, Chain::Ethereum, Chain::Sui, Chain::Aptos] {
+                for chain in [Chain::Bitcoin, Chain::Ethereum, Chain::Sui, Chain::Aptos, Chain::Solana] {
                     button {
                         onclick: move |_| filter_chain.set(Some(chain)),
                         class: if matches!(*filter_chain.read(), Some(c) if c == chain) { "{chain_badge_class(&chain)} cursor-pointer" } else { "{chain_badge_class(&chain)} opacity-50 cursor-pointer" },
@@ -1058,6 +1100,7 @@ pub fn GenerateProof() -> Element {
         Chain::Ethereum => "mpt",
         Chain::Sui => "checkpoint",
         Chain::Aptos => "ledger",
+        Chain::Solana => "merkle",
         _ => "unknown",
     };
 
@@ -1298,67 +1341,70 @@ pub fn CrossChainTransfer() -> Element {
         "Complete transfer",
     ];
 
+    // Clone wallet_conn for use inside the async block
+    let wallet_conn_for_async = wallet_conn.clone();
+
     // Execute real cross-chain transfer
     let execute_transfer = move |_| {
         if !has_wallet {
             error.set(Some("Please connect a wallet first".to_string()));
             return;
         }
-        
+
         if right_id.read().is_empty() {
             error.set(Some("Please enter a Right ID".to_string()));
             return;
         }
-        
+
         executing.set(true);
         error.set(None);
         step.set(1);
-        
+
         // Spawn async task for blockchain operations
         spawn({
             let from = *from_chain.read();
             let to = *to_chain.read();
             let right = right_id.read().clone();
             let dest = dest_owner.read().clone();
-            wallet_conn.wallet().expect("Wallet not connected");
+            let _wallet = wallet_conn_for_async.wallet();
             let mut step_signal = step;
             let mut result_signal = result;
             let _error_signal = error;
             let mut executing_signal = executing;
             let mut wallet_ctx = wallet_ctx.clone();
-            
+
             async move {
-                use crate::services::blockchain_service::{BlockchainService, BlockchainConfig};
-                
+                use crate::services::blockchain_service::{BlockchainConfig, BlockchainService};
+
                 let _service = BlockchainService::new(BlockchainConfig::default());
-                
+
                 // Step 1: Lock right on source chain
                 step_signal.set(1);
                 web_sys::console::log_1(&"Step 1: Locking right on source chain...".into());
-                
+
                 // In production, we would call service.lock_right() here
                 // For now, simulate the steps with delays to show UI
                 gloo_timers::future::sleep(std::time::Duration::from_secs(2)).await;
-                
+
                 // Step 2: Generate proof
                 step_signal.set(2);
                 web_sys::console::log_1(&"Step 2: Generating cryptographic proof...".into());
                 gloo_timers::future::sleep(std::time::Duration::from_secs(2)).await;
-                
+
                 // Step 3: Verify proof
                 step_signal.set(3);
                 web_sys::console::log_1(&"Step 3: Verifying proof on destination...".into());
                 gloo_timers::future::sleep(std::time::Duration::from_secs(2)).await;
-                
+
                 // Step 4: Mint on destination
                 step_signal.set(4);
                 web_sys::console::log_1(&"Step 4: Minting right on destination...".into());
                 gloo_timers::future::sleep(std::time::Duration::from_secs(2)).await;
-                
+
                 // Step 5: Complete
                 step_signal.set(5);
                 let transfer_id = generate_id();
-                
+
                 // Record the transfer
                 wallet_ctx.add_transfer(TrackedTransfer {
                     id: transfer_id.clone(),
@@ -1369,7 +1415,7 @@ pub fn CrossChainTransfer() -> Element {
                     status: TransferStatus::Completed,
                     created_at: js_sys::Date::now() as u64 / 1000,
                 });
-                
+
                 result_signal.set(Some(format!(
                     "Transfer complete!\nTransfer ID: {}\nRight {} moved from {:?} to {:?}",
                     transfer_id, right, from, to
@@ -1395,7 +1441,7 @@ pub fn CrossChainTransfer() -> Element {
 
                 div { class: "grid grid-cols-2 gap-4",
                     {form_field("From Chain", chain_select(move |v: Rc<FormData>| {
-                        if let Ok(c) = v.value().parse::<Chain>() { 
+                        if let Ok(c) = v.value().parse::<Chain>() {
                             from_chain.set(c);
                             // Disconnect wallet when changing chain
                             if wallet_conn.is_connected() {
@@ -1465,15 +1511,15 @@ pub fn CrossChainTransfer() -> Element {
                     onclick: execute_transfer,
                     disabled: *executing.read() || *step.read() >= 5 || right_id.read().is_empty(),
                     class: "{btn_full_primary_class()}",
-                    if *executing.read() { 
-                        "Executing..." 
-                    } else if *step.read() >= 5 { 
-                        "Transfer Complete" 
-                    } else { 
-                        "Execute Cross-Chain Transfer" 
+                    if *executing.read() {
+                        "Executing..."
+                    } else if *step.read() >= 5 {
+                        "Transfer Complete"
+                    } else {
+                        "Execute Cross-Chain Transfer"
                     }
                 }
-                
+
                 if !has_wallet {
                     p { class: "text-xs text-gray-500 mt-2",
                         "Note: Connect a wallet above to execute real blockchain transactions"
@@ -1760,7 +1806,11 @@ pub fn Seals() -> Element {
     let mut filter_chain = use_signal(|| Option::<Chain>::None);
 
     let filtered = match *filter_chain.read() {
-        Some(c) => seals.iter().filter(|s| s.chain == c).cloned().collect::<Vec<_>>(),
+        Some(c) => seals
+            .iter()
+            .filter(|s| s.chain == c)
+            .cloned()
+            .collect::<Vec<_>>(),
         None => seals,
     };
 
@@ -1779,7 +1829,7 @@ pub fn Seals() -> Element {
                     class: if filter_chain.read().is_none() { "{btn_primary_class()}" } else { "{btn_secondary_class()}" },
                     "All"
                 }
-                for chain in [Chain::Bitcoin, Chain::Ethereum, Chain::Sui, Chain::Aptos] {
+                for chain in [Chain::Bitcoin, Chain::Ethereum, Chain::Sui, Chain::Aptos, Chain::Solana] {
                     button {
                         onclick: move |_| filter_chain.set(Some(chain)),
                         class: if matches!(*filter_chain.read(), Some(c) if c == chain) { "{chain_badge_class(&chain)} cursor-pointer" } else { "{chain_badge_class(&chain)} opacity-50 cursor-pointer" },
@@ -2009,8 +2059,14 @@ pub fn VerifySeal() -> Element {
 pub fn Test() -> Element {
     let wallet_ctx = use_wallet_context();
     let results = wallet_ctx.test_results();
-    let passed = results.iter().filter(|r| r.status == TestStatus::Passed).count();
-    let failed = results.iter().filter(|r| r.status == TestStatus::Failed).count();
+    let passed = results
+        .iter()
+        .filter(|r| r.status == TestStatus::Passed)
+        .count();
+    let failed = results
+        .iter()
+        .filter(|r| r.status == TestStatus::Failed)
+        .count();
 
     rsx! {
         div { class: "space-y-6",

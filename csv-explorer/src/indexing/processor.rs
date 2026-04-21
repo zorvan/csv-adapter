@@ -2,12 +2,12 @@
 //!
 //! Handles the processing of indexing events and updates the storage layer.
 
-use std::sync::Arc;
-use std::time::Instant;
-use chrono::{DateTime, Utc};
-use csv_adapter_core::{Hash, Chain, TransferStatus};
 use crate::indexing::events::IndexingEvent;
 use crate::indexing::storage::IndexStorage;
+use chrono::{DateTime, Utc};
+use csv_adapter_core::{Chain, Hash, TransferStatus};
+use std::sync::Arc;
+use std::time::Instant;
 
 /// Event processor for indexing events
 pub struct EventProcessor {
@@ -43,31 +43,92 @@ impl EventProcessor {
             stats: std::sync::Mutex::new(ProcessorStats::default()),
         }
     }
-    
+
     /// Process a single event
-    pub async fn process_event(&self, event: &IndexingEvent) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn process_event(
+        &self,
+        event: &IndexingEvent,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let start = Instant::now();
         let result = match event {
-            IndexingEvent::RightCreated { right_id, chain, owner, created_at, metadata } => {
-                self.handle_right_created(*right_id, *chain, owner, *created_at, metadata).await
+            IndexingEvent::RightCreated {
+                right_id,
+                chain,
+                owner,
+                created_at,
+                metadata,
+            } => {
+                self.handle_right_created(*right_id, *chain, owner, *created_at, metadata)
+                    .await
             }
-            IndexingEvent::RightTransferred { right_id, from_chain, to_chain, transfer_id, created_at, proof_bundle } => {
-                self.handle_right_transferred(*right_id, *from_chain, *to_chain, *transfer_id, *created_at, proof_bundle.as_ref()).await
+            IndexingEvent::RightTransferred {
+                right_id,
+                from_chain,
+                to_chain,
+                transfer_id,
+                created_at,
+                proof_bundle,
+            } => {
+                self.handle_right_transferred(
+                    *right_id,
+                    *from_chain,
+                    *to_chain,
+                    *transfer_id,
+                    *created_at,
+                    proof_bundle.as_ref(),
+                )
+                .await
             }
-            IndexingEvent::TransferUpdated { transfer_id, old_status, new_status, updated_at } => {
-                self.handle_transfer_updated(*transfer_id, old_status.clone(), new_status.clone(), *updated_at).await
+            IndexingEvent::TransferUpdated {
+                transfer_id,
+                old_status,
+                new_status,
+                updated_at,
+            } => {
+                self.handle_transfer_updated(
+                    *transfer_id,
+                    old_status.clone(),
+                    new_status.clone(),
+                    *updated_at,
+                )
+                .await
             }
-            IndexingEvent::RightUpdated { right_id, chain, old_metadata, new_metadata, updated_at } => {
-                self.handle_right_updated(*right_id, *chain, old_metadata, new_metadata, *updated_at).await
+            IndexingEvent::RightUpdated {
+                right_id,
+                chain,
+                old_metadata,
+                new_metadata,
+                updated_at,
+            } => {
+                self.handle_right_updated(
+                    *right_id,
+                    *chain,
+                    old_metadata,
+                    new_metadata,
+                    *updated_at,
+                )
+                .await
             }
-            IndexingEvent::ChainSynced { chain, block_height, last_block_hash, synced_at } => {
-                self.handle_chain_synced(*chain, *block_height, *last_block_hash, *synced_at).await
+            IndexingEvent::ChainSynced {
+                chain,
+                block_height,
+                last_block_hash,
+                synced_at,
+            } => {
+                self.handle_chain_synced(*chain, *block_height, *last_block_hash, *synced_at)
+                    .await
             }
-            IndexingEvent::Error { error, chain, timestamp, context } => {
-                self.handle_error(error, chain.as_ref(), *timestamp, context).await
+            IndexingEvent::Error {
+                error,
+                chain,
+                timestamp,
+                context,
+            } => {
+                self.handle_error(error, chain.as_ref(), *timestamp, context)
+                    .await
             }
         };
-        
+
         let processing_time = start.elapsed();
         {
             let mut stats = self.stats.lock().unwrap();
@@ -76,14 +137,17 @@ impl EventProcessor {
                 stats.errors += 1;
             }
             // Update average processing time
-            let total_time = stats.average_processing_time.as_millis() as u64 * (stats.events_processed - 1) + processing_time.as_millis() as u64;
-            stats.average_processing_time = std::time::Duration::from_millis(total_time / stats.events_processed);
+            let total_time = stats.average_processing_time.as_millis() as u64
+                * (stats.events_processed - 1)
+                + processing_time.as_millis() as u64;
+            stats.average_processing_time =
+                std::time::Duration::from_millis(total_time / stats.events_processed);
             stats.last_processed_time = Utc::now();
         }
-        
+
         result
     }
-    
+
     /// Handle right created event
     async fn handle_right_created(
         &self,
@@ -106,7 +170,7 @@ impl EventProcessor {
         self.storage.store_right(&indexed_right).await?;
         Ok(())
     }
-    
+
     /// Handle right transferred event
     async fn handle_right_transferred(
         &self,
@@ -144,7 +208,7 @@ impl EventProcessor {
 
         Ok(())
     }
-    
+
     /// Handle transfer updated event
     async fn handle_transfer_updated(
         &self,
@@ -170,7 +234,7 @@ impl EventProcessor {
 
         Ok(())
     }
-    
+
     /// Handle right updated event
     async fn handle_right_updated(
         &self,
@@ -188,7 +252,7 @@ impl EventProcessor {
 
         Ok(())
     }
-    
+
     /// Handle chain synced event
     async fn handle_chain_synced(
         &self,
@@ -197,10 +261,12 @@ impl EventProcessor {
         last_block_hash: Hash,
         synced_at: DateTime<Utc>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        self.storage.update_chain_sync_status(&chain, block_height, last_block_hash, synced_at).await?;
+        self.storage
+            .update_chain_sync_status(&chain, block_height, last_block_hash, synced_at)
+            .await?;
         Ok(())
     }
-    
+
     /// Handle error event
     async fn handle_error(
         &self,
@@ -210,16 +276,17 @@ impl EventProcessor {
         context: &serde_json::Value,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // Log error to storage for monitoring
-        self.storage.log_error(error, chain, timestamp, context).await?;
+        self.storage
+            .log_error(error, chain, timestamp, context)
+            .await?;
         Ok(())
     }
-    
-    
+
     /// Get processor statistics
     pub fn get_stats(&self) -> ProcessorStats {
         self.stats.lock().unwrap().clone()
     }
-    
+
     /// Reset statistics
     pub fn reset_stats(&self) {
         let mut stats = self.stats.lock().unwrap();
@@ -231,21 +298,21 @@ impl EventProcessor {
 mod tests {
     use super::*;
     use crate::indexing::storage::IndexStorage;
-    
+
     #[tokio::test]
     async fn test_event_processor_creation() {
         let storage = Arc::new(IndexStorage::new().unwrap());
         let processor = EventProcessor::new(storage);
-        
+
         assert_eq!(processor.get_stats().events_processed, 0);
         assert_eq!(processor.get_stats().errors, 0);
     }
-    
+
     #[tokio::test]
     async fn test_right_created_event() {
         let storage = Arc::new(IndexStorage::new().unwrap());
         let processor = EventProcessor::new(storage);
-        
+
         let event = IndexingEvent::RightCreated {
             right_id: Hash::zero(),
             chain: Chain::Ethereum,
@@ -253,7 +320,7 @@ mod tests {
             created_at: Utc::now(),
             metadata: serde_json::json!({"test": "data"}),
         };
-        
+
         let result = processor.process_event(&event).await;
         assert!(result.is_ok());
         let stats = processor.get_stats();

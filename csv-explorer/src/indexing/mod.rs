@@ -8,17 +8,17 @@ pub mod processor;
 pub mod storage;
 pub mod sync;
 
-use std::sync::Arc;
-use tokio::sync::RwLock;
-use std::collections::HashMap;
-use std::time::Duration;
 use chrono::{DateTime, Utc};
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::sync::RwLock;
 
-use csv_adapter_core::{Hash, TransferStatus};
 use crate::indexing::events::IndexingEvent;
 use crate::indexing::processor::EventProcessor;
 use crate::indexing::storage::IndexStorage;
 use crate::indexing::sync::ChainSynchronizer;
+use csv_adapter_core::{Hash, TransferStatus};
 
 /// Real-time indexing manager
 pub struct IndexingManager {
@@ -116,17 +116,26 @@ impl IndexingManager {
     }
 
     /// Search rights by criteria
-    pub async fn search_rights(&self, query: &RightsQuery) -> Result<Vec<IndexedRight>, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn search_rights(
+        &self,
+        query: &RightsQuery,
+    ) -> Result<Vec<IndexedRight>, Box<dyn std::error::Error + Send + Sync>> {
         self.storage.search_rights(query).await
     }
 
     /// Search transfers by criteria
-    pub async fn search_transfers(&self, query: &TransferQuery) -> Result<Vec<IndexedTransfer>, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn search_transfers(
+        &self,
+        query: &TransferQuery,
+    ) -> Result<Vec<IndexedTransfer>, Box<dyn std::error::Error + Send + Sync>> {
         self.storage.search_transfers(query).await
     }
 
     /// Get rights by owner
-    pub async fn get_rights_by_owner(&self, owner: &str) -> Result<Vec<IndexedRight>, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn get_rights_by_owner(
+        &self,
+        owner: &str,
+    ) -> Result<Vec<IndexedRight>, Box<dyn std::error::Error + Send + Sync>> {
         let query = RightsQuery {
             owner: Some(owner.to_string()),
             chain: None,
@@ -138,7 +147,10 @@ impl IndexingManager {
     }
 
     /// Get transfers by hash
-    pub async fn get_transfer_by_hash(&self, hash: &Hash) -> Result<Option<IndexedTransfer>, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn get_transfer_by_hash(
+        &self,
+        hash: &Hash,
+    ) -> Result<Option<IndexedTransfer>, Box<dyn std::error::Error + Send + Sync>> {
         self.storage.get_transfer_by_hash(hash).await
     }
 

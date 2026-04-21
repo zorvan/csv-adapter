@@ -151,11 +151,7 @@ pub struct TransferBuilder {
 }
 
 impl TransferBuilder {
-    pub(crate) fn new(
-        client: Arc<ClientRef>,
-        right_id: RightId,
-        to_chain: Chain,
-    ) -> Self {
+    pub(crate) fn new(client: Arc<ClientRef>, right_id: RightId, to_chain: Chain) -> Self {
         Self {
             client,
             right_id,
@@ -228,12 +224,13 @@ impl TransferBuilder {
         // 6. Begin background proof submission to destination chain
         // 7. Emit TransferProgress events
 
-        self.client.emit_event(crate::events::Event::TransferProgress {
-            transfer_id: transfer_id.clone(),
-            from_chain: Chain::Bitcoin, // Would be derived from Right
-            to_chain: self.to_chain,
-            step: "initiated".to_string(),
-        });
+        self.client
+            .emit_event(crate::events::Event::TransferProgress {
+                transfer_id: transfer_id.clone(),
+                from_chain: Chain::Bitcoin, // Would be derived from Right
+                to_chain: self.to_chain,
+                step: "initiated".to_string(),
+            });
 
         Ok(transfer_id)
     }

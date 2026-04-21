@@ -277,7 +277,7 @@ impl SealWallet {
             .filter(|u| !u.reserved)
             .cloned()
             .collect();
-        available.sort_by(|a, b| b.amount_sat.cmp(&a.amount_sat));
+        available.sort_by_key(|utxo| std::cmp::Reverse(utxo.amount_sat));
         let mut sel = Vec::new();
         let mut total = 0u64;
         for utxo in available {

@@ -1,7 +1,7 @@
 //! Balance fetching hook.
 
-use dioxus::prelude::*;
 use csv_adapter_core::Chain;
+use dioxus::prelude::*;
 use std::collections::HashMap;
 
 /// Balance state for an account.
@@ -16,7 +16,7 @@ pub struct AccountBalance {
 }
 
 /// Balance context.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct BalanceContext {
     balances: Signal<HashMap<String, AccountBalance>>,
 }
@@ -56,7 +56,7 @@ impl BalanceContext {
 /// Balance provider component.
 #[component]
 pub fn BalanceProvider(children: Element) -> Element {
-    let balances = use_signal(|| HashMap::<String, AccountBalance>::new());
+    let balances = use_signal(HashMap::<String, AccountBalance>::new);
 
     use_context_provider(|| BalanceContext { balances });
 

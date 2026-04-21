@@ -37,7 +37,10 @@ impl NetworkConfig {
 
     /// Get network for a chain.
     pub fn get_network(&self, chain: Chain) -> NetworkType {
-        self.networks.get(&chain).copied().unwrap_or(NetworkType::Testnet)
+        self.networks
+            .get(&chain)
+            .copied()
+            .unwrap_or(NetworkType::Testnet)
     }
 
     /// Set network for a chain.

@@ -3,11 +3,12 @@
 //! Defines the event types that drive the indexing pipeline
 //! and provides utilities for event handling.
 
-use csv_adapter_core::{Hash, Chain};
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use csv_adapter_core::{Chain, Hash};
+use serde::{Deserialize, Serialize};
 
 /// Indexing event types
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum IndexingEvent {
     /// Right created on a chain
@@ -18,7 +19,7 @@ pub enum IndexingEvent {
         created_at: DateTime<Utc>,
         metadata: serde_json::Value,
     },
-    
+
     /// Right transferred between chains
     RightTransferred {
         right_id: Hash,
@@ -28,7 +29,7 @@ pub enum IndexingEvent {
         created_at: DateTime<Utc>,
         proof_bundle: Option<csv_adapter_core::proof::ProofBundle>,
     },
-    
+
     /// Transfer status updated
     TransferUpdated {
         transfer_id: Hash,
@@ -75,7 +76,7 @@ impl IndexingEvent {
             IndexingEvent::Error { .. } => "error",
         }
     }
-    
+
     /// Get chain associated with event
     pub fn chain(&self) -> Option<&Chain> {
         match self {
@@ -87,7 +88,7 @@ impl IndexingEvent {
             IndexingEvent::Error { chain, .. } => chain.as_ref(),
         }
     }
-    
+
     /// Get timestamp for event
     pub fn timestamp(&self) -> DateTime<Utc> {
         match self {
@@ -99,7 +100,7 @@ impl IndexingEvent {
             IndexingEvent::Error { timestamp, .. } => *timestamp,
         }
     }
-    
+
     /// Check if event is critical for indexing
     pub fn is_critical(&self) -> bool {
         matches!(
@@ -110,7 +111,7 @@ impl IndexingEvent {
                 | IndexingEvent::RightUpdated { .. }
         )
     }
-    
+
     /// Convert event to JSON for logging
     pub fn to_json(&self) -> Result<serde_json::Value, serde_json::Error> {
         serde_json::to_value(self)
@@ -136,26 +137,26 @@ impl EventFilter {
             end_time: None,
         }
     }
-    
+
     /// Filter by chains
     pub fn chains(mut self, chains: Vec<Chain>) -> Self {
         self.chains = Some(chains);
         self
     }
-    
+
     /// Filter by event types
     pub fn event_types(mut self, types: Vec<String>) -> Self {
         self.event_types = Some(types);
         self
     }
-    
+
     /// Filter by time range
     pub fn time_range(mut self, start: DateTime<Utc>, end: DateTime<Utc>) -> Self {
         self.start_time = Some(start);
         self.end_time = Some(end);
         self
     }
-    
+
     /// Check if event matches filter
     pub fn matches(&self, event: &IndexingEvent) -> bool {
         // Chain filter
@@ -166,14 +167,14 @@ impl EventFilter {
                 }
             }
         }
-        
+
         // Event type filter
         if let Some(ref event_types) = self.event_types {
             if !event_types.contains(&event.event_type().to_string()) {
                 return false;
             }
         }
-        
+
         // Time range filter
         let event_time = event.timestamp();
         if let Some(start_time) = self.start_time {
@@ -186,7 +187,7 @@ impl EventFilter {
                 return false;
             }
         }
-        
+
         true
     }
 }
@@ -209,7 +210,8 @@ pub struct EventBatch {
 impl EventBatch {
     /// Create a new event batch
     pub fn new(events: Vec<IndexingEvent>) -> Self {
-        let size_bytes = events.iter()
+        let size_bytes = events
+            .iter()
             .map(|e| e.to_json().unwrap_or_default().to_string().len())
             .sum();
 
@@ -220,17 +222,17 @@ impl EventBatch {
             size_bytes,
         }
     }
-    
+
     /// Get batch size
     pub fn len(&self) -> usize {
         self.events.len()
     }
-    
+
     /// Check if batch is empty
     pub fn is_empty(&self) -> bool {
         self.events.is_empty()
     }
-    
+
     /// Split batch into smaller chunks
     pub fn chunk(&self, chunk_size: usize) -> Vec<Self> {
         self.events
@@ -258,11 +260,11 @@ impl EventStats {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     /// Update stats with event
     pub fn update(&mut self, event: &IndexingEvent) {
         self.total_events += 1;
-        
+
         match event {
             IndexingEvent::RightCreated { .. } => self.right_created += 1,
             IndexingEvent::RightTransferred { .. } => self.right_transferred += 1,
@@ -272,7 +274,7 @@ impl EventStats {
             IndexingEvent::Error { .. } => self.errors += 1,
         }
     }
-    
+
     /// Calculate events per second
     pub fn calculate_rate(&mut self, duration: Duration) {
         if duration.as_secs() > 0 {
@@ -286,7 +288,7 @@ use std::time::Duration;
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_event_filter() {
         let filter = EventFilter::new()
@@ -306,15 +308,13 @@ mod tests {
 
     #[test]
     fn test_event_batch() {
-        let events = vec![
-            IndexingEvent::RightCreated {
-                right_id: Hash::zero(),
-                chain: Chain::Ethereum,
-                owner: "test".to_string(),
-                created_at: Utc::now(),
-                metadata: serde_json::json!({}),
-            }
-        ];
+        let events = vec![IndexingEvent::RightCreated {
+            right_id: Hash::zero(),
+            chain: Chain::Ethereum,
+            owner: "test".to_string(),
+            created_at: Utc::now(),
+            metadata: serde_json::json!({}),
+        }];
 
         let batch = EventBatch::new(events);
         assert_eq!(batch.len(), 1);

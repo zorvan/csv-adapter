@@ -100,20 +100,20 @@ pub mod store;
 
 // Client-side validation (Sprint 2)// Cross-chain transfer
 pub mod client;
-pub mod cross_chain;
 pub mod commitment_chain;
+pub mod cross_chain;
 pub mod seal_registry;
 pub mod state_store;
 pub mod validator;
 
 // Chain adapter system for dynamic chain support
-pub mod chain_config;
-pub mod chain_system;
+pub mod adapter_factory;
+pub mod adapters;
 pub mod chain_adapter;
+pub mod chain_config;
 pub mod chain_discovery;
 pub mod chain_plugin;
-pub mod adapters;
-pub mod adapter_factory;
+pub mod chain_system;
 
 // RGB protocol compatibility (Sprint 5) - 🧪 EXPERIMENTAL
 #[cfg(feature = "experimental")]
@@ -160,7 +160,9 @@ pub use cross_chain::{CrossChainLockEvent, CrossChainRegistry, CrossChainRegistr
 // ===========================================================================
 
 // Advanced commitment types
-pub use advanced_commitments::{CommitmentScheme, EnhancedCommitment, FinalityProofType, InclusionProofType, ProofMetadata};
+pub use advanced_commitments::{
+    CommitmentScheme, EnhancedCommitment, FinalityProofType, InclusionProofType, ProofMetadata,
+};
 
 // Agent-friendly types
 pub use agent_types::{ErrorSuggestion, FixAction};
@@ -189,19 +191,17 @@ pub use monitor::{PendingPublication, PublicationTracker, ReorgEvent, ReorgMonit
 pub use store::{AnchorRecord, InMemorySealStore, SealRecord, SealStore, StoreError};
 
 // Chain adapter system (Beta API)
+pub use adapter_factory::{create_adapter, is_chain_supported, AdapterFactory};
 pub use chain_adapter::{
     ChainAdapter, ChainAdapterExt, ChainError, ChainRegistry, ChainResult, RpcClient, Wallet,
 };
-pub use chain_config::{
-    ChainCapabilities, ChainConfig, ChainConfigLoader, AccountModel,
-};
+pub use chain_config::{AccountModel, ChainCapabilities, ChainConfig, ChainConfigLoader};
 pub use chain_discovery::ChainDiscovery;
-pub use chain_system::{ChainInfo, SimpleChainRegistry};
 pub use chain_plugin::{
-    ChainPlugin, ChainPluginMetadata, ChainPluginRegistry, ChainPluginBuilder,
-    ChainPluginBuildError,
+    ChainPlugin, ChainPluginBuildError, ChainPluginBuilder, ChainPluginMetadata,
+    ChainPluginRegistry,
 };
-pub use adapter_factory::{AdapterFactory, create_adapter, is_chain_supported};
+pub use chain_system::{ChainInfo, SimpleChainRegistry};
 
 // ===========================================================================
 // Re-exports: Experimental API (feature-gated, may change)
@@ -220,4 +220,4 @@ pub use vm::{execute_transition, DeterministicVM, PassthroughVM, VMError, VMInpu
 /// Experimental module — feature-gated behind `experimental`.
 /// These APIs may change or be removed without notice.
 #[cfg(feature = "experimental")]
-pub use rgb_compat::{RgbValidationResult, RgbValidationError, RgbConsignmentValidator};
+pub use rgb_compat::{RgbConsignmentValidator, RgbValidationError, RgbValidationResult};

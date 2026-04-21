@@ -50,8 +50,12 @@ struct TransactionInfo {
 
 #[async_trait]
 impl ChainIndexer for SolanaIndexer {
-    fn chain_id(&self) -> &str { "solana" }
-    fn chain_name(&self) -> &str { "Solana" }
+    fn chain_id(&self) -> &str {
+        "solana"
+    }
+    fn chain_name(&self) -> &str {
+        "Solana"
+    }
 
     async fn initialize(&self) -> ChainResult<()> {
         tracing::info!(chain = "solana", "Solana indexer initialized");
@@ -70,13 +74,7 @@ impl ChainIndexer for SolanaIndexer {
             id: 1,
         };
 
-        let resp: SolanaRpcResponse = client
-            .post(&url)
-            .json(&req)
-            .send()
-            .await?
-            .json()
-            .await?;
+        let resp: SolanaRpcResponse = client.post(&url).json(&req).send().await?.json().await?;
 
         if let Some(result) = resp.result {
             // FIX: result IS the slot number (u64), not an object
@@ -117,7 +115,12 @@ impl ChainIndexer for SolanaIndexer {
             }
         }
 
-        tracing::debug!(chain = "solana", block, count = rights.len(), "Indexed rights");
+        tracing::debug!(
+            chain = "solana",
+            block,
+            count = rights.len(),
+            "Indexed rights"
+        );
         Ok(rights)
     }
 
@@ -141,7 +144,12 @@ impl ChainIndexer for SolanaIndexer {
             }
         }
 
-        tracing::debug!(chain = "solana", block, count = seals.len(), "Indexed seals");
+        tracing::debug!(
+            chain = "solana",
+            block,
+            count = seals.len(),
+            "Indexed seals"
+        );
         Ok(seals)
     }
 
@@ -167,7 +175,12 @@ impl ChainIndexer for SolanaIndexer {
             }
         }
 
-        tracing::debug!(chain = "solana", block, count = transfers.len(), "Indexed transfers");
+        tracing::debug!(
+            chain = "solana",
+            block,
+            count = transfers.len(),
+            "Indexed transfers"
+        );
         Ok(transfers)
     }
 
@@ -185,65 +198,83 @@ impl ChainIndexer for SolanaIndexer {
     }
 
     async fn index_enhanced_rights(&self, block: u64) -> ChainResult<Vec<EnhancedRightRecord>> {
-        Ok(self.index_rights(block).await?.into_iter().map(|right| EnhancedRightRecord {
-            id: right.id.clone(),
-            chain: right.chain.clone(),
-            seal_ref: right.seal_ref.clone(),
-            commitment: right.commitment.clone(),
-            owner: right.owner.clone(),
-            created_at: right.created_at,
-            created_tx: right.created_tx.clone(),
-            status: right.status.to_string(),
-            metadata: right.metadata,
-            transfer_count: right.transfer_count,
-            last_transfer_at: right.last_transfer_at,
-            commitment_scheme: CommitmentScheme::HashBased,
-            commitment_version: 1,
-            protocol_id: "csv-sol".to_string(),
-            mpc_root: None,
-            domain_separator: Some("solana-mainnet".to_string()),
-            inclusion_proof_type: InclusionProofType::AccountState,
-            finality_proof_type: FinalityProofType::FinalizedBlock,
-            proof_size_bytes: None,
-            confirmations: None,
-        }).collect())
+        Ok(self
+            .index_rights(block)
+            .await?
+            .into_iter()
+            .map(|right| EnhancedRightRecord {
+                id: right.id.clone(),
+                chain: right.chain.clone(),
+                seal_ref: right.seal_ref.clone(),
+                commitment: right.commitment.clone(),
+                owner: right.owner.clone(),
+                created_at: right.created_at,
+                created_tx: right.created_tx.clone(),
+                status: right.status.to_string(),
+                metadata: right.metadata,
+                transfer_count: right.transfer_count,
+                last_transfer_at: right.last_transfer_at,
+                commitment_scheme: CommitmentScheme::HashBased,
+                commitment_version: 1,
+                protocol_id: "csv-sol".to_string(),
+                mpc_root: None,
+                domain_separator: Some("solana-mainnet".to_string()),
+                inclusion_proof_type: InclusionProofType::AccountState,
+                finality_proof_type: FinalityProofType::FinalizedBlock,
+                proof_size_bytes: None,
+                confirmations: None,
+            })
+            .collect())
     }
 
     async fn index_enhanced_seals(&self, block: u64) -> ChainResult<Vec<EnhancedSealRecord>> {
-        Ok(self.index_seals(block).await?.into_iter().map(|s| EnhancedSealRecord {
-            id: s.id.clone(),
-            chain: s.chain.clone(),
-            seal_type: s.seal_type.to_string(),
-            seal_ref: s.seal_ref.clone(),
-            right_id: s.right_id.clone(),
-            status: s.status.to_string(),
-            consumed_at: s.consumed_at,
-            consumed_tx: s.consumed_tx.clone(),
-            block_height: s.block_height,
-            seal_proof_type: "account_proof".to_string(),
-            seal_proof_verified: None,
-        }).collect())
+        Ok(self
+            .index_seals(block)
+            .await?
+            .into_iter()
+            .map(|s| EnhancedSealRecord {
+                id: s.id.clone(),
+                chain: s.chain.clone(),
+                seal_type: s.seal_type.to_string(),
+                seal_ref: s.seal_ref.clone(),
+                right_id: s.right_id.clone(),
+                status: s.status.to_string(),
+                consumed_at: s.consumed_at,
+                consumed_tx: s.consumed_tx.clone(),
+                block_height: s.block_height,
+                seal_proof_type: "account_proof".to_string(),
+                seal_proof_verified: None,
+            })
+            .collect())
     }
 
-    async fn index_enhanced_transfers(&self, block: u64) -> ChainResult<Vec<EnhancedTransferRecord>> {
-        Ok(self.index_transfers(block).await?.into_iter().map(|t| EnhancedTransferRecord {
-            id: t.id.clone(),
-            right_id: t.right_id.clone(),
-            from_chain: t.from_chain.clone(),
-            to_chain: t.to_chain.clone(),
-            from_owner: t.from_owner.clone(),
-            to_owner: t.to_owner.clone(),
-            lock_tx: t.lock_tx.clone(),
-            mint_tx: t.mint_tx.clone(),
-            proof_ref: t.proof_ref.clone(),
-            status: t.status.to_string(),
-            created_at: t.created_at,
-            completed_at: t.completed_at,
-            duration_ms: t.duration_ms,
-            cross_chain_proof_type: Some("account_proof".to_string()),
-            bridge_contract: None,
-            bridge_proof_verified: None,
-        }).collect())
+    async fn index_enhanced_transfers(
+        &self,
+        block: u64,
+    ) -> ChainResult<Vec<EnhancedTransferRecord>> {
+        Ok(self
+            .index_transfers(block)
+            .await?
+            .into_iter()
+            .map(|t| EnhancedTransferRecord {
+                id: t.id.clone(),
+                right_id: t.right_id.clone(),
+                from_chain: t.from_chain.clone(),
+                to_chain: t.to_chain.clone(),
+                from_owner: t.from_owner.clone(),
+                to_owner: t.to_owner.clone(),
+                lock_tx: t.lock_tx.clone(),
+                mint_tx: t.mint_tx.clone(),
+                proof_ref: t.proof_ref.clone(),
+                status: t.status.to_string(),
+                created_at: t.created_at,
+                completed_at: t.completed_at,
+                duration_ms: t.duration_ms,
+                cross_chain_proof_type: Some("account_proof".to_string()),
+                bridge_contract: None,
+                bridge_proof_verified: None,
+            })
+            .collect())
     }
 
     fn detect_commitment_scheme(&self, _data: &[u8]) -> Option<CommitmentScheme> {
@@ -360,14 +391,19 @@ impl SolanaIndexer {
             }
         } else {
             // Slot may be skipped / not yet confirmed — not an error
-            tracing::debug!(chain = "solana", slot, "No block data for slot (possibly skipped)");
+            tracing::debug!(
+                chain = "solana",
+                slot,
+                "No block data for slot (possibly skipped)"
+            );
             Ok(Vec::new())
         }
     }
 
     fn tx_signature(txn_info: &TransactionInfo) -> String {
         txn_info
-            .transaction.as_ref()
+            .transaction
+            .as_ref()
             .and_then(|t| t.get("signatures"))
             .and_then(|s| s.as_array())
             .and_then(|a| a.first())
@@ -376,7 +412,11 @@ impl SolanaIndexer {
             .to_string()
     }
 
-    fn parse_right_from_log(&self, txn_info: &TransactionInfo, _log_str: &str) -> Option<RightRecord> {
+    fn parse_right_from_log(
+        &self,
+        txn_info: &TransactionInfo,
+        _log_str: &str,
+    ) -> Option<RightRecord> {
         let sig = Self::tx_signature(txn_info);
         let slot = txn_info.slot.unwrap_or(0);
         Some(RightRecord {

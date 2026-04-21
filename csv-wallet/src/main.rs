@@ -5,18 +5,19 @@
 
 use dioxus::prelude::*;
 
-mod routes;
-mod context;
-mod wallet_core;
-mod storage;
-mod pages;
+mod chains;
 mod components;
+mod context;
 mod hooks;
+mod layout;
+mod pages;
+mod routes;
 mod services;
+mod storage;
+mod wallet_core;
 
-use routes::Route;
 use context::WalletProvider;
-use components::{Sidebar, Header};
+use routes::Route;
 
 fn main() {
     console_error_panic_hook::set_once();
@@ -57,9 +58,17 @@ fn App() -> Element {
         }
 
         if *ready.read() {
-            // Main app with providers
+            // Main app with all required providers
             WalletProvider {
-                Router::<Route> {}
+                hooks::WalletProvider {
+                    hooks::NetworkProvider {
+                        hooks::BalanceProvider {
+                            hooks::WalletConnectionProvider {
+                                Router::<Route> {}
+                            }
+                        }
+                    }
+                }
             }
         } else {
             // Loading screen (inline styles, no Tailwind needed)
@@ -204,34 +213,3 @@ const GLOBAL_CSS: &str = r#"
 /* Smooth scroll */
 html { scroll-behavior: smooth; }
 "#;
-
-// ===== Layout =====
-/// Main application layout component.
-#[component]
-pub fn Layout() -> Element {
-    let mut sidebar_open = use_signal(|| true);
-
-    rsx! {
-        div { class: "min-h-screen bg-gray-950 text-gray-100 flex",
-            Sidebar { sidebar_open: *sidebar_open.read() }
-
-            // Main content area
-            div { class: "flex-1 flex flex-col min-w-0",
-                Header {
-                    sidebar_open: *sidebar_open.read(),
-                    on_sidebar_toggle: move |_| {
-                        let open = *sidebar_open.read();
-                        sidebar_open.set(!open);
-                    },
-                }
-
-                // Page content with fade-in transition
-                main { class: "flex-1 px-4 sm:px-6 lg:px-8 py-6 overflow-auto",
-                    div { class: "page-enter",
-                        Outlet::<Route> {}
-                    }
-                }
-            }
-        }
-    }
-}

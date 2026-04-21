@@ -11,7 +11,10 @@
 
 use std::sync::Arc;
 
-use csv_adapter_core::{Chain, DAGSegment, FinalityProof, Hash, InclusionProof, ProofBundle, RightId, SealRef, AnchorRef};
+use csv_adapter_core::{
+    AnchorRef, Chain, DAGSegment, FinalityProof, Hash, InclusionProof, ProofBundle, RightId,
+    SealRef,
+};
 
 use crate::client::ClientRef;
 use crate::errors::CsvError;
@@ -78,11 +81,7 @@ impl ProofManager {
     /// - **Ethereum**: MPT receipt proof + log inclusion
     /// - **Sui**: Checkpoint certification + transaction effects
     /// - **Aptos**: Ledger info proof + event stream
-    pub fn generate(
-        &self,
-        _right_id: &RightId,
-        chain: Chain,
-    ) -> Result<ProofBundle, CsvError> {
+    pub fn generate(&self, _right_id: &RightId, chain: Chain) -> Result<ProofBundle, CsvError> {
         if !self.client.is_chain_enabled(chain) {
             return Err(CsvError::ChainNotSupported(chain));
         }
@@ -108,9 +107,9 @@ impl ProofManager {
                 .map_err(|e| CsvError::Generic(e.to_string()))?,
             InclusionProof::new(vec![], Hash::zero(), 0)
                 .map_err(|e| CsvError::Generic(e.to_string()))?,
-            FinalityProof::new(vec![], 0, false)
-                .map_err(|e| CsvError::Generic(e.to_string()))?,
-        ).map_err(|e| CsvError::Generic(e.to_string()))
+            FinalityProof::new(vec![], 0, false).map_err(|e| CsvError::Generic(e.to_string()))?,
+        )
+        .map_err(|e| CsvError::Generic(e.to_string()))
     }
 
     /// Verify a proof bundle against an expected Right ID.

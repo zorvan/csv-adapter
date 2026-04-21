@@ -38,53 +38,16 @@ impl Indexer {
         // Build chain indexers based on configuration
         let mut indexers: Vec<Box<dyn ChainIndexer>> = Vec::new();
 
-        // Bitcoin
-        if let Some(btc_config) = config.chains.get("bitcoin") {
-            if btc_config.enabled {
-                indexers.push(Box::new(bitcoin::BitcoinIndexer::new(
-                    btc_config.clone(),
-                    rpc_manager.clone(),
-                )));
+        for (chain_id, chain_config) in &config.chains {
+            if !chain_config.enabled {
+                continue;
             }
-        }
-
-        // Ethereum
-        if let Some(eth_config) = config.chains.get("ethereum") {
-            if eth_config.enabled {
-                indexers.push(Box::new(ethereum::EthereumIndexer::new(
-                    eth_config.clone(),
-                    rpc_manager.clone(),
-                )));
-            }
-        }
-
-        // Sui
-        if let Some(sui_config) = config.chains.get("sui") {
-            if sui_config.enabled {
-                indexers.push(Box::new(sui::SuiIndexer::new(
-                    sui_config.clone(),
-                    rpc_manager.clone(),
-                )));
-            }
-        }
-
-        // Aptos
-        if let Some(aptos_config) = config.chains.get("aptos") {
-            if aptos_config.enabled {
-                indexers.push(Box::new(aptos::AptosIndexer::new(
-                    aptos_config.clone(),
-                    rpc_manager.clone(),
-                )));
-            }
-        }
-
-        // Solana
-        if let Some(sol_config) = config.chains.get("solana") {
-            if sol_config.enabled {
-                indexers.push(Box::new(solana::SolanaIndexer::new(
-                    sol_config.clone(),
-                    rpc_manager.clone(),
-                )));
+            if let Some(indexer) =
+                build_boxed_indexer(chain_id, chain_config.clone(), rpc_manager.clone())
+            {
+                indexers.push(indexer);
+            } else {
+                tracing::warn!(chain = %chain_id, "No indexer implementation registered for discovered chain");
             }
         }
 
@@ -110,53 +73,16 @@ impl Indexer {
         // Rebuild indexers as Arc<dyn ChainIndexer> using the existing rpc_manager
         let mut indexers: Vec<std::sync::Arc<dyn ChainIndexer>> = Vec::new();
 
-        // Bitcoin
-        if let Some(btc_config) = self.config.chains.get("bitcoin") {
-            if btc_config.enabled {
-                indexers.push(std::sync::Arc::new(bitcoin::BitcoinIndexer::new(
-                    btc_config.clone(),
-                    self.rpc_manager.clone(),
-                )));
+        for (chain_id, chain_config) in &self.config.chains {
+            if !chain_config.enabled {
+                continue;
             }
-        }
-
-        // Ethereum
-        if let Some(eth_config) = self.config.chains.get("ethereum") {
-            if eth_config.enabled {
-                indexers.push(std::sync::Arc::new(ethereum::EthereumIndexer::new(
-                    eth_config.clone(),
-                    self.rpc_manager.clone(),
-                )));
-            }
-        }
-
-        // Sui
-        if let Some(sui_config) = self.config.chains.get("sui") {
-            if sui_config.enabled {
-                indexers.push(std::sync::Arc::new(sui::SuiIndexer::new(
-                    sui_config.clone(),
-                    self.rpc_manager.clone(),
-                )));
-            }
-        }
-
-        // Aptos
-        if let Some(aptos_config) = self.config.chains.get("aptos") {
-            if aptos_config.enabled {
-                indexers.push(std::sync::Arc::new(aptos::AptosIndexer::new(
-                    aptos_config.clone(),
-                    self.rpc_manager.clone(),
-                )));
-            }
-        }
-
-        // Solana
-        if let Some(sol_config) = self.config.chains.get("solana") {
-            if sol_config.enabled {
-                indexers.push(std::sync::Arc::new(solana::SolanaIndexer::new(
-                    sol_config.clone(),
-                    self.rpc_manager.clone(),
-                )));
+            if let Some(indexer) =
+                build_arc_indexer(chain_id, chain_config.clone(), self.rpc_manager.clone())
+            {
+                indexers.push(indexer);
+            } else {
+                tracing::warn!(chain = %chain_id, "No wallet-bridge indexer implementation registered for discovered chain");
             }
         }
 
@@ -232,5 +158,53 @@ impl Indexer {
     /// Reset all sync progress.
     pub async fn reset_sync(&self) -> Result<()> {
         self.coordinator.reset_sync().await
+    }
+}
+
+fn build_boxed_indexer(
+    chain_id: &str,
+    config: csv_explorer_shared::ChainConfig,
+    rpc_manager: RpcManager,
+) -> Option<Box<dyn ChainIndexer>> {
+    match chain_id {
+        "bitcoin" => Some(Box::new(bitcoin::BitcoinIndexer::new(config, rpc_manager))),
+        "ethereum" => Some(Box::new(ethereum::EthereumIndexer::new(
+            config,
+            rpc_manager,
+        ))),
+        "sui" => Some(Box::new(sui::SuiIndexer::new(config, rpc_manager))),
+        "aptos" => Some(Box::new(aptos::AptosIndexer::new(config, rpc_manager))),
+        "solana" => Some(Box::new(solana::SolanaIndexer::new(config, rpc_manager))),
+        _ => None,
+    }
+}
+
+fn build_arc_indexer(
+    chain_id: &str,
+    config: csv_explorer_shared::ChainConfig,
+    rpc_manager: RpcManager,
+) -> Option<std::sync::Arc<dyn ChainIndexer>> {
+    match chain_id {
+        "bitcoin" => Some(std::sync::Arc::new(bitcoin::BitcoinIndexer::new(
+            config,
+            rpc_manager,
+        ))),
+        "ethereum" => Some(std::sync::Arc::new(ethereum::EthereumIndexer::new(
+            config,
+            rpc_manager,
+        ))),
+        "sui" => Some(std::sync::Arc::new(sui::SuiIndexer::new(
+            config,
+            rpc_manager,
+        ))),
+        "aptos" => Some(std::sync::Arc::new(aptos::AptosIndexer::new(
+            config,
+            rpc_manager,
+        ))),
+        "solana" => Some(std::sync::Arc::new(solana::SolanaIndexer::new(
+            config,
+            rpc_manager,
+        ))),
+        _ => None,
     }
 }

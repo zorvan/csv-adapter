@@ -7,14 +7,16 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::OnceLock;
 
-use crate::chain_adapter::ChainAdapter;
 use crate::adapters::{
-    ScalableBitcoinAdapter, ScalableEthereumAdapter, ScalableSolanaAdapter, 
-    ScalableSuiAdapter, ScalableAptosAdapter
+    ScalableAptosAdapter, ScalableBitcoinAdapter, ScalableEthereumAdapter, ScalableSolanaAdapter,
+    ScalableSuiAdapter,
 };
+use crate::chain_adapter::ChainAdapter;
+use crate::chain_config::ChainConfig;
+use crate::chain_plugin::ChainPluginRegistry;
 
 /// Factory function type for creating chain adapters
-type AdapterFactoryFn = Arc<dyn Fn() -> Box<dyn ChainAdapter> + Send + Sync>;
+type AdapterFactoryFn = Arc<dyn Fn(Option<ChainConfig>) -> Box<dyn ChainAdapter> + Send + Sync>;
 
 /// Registry of adapter factories for dynamic chain instantiation
 pub struct AdapterFactory {
@@ -22,46 +24,41 @@ pub struct AdapterFactory {
 }
 
 impl AdapterFactory {
+    /// Create a new empty adapter factory.
+    pub fn empty() -> Self {
+        Self {
+            factories: HashMap::new(),
+        }
+    }
+
     /// Create a new adapter factory with all built-in chains registered
     pub fn new() -> Self {
-        let mut factory = Self {
-            factories: HashMap::new(),
-        };
-        
+        let mut factory = Self::empty();
+
         // Register built-in chain adapters
         factory.register_built_in_adapters();
-        
+
         factory
     }
-    
+
     /// Register all built-in chain adapters
     fn register_built_in_adapters(&mut self) {
         // Bitcoin
-        self.register("bitcoin", Arc::new(|| {
-            Box::new(ScalableBitcoinAdapter::new())
-        }));
-        
+        self.register("bitcoin", || Box::new(ScalableBitcoinAdapter::new()));
+
         // Ethereum
-        self.register("ethereum", Arc::new(|| {
-            Box::new(ScalableEthereumAdapter::new())
-        }));
-        
+        self.register("ethereum", || Box::new(ScalableEthereumAdapter::new()));
+
         // Solana
-        self.register("solana", Arc::new(|| {
-            Box::new(ScalableSolanaAdapter::new())
-        }));
-        
+        self.register("solana", || Box::new(ScalableSolanaAdapter::new()));
+
         // Sui
-        self.register("sui", Arc::new(|| {
-            Box::new(ScalableSuiAdapter::new())
-        }));
-        
+        self.register("sui", || Box::new(ScalableSuiAdapter::new()));
+
         // Aptos
-        self.register("aptos", Arc::new(|| {
-            Box::new(ScalableAptosAdapter::new())
-        }));
+        self.register("aptos", || Box::new(ScalableAptosAdapter::new()));
     }
-    
+
     /// Register a custom adapter factory
     ///
     /// # Arguments
@@ -76,14 +73,34 @@ impl AdapterFactory {
     /// use csv_adapter_core::adapters::ScalableSolanaAdapter;
     ///
     /// let mut factory = AdapterFactory::new();
-    /// factory.register("solana", std::sync::Arc::new(|| {
+    /// factory.register("solana", || {
     ///     Box::new(ScalableSolanaAdapter::new())
-    /// }));
+    /// });
     /// ```
-    pub fn register(&mut self, chain_id: &str, factory: AdapterFactoryFn) {
+    pub fn register<F>(&mut self, chain_id: &str, factory: F)
+    where
+        F: Fn() -> Box<dyn ChainAdapter> + Send + Sync + 'static,
+    {
+        self.factories
+            .insert(chain_id.to_string(), Arc::new(move |_| factory()));
+    }
+
+    /// Register a factory that receives the discovered chain configuration.
+    pub fn register_with_config(&mut self, chain_id: &str, factory: AdapterFactoryFn) {
         self.factories.insert(chain_id.to_string(), factory);
     }
-    
+
+    /// Register all plugins from a plugin registry.
+    pub fn register_plugins_from_registry(&mut self, registry: &ChainPluginRegistry) {
+        for (chain_id, plugin) in registry.all_plugins() {
+            let plugin = Arc::clone(plugin);
+            self.register_with_config(
+                chain_id,
+                Arc::new(move |config| plugin.create_adapter(config)),
+            );
+        }
+    }
+
     /// Create an adapter for the specified chain
     ///
     /// # Arguments
@@ -105,9 +122,18 @@ impl AdapterFactory {
     /// assert!(adapter.is_some());
     /// ```
     pub fn create_adapter(&self, chain_id: &str) -> Option<Box<dyn ChainAdapter>> {
-        self.factories.get(chain_id).map(|f| f())
+        self.create_adapter_with_config(chain_id, None)
     }
-    
+
+    /// Create an adapter with a discovered configuration.
+    pub fn create_adapter_with_config(
+        &self,
+        chain_id: &str,
+        config: Option<ChainConfig>,
+    ) -> Option<Box<dyn ChainAdapter>> {
+        self.factories.get(chain_id).map(|factory| factory(config))
+    }
+
     /// Check if a chain is supported
     ///
     /// # Arguments
@@ -120,7 +146,7 @@ impl AdapterFactory {
     pub fn is_supported(&self, chain_id: &str) -> bool {
         self.factories.contains_key(chain_id)
     }
-    
+
     /// Get all supported chain IDs
     ///
     /// # Returns
@@ -129,12 +155,12 @@ impl AdapterFactory {
     pub fn supported_chains(&self) -> Vec<&str> {
         self.factories.keys().map(|k| k.as_str()).collect()
     }
-    
+
     /// Get the number of registered adapters
     pub fn adapter_count(&self) -> usize {
         self.factories.len()
     }
-    
+
     /// Create adapters for all supported chains
     ///
     /// # Returns
@@ -143,7 +169,7 @@ impl AdapterFactory {
     pub fn create_all_adapters(&self) -> Vec<(String, Box<dyn ChainAdapter>)> {
         self.factories
             .iter()
-            .map(|(chain_id, factory)| (chain_id.clone(), factory()))
+            .map(|(chain_id, factory)| (chain_id.clone(), factory(None)))
             .collect()
     }
 }
@@ -216,7 +242,7 @@ pub fn is_chain_supported(chain_id: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_adapter_factory_creation() {
         let factory = AdapterFactory::new();
@@ -224,49 +250,49 @@ mod tests {
         assert!(factory.is_supported("solana"));
         assert!(!factory.is_supported("unknown_chain"));
     }
-    
+
     #[test]
     fn test_create_adapter() {
         let factory = AdapterFactory::new();
-        
+
         let bitcoin = factory.create_adapter("bitcoin");
         assert!(bitcoin.is_some());
         assert_eq!(bitcoin.unwrap().chain_id(), "bitcoin");
-        
+
         let unknown = factory.create_adapter("unknown");
         assert!(unknown.is_none());
     }
-    
+
     #[test]
     fn test_supported_chains() {
         let factory = AdapterFactory::new();
         let chains = factory.supported_chains();
-        
+
         assert!(chains.contains(&"bitcoin"));
         assert!(chains.contains(&"solana"));
     }
-    
+
     #[test]
     fn test_create_all_adapters() {
         let factory = AdapterFactory::new();
         let adapters = factory.create_all_adapters();
-        
+
         assert_eq!(adapters.len(), 5); // bitcoin, ethereum, solana, sui, aptos
-        
+
         for (chain_id, adapter) in adapters {
             assert_eq!(chain_id, adapter.chain_id());
         }
     }
-    
+
     #[test]
     fn test_custom_registration() {
         let mut factory = AdapterFactory::new();
-        
+
         // Register a custom chain
-        factory.register("custom_chain", Arc::new(|| {
+        factory.register("custom_chain", || {
             Box::new(ScalableSolanaAdapter::new()) // Using Solana as placeholder
-        }));
-        
+        });
+
         assert!(factory.is_supported("custom_chain"));
         let custom = factory.create_adapter("custom_chain");
         assert!(custom.is_some());

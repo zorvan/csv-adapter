@@ -1,7 +1,7 @@
 //! Persistent storage using browser localStorage.
 
+use serde::{Deserialize, Serialize};
 use web_sys::{Storage, Window};
-use serde::{Serialize, Deserialize};
 
 /// Storage error.
 #[derive(Debug, thiserror::Error)]
@@ -30,7 +30,8 @@ impl LocalStorageManager {
         let window: Window = web_sys::window()
             .ok_or_else(|| StorageError::BrowserError("No window object".to_string()))?;
 
-        let storage = window.local_storage()
+        let storage = window
+            .local_storage()
             .map_err(|e| StorageError::BrowserError(format!("{:?}", e)))?
             .ok_or_else(|| StorageError::BrowserError("localStorage not available".to_string()))?;
 
@@ -46,7 +47,8 @@ impl LocalStorageManager {
             .map_err(|e| StorageError::SerializeError(e.to_string()))?;
 
         let full_key = format!("{}:{}", self.prefix, key);
-        self.storage.set_item(&full_key, &json)
+        self.storage
+            .set_item(&full_key, &json)
             .map_err(|e| StorageError::BrowserError(format!("{:?}", e)))
     }
 
@@ -54,12 +56,15 @@ impl LocalStorageManager {
     pub fn load<T: for<'de> Deserialize<'de>>(&self, key: &str) -> Result<T, StorageError> {
         let full_key = format!("{}:{}", self.prefix, key);
 
-        let json = self.storage.get_item(&full_key)
+        let json = self
+            .storage
+            .get_item(&full_key)
             .map_err(|e| StorageError::BrowserError(format!("{:?}", e)))?;
 
         match json {
-            Some(json) => serde_json::from_str(&json)
-                .map_err(|e| StorageError::SerializeError(e.to_string())),
+            Some(json) => {
+                serde_json::from_str(&json).map_err(|e| StorageError::SerializeError(e.to_string()))
+            }
             None => Err(StorageError::NotFound(key.to_string())),
         }
     }
@@ -74,14 +79,16 @@ impl LocalStorageManager {
     /// Delete item.
     pub fn delete(&self, key: &str) -> Result<(), StorageError> {
         let full_key = format!("{}:{}", self.prefix, key);
-        self.storage.remove_item(&full_key)
+        self.storage
+            .remove_item(&full_key)
             .map_err(|e| StorageError::BrowserError(format!("{:?}", e)))
     }
 
     /// Get item as string.
     pub fn get_raw(&self, key: &str) -> Result<Option<String>, StorageError> {
         let full_key = format!("{}:{}", self.prefix, key);
-        self.storage.get_item(&full_key)
+        self.storage
+            .get_item(&full_key)
             .map_err(|e| StorageError::BrowserError(format!("{:?}", e)))
     }
 

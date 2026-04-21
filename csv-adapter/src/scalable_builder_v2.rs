@@ -97,12 +97,12 @@ impl ScalableClientBuilder {
     pub fn with_all_available_chains(mut self) -> Self {
         if let Some(ref registry) = self.state.chain_registry {
             let available_chains = registry.supported_chains();
-            
+
             for chain_id in available_chains {
                 self.state.enabled_chains.insert(chain_id.to_string());
             }
         }
-        
+
         self
     }
 
@@ -181,7 +181,7 @@ impl ScalableClientBuilder {
                 self.state.enabled_chains.insert(chain_id.clone());
             }
         }
-        
+
         self.state.config = Some(config);
         self
     }
@@ -217,8 +217,12 @@ impl ScalableClientBuilder {
 
         // Validate that chain registry is set if using registry-based chains
         if self.state.enabled_chains.iter().any(|chain_id| {
-            !matches!(chain_id.as_str(), "bitcoin" | "ethereum" | "solana" | "sui" | "aptos")
-        }) && self.state.chain_registry.is_none() {
+            !matches!(
+                chain_id.as_str(),
+                "bitcoin" | "ethereum" | "solana" | "sui" | "aptos"
+            )
+        }) && self.state.chain_registry.is_none()
+        {
             return Err(CsvError::BuilderError(
                 "Chain registry must be set when enabling custom chains. Use .with_chain_registry()."
                     .to_string(),
@@ -234,12 +238,10 @@ impl ScalableClientBuilder {
                 crate::client::StoreHandle::InMemory(csv_adapter_core::InMemorySealStore::new())
             }
             #[cfg(feature = "sqlite")]
-            StoreBackend::Sqlite { ref path } => {
-                crate::client::StoreHandle::Sqlite(
-                    csv_adapter_store::SqliteSealStore::open(path)
-                        .map_err(|e| CsvError::StoreError(e.to_string()))?,
-                )
-            }
+            StoreBackend::Sqlite { ref path } => crate::client::StoreHandle::Sqlite(
+                csv_adapter_store::SqliteSealStore::open(path)
+                    .map_err(|e| CsvError::StoreError(e.to_string()))?,
+            ),
         };
 
         // Convert enabled chain IDs to core Chain enum

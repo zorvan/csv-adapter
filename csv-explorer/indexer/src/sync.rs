@@ -524,7 +524,9 @@ async fn sync_chain(
         }
 
         // Update sync progress
-        ctx.sync_repo.update_progress(chain_id, current, None).await?;
+        ctx.sync_repo
+            .update_progress(chain_id, current, None)
+            .await?;
 
         // Increment total indexed blocks counter
         {

@@ -3,11 +3,11 @@
 //! Provides REST API endpoints for wallet-to-explorer communication
 //! and real-time transfer monitoring.
 
-use std::sync::Arc;
+use crate::indexing::{IndexedRight, IndexedTransfer, IndexingManager, IndexingMetrics};
 use serde::{Deserialize, Serialize};
-use warp::{Filter, Reply};
+use std::sync::Arc;
 use tokio_tungstenite::WebSocketStream;
-use crate::indexing::{IndexingManager, IndexedRight, IndexedTransfer, IndexingMetrics};
+use warp::{Filter, Reply};
 
 pub mod handlers;
 pub mod websocket;
@@ -48,7 +48,7 @@ impl<T> ApiResponse<T> {
             timestamp: std::time::SystemTime::now(),
         }
     }
-    
+
     /// Create an error response
     pub fn error(error: String) -> Self {
         Self {
@@ -120,50 +120,50 @@ pub struct TransferStatusUpdate {
 
 impl ExplorerApi {
     /// Create a new API server
-    pub fn new(indexing_manager: Arc<IndexingManager>) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+    pub fn new(
+        indexing_manager: Arc<IndexingManager>,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         Ok(Self {
             indexing_manager,
             port: 8080,
             is_running: false,
         })
     }
-    
+
     /// Start the API server
     pub async fn start(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         if self.is_running {
             return Err("API server already running".into());
         }
-        
+
         println!("Starting Explorer API server on port {}", self.port);
-        
+
         // Create API routes
         let routes = self.create_routes();
-        
+
         // Start the server
         let addr: std::net::SocketAddr = ([0, 0, 0, 0], self.port).into();
         warp::serve(routes).run(addr).await;
-        
+
         Ok(())
     }
-    
+
     /// Stop the API server
     pub fn stop(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         println!("Stopping Explorer API server");
         // In a real implementation, we'd use a graceful shutdown mechanism
         Ok(())
     }
-    
+
     /// Create API routes
     fn create_routes(&self) -> impl Filter<Extract = impl Reply, Error = warp::Rejection> + Clone {
         let indexing_manager = self.indexing_manager.clone();
-        
+
         // Health check endpoint
         let health = warp::path("health")
             .and(warp::get())
-            .map(|| {
-                warp::reply::json(&ApiResponse::success("OK"))
-            });
-        
+            .map(|| warp::reply::json(&ApiResponse::success("OK")));
+
         // Get rights by owner
         let rights_by_owner = {
             let indexing_manager = indexing_manager.clone();
@@ -228,13 +228,13 @@ impl ExplorerApi {
                     })
                 })
         };
-        
+
         // CORS headers
         let cors = warp::cors()
             .allow_any_origin()
             .allow_headers(vec!["content-type"])
             .allow_methods(vec!["GET", "POST", "PUT", "DELETE"]);
-        
+
         // Combine all routes
         health
             .or(rights_by_owner)
@@ -245,7 +245,7 @@ impl ExplorerApi {
             .or(websocket)
             .with(cors)
     }
-    
+
     /// Get API status
     pub async fn get_status(&self) -> ApiStatus {
         ApiStatus {
@@ -272,69 +272,106 @@ impl ExplorerApiClient {
             client: reqwest::Client::new(),
         }
     }
-    
+
     /// Get rights by owner
-    pub async fn get_rights_by_owner(&self, owner: &str) -> Result<RightsResponse, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn get_rights_by_owner(
+        &self,
+        owner: &str,
+    ) -> Result<RightsResponse, Box<dyn std::error::Error + Send + Sync>> {
         let url = format!("{}/rights/owner/{}", self.base_url, owner);
         let response = self.client.get(&url).send().await?;
         let api_response: ApiResponse<RightsResponse> = response.json().await?;
-        
+
         if api_response.success {
-            api_response.data.ok_or_else(|| "No data in response".into())
+            api_response
+                .data
+                .ok_or_else(|| "No data in response".into())
         } else {
-            Err(api_response.error.unwrap_or_else(|| "Unknown error".to_string()).into())
+            Err(api_response
+                .error
+                .unwrap_or_else(|| "Unknown error".to_string())
+                .into())
         }
     }
-    
+
     /// Search rights
-    pub async fn search_rights(&self, request: &RightsSearchRequest) -> Result<RightsResponse, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn search_rights(
+        &self,
+        request: &RightsSearchRequest,
+    ) -> Result<RightsResponse, Box<dyn std::error::Error + Send + Sync>> {
         let url = format!("{}/rights/search", self.base_url);
         let response = self.client.post(&url).json(request).send().await?;
         let api_response: ApiResponse<RightsResponse> = response.json().await?;
-        
+
         if api_response.success {
-            api_response.data.ok_or_else(|| "No data in response".into())
+            api_response
+                .data
+                .ok_or_else(|| "No data in response".into())
         } else {
-            Err(api_response.error.unwrap_or_else(|| "Unknown error".to_string()).into())
+            Err(api_response
+                .error
+                .unwrap_or_else(|| "Unknown error".to_string())
+                .into())
         }
     }
-    
+
     /// Get transfer by hash
-    pub async fn get_transfer_by_hash(&self, hash: &str) -> Result<Option<IndexedTransfer>, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn get_transfer_by_hash(
+        &self,
+        hash: &str,
+    ) -> Result<Option<IndexedTransfer>, Box<dyn std::error::Error + Send + Sync>> {
         let url = format!("{}/transfers/{}", self.base_url, hash);
         let response = self.client.get(&url).send().await?;
         let api_response: ApiResponse<IndexedTransfer> = response.json().await?;
-        
+
         if api_response.success {
             Ok(api_response.data)
         } else {
-            Err(api_response.error.unwrap_or_else(|| "Unknown error".to_string()).into())
+            Err(api_response
+                .error
+                .unwrap_or_else(|| "Unknown error".to_string())
+                .into())
         }
     }
-    
+
     /// Search transfers
-    pub async fn search_transfers(&self, request: &TransfersSearchRequest) -> Result<TransfersResponse, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn search_transfers(
+        &self,
+        request: &TransfersSearchRequest,
+    ) -> Result<TransfersResponse, Box<dyn std::error::Error + Send + Sync>> {
         let url = format!("{}/transfers/search", self.base_url);
         let response = self.client.post(&url).json(request).send().await?;
         let api_response: ApiResponse<TransfersResponse> = response.json().await?;
-        
+
         if api_response.success {
-            api_response.data.ok_or_else(|| "No data in response".into())
+            api_response
+                .data
+                .ok_or_else(|| "No data in response".into())
         } else {
-            Err(api_response.error.unwrap_or_else(|| "Unknown error".to_string()).into())
+            Err(api_response
+                .error
+                .unwrap_or_else(|| "Unknown error".to_string())
+                .into())
         }
     }
-    
-/// Get indexing metrics
-pub async fn get_metrics(&self) -> Result<IndexingMetrics, Box<dyn std::error::Error + Send + Sync>> {
-    let url = format!("{}/metrics", self.base_url);
-    let response = self.client.get(&url).send().await?;
-    let metrics: IndexingMetrics = response.json().await?;
-    Ok(metrics)
-}
-    
+
+    /// Get indexing metrics
+    pub async fn get_metrics(
+        &self,
+    ) -> Result<IndexingMetrics, Box<dyn std::error::Error + Send + Sync>> {
+        let url = format!("{}/metrics", self.base_url);
+        let response = self.client.get(&url).send().await?;
+        let metrics: IndexingMetrics = response.json().await?;
+        Ok(metrics)
+    }
+
     /// Create WebSocket connection for real-time updates
-    pub async fn connect_websocket(&self) -> Result<WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn connect_websocket(
+        &self,
+    ) -> Result<
+        WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
+        Box<dyn std::error::Error + Send + Sync>,
+    > {
         let ws_url = format!("{}/ws", self.base_url.replace("http", "ws"));
         let (stream, _) = tokio_tungstenite::connect_async(&ws_url).await?;
         Ok(stream)
@@ -344,20 +381,20 @@ pub async fn get_metrics(&self) -> Result<IndexingMetrics, Box<dyn std::error::E
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_api_response_creation() {
         let success_response = ApiResponse::success("test data");
         assert!(success_response.success);
         assert!(success_response.data.is_some());
         assert!(success_response.error.is_none());
-        
+
         let error_response: ApiResponse<String> = ApiResponse::error("test error".to_string());
         assert!(!error_response.success);
         assert!(error_response.data.is_none());
         assert!(error_response.error.is_some());
     }
-    
+
     #[test]
     fn test_api_client_creation() {
         let client = ExplorerApiClient::new("http://localhost:8080");

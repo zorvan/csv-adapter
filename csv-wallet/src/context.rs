@@ -1,9 +1,10 @@
 //! Application context and state management.
 
-use dioxus::prelude::*;
-use csv_adapter_core::Chain;
-use crate::wallet_core::{WalletData, ChainAccount};
+use crate::chains::supported_wallet_chains;
 use crate::storage::{self, LocalStorageManager, PersistedState};
+use crate::wallet_core::{ChainAccount, WalletData};
+use csv_adapter_core::Chain;
+use dioxus::prelude::*;
 
 /// Network type.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
@@ -285,7 +286,11 @@ impl WalletContext {
     /// Create context with localStorage persistence.
     pub fn new(state: Signal<AppState>, loaded: Signal<bool>) -> Self {
         let store = storage::wallet_storage().ok();
-        let mut ctx = Self { state, store, loaded };
+        let mut ctx = Self {
+            state,
+            store,
+            loaded,
+        };
         ctx.load_persisted();
         ctx.loaded.set(true);
         ctx
@@ -300,7 +305,9 @@ impl WalletContext {
     pub fn reload_from_storage(&mut self) {
         web_sys::console::log_1(&"Reloading wallet from storage...".into());
         self.load_persisted();
-        web_sys::console::log_1(&format!("Wallet reloaded. Accounts: {}", self.accounts().len()).into());
+        web_sys::console::log_1(
+            &format!("Wallet reloaded. Accounts: {}", self.accounts().len()).into(),
+        );
     }
 
     // ===== Persistence =====
@@ -318,68 +325,98 @@ impl WalletContext {
                 "main" => Network::Main,
                 _ => Network::Test,
             };
-            s.rights = persisted.rights.into_iter().filter_map(|r| {
-                Some(TrackedRight {
-                    id: r.id, chain: r.chain.parse().ok()?, value: r.value,
-                    status: match r.status.as_str() {
-                        "Active" => RightStatus::Active,
-                        "Transferred" => RightStatus::Transferred,
-                        "Consumed" => RightStatus::Consumed,
-                        _ => RightStatus::Active,
-                    },
-                    owner: r.owner,
+            s.rights = persisted
+                .rights
+                .into_iter()
+                .filter_map(|r| {
+                    Some(TrackedRight {
+                        id: r.id,
+                        chain: r.chain.parse().ok()?,
+                        value: r.value,
+                        status: match r.status.as_str() {
+                            "Active" => RightStatus::Active,
+                            "Transferred" => RightStatus::Transferred,
+                            "Consumed" => RightStatus::Consumed,
+                            _ => RightStatus::Active,
+                        },
+                        owner: r.owner,
+                    })
                 })
-            }).collect();
-            s.transfers = persisted.transfers.into_iter().filter_map(|t| {
-                Some(TrackedTransfer {
-                    id: t.id, from_chain: t.from_chain.parse().ok()?,
-                    to_chain: t.to_chain.parse().ok()?, right_id: t.right_id,
-                    dest_owner: t.dest_owner,
-                    status: match t.status.as_str() {
-                        "Initiated" => TransferStatus::Initiated,
-                        "Locked" => TransferStatus::Locked,
-                        "Verifying" => TransferStatus::Verifying,
-                        "Minting" => TransferStatus::Minting,
-                        "Completed" => TransferStatus::Completed,
-                        "Failed" => TransferStatus::Failed,
-                        _ => TransferStatus::Initiated,
-                    },
-                    created_at: t.created_at,
+                .collect();
+            s.transfers = persisted
+                .transfers
+                .into_iter()
+                .filter_map(|t| {
+                    Some(TrackedTransfer {
+                        id: t.id,
+                        from_chain: t.from_chain.parse().ok()?,
+                        to_chain: t.to_chain.parse().ok()?,
+                        right_id: t.right_id,
+                        dest_owner: t.dest_owner,
+                        status: match t.status.as_str() {
+                            "Initiated" => TransferStatus::Initiated,
+                            "Locked" => TransferStatus::Locked,
+                            "Verifying" => TransferStatus::Verifying,
+                            "Minting" => TransferStatus::Minting,
+                            "Completed" => TransferStatus::Completed,
+                            "Failed" => TransferStatus::Failed,
+                            _ => TransferStatus::Initiated,
+                        },
+                        created_at: t.created_at,
+                    })
                 })
-            }).collect();
-            s.seals = persisted.seals.into_iter().filter_map(|s| {
-                Some(SealRecord {
-                    seal_ref: s.seal_ref, chain: s.chain.parse().ok()?,
-                    value: s.value, consumed: s.consumed, created_at: s.created_at,
+                .collect();
+            s.seals = persisted
+                .seals
+                .into_iter()
+                .filter_map(|s| {
+                    Some(SealRecord {
+                        seal_ref: s.seal_ref,
+                        chain: s.chain.parse().ok()?,
+                        value: s.value,
+                        consumed: s.consumed,
+                        created_at: s.created_at,
+                    })
                 })
-            }).collect();
-            s.proofs = persisted.proofs.into_iter().filter_map(|p| {
-                Some(ProofRecord {
-                    chain: p.chain.parse().ok()?, right_id: p.right_id,
-                    proof_type: p.proof_type, verified: p.verified,
+                .collect();
+            s.proofs = persisted
+                .proofs
+                .into_iter()
+                .filter_map(|p| {
+                    Some(ProofRecord {
+                        chain: p.chain.parse().ok()?,
+                        right_id: p.right_id,
+                        proof_type: p.proof_type,
+                        verified: p.verified,
+                    })
                 })
-            }).collect();
-            s.contracts = persisted.contracts.into_iter().filter_map(|c| {
-                Some(DeployedContract {
-                    chain: c.chain.parse().ok()?, address: c.address,
-                    tx_hash: c.tx_hash, deployed_at: c.deployed_at,
+                .collect();
+            s.contracts = persisted
+                .contracts
+                .into_iter()
+                .filter_map(|c| {
+                    Some(DeployedContract {
+                        chain: c.chain.parse().ok()?,
+                        address: c.address,
+                        tx_hash: c.tx_hash,
+                        deployed_at: c.deployed_at,
+                    })
                 })
-            }).collect();
+                .collect();
         }
 
         // Load wallet data (per-chain accounts)
         if let Some(wallet_json) = store.get_raw(storage::WALLET_MNEMONIC_KEY).ok().flatten() {
             // The wallet JSON might be double-encoded (stored as a JSON string)
             // Try to parse it directly first
-            let parse_result = WalletData::from_json(&wallet_json)
-                .or_else(|_| {
-                    // If that fails, try to parse it as a JSON string (double-encoded)
-                    serde_json::from_str::<String>(&wallet_json)
-                        .ok()
-                        .and_then(|inner_json| WalletData::from_json(&inner_json).ok())
-                        .ok_or_else(|| "Failed to parse wallet JSON".to_string())
-                });
-            
+            let parse_result = WalletData::from_json(&wallet_json).or_else(|_| {
+                // If that fails, try to parse it as a JSON string (double-encoded)
+                serde_json::from_str::<String>(&wallet_json)
+                    .ok()
+                    .and_then(|inner_json| WalletData::from_json(&inner_json).ok())
+                    .ok_or_else(|| "Failed to parse wallet JSON".to_string())
+            });
+
             match parse_result {
                 Ok(wallet) => {
                     self.state.write().wallet = wallet;
@@ -400,28 +437,61 @@ impl WalletContext {
             initialized: !s.wallet.is_empty(),
             selected_chain: s.selected_chain.to_string(),
             selected_network: s.selected_network.to_string(),
-            rights: s.rights.iter().map(|r| storage::PersistedRight {
-                id: r.id.clone(), chain: r.chain.to_string(), value: r.value,
-                status: r.status.to_string(), owner: r.owner.clone(),
-            }).collect(),
-            transfers: s.transfers.iter().map(|t| storage::PersistedTransfer {
-                id: t.id.clone(), from_chain: t.from_chain.to_string(),
-                to_chain: t.to_chain.to_string(), right_id: t.right_id.clone(),
-                dest_owner: t.dest_owner.clone(), status: t.status.to_string(),
-                created_at: t.created_at,
-            }).collect(),
-            seals: s.seals.iter().map(|s| storage::PersistedSeal {
-                seal_ref: s.seal_ref.clone(), chain: s.chain.to_string(),
-                value: s.value, consumed: s.consumed, created_at: s.created_at,
-            }).collect(),
-            proofs: s.proofs.iter().map(|p| storage::PersistedProof {
-                chain: p.chain.to_string(), right_id: p.right_id.clone(),
-                proof_type: p.proof_type.clone(), verified: p.verified,
-            }).collect(),
-            contracts: s.contracts.iter().map(|c| storage::PersistedContract {
-                chain: c.chain.to_string(), address: c.address.clone(),
-                tx_hash: c.tx_hash.clone(), deployed_at: c.deployed_at,
-            }).collect(),
+            rights: s
+                .rights
+                .iter()
+                .map(|r| storage::PersistedRight {
+                    id: r.id.clone(),
+                    chain: r.chain.to_string(),
+                    value: r.value,
+                    status: r.status.to_string(),
+                    owner: r.owner.clone(),
+                })
+                .collect(),
+            transfers: s
+                .transfers
+                .iter()
+                .map(|t| storage::PersistedTransfer {
+                    id: t.id.clone(),
+                    from_chain: t.from_chain.to_string(),
+                    to_chain: t.to_chain.to_string(),
+                    right_id: t.right_id.clone(),
+                    dest_owner: t.dest_owner.clone(),
+                    status: t.status.to_string(),
+                    created_at: t.created_at,
+                })
+                .collect(),
+            seals: s
+                .seals
+                .iter()
+                .map(|s| storage::PersistedSeal {
+                    seal_ref: s.seal_ref.clone(),
+                    chain: s.chain.to_string(),
+                    value: s.value,
+                    consumed: s.consumed,
+                    created_at: s.created_at,
+                })
+                .collect(),
+            proofs: s
+                .proofs
+                .iter()
+                .map(|p| storage::PersistedProof {
+                    chain: p.chain.to_string(),
+                    right_id: p.right_id.clone(),
+                    proof_type: p.proof_type.clone(),
+                    verified: p.verified,
+                })
+                .collect(),
+            contracts: s
+                .contracts
+                .iter()
+                .map(|c| storage::PersistedContract {
+                    chain: c.chain.to_string(),
+                    address: c.address.clone(),
+                    tx_hash: c.tx_hash.clone(),
+                    deployed_at: c.deployed_at,
+                })
+                .collect(),
         };
         let _ = store.save(storage::WALLET_STATE_KEY, &persisted);
 
@@ -439,7 +509,9 @@ impl WalletContext {
 
     pub fn remove_account(&mut self, id: &str) -> bool {
         let removed = self.state.write().wallet.remove_account(id);
-        if removed { self.save_persisted(); }
+        if removed {
+            self.save_persisted();
+        }
         removed
     }
 
@@ -464,20 +536,35 @@ impl WalletContext {
     }
 
     pub fn accounts_for_chain(&self, chain: Chain) -> Vec<ChainAccount> {
-        self.state.read().wallet.accounts_for_chain(chain).into_iter().cloned().collect()
+        self.state
+            .read()
+            .wallet
+            .accounts_for_chain(chain)
+            .into_iter()
+            .cloned()
+            .collect()
     }
 
     pub fn address_for_chain(&self, chain: Chain) -> Option<String> {
-        self.state.read().wallet.accounts_for_chain(chain)
-            .first().map(|a| a.address.clone())
+        self.state
+            .read()
+            .wallet
+            .accounts_for_chain(chain)
+            .first()
+            .map(|a| a.address.clone())
     }
 
     pub fn all_addresses(&self) -> Vec<(Chain, String)> {
         let wallet = self.state.read().wallet.clone();
-        [Chain::Bitcoin, Chain::Ethereum, Chain::Sui, Chain::Aptos, Chain::Solana]
-            .iter().filter_map(|&c| {
-                wallet.accounts_for_chain(c).first().map(|a| (c, a.address.clone()))
-            }).collect()
+        supported_wallet_chains()
+            .into_iter()
+            .filter_map(|c| {
+                wallet
+                    .accounts_for_chain(c)
+                    .first()
+                    .map(|a| (c, a.address.clone()))
+            })
+            .collect()
     }
 
     pub fn is_initialized(&self) -> bool {
@@ -508,7 +595,13 @@ impl WalletContext {
     }
 
     pub fn rights_for_chain(&self, chain: Chain) -> Vec<TrackedRight> {
-        self.state.read().rights.iter().filter(|r| r.chain == chain).cloned().collect()
+        self.state
+            .read()
+            .rights
+            .iter()
+            .filter(|r| r.chain == chain)
+            .cloned()
+            .collect()
     }
 
     pub fn add_right(&mut self, right: TrackedRight) {
@@ -517,7 +610,12 @@ impl WalletContext {
     }
 
     pub fn get_right(&self, id: &str) -> Option<TrackedRight> {
-        self.state.read().rights.iter().find(|r| r.id == id).cloned()
+        self.state
+            .read()
+            .rights
+            .iter()
+            .find(|r| r.id == id)
+            .cloned()
     }
 
     // ===== Transfers =====
@@ -531,7 +629,12 @@ impl WalletContext {
     }
 
     pub fn get_transfer(&self, id: &str) -> Option<TrackedTransfer> {
-        self.state.read().transfers.iter().find(|t| t.id == id).cloned()
+        self.state
+            .read()
+            .transfers
+            .iter()
+            .find(|t| t.id == id)
+            .cloned()
     }
 
     // ===== Contracts =====
@@ -540,7 +643,13 @@ impl WalletContext {
     }
 
     pub fn contracts_for_chain(&self, chain: Chain) -> Vec<DeployedContract> {
-        self.state.read().contracts.iter().filter(|c| c.chain == chain).cloned().collect()
+        self.state
+            .read()
+            .contracts
+            .iter()
+            .filter(|c| c.chain == chain)
+            .cloned()
+            .collect()
     }
 
     pub fn add_contract(&mut self, contract: DeployedContract) {
@@ -554,7 +663,13 @@ impl WalletContext {
     }
 
     pub fn seals_for_chain(&self, chain: Chain) -> Vec<SealRecord> {
-        self.state.read().seals.iter().filter(|s| s.chain == chain).cloned().collect()
+        self.state
+            .read()
+            .seals
+            .iter()
+            .filter(|s| s.chain == chain)
+            .cloned()
+            .collect()
     }
 
     pub fn add_seal(&mut self, seal: SealRecord) {
@@ -563,7 +678,11 @@ impl WalletContext {
     }
 
     pub fn is_seal_consumed(&self, seal_ref: &str) -> bool {
-        self.state.read().seals.iter().any(|s| s.seal_ref == seal_ref && s.consumed)
+        self.state
+            .read()
+            .seals
+            .iter()
+            .any(|s| s.seal_ref == seal_ref && s.consumed)
     }
 
     // ===== Proofs =====
@@ -614,9 +733,7 @@ impl WalletContext {
 pub fn WalletProvider(children: Element) -> Element {
     let state = use_signal(AppState::default);
     let loaded = use_signal(|| false);
-    let ctx = use_hook(|| {
-        WalletContext::new(state, loaded)
-    });
+    let ctx = use_hook(|| WalletContext::new(state, loaded));
     use_context_provider(|| ctx.clone());
 
     rsx! { { children } }

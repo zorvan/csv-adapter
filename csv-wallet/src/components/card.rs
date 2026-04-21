@@ -4,10 +4,7 @@ use dioxus::prelude::*;
 
 /// Card component with optional title and children content.
 #[component]
-pub fn Card(
-    title: String,
-    children: Element,
-) -> Element {
+pub fn Card(title: String, children: Element) -> Element {
     rsx! {
         div { class: "bg-gray-900 rounded-xl border border-gray-800 overflow-hidden",
             if !title.is_empty() {
@@ -24,11 +21,7 @@ pub fn Card(
 
 /// Stat card component for displaying key metrics.
 #[component]
-pub fn StatCard(
-    label: String,
-    value: String,
-    icon: String,
-) -> Element {
+pub fn StatCard(label: String, value: String, icon: String) -> Element {
     rsx! {
         div { class: "bg-gray-900 rounded-xl border border-gray-800 p-6",
             div { class: "flex items-center justify-between mb-2",

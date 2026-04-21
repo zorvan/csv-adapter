@@ -3,11 +3,11 @@
 //! Provides WebSocket connections for real-time transfer monitoring
 //! and live indexing updates.
 
-use std::sync::Arc;
+use crate::indexing::IndexingManager;
 use futures::{SinkExt, StreamExt};
+use std::sync::Arc;
 use tokio::sync::RwLock;
 use warp::ws::WebSocket;
-use crate::indexing::IndexingManager;
 
 /// WebSocket connection manager
 pub struct WebSocketManager {
@@ -38,9 +38,7 @@ pub enum WebSocketMessage {
         filters: serde_json::Value,
     },
     /// Unsubscribe from updates
-    Unsubscribe {
-        subscription_type: String,
-    },
+    Unsubscribe { subscription_type: String },
     /// Ping message
     Ping,
     /// Pong message
@@ -51,9 +49,7 @@ pub enum WebSocketMessage {
         data: serde_json::Value,
     },
     /// Error message
-    Error {
-        message: String,
-    },
+    Error { message: String },
 }
 
 impl WebSocketManager {
@@ -64,14 +60,14 @@ impl WebSocketManager {
             indexing_manager,
         }
     }
-    
+
     /// Handle a new WebSocket connection
     pub async fn handle_connection(&self, websocket: WebSocket) {
         use futures::channel::mpsc;
-        
+
         let (tx, mut rx) = mpsc::unbounded();
         let (mut ws_tx, mut ws_rx) = websocket.split();
-        
+
         let connection_id = uuid::Uuid::new_v4().to_string();
         let connection = WebSocketConnection {
             id: connection_id.clone(),
@@ -101,7 +97,8 @@ impl WebSocketManager {
                                 &connection_id_for_handler,
                                 &connections,
                                 &indexing_manager,
-                            ).await;
+                            )
+                            .await;
                         }
                     } else if message.is_close() {
                         break;
@@ -136,7 +133,7 @@ impl WebSocketManager {
             }
         });
     }
-    
+
     /// Handle WebSocket message
     async fn handle_websocket_message(
         message: WebSocketMessage,
@@ -145,8 +142,18 @@ impl WebSocketManager {
         indexing_manager: &Arc<IndexingManager>,
     ) {
         match message {
-            WebSocketMessage::Subscribe { subscription_type, filters } => {
-                Self::handle_subscription(connection_id, &subscription_type, filters, connections, indexing_manager).await;
+            WebSocketMessage::Subscribe {
+                subscription_type,
+                filters,
+            } => {
+                Self::handle_subscription(
+                    connection_id,
+                    &subscription_type,
+                    filters,
+                    connections,
+                    indexing_manager,
+                )
+                .await;
             }
             WebSocketMessage::Unsubscribe { subscription_type } => {
                 Self::handle_unsubscription(connection_id, &subscription_type, connections).await;
@@ -159,14 +166,19 @@ impl WebSocketManager {
             }
             WebSocketMessage::Update { .. } => {
                 // Clients shouldn't send update messages
-                Self::send_error(connection_id, "Invalid message type: Update".to_string(), connections).await;
+                Self::send_error(
+                    connection_id,
+                    "Invalid message type: Update".to_string(),
+                    connections,
+                )
+                .await;
             }
             WebSocketMessage::Error { .. } => {
                 // Clients shouldn't send error messages
             }
         }
     }
-    
+
     /// Handle subscription request
     async fn handle_subscription(
         connection_id: &str,
@@ -183,14 +195,18 @@ impl WebSocketManager {
                     subscription_type: subscription_type.to_string(),
                     filters,
                 };
-                
+
                 // Check if already subscribed
-                if !connection.subscriptions.iter().any(|s| s.subscription_type == subscription_type) {
+                if !connection
+                    .subscriptions
+                    .iter()
+                    .any(|s| s.subscription_type == subscription_type)
+                {
                     connection.subscriptions.push(subscription);
                 }
             }
         }
-        
+
         // Send initial data based on subscription type
         match subscription_type {
             "rights" => {
@@ -221,11 +237,16 @@ impl WebSocketManager {
                 Self::send_message_to_connection(connection_id, update, connections).await;
             }
             _ => {
-                Self::send_error(connection_id, format!("Unknown subscription type: {}", subscription_type), connections).await;
+                Self::send_error(
+                    connection_id,
+                    format!("Unknown subscription type: {}", subscription_type),
+                    connections,
+                )
+                .await;
             }
         }
     }
-    
+
     /// Handle unsubscription request
     async fn handle_unsubscription(
         connection_id: &str,
@@ -234,22 +255,28 @@ impl WebSocketManager {
     ) {
         let mut connections_guard = connections.write().await;
         if let Some(connection) = connections_guard.iter_mut().find(|c| c.id == connection_id) {
-            connection.subscriptions.retain(|s| s.subscription_type != subscription_type);
+            connection
+                .subscriptions
+                .retain(|s| s.subscription_type != subscription_type);
         }
     }
-    
+
     /// Send pong message
     async fn send_pong(connection_id: &str, connections: &Arc<RwLock<Vec<WebSocketConnection>>>) {
         let pong = WebSocketMessage::Pong;
         Self::send_message_to_connection(connection_id, pong, connections).await;
     }
-    
+
     /// Send error message
-    async fn send_error(connection_id: &str, error: String, connections: &Arc<RwLock<Vec<WebSocketConnection>>>) {
+    async fn send_error(
+        connection_id: &str,
+        error: String,
+        connections: &Arc<RwLock<Vec<WebSocketConnection>>>,
+    ) {
         let error_msg = WebSocketMessage::Error { message: error };
         Self::send_message_to_connection(connection_id, error_msg, connections).await;
     }
-    
+
     /// Send message to specific connection
     async fn send_message_to_connection(
         connection_id: &str,
@@ -259,36 +286,50 @@ impl WebSocketManager {
         let connections_guard = connections.read().await;
         if let Some(connection) = connections_guard.iter().find(|c| c.id == connection_id) {
             if let Ok(text) = serde_json::to_string(&message) {
-                let _ = connection.sender.unbounded_send(warp::ws::Message::text(text));
+                let _ = connection
+                    .sender
+                    .unbounded_send(warp::ws::Message::text(text));
             }
         }
     }
-    
+
     /// Broadcast message to all connections
     pub async fn broadcast(&self, message: WebSocketMessage) {
         let connections_guard = self.connections.read().await;
 
         for connection in connections_guard.iter() {
             if let Ok(text) = serde_json::to_string(&message) {
-                let _ = connection.sender.unbounded_send(warp::ws::Message::text(text));
+                let _ = connection
+                    .sender
+                    .unbounded_send(warp::ws::Message::text(text));
             }
         }
     }
-    
+
     /// Broadcast message to connections subscribed to specific type
-    pub async fn broadcast_to_subscribers(&self, subscription_type: &str, message: WebSocketMessage) {
+    pub async fn broadcast_to_subscribers(
+        &self,
+        subscription_type: &str,
+        message: WebSocketMessage,
+    ) {
         let connections_guard = self.connections.read().await;
 
         for connection in connections_guard.iter() {
             // Check if this connection is subscribed to the given type
-            if connection.subscriptions.iter().any(|s| s.subscription_type == subscription_type) {
+            if connection
+                .subscriptions
+                .iter()
+                .any(|s| s.subscription_type == subscription_type)
+            {
                 if let Ok(text) = serde_json::to_string(&message) {
-                    let _ = connection.sender.unbounded_send(warp::ws::Message::text(text));
+                    let _ = connection
+                        .sender
+                        .unbounded_send(warp::ws::Message::text(text));
                 }
             }
         }
     }
-    
+
     /// Get connection count
     pub async fn get_connection_count(&self) -> usize {
         let connections_guard = self.connections.read().await;
@@ -297,10 +338,7 @@ impl WebSocketManager {
 }
 
 /// Handle WebSocket upgrade and connection
-pub async fn handle_websocket(
-    websocket: WebSocket,
-    indexing_manager: Arc<IndexingManager>,
-) {
+pub async fn handle_websocket(websocket: WebSocket, indexing_manager: Arc<IndexingManager>) {
     let ws_manager = WebSocketManager::new(indexing_manager);
     ws_manager.handle_connection(websocket).await;
 }
@@ -308,19 +346,22 @@ pub async fn handle_websocket(
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_websocket_message_serialization() {
         let message = WebSocketMessage::Subscribe {
             subscription_type: "rights".to_string(),
             filters: serde_json::json!({"owner": "test"}),
         };
-        
+
         let json = serde_json::to_string(&message).unwrap();
         let parsed: WebSocketMessage = serde_json::from_str(&json).unwrap();
-        
+
         match parsed {
-            WebSocketMessage::Subscribe { subscription_type, filters } => {
+            WebSocketMessage::Subscribe {
+                subscription_type,
+                filters,
+            } => {
                 assert_eq!(subscription_type, "rights");
                 assert_eq!(filters, serde_json::json!({"owner": "test"}));
             }

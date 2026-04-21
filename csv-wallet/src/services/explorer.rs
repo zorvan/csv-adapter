@@ -137,10 +137,17 @@ impl ExplorerService {
     }
 
     /// Get all registered addresses for a wallet.
-    pub async fn get_wallet_addresses(&self, wallet_id: &str) -> Result<Vec<PriorityAddressInfo>, String> {
-        let url = format!("{}/api/v1/wallet/{}/addresses", self.config.base_url, wallet_id);
+    pub async fn get_wallet_addresses(
+        &self,
+        wallet_id: &str,
+    ) -> Result<Vec<PriorityAddressInfo>, String> {
+        let url = format!(
+            "{}/api/v1/wallet/{}/addresses",
+            self.config.base_url, wallet_id
+        );
 
-        let response: WalletAddressesResponse = self.client
+        let response: WalletAddressesResponse = self
+            .client
             .get(&url)
             .send()
             .await
@@ -154,7 +161,10 @@ impl ExplorerService {
 
     /// Get complete data for an address (rights, seals, transfers).
     pub async fn get_address_data(&self, address: &str) -> Result<AddressDataResponse, String> {
-        let url = format!("{}/api/v1/wallet/address/{}/data", self.config.base_url, address);
+        let url = format!(
+            "{}/api/v1/wallet/address/{}/data",
+            self.config.base_url, address
+        );
 
         self.client
             .get(&url)
@@ -168,9 +178,13 @@ impl ExplorerService {
 
     /// Get rights for a specific address.
     pub async fn get_address_rights(&self, address: &str) -> Result<Vec<RightInfo>, String> {
-        let url = format!("{}/api/v1/wallet/address/{}/rights", self.config.base_url, address);
+        let url = format!(
+            "{}/api/v1/wallet/address/{}/rights",
+            self.config.base_url, address
+        );
 
-        let response: AddressRightsResponse = self.client
+        let response: AddressRightsResponse = self
+            .client
             .get(&url)
             .send()
             .await
@@ -184,9 +198,13 @@ impl ExplorerService {
 
     /// Get seals for a specific address.
     pub async fn get_address_seals(&self, address: &str) -> Result<Vec<SealInfo>, String> {
-        let url = format!("{}/api/v1/wallet/address/{}/seals", self.config.base_url, address);
+        let url = format!(
+            "{}/api/v1/wallet/address/{}/seals",
+            self.config.base_url, address
+        );
 
-        let response: AddressSealsResponse = self.client
+        let response: AddressSealsResponse = self
+            .client
             .get(&url)
             .send()
             .await
@@ -200,9 +218,13 @@ impl ExplorerService {
 
     /// Get transfers for a specific address.
     pub async fn get_address_transfers(&self, address: &str) -> Result<Vec<TransferInfo>, String> {
-        let url = format!("{}/api/v1/wallet/address/{}/transfers", self.config.base_url, address);
+        let url = format!(
+            "{}/api/v1/wallet/address/{}/transfers",
+            self.config.base_url, address
+        );
 
-        let response: AddressTransfersResponse = self.client
+        let response: AddressTransfersResponse = self
+            .client
             .get(&url)
             .send()
             .await
@@ -218,7 +240,8 @@ impl ExplorerService {
     pub async fn get_priority_indexing_status(&self) -> Result<PriorityIndexingStatusInfo, String> {
         let url = format!("{}/api/v1/wallet/priority/status", self.config.base_url);
 
-        let response: PriorityStatusResponse = self.client
+        let response: PriorityStatusResponse = self
+            .client
             .get(&url)
             .send()
             .await

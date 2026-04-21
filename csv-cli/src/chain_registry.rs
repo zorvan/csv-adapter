@@ -5,8 +5,8 @@
 
 #![allow(dead_code)]
 
-use csv_adapter_core::{AdapterFactory, ChainAdapter, ChainCapabilities};
 use crate::config::Chain;
+use csv_adapter_core::{AdapterFactory, ChainAdapter, ChainCapabilities};
 
 /// Get the chain ID string for a Chain enum variant
 pub fn chain_id(chain: &Chain) -> &'static str {
@@ -48,7 +48,11 @@ pub fn supports_smart_contracts(chain: &Chain) -> bool {
 /// Get all supported chains from registry
 pub fn supported_chains() -> Vec<String> {
     let factory = AdapterFactory::new();
-    factory.supported_chains().iter().map(|s| s.to_string()).collect()
+    factory
+        .supported_chains()
+        .iter()
+        .map(|s| s.to_string())
+        .collect()
 }
 
 /// Chain metadata for UI display

@@ -80,7 +80,10 @@ pub fn json<T: serde::Serialize>(data: &T) {
 
 pub fn secret(msg: &str) {
     println!("  {} {}", "SECRET".red().bold(), msg.yellow());
-    println!("  {} Store this securely and never share it!", "WARNING".yellow().bold());
+    println!(
+        "  {} Store this securely and never share it!",
+        "WARNING".yellow().bold()
+    );
 }
 
 pub fn progress(step: usize, total: usize, msg: &str) {

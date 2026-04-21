@@ -136,8 +136,10 @@ impl BlockchainService {
         contract_type: ContractType,
         _signer: &BrowserWallet,
     ) -> Result<ContractDeployment, BlockchainError> {
-        web_sys::console::log_1(&format!("Deploying {:?} contract to {:?}", contract_type, chain).into());
-        
+        web_sys::console::log_1(
+            &format!("Deploying {:?} contract to {:?}", contract_type, chain).into(),
+        );
+
         // In production, this would:
         // 1. Get the contract bytecode from the compiled artifacts
         // 2. Estimate gas/deploy cost
@@ -145,7 +147,7 @@ impl BlockchainService {
         // 4. Send to the chain
         // 5. Wait for confirmation
         // 6. Return the deployed contract address
-        
+
         // For now, return a placeholder that shows the structure
         let deployment = ContractDeployment {
             chain,
@@ -154,7 +156,7 @@ impl BlockchainService {
             deployed_at: js_sys::Date::now() as u64 / 1000,
             contract_type,
         };
-        
+
         Ok(deployment)
     }
 
@@ -168,7 +170,7 @@ impl BlockchainService {
         _signer: &BrowserWallet,
     ) -> Result<TransactionReceipt, BlockchainError> {
         web_sys::console::log_1(&format!("Locking right {} on {:?}", right_id, chain).into());
-        
+
         // Real implementation would call the lock method on the CSV contract
         let receipt = TransactionReceipt {
             tx_hash: format!("0x{}", hex::encode([0u8; 32])),
@@ -176,7 +178,7 @@ impl BlockchainService {
             gas_used: None,
             status: TransactionStatus::Pending,
         };
-        
+
         Ok(receipt)
     }
 
@@ -188,9 +190,14 @@ impl BlockchainService {
         right_id: &str,
         lock_tx_hash: &str,
     ) -> Result<CrossChainProof, BlockchainError> {
-        web_sys::console::log_1(&format!("Generating proof for {} -> {} transfer", 
-            source_chain, target_chain).into());
-        
+        web_sys::console::log_1(
+            &format!(
+                "Generating proof for {} -> {} transfer",
+                source_chain, target_chain
+            )
+            .into(),
+        );
+
         // Real implementation would:
         // 1. Fetch the lock transaction receipt
         // 2. Get the block containing the transaction
@@ -200,7 +207,7 @@ impl BlockchainService {
         //    - Sui: Checkpoint proof
         //    - Aptos: Ledger proof
         // 4. Serialize the proof data
-        
+
         let proof_data = match source_chain {
             Chain::Bitcoin => ProofData::Merkle {
                 root: String::new(),
@@ -227,13 +234,15 @@ impl BlockchainService {
                 path: vec![],
                 leaf: lock_tx_hash.to_string(),
             },
-            _ => return Err(BlockchainError {
-                message: "Unsupported source chain for proof generation".to_string(),
-                chain: Some(source_chain),
-                code: None,
-            }),
+            _ => {
+                return Err(BlockchainError {
+                    message: "Unsupported source chain for proof generation".to_string(),
+                    chain: Some(source_chain),
+                    code: None,
+                })
+            }
         };
-        
+
         Ok(CrossChainProof {
             source_chain,
             target_chain,
@@ -252,11 +261,11 @@ impl BlockchainService {
         _contract_address: &str,
     ) -> Result<bool, BlockchainError> {
         web_sys::console::log_1(&format!("Verifying proof on {:?}", target_chain).into());
-        
+
         // Real implementation would:
         // 1. Call the verify method on the target chain's CSV contract
         // 2. Return true if the proof is valid
-        
+
         Ok(true)
     }
 
@@ -270,8 +279,10 @@ impl BlockchainService {
         _contract_address: &str,
         _signer: &BrowserWallet,
     ) -> Result<TransactionReceipt, BlockchainError> {
-        web_sys::console::log_1(&format!("Minting right {} on {:?} for {}", right_id, chain, owner).into());
-        
+        web_sys::console::log_1(
+            &format!("Minting right {} on {:?} for {}", right_id, chain, owner).into(),
+        );
+
         // Real implementation would call the mint method on the CSV contract
         let receipt = TransactionReceipt {
             tx_hash: format!("0x{}", hex::encode([0u8; 32])),
@@ -279,7 +290,7 @@ impl BlockchainService {
             gas_used: None,
             status: TransactionStatus::Pending,
         };
-        
+
         Ok(receipt)
     }
 
@@ -294,45 +305,40 @@ impl BlockchainService {
         signer: &BrowserWallet,
     ) -> Result<CrossChainTransferResult, BlockchainError> {
         web_sys::console::log_1(&"Starting cross-chain transfer...".into());
-        
+
         // Step 1: Lock the right on source chain
-        let source_contract = contracts.get(&from_chain)
-            .ok_or_else(|| BlockchainError {
-                message: format!("No contract deployed on {:?}", from_chain),
-                chain: Some(from_chain),
-                code: None,
-            })?;
-        
-        let lock_receipt = self.lock_right(
-            from_chain,
-            right_id,
-            &signer.address(),
-            &source_contract.contract_address,
-            signer,
-        ).await?;
-        
+        let source_contract = contracts.get(&from_chain).ok_or_else(|| BlockchainError {
+            message: format!("No contract deployed on {:?}", from_chain),
+            chain: Some(from_chain),
+            code: None,
+        })?;
+
+        let lock_receipt = self
+            .lock_right(
+                from_chain,
+                right_id,
+                &signer.address(),
+                &source_contract.contract_address,
+                signer,
+            )
+            .await?;
+
         // Step 2: Generate proof
-        let proof = self.generate_proof(
-            from_chain,
-            to_chain,
-            right_id,
-            &lock_receipt.tx_hash,
-        ).await?;
-        
+        let proof = self
+            .generate_proof(from_chain, to_chain, right_id, &lock_receipt.tx_hash)
+            .await?;
+
         // Step 3: Verify proof on target chain
-        let target_contract = contracts.get(&to_chain)
-            .ok_or_else(|| BlockchainError {
-                message: format!("No contract deployed on {:?}", to_chain),
-                chain: Some(to_chain),
-                code: None,
-            })?;
-        
-        let verified = self.verify_proof(
-            to_chain,
-            &proof,
-            &target_contract.contract_address,
-        ).await?;
-        
+        let target_contract = contracts.get(&to_chain).ok_or_else(|| BlockchainError {
+            message: format!("No contract deployed on {:?}", to_chain),
+            chain: Some(to_chain),
+            code: None,
+        })?;
+
+        let verified = self
+            .verify_proof(to_chain, &proof, &target_contract.contract_address)
+            .await?;
+
         if !verified {
             return Err(BlockchainError {
                 message: "Proof verification failed".to_string(),
@@ -340,17 +346,19 @@ impl BlockchainService {
                 code: None,
             });
         }
-        
+
         // Step 4: Mint right on target chain
-        let mint_receipt = self.mint_right(
-            to_chain,
-            right_id,
-            dest_owner,
-            0, // Value would come from the locked right
-            &target_contract.contract_address,
-            signer,
-        ).await?;
-        
+        let mint_receipt = self
+            .mint_right(
+                to_chain,
+                right_id,
+                dest_owner,
+                0, // Value would come from the locked right
+                &target_contract.contract_address,
+                signer,
+            )
+            .await?;
+
         Ok(CrossChainTransferResult {
             transfer_id: format!("0x{}", hex::encode([0u8; 32])),
             lock_tx_hash: lock_receipt.tx_hash,
@@ -384,11 +392,11 @@ pub struct BrowserWallet {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum WalletType {
-    MetaMask,      // Ethereum
-    Phantom,       // Solana
-    SuiWallet,     // Sui
-    Petra,         // Aptos
-    Leather,       // Bitcoin
+    MetaMask,  // Ethereum
+    Phantom,   // Solana
+    SuiWallet, // Sui
+    Petra,     // Aptos
+    Leather,   // Bitcoin
     Custom(String),
 }
 
@@ -396,7 +404,7 @@ impl BrowserWallet {
     pub fn address(&self) -> String {
         self.address.clone()
     }
-    
+
     /// Sign a transaction using the browser wallet.
     pub async fn sign_transaction(&self, _tx_data: &[u8]) -> Result<Vec<u8>, BlockchainError> {
         // This would integrate with the actual browser extension
@@ -408,7 +416,7 @@ impl BrowserWallet {
 /// Wallet connection utilities.
 pub mod wallet_connection {
     use super::*;
-    
+
     /// Check if MetaMask is installed.
     pub fn is_metamask_installed() -> bool {
         // Check for ethereum object in window
@@ -416,14 +424,14 @@ pub mod wallet_connection {
             .map(|v| !v.is_undefined())
             .unwrap_or(false)
     }
-    
+
     /// Check if Phantom is installed.
     pub fn is_phantom_installed() -> bool {
         js_sys::Reflect::get(&js_sys::global(), &"phantom".into())
             .map(|v| !v.is_undefined())
             .unwrap_or(false)
     }
-    
+
     /// Connect to MetaMask and return wallet info.
     pub async fn connect_metamask() -> Result<BrowserWallet, BlockchainError> {
         if !is_metamask_installed() {
@@ -433,7 +441,7 @@ pub mod wallet_connection {
                 code: None,
             });
         }
-        
+
         // Request accounts from MetaMask
         // This would use web3.js or ethers.js via wasm-bindgen
         Ok(BrowserWallet {
@@ -442,7 +450,7 @@ pub mod wallet_connection {
             wallet_type: WalletType::MetaMask,
         })
     }
-    
+
     /// Get the appropriate wallet type for a chain.
     pub fn recommended_wallet(chain: Chain) -> WalletType {
         match chain {

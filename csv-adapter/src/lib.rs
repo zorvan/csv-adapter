@@ -73,16 +73,15 @@ pub mod events;
 pub mod prelude;
 pub mod proofs;
 pub mod rights;
+pub mod scalable_builder_v2;
 pub mod transfers;
 pub mod wallet;
-pub mod scalable_builder_v2;
 
 // Re-export core types from csv-adapter-core (🔒 STABLE API only by default)
 pub use csv_adapter_core::{
-    AnchorLayer, AnchorRef, Commitment, Consignment, CrossChainLockEvent,
-    DAGNode, DAGSegment, FinalityProof, Genesis, Hash, InclusionProof,
-    OwnedState, OwnershipProof, ProofBundle, Right, RightId, Schema, SealRef,
-    StateRef, Transition, CONSIGNMENT_VERSION, SCHEMA_VERSION,
+    AnchorLayer, AnchorRef, Commitment, Consignment, CrossChainLockEvent, DAGNode, DAGSegment,
+    FinalityProof, Genesis, Hash, InclusionProof, OwnedState, OwnershipProof, ProofBundle, Right,
+    RightId, Schema, SealRef, StateRef, Transition, CONSIGNMENT_VERSION, SCHEMA_VERSION,
 };
 
 // Re-export canonical protocol types (🔒 STABLE + 🟡 BETA)
@@ -103,8 +102,12 @@ pub use csv_adapter_core::{AdapterError, Result as CoreResult, StoreError};
 #[cfg(feature = "experimental")]
 pub mod experimental {
     pub use csv_adapter_core::mpc::{MpcLeaf, MpcProof, MpcTree};
-    pub use csv_adapter_core::vm::{execute_transition, DeterministicVM, VMError, VMInputs, VMOutputs};
-    pub use csv_adapter_core::rgb_compat::{CrossChainError, RgbValidationError, RgbValidationResult};
+    pub use csv_adapter_core::rgb_compat::{
+        CrossChainError, RgbValidationError, RgbValidationResult,
+    };
+    pub use csv_adapter_core::vm::{
+        execute_transition, DeterministicVM, VMError, VMInputs, VMOutputs,
+    };
 }
 
 /// Re-export error types

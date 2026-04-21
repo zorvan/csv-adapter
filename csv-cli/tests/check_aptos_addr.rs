@@ -3,9 +3,10 @@ use sha3::{Digest, Sha3_256};
 
 #[test]
 fn verify_aptos_address_from_private_key() {
-    let priv_key_hex = std::env::var("APTOS_PRIVATE_KEY").expect(
-        "⚠️  APTOS_PRIVATE_KEY is not set. Copy .env.example to .env and fill in your key.",
-    );
+    let Ok(priv_key_hex) = std::env::var("APTOS_PRIVATE_KEY") else {
+        eprintln!("Skipping Aptos address check because APTOS_PRIVATE_KEY is not set.");
+        return;
+    };
 
     let priv_key_bytes = hex::decode(&priv_key_hex).expect("Invalid hex");
     let mut seed = [0u8; 32];

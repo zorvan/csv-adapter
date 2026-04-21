@@ -1,7 +1,7 @@
 //! Sidebar navigation component.
 
-use dioxus::prelude::*;
 use crate::routes::Route;
+use dioxus::prelude::*;
 
 /// Sidebar section helper.
 fn sidebar_section(title: &str, children: Element) -> Element {

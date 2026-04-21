@@ -117,8 +117,12 @@ struct LogData {
 
 #[async_trait]
 impl ChainIndexer for EthereumIndexer {
-    fn chain_id(&self) -> &str { "ethereum" }
-    fn chain_name(&self) -> &str { "Ethereum" }
+    fn chain_id(&self) -> &str {
+        "ethereum"
+    }
+    fn chain_name(&self) -> &str {
+        "Ethereum"
+    }
 
     async fn initialize(&self) -> ChainResult<()> {
         tracing::info!(chain = "ethereum", "Ethereum indexer initialized");
@@ -150,7 +154,9 @@ impl ChainIndexer for EthereumIndexer {
     }
 
     async fn index_rights(&self, block: u64) -> ChainResult<Vec<RightRecord>> {
-        let logs = self.fetch_logs(block, &[sig_seal_used(), sig_right_created()]).await?;
+        let logs = self
+            .fetch_logs(block, &[sig_seal_used(), sig_right_created()])
+            .await?;
         let mut rights = Vec::new();
 
         for log in &logs {
@@ -163,7 +169,12 @@ impl ChainIndexer for EthereumIndexer {
             }
         }
 
-        tracing::debug!(chain = "ethereum", block, count = rights.len(), "Indexed rights");
+        tracing::debug!(
+            chain = "ethereum",
+            block,
+            count = rights.len(),
+            "Indexed rights"
+        );
         Ok(rights)
     }
 
@@ -179,7 +190,12 @@ impl ChainIndexer for EthereumIndexer {
             }
         }
 
-        tracing::debug!(chain = "ethereum", block, count = seals.len(), "Indexed seals");
+        tracing::debug!(
+            chain = "ethereum",
+            block,
+            count = seals.len(),
+            "Indexed seals"
+        );
         Ok(seals)
     }
 
@@ -197,21 +213,30 @@ impl ChainIndexer for EthereumIndexer {
             }
         }
 
-        tracing::debug!(chain = "ethereum", block, count = transfers.len(), "Indexed transfers");
+        tracing::debug!(
+            chain = "ethereum",
+            block,
+            count = transfers.len(),
+            "Indexed transfers"
+        );
         Ok(transfers)
     }
 
     async fn index_contracts(&self, _block: u64) -> ChainResult<Vec<CsvContract>> {
-        Ok(self.csv_contracts.iter().map(|(address, contract_type)| CsvContract {
-            id: format!("eth-{}", address),
-            chain: "ethereum".to_string(),
-            contract_type: *contract_type,
-            address: address.clone(),
-            deployed_tx: "genesis".to_string(),
-            deployed_at: chrono::Utc::now(),
-            version: "1.0.0".to_string(),
-            status: ContractStatus::Active,
-        }).collect())
+        Ok(self
+            .csv_contracts
+            .iter()
+            .map(|(address, contract_type)| CsvContract {
+                id: format!("eth-{}", address),
+                chain: "ethereum".to_string(),
+                contract_type: *contract_type,
+                address: address.clone(),
+                deployed_tx: "genesis".to_string(),
+                deployed_at: chrono::Utc::now(),
+                version: "1.0.0".to_string(),
+                status: ContractStatus::Active,
+            })
+            .collect())
     }
 
     async fn index_rights_by_address(&self, _address: &str) -> ChainResult<Vec<RightRecord>> {
@@ -250,8 +275,11 @@ impl ChainIndexer for EthereumIndexer {
     }
 
     async fn index_enhanced_rights(&self, block: u64) -> ChainResult<Vec<EnhancedRightRecord>> {
-        Ok(self.index_rights(block).await?.into_iter().map(|right| {
-            EnhancedRightRecord {
+        Ok(self
+            .index_rights(block)
+            .await?
+            .into_iter()
+            .map(|right| EnhancedRightRecord {
                 id: right.id.clone(),
                 chain: right.chain.clone(),
                 seal_ref: right.seal_ref.clone(),
@@ -272,45 +300,58 @@ impl ChainIndexer for EthereumIndexer {
                 finality_proof_type: FinalityProofType::FinalizedBlock,
                 proof_size_bytes: None,
                 confirmations: None,
-            }
-        }).collect())
+            })
+            .collect())
     }
 
     async fn index_enhanced_seals(&self, block: u64) -> ChainResult<Vec<EnhancedSealRecord>> {
-        Ok(self.index_seals(block).await?.into_iter().map(|s| EnhancedSealRecord {
-            id: s.id.clone(),
-            chain: s.chain.clone(),
-            seal_type: s.seal_type.to_string(),
-            seal_ref: s.seal_ref.clone(),
-            right_id: s.right_id.clone(),
-            status: s.status.to_string(),
-            consumed_at: s.consumed_at,
-            consumed_tx: s.consumed_tx.clone(),
-            block_height: s.block_height,
-            seal_proof_type: "merkle_patricia".to_string(),
-            seal_proof_verified: None,
-        }).collect())
+        Ok(self
+            .index_seals(block)
+            .await?
+            .into_iter()
+            .map(|s| EnhancedSealRecord {
+                id: s.id.clone(),
+                chain: s.chain.clone(),
+                seal_type: s.seal_type.to_string(),
+                seal_ref: s.seal_ref.clone(),
+                right_id: s.right_id.clone(),
+                status: s.status.to_string(),
+                consumed_at: s.consumed_at,
+                consumed_tx: s.consumed_tx.clone(),
+                block_height: s.block_height,
+                seal_proof_type: "merkle_patricia".to_string(),
+                seal_proof_verified: None,
+            })
+            .collect())
     }
 
-    async fn index_enhanced_transfers(&self, block: u64) -> ChainResult<Vec<EnhancedTransferRecord>> {
-        Ok(self.index_transfers(block).await?.into_iter().map(|t| EnhancedTransferRecord {
-            id: t.id.clone(),
-            right_id: t.right_id.clone(),
-            from_chain: t.from_chain.clone(),
-            to_chain: t.to_chain.clone(),
-            from_owner: t.from_owner.clone(),
-            to_owner: t.to_owner.clone(),
-            lock_tx: t.lock_tx.clone(),
-            mint_tx: t.mint_tx.clone(),
-            proof_ref: t.proof_ref.clone(),
-            status: t.status.to_string(),
-            created_at: t.created_at,
-            completed_at: t.completed_at,
-            duration_ms: t.duration_ms,
-            cross_chain_proof_type: Some("merkle_patricia".to_string()),
-            bridge_contract: None,
-            bridge_proof_verified: None,
-        }).collect())
+    async fn index_enhanced_transfers(
+        &self,
+        block: u64,
+    ) -> ChainResult<Vec<EnhancedTransferRecord>> {
+        Ok(self
+            .index_transfers(block)
+            .await?
+            .into_iter()
+            .map(|t| EnhancedTransferRecord {
+                id: t.id.clone(),
+                right_id: t.right_id.clone(),
+                from_chain: t.from_chain.clone(),
+                to_chain: t.to_chain.clone(),
+                from_owner: t.from_owner.clone(),
+                to_owner: t.to_owner.clone(),
+                lock_tx: t.lock_tx.clone(),
+                mint_tx: t.mint_tx.clone(),
+                proof_ref: t.proof_ref.clone(),
+                status: t.status.to_string(),
+                created_at: t.created_at,
+                completed_at: t.completed_at,
+                duration_ms: t.duration_ms,
+                cross_chain_proof_type: Some("merkle_patricia".to_string()),
+                bridge_contract: None,
+                bridge_proof_verified: None,
+            })
+            .collect())
     }
 
     fn detect_commitment_scheme(&self, _data: &[u8]) -> Option<CommitmentScheme> {
@@ -364,11 +405,7 @@ impl EthereumIndexer {
     //      do NOT include receipts/logs inline.
     // -----------------------------------------------------------------------
 
-    async fn fetch_logs(
-        &self,
-        block: u64,
-        topics: &[String],
-    ) -> ChainResult<Vec<LogData>> {
+    async fn fetch_logs(&self, block: u64, topics: &[String]) -> ChainResult<Vec<LogData>> {
         let (url, client) = self.rpc_endpoint();
         let block_hex = format!("0x{:x}", block);
 
@@ -389,21 +426,14 @@ impl EthereumIndexer {
             id: 1,
         };
 
-        let resp: JsonRpcResponse = client
-            .post(&url)
-            .json(&req)
-            .send()
-            .await?
-            .json()
-            .await?;
+        let resp: JsonRpcResponse = client.post(&url).json(&req).send().await?.json().await?;
 
         if let Some(result) = resp.result {
-            let logs: Vec<LogData> = serde_json::from_value(result).map_err(|e| {
-                ExplorerError::RpcParseError {
+            let logs: Vec<LogData> =
+                serde_json::from_value(result).map_err(|e| ExplorerError::RpcParseError {
                     chain: "ethereum".to_string(),
                     message: e.to_string(),
-                }
-            })?;
+                })?;
             Ok(logs)
         } else {
             let err_msg = resp.error.map(|e| e.to_string()).unwrap_or_default();
@@ -431,12 +461,24 @@ impl EthereumIndexer {
             .or_else(|| log.topics.get(2))
             .map(|t| {
                 // Ethereum addresses are right-aligned in 32-byte topic → take last 20 bytes
-                if t.len() >= 42 { t[t.len() - 40..].to_string() }
-                else { t.strip_prefix("0x").unwrap_or(t).to_string() }
+                if t.len() >= 42 {
+                    t[t.len() - 40..].to_string()
+                } else {
+                    t.strip_prefix("0x").unwrap_or(t).to_string()
+                }
             })
-            .unwrap_or_else(|| log.address.strip_prefix("0x").unwrap_or(&log.address).to_string());
+            .unwrap_or_else(|| {
+                log.address
+                    .strip_prefix("0x")
+                    .unwrap_or(&log.address)
+                    .to_string()
+            });
 
-        let id_suffix = if seal_id.len() >= 18 { &seal_id[..18] } else { &seal_id };
+        let id_suffix = if seal_id.len() >= 18 {
+            &seal_id[..18]
+        } else {
+            &seal_id
+        };
         Some(RightRecord {
             id: format!("eth-{}-{}", log.transaction_hash, id_suffix),
             chain: "ethereum".to_string(),
@@ -459,7 +501,11 @@ impl EthereumIndexer {
 
     fn parse_seal_from_log(&self, log: &LogData, block: u64) -> Option<SealRecord> {
         let seal_id = log.topics.get(1).cloned().unwrap_or_default();
-        let id_suffix = if seal_id.len() >= 18 { &seal_id[..18] } else { &seal_id };
+        let id_suffix = if seal_id.len() >= 18 {
+            &seal_id[..18]
+        } else {
+            &seal_id
+        };
         Some(SealRecord {
             id: format!("eth-seal-{}", id_suffix),
             chain: "ethereum".to_string(),

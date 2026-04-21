@@ -1,16 +1,15 @@
 //! Header component with chain/network selectors and wallet info.
 
-use dioxus::prelude::*;
-use crate::context::{use_wallet_context, truncate_address};
+use crate::components::{
+    all_chain_displays, all_network_displays, ChainDisplay, Dropdown, NetworkDisplay,
+};
+use crate::context::{truncate_address, use_wallet_context};
 use crate::routes::Route;
-use crate::components::{Dropdown, ChainDisplay, NetworkDisplay, all_chain_displays, all_network_displays};
+use dioxus::prelude::*;
 
 /// Header component.
 #[component]
-pub fn Header(
-    sidebar_open: bool,
-    on_sidebar_toggle: EventHandler<()>,
-) -> Element {
+pub fn Header(sidebar_open: bool, on_sidebar_toggle: EventHandler<()>) -> Element {
     let wallet_ctx = use_wallet_context();
     let selected_chain = wallet_ctx.selected_chain();
     let selected_network = wallet_ctx.selected_network();

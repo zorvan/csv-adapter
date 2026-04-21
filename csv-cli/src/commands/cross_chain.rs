@@ -441,17 +441,15 @@ fn cmd_retry(transfer_id: String, _config: &Config, state: &mut State) -> Result
 fn get_chain_height(chain: &Chain, config: &Config) -> u64 {
     // Try to fetch from RPC, fallback to reasonable defaults
     let runtime = tokio::runtime::Runtime::new().ok();
-    
+
     if let Some(rt) = runtime {
-        let result = rt.block_on(async {
-            fetch_chain_height_rpc(chain, config).await
-        });
-        
+        let result = rt.block_on(async { fetch_chain_height_rpc(chain, config).await });
+
         if let Ok(height) = result {
             return height;
         }
     }
-    
+
     // Fallback to reasonable defaults if RPC fails
     tracing::warn!(chain = ?chain, "RPC height fetch failed, using fallback");
     match chain {
@@ -465,23 +463,31 @@ fn get_chain_height(chain: &Chain, config: &Config) -> u64 {
 
 /// Fetch chain height via RPC call
 async fn fetch_chain_height_rpc(chain: &Chain, config: &Config) -> anyhow::Result<u64> {
-    let chain_config = config.chains.get(chain)
+    let chain_config = config
+        .chains
+        .get(chain)
         .ok_or_else(|| anyhow::anyhow!("Chain not configured"))?;
-    
+
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()?;
-    
+
     match chain {
         Chain::Bitcoin => {
             // Mempool.space API or similar
             let url = if chain_config.rpc_url.contains("mempool.space") {
-                format!("{}/api/blocks/tip/height", chain_config.rpc_url.trim_end_matches('/'))
+                format!(
+                    "{}/api/blocks/tip/height",
+                    chain_config.rpc_url.trim_end_matches('/')
+                )
             } else {
                 // Fallback to esplora-style endpoint
-                format!("{}/blocks/tip/height", chain_config.rpc_url.trim_end_matches('/'))
+                format!(
+                    "{}/blocks/tip/height",
+                    chain_config.rpc_url.trim_end_matches('/')
+                )
             };
-            
+
             let response = client.get(&url).send().await?;
             let height: u64 = response.text().await?.parse()?;
             Ok(height)
@@ -494,20 +500,23 @@ async fn fetch_chain_height_rpc(chain: &Chain, config: &Config) -> anyhow::Resul
                 "params": [],
                 "id": 1
             });
-            
-            let response = client.post(&chain_config.rpc_url)
+
+            let response = client
+                .post(&chain_config.rpc_url)
                 .json(&body)
-                .send().await?;
-            
+                .send()
+                .await?;
+
             let rpc_response: JsonRpcResponse<String> = response.json().await?;
-            
+
             if let Some(error) = rpc_response.error {
                 return Err(anyhow::anyhow!("RPC error: {}", error.message));
             }
-            
-            let hex_height = rpc_response.result
+
+            let hex_height = rpc_response
+                .result
                 .ok_or_else(|| anyhow::anyhow!("No result in response"))?;
-            
+
             // Parse hex string (0x prefix)
             let height = u64::from_str_radix(hex_height.trim_start_matches("0x"), 16)?;
             Ok(height)
@@ -520,35 +529,38 @@ async fn fetch_chain_height_rpc(chain: &Chain, config: &Config) -> anyhow::Resul
                 "params": [],
                 "id": 1
             });
-            
-            let response = client.post(&chain_config.rpc_url)
+
+            let response = client
+                .post(&chain_config.rpc_url)
                 .json(&body)
-                .send().await?;
-            
+                .send()
+                .await?;
+
             let rpc_response: JsonRpcResponse<String> = response.json().await?;
-            
+
             if let Some(error) = rpc_response.error {
                 return Err(anyhow::anyhow!("RPC error: {}", error.message));
             }
-            
-            let checkpoint = rpc_response.result
+
+            let checkpoint = rpc_response
+                .result
                 .ok_or_else(|| anyhow::anyhow!("No result in response"))?;
-            
+
             let height = u64::from_str_radix(checkpoint.trim_start_matches("0x"), 16)?;
             Ok(height)
         }
         Chain::Aptos => {
             // Aptos REST API - get ledger info
             let url = format!("{}/v1", chain_config.rpc_url.trim_end_matches('/'));
-            
+
             let response = client.get(&url).send().await?;
             let ledger_info: serde_json::Value = response.json().await?;
-            
+
             let version = ledger_info["block_height"]
                 .as_str()
                 .or_else(|| ledger_info["ledger_version"].as_str())
                 .ok_or_else(|| anyhow::anyhow!("No block height in response"))?;
-            
+
             let height = u64::from_str_radix(version.trim_start_matches("0x"), 16)
                 .or_else(|_| version.parse())?;
             Ok(height)
@@ -561,20 +573,23 @@ async fn fetch_chain_height_rpc(chain: &Chain, config: &Config) -> anyhow::Resul
                 "params": [],
                 "id": 1
             });
-            
-            let response = client.post(&chain_config.rpc_url)
+
+            let response = client
+                .post(&chain_config.rpc_url)
                 .json(&body)
-                .send().await?;
-            
+                .send()
+                .await?;
+
             let rpc_response: JsonRpcResponse<serde_json::Value> = response.json().await?;
-            
+
             if let Some(error) = rpc_response.error {
                 return Err(anyhow::anyhow!("RPC error: {}", error.message));
             }
-            
-            let epoch_info = rpc_response.result
+
+            let epoch_info = rpc_response
+                .result
                 .ok_or_else(|| anyhow::anyhow!("No result in response"))?;
-            
+
             let slot = epoch_info["absoluteSlot"]
                 .as_u64()
                 .ok_or_else(|| anyhow::anyhow!("No slot in response"))?;

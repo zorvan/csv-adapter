@@ -1,9 +1,9 @@
 //! Solana program implementation for CSV
 
 use solana_sdk::{
-    pubkey::Pubkey,
-    instruction::{Instruction, AccountMeta},
     account::Account,
+    instruction::{AccountMeta, Instruction},
+    pubkey::Pubkey,
     transaction::Transaction,
 };
 
@@ -136,7 +136,9 @@ impl SolanaProgram {
         if let Some(account) = &self.program_account {
             Ok(account.data.clone())
         } else {
-            Err(SolanaError::AccountNotFound("Program account not loaded".to_string()))
+            Err(SolanaError::AccountNotFound(
+                "Program account not loaded".to_string(),
+            ))
         }
     }
 

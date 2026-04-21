@@ -1,7 +1,7 @@
 //! Wallet state hook.
 
-use dioxus::prelude::*;
 use crate::wallet_core::WalletData as Wallet;
+use dioxus::prelude::*;
 
 /// Wallet state.
 #[derive(Clone, PartialEq)]
@@ -17,7 +17,7 @@ pub struct WalletState {
 }
 
 /// Wallet context.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct WalletContext {
     pub state: Signal<WalletState>,
 }
@@ -30,7 +30,7 @@ impl WalletContext {
         self.state.write().wallet = Some(wallet.clone());
         self.state.write().unlocked = true;
         self.state.write().initialized = true;
-        
+
         Ok(wallet)
     }
 
@@ -40,7 +40,7 @@ impl WalletContext {
         self.state.write().wallet = Some(wallet.clone());
         self.state.write().unlocked = true;
         self.state.write().initialized = true;
-        
+
         Ok(wallet)
     }
 
@@ -59,7 +59,7 @@ impl WalletContext {
 /// Wallet provider component.
 #[component]
 pub fn WalletProvider(children: Element) -> Element {
-    let mut state = use_signal(|| WalletState {
+    let state = use_signal(|| WalletState {
         initialized: false,
         unlocked: false,
         wallet: None,
@@ -67,7 +67,7 @@ pub fn WalletProvider(children: Element) -> Element {
     });
 
     use_context_provider(|| WalletContext { state });
-    
+
     rsx! { { children } }
 }
 

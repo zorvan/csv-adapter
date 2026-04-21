@@ -4,8 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
 /// Solana network configuration
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum Network {
     /// Solana mainnet
     Mainnet,
@@ -17,7 +16,6 @@ pub enum Network {
     /// Local development
     Local,
 }
-
 
 impl Network {
     /// Get the default RPC URL for this network

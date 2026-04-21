@@ -3,9 +3,9 @@
 //! Provides caching, bloom filters, and parallel processing to improve
 //! proof verification and seal registry operations by 2-5x.
 
+use core::sync::atomic::{AtomicU64, Ordering};
 use std::collections::HashMap;
 use std::sync::Arc;
-use core::sync::atomic::{AtomicU64, Ordering};
 use std::sync::RwLock;
 use std::time::{Duration, Instant};
 
@@ -48,35 +48,31 @@ impl ProofCache {
     /// Cache a proof bundle
     pub fn put(&self, hash: Hash, proof: ProofBundle) {
         let mut cache = self.cache.write().unwrap();
-        
+
         // Evict oldest entries if cache is full
         if cache.len() >= self.max_size {
             let remove_count = self.max_size / 4;
             let mut removed = 0;
-            
+
             // Simple eviction: remove first few entries
-            let keys_to_remove: Vec<Hash> = cache
-                .keys()
-                .take(remove_count)
-                .copied()
-                .collect();
-            
+            let keys_to_remove: Vec<Hash> = cache.keys().take(remove_count).copied().collect();
+
             for key in keys_to_remove {
                 cache.remove(&key);
                 removed += 1;
-                
+
                 if removed >= remove_count {
                     break;
                 }
             }
         }
-        
+
         let cached = CachedProof {
             proof,
             accessed_at: Instant::now(),
             expires_at: Instant::now() + Duration::from_secs(30),
         };
-        
+
         cache.insert(hash, cached);
     }
 
@@ -85,8 +81,12 @@ impl ProofCache {
         let hits = self.hits.load(Ordering::Relaxed);
         let misses = self.misses.load(Ordering::Relaxed);
         let total = hits + misses;
-        let hit_rate = if total > 0 { hits as f64 / total as f64 } else { 0.0 };
-        
+        let hit_rate = if total > 0 {
+            hits as f64 / total as f64
+        } else {
+            0.0
+        };
+
         CacheStats {
             hits,
             misses,
@@ -202,23 +202,27 @@ impl SequentialVerifier {
     /// Verify a single proof bundle
     fn verify_single(&self, proof: &ProofBundle) -> VerificationResult {
         let start = Instant::now();
-        
+
         // Simulate proof verification (real implementation would use chain-specific logic)
         let is_valid = self.verify_proof_internal(proof);
-        
+
         let duration = start.elapsed();
-        
+
         // Create a simple hash from the proof for identification
         let proof_bytes = serde_json::to_vec(proof).unwrap_or_default();
         let mut hash_bytes = [0u8; 32];
         let data_len = proof_bytes.len().min(32);
         hash_bytes[..data_len].copy_from_slice(&proof_bytes[..data_len]);
-        
+
         VerificationResult {
             proof_hash: Hash::new(hash_bytes),
             is_valid,
             verification_time: duration,
-            error: if is_valid { None } else { Some("Proof verification failed".to_string()) },
+            error: if is_valid {
+                None
+            } else {
+                Some("Proof verification failed".to_string())
+            },
         }
     }
 
@@ -256,7 +260,7 @@ impl PerformanceMetrics {
         let proof_cache = Arc::new(ProofCache::new(cache_size));
         let seal_filter = Arc::new(SealRegistryFilter::new(filter_capacity, 0.01));
         let verifier = Arc::new(SequentialVerifier::new());
-        
+
         Self {
             proof_cache,
             seal_filter,
@@ -310,12 +314,12 @@ pub struct PerformanceStats {
 /// Simple bloom filter implementation (placeholder - would use real crate)
 mod bloomfilter {
     use super::Hash;
-    
+
     pub struct Bloom {
         bits: Vec<bool>,
         hash_count: usize,
     }
-    
+
     impl Bloom {
         pub fn new(capacity: usize, _false_positive_rate: f64) -> Self {
             let bit_count = (capacity as f64 * 2.0).ceil() as usize;
@@ -324,23 +328,23 @@ mod bloomfilter {
                 hash_count: 3,
             }
         }
-        
+
         pub fn set(&mut self, _item: &Hash) {
             // Placeholder implementation
             let hash = Hash::zero();
             let index = (hash.as_slice()[0] as usize) % self.bits.len();
             self.bits[index] = true;
         }
-        
+
         pub fn contains(&self, _item: &Hash) -> bool {
             // Placeholder implementation
             true
         }
-        
+
         pub fn bit_count(&self) -> usize {
             self.bits.len()
         }
-        
+
         pub fn hash_count(&self) -> usize {
             self.hash_count
         }
@@ -350,32 +354,32 @@ mod bloomfilter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_proof_cache() {
         let cache = ProofCache::new(100);
         let hash = Hash::zero();
         let proof = create_test_proof();
-        
+
         // Test cache miss
         assert!(cache.get(&hash).is_none());
-        
+
         // Test cache put and hit
         cache.put(hash, proof.clone());
         assert!(cache.get(&hash).is_some());
-        
+
         // Test cache stats
         let stats = cache.stats();
         assert_eq!(stats.hits, 1);
         assert_eq!(stats.misses, 1);
         assert!(stats.hit_rate > 0.0);
     }
-    
+
     fn create_test_proof() -> ProofBundle {
         use crate::dag::DAGSegment;
-        use crate::seal::{SealRef, AnchorRef};
-        use crate::proof::{InclusionProof, FinalityProof};
-        
+        use crate::proof::{FinalityProof, InclusionProof};
+        use crate::seal::{AnchorRef, SealRef};
+
         ProofBundle {
             transition_dag: DAGSegment::new(vec![], Hash::zero()),
             signatures: vec![],

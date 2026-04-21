@@ -91,7 +91,9 @@ impl RpcConfig {
         if let Some(ref mut a) = auth {
             // If value looks like an env var name (no spaces, all caps/underscores), try to resolve
             if a.value.starts_with('$') {
-                let var_name = a.value.trim_start_matches('$')
+                let var_name = a
+                    .value
+                    .trim_start_matches('$')
                     .trim_start_matches('{')
                     .trim_end_matches('}');
                 a.value = env::var(var_name).unwrap_or_else(|_| a.value.clone());
@@ -193,8 +195,16 @@ fn base64_encode(input: &str) -> String {
         let n = (b0 << 16) | (b1 << 8) | b2;
         out.push(CHARS[(n >> 18) & 63] as char);
         out.push(CHARS[(n >> 12) & 63] as char);
-        out.push(if chunk.len() > 1 { CHARS[(n >> 6) & 63] as char } else { '=' });
-        out.push(if chunk.len() > 2 { CHARS[n & 63] as char } else { '=' });
+        out.push(if chunk.len() > 1 {
+            CHARS[(n >> 6) & 63] as char
+        } else {
+            '='
+        });
+        out.push(if chunk.len() > 2 {
+            CHARS[n & 63] as char
+        } else {
+            '='
+        });
     }
     out
 }
@@ -220,47 +230,62 @@ impl Default for RpcConfig {
 
         let mut chains = HashMap::new();
 
-        chains.insert("bitcoin".to_string(), ChainRpcConfig {
-            primary: make_http("https://mempool.space/api", 1),
-            alternatives: vec![RpcEndpoint {
-                url: "https://btc.getblock.io/mainnet/".to_string(),
-                endpoint_type: RpcType::Http,
-                priority: 2,
-                auth: Some(RpcAuth {
-                    auth_type: AuthType::ApiKey,
-                    header: "X-API-Key".to_string(),
-                    value: "${GETBLOCK_API_KEY}".to_string(),
-                }),
-            }],
-        });
+        chains.insert(
+            "bitcoin".to_string(),
+            ChainRpcConfig {
+                primary: make_http("https://mempool.space/api", 1),
+                alternatives: vec![RpcEndpoint {
+                    url: "https://btc.getblock.io/mainnet/".to_string(),
+                    endpoint_type: RpcType::Http,
+                    priority: 2,
+                    auth: Some(RpcAuth {
+                        auth_type: AuthType::ApiKey,
+                        header: "X-API-Key".to_string(),
+                        value: "${GETBLOCK_API_KEY}".to_string(),
+                    }),
+                }],
+            },
+        );
 
-        chains.insert("ethereum".to_string(), ChainRpcConfig {
-            primary: make_http("https://eth.llamarpc.com", 1),
-            alternatives: vec![
-                make_http("https://ethereum-rpc.publicnode.com", 2),
-                RpcEndpoint {
-                    url: "wss://ethereum-rpc.publicnode.com".to_string(),
-                    endpoint_type: RpcType::Wss,
-                    priority: 3,
-                    auth: None,
-                },
-            ],
-        });
+        chains.insert(
+            "ethereum".to_string(),
+            ChainRpcConfig {
+                primary: make_http("https://eth.llamarpc.com", 1),
+                alternatives: vec![
+                    make_http("https://ethereum-rpc.publicnode.com", 2),
+                    RpcEndpoint {
+                        url: "wss://ethereum-rpc.publicnode.com".to_string(),
+                        endpoint_type: RpcType::Wss,
+                        priority: 3,
+                        auth: None,
+                    },
+                ],
+            },
+        );
 
-        chains.insert("sui".to_string(), ChainRpcConfig {
-            primary: make_http("https://fullnode.mainnet.sui.io:443", 1),
-            alternatives: vec![make_http("https://sui-mainnet-rpc.allthatnode.com", 2)],
-        });
+        chains.insert(
+            "sui".to_string(),
+            ChainRpcConfig {
+                primary: make_http("https://fullnode.mainnet.sui.io:443", 1),
+                alternatives: vec![make_http("https://sui-mainnet-rpc.allthatnode.com", 2)],
+            },
+        );
 
-        chains.insert("aptos".to_string(), ChainRpcConfig {
-            primary: make_http("https://fullnode.mainnet.aptoslabs.com/v1", 1),
-            alternatives: vec![make_http("https://aptos-mainnet-rpc.allthatnode.com/v1", 2)],
-        });
+        chains.insert(
+            "aptos".to_string(),
+            ChainRpcConfig {
+                primary: make_http("https://fullnode.mainnet.aptoslabs.com/v1", 1),
+                alternatives: vec![make_http("https://aptos-mainnet-rpc.allthatnode.com/v1", 2)],
+            },
+        );
 
-        chains.insert("solana".to_string(), ChainRpcConfig {
-            primary: make_http("https://api.mainnet-beta.solana.com", 1),
-            alternatives: vec![make_http("https://solana-rpc.publicnode.com", 2)],
-        });
+        chains.insert(
+            "solana".to_string(),
+            ChainRpcConfig {
+                primary: make_http("https://api.mainnet-beta.solana.com", 1),
+                alternatives: vec![make_http("https://solana-rpc.publicnode.com", 2)],
+            },
+        );
 
         RpcConfig { chains }
     }
@@ -306,10 +331,7 @@ impl RpcManager {
 
     /// Try endpoints in priority order, applying retry with the next one on failure.
     /// Returns `(url, client)` for the first healthy endpoint.
-    pub async fn get_healthy_endpoint(
-        &self,
-        chain_id: &str,
-    ) -> Option<(String, reqwest::Client)> {
+    pub async fn get_healthy_endpoint(&self, chain_id: &str) -> Option<(String, reqwest::Client)> {
         for endpoint in self.get_all_endpoints(chain_id) {
             let client = build_http_client(&endpoint);
             // Simple health: endpoint URL must be non-empty
@@ -323,6 +345,8 @@ impl RpcManager {
 
 impl Clone for RpcManager {
     fn clone(&self) -> Self {
-        Self { config: self.config.clone() }
+        Self {
+            config: self.config.clone(),
+        }
     }
 }

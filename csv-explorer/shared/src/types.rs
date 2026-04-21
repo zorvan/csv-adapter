@@ -434,7 +434,6 @@ pub enum PriorityLevel {
     Low,
 }
 
-
 impl std::fmt::Display for PriorityLevel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

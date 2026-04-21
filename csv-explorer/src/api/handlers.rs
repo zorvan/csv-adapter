@@ -2,13 +2,15 @@
 //!
 //! Implements the actual request handling logic for all API endpoints.
 
-use std::sync::Arc;
-use warp::{Rejection, Reply};
-use chrono::{DateTime, Utc};
+use crate::api::{
+    ApiResponse, RightsResponse, RightsSearchRequest, TransfersResponse, TransfersSearchRequest,
+};
 use crate::indexing::{IndexingManager, RightsQuery, TransferQuery};
-use crate::api::{ApiResponse, RightsSearchRequest, TransfersSearchRequest, RightsResponse, TransfersResponse};
+use chrono::{DateTime, Utc};
 use csv_adapter_core::Hash;
 use futures::SinkExt;
+use std::sync::Arc;
+use warp::{Rejection, Reply};
 
 /// Handle getting rights by owner
 pub async fn get_rights_by_owner(
@@ -24,9 +26,9 @@ pub async fn get_rights_by_owner(
             };
             Ok(warp::reply::json(&ApiResponse::success(response)))
         }
-        Err(e) => {
-            Ok(warp::reply::json(&ApiResponse::<String>::error(e.to_string())))
-        }
+        Err(e) => Ok(warp::reply::json(&ApiResponse::<String>::error(
+            e.to_string(),
+        ))),
     }
 }
 
@@ -43,7 +45,7 @@ pub async fn search_rights(
         limit: request.limit,
         offset: request.offset,
     };
-    
+
     match indexing_manager.search_rights(&query).await {
         Ok(rights) => {
             let response = RightsResponse {
@@ -53,9 +55,9 @@ pub async fn search_rights(
             };
             Ok(warp::reply::json(&ApiResponse::success(response)))
         }
-        Err(e) => {
-            Ok(warp::reply::json(&ApiResponse::<String>::error(e.to_string())))
-        }
+        Err(e) => Ok(warp::reply::json(&ApiResponse::<String>::error(
+            e.to_string(),
+        ))),
     }
 }
 
@@ -68,20 +70,21 @@ pub async fn get_transfer_by_hash(
     let hash = match Hash::from_hex(&hash_str) {
         Ok(hash) => hash,
         Err(e) => {
-            return Ok(warp::reply::json(&ApiResponse::<String>::error(format!("Invalid hash: {}", e))));
+            return Ok(warp::reply::json(&ApiResponse::<String>::error(format!(
+                "Invalid hash: {}",
+                e
+            ))));
         }
     };
-    
+
     match indexing_manager.get_transfer_by_hash(&hash).await {
-        Ok(Some(transfer)) => {
-            Ok(warp::reply::json(&ApiResponse::success(transfer)))
-        }
-        Ok(None) => {
-            Ok(warp::reply::json(&ApiResponse::<String>::error("Transfer not found".to_string())))
-        }
-        Err(e) => {
-            Ok(warp::reply::json(&ApiResponse::<String>::error(e.to_string())))
-        }
+        Ok(Some(transfer)) => Ok(warp::reply::json(&ApiResponse::success(transfer))),
+        Ok(None) => Ok(warp::reply::json(&ApiResponse::<String>::error(
+            "Transfer not found".to_string(),
+        ))),
+        Err(e) => Ok(warp::reply::json(&ApiResponse::<String>::error(
+            e.to_string(),
+        ))),
     }
 }
 
@@ -97,7 +100,8 @@ pub async fn search_transfers(
         status: request.status.and_then(|s| s.parse().ok()),
         start_time: request.start_time.and_then(|t| {
             if t >= 0 {
-                std::time::SystemTime::UNIX_EPOCH.checked_add(std::time::Duration::from_secs(t as u64))
+                std::time::SystemTime::UNIX_EPOCH
+                    .checked_add(std::time::Duration::from_secs(t as u64))
                     .map(DateTime::<Utc>::from)
             } else {
                 None
@@ -105,7 +109,8 @@ pub async fn search_transfers(
         }),
         end_time: request.end_time.and_then(|t| {
             if t >= 0 {
-                std::time::SystemTime::UNIX_EPOCH.checked_add(std::time::Duration::from_secs(t as u64))
+                std::time::SystemTime::UNIX_EPOCH
+                    .checked_add(std::time::Duration::from_secs(t as u64))
                     .map(DateTime::<Utc>::from)
             } else {
                 None
@@ -114,7 +119,7 @@ pub async fn search_transfers(
         limit: request.limit,
         offset: request.offset,
     };
-    
+
     match indexing_manager.search_transfers(&query).await {
         Ok(transfers) => {
             let response = TransfersResponse {
@@ -124,19 +129,17 @@ pub async fn search_transfers(
             };
             Ok(warp::reply::json(&ApiResponse::success(response)))
         }
-        Err(e) => {
-            Ok(warp::reply::json(&ApiResponse::<String>::error(e.to_string())))
-        }
+        Err(e) => Ok(warp::reply::json(&ApiResponse::<String>::error(
+            e.to_string(),
+        ))),
     }
 }
 
-    /// Handle getting indexing metrics
-    pub async fn get_metrics(
-        indexing_manager: Arc<IndexingManager>,
-    ) -> Result<impl Reply, Rejection> {
-        let metrics = indexing_manager.get_metrics().await;
-        Ok(warp::reply::json(&ApiResponse::success(metrics)))
-    }
+/// Handle getting indexing metrics
+pub async fn get_metrics(indexing_manager: Arc<IndexingManager>) -> Result<impl Reply, Rejection> {
+    let metrics = indexing_manager.get_metrics().await;
+    Ok(warp::reply::json(&ApiResponse::success(metrics)))
+}
 
 /// Handle WebSocket upgrade for real-time updates
 pub async fn handle_websocket(
@@ -144,20 +147,20 @@ pub async fn handle_websocket(
     indexing_manager: Arc<IndexingManager>,
 ) {
     use futures::{SinkExt, StreamExt};
-    
+
     let (mut tx, mut rx) = websocket.split();
-    
+
     // Send initial metrics
     let metrics = indexing_manager.get_metrics().await;
     let message = serde_json::json!({
         "type": "metrics",
         "data": metrics
     });
-    
+
     if let Ok(text) = serde_json::to_string(&message) {
         let _ = tx.send(warp::ws::Message::text(text)).await;
     }
-    
+
     // Handle incoming messages
     while let Some(Ok(message)) = rx.next().await {
         // Check if it's a text message
@@ -200,7 +203,7 @@ async fn handle_client_message(
                     "type": "pong",
                     "timestamp": std::time::SystemTime::now()
                 });
-                
+
                 if let Ok(text) = serde_json::to_string(&response) {
                     let _ = tx.send(warp::ws::Message::text(text)).await;
                 }
@@ -211,7 +214,7 @@ async fn handle_client_message(
                     "type": "error",
                     "message": format!("Unknown message type: {}", msg_type)
                 });
-                
+
                 if let Ok(text) = serde_json::to_string(&response) {
                     let _ = tx.send(warp::ws::Message::text(text)).await;
                 }
@@ -237,7 +240,7 @@ async fn handle_subscription(
                             "type": "rights_update",
                             "data": rights
                         });
-                        
+
                         if let Ok(text) = serde_json::to_string(&response) {
                             let _ = tx.send(warp::ws::Message::text(text)).await;
                         }
@@ -248,12 +251,14 @@ async fn handle_subscription(
                 // Subscribe to transfer updates
                 if let Some(right_id) = data.get("right_id").and_then(|v| v.as_str()) {
                     if let Ok(hash) = Hash::from_hex(right_id) {
-                        if let Ok(Some(transfer)) = indexing_manager.get_transfer_by_hash(&hash).await {
+                        if let Ok(Some(transfer)) =
+                            indexing_manager.get_transfer_by_hash(&hash).await
+                        {
                             let response = serde_json::json!({
                                 "type": "transfer_update",
                                 "data": transfer
                             });
-                            
+
                             if let Ok(text) = serde_json::to_string(&response) {
                                 let _ = tx.send(warp::ws::Message::text(text)).await;
                             }
@@ -268,7 +273,7 @@ async fn handle_subscription(
                     "type": "metrics_update",
                     "data": metrics
                 });
-                
+
                 if let Ok(text) = serde_json::to_string(&response) {
                     let _ = tx.send(warp::ws::Message::text(text)).await;
                 }
@@ -278,7 +283,7 @@ async fn handle_subscription(
                     "type": "error",
                     "message": format!("Unknown subscription type: {}", subscription_type)
                 });
-                
+
                 if let Ok(text) = serde_json::to_string(&response) {
                     let _ = tx.send(warp::ws::Message::text(text)).await;
                 }
@@ -298,7 +303,7 @@ async fn handle_unsubscription(
         "type": "unsubscribed",
         "message": "Successfully unsubscribed"
     });
-    
+
     if let Ok(text) = serde_json::to_string(&response) {
         let _ = tx.send(warp::ws::Message::text(text)).await;
     }
@@ -307,7 +312,7 @@ async fn handle_unsubscription(
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[tokio::test]
     async fn test_rights_search_request_conversion() {
         let request = RightsSearchRequest {
@@ -317,7 +322,7 @@ mod tests {
             limit: Some(10),
             offset: Some(0),
         };
-        
+
         let query = RightsQuery {
             owner: request.owner,
             chain: request.chain,
@@ -325,7 +330,7 @@ mod tests {
             limit: request.limit,
             offset: request.offset,
         };
-        
+
         assert_eq!(query.owner, Some("test_owner".to_string()));
         assert_eq!(query.chain, Some("ethereum".to_string()));
         assert_eq!(query.limit, Some(10));

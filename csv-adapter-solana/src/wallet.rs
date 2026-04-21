@@ -79,14 +79,16 @@ impl ProgramWallet {
     /// Deserialize keypair
     pub fn deserialize_keypair(data: &[u8]) -> SolanaResult<Self> {
         if data.len() != 64 {
-            return Err(SolanaError::Wallet("Invalid keypair data length".to_string()));
+            return Err(SolanaError::Wallet(
+                "Invalid keypair data length".to_string(),
+            ));
         }
-        
+
         // Take first 32 bytes as the secret key
-        let secret_key: [u8; 32] = data[..32].try_into().map_err(|_| {
-            SolanaError::Wallet("Invalid secret key data".to_string())
-        })?;
-        
+        let secret_key: [u8; 32] = data[..32]
+            .try_into()
+            .map_err(|_| SolanaError::Wallet("Invalid secret key data".to_string()))?;
+
         let keypair = Keypair::new_from_array(secret_key);
         Ok(Self::from_keypair(keypair))
     }

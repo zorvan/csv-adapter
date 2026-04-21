@@ -37,7 +37,6 @@ pub enum CommitmentScheme {
     Custom,
 }
 
-
 impl core::fmt::Display for CommitmentScheme {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
@@ -109,7 +108,6 @@ pub enum InclusionProofType {
     Custom,
 }
 
-
 impl core::fmt::Display for InclusionProofType {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
@@ -175,7 +173,6 @@ pub enum FinalityProofType {
     /// Custom finality proof
     Custom,
 }
-
 
 impl core::fmt::Display for FinalityProofType {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {

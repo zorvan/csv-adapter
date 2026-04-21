@@ -1,10 +1,12 @@
 //! Bitcoin chain adapter implementation for the new interface.
 
-use async_trait::async_trait;
-use crate::chain_adapter::{ChainAdapter, ChainResult, ChainError, RpcClient, Wallet, ChainCapabilities, AccountModel};
+use super::super::chain_system::ChainInfo;
+use crate::chain_adapter::{
+    AccountModel, ChainAdapter, ChainCapabilities, ChainError, ChainResult, RpcClient, Wallet,
+};
 use crate::chain_config::ChainConfig;
 use crate::Chain;
-use super::super::chain_system::ChainInfo;
+use async_trait::async_trait;
 
 /// Bitcoin chain adapter for the new scalable system
 #[derive(Debug, Clone)]
@@ -15,7 +17,7 @@ impl BitcoinAdapter {
     pub fn new() -> Self {
         Self
     }
-    
+
     /// Get Bitcoin-specific chain info
     pub fn chain_info() -> ChainInfo {
         ChainInfo {
@@ -25,7 +27,7 @@ impl BitcoinAdapter {
             supports_smart_contracts: false,
         }
     }
-    
+
     /// Get Bitcoin network configuration
     pub fn network_config(network: &str) -> BitcoinNetworkConfig {
         match network {
@@ -35,7 +37,7 @@ impl BitcoinAdapter {
             _ => BitcoinNetworkConfig::Mainnet,
         }
     }
-    
+
     /// Get Bitcoin capabilities
     pub fn capabilities() -> ChainCapabilities {
         ChainCapabilities {
@@ -44,7 +46,11 @@ impl BitcoinAdapter {
             account_model: AccountModel::UTXO,
             confirmation_blocks: 6,
             max_batch_size: 100,
-            supported_networks: vec!["mainnet".to_string(), "testnet".to_string(), "regtest".to_string()],
+            supported_networks: vec![
+                "mainnet".to_string(),
+                "testnet".to_string(),
+                "regtest".to_string(),
+            ],
             supports_cross_chain: true,
             custom_features: Default::default(),
         }
@@ -62,31 +68,35 @@ impl ChainAdapter for BitcoinAdapter {
     fn chain_id(&self) -> &'static str {
         "bitcoin"
     }
-    
+
     fn chain_name(&self) -> &'static str {
         "Bitcoin"
     }
-    
+
     fn capabilities(&self) -> ChainCapabilities {
         Self::capabilities()
     }
-    
+
     async fn create_client(&self, _config: &ChainConfig) -> ChainResult<Box<dyn RpcClient>> {
-        Err(ChainError::NotImplemented("Bitcoin RPC client creation".to_string()))
+        Err(ChainError::NotImplemented(
+            "Bitcoin RPC client creation".to_string(),
+        ))
     }
-    
+
     async fn create_wallet(&self, _config: &ChainConfig) -> ChainResult<Box<dyn Wallet>> {
-        Err(ChainError::NotImplemented("Bitcoin wallet creation".to_string()))
+        Err(ChainError::NotImplemented(
+            "Bitcoin wallet creation".to_string(),
+        ))
     }
-    
+
     fn csv_program_id(&self) -> Option<&'static str> {
         None
     }
-    
+
     fn to_core_chain(&self) -> Chain {
         Chain::Bitcoin
     }
-    
+
     fn default_network(&self) -> &'static str {
         "mainnet"
     }
@@ -112,7 +122,7 @@ impl BitcoinNetworkConfig {
             Self::Regtest => "http://localhost:8332",
         }
     }
-    
+
     /// Get the default block explorer URL for this network
     pub fn default_block_explorer(&self) -> &'static str {
         match self {
@@ -121,7 +131,7 @@ impl BitcoinNetworkConfig {
             Self::Regtest => "http://localhost:3000",
         }
     }
-    
+
     /// Get the confirmation requirement for this network
     pub fn confirmations_required(&self) -> u32 {
         match self {
@@ -135,14 +145,14 @@ impl BitcoinNetworkConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_bitcoin_adapter() {
         let adapter = BitcoinAdapter::new();
         assert_eq!(adapter.chain_id(), "bitcoin");
         assert_eq!(adapter.chain_name(), "Bitcoin");
     }
-    
+
     #[test]
     fn test_bitcoin_chain_info() {
         let info = BitcoinAdapter::chain_info();
@@ -151,17 +161,23 @@ mod tests {
         assert!(info.supports_nfts);
         assert!(!info.supports_smart_contracts);
     }
-    
+
     #[test]
     fn test_bitcoin_network_config() {
         let mainnet = BitcoinNetworkConfig::Mainnet;
-        assert_eq!(mainnet.default_rpc_endpoint(), "https://blockstream.info/api");
+        assert_eq!(
+            mainnet.default_rpc_endpoint(),
+            "https://blockstream.info/api"
+        );
         assert_eq!(mainnet.confirmations_required(), 6);
-        
+
         let testnet = BitcoinNetworkConfig::Testnet;
-        assert_eq!(testnet.default_rpc_endpoint(), "https://blockstream.info/testnet/api");
+        assert_eq!(
+            testnet.default_rpc_endpoint(),
+            "https://blockstream.info/testnet/api"
+        );
         assert_eq!(testnet.confirmations_required(), 3);
-        
+
         let regtest = BitcoinNetworkConfig::Regtest;
         assert_eq!(regtest.default_rpc_endpoint(), "http://localhost:8332");
         assert_eq!(regtest.confirmations_required(), 1);

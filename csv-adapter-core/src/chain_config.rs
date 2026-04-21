@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// Chain-specific capabilities and features
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -78,45 +78,87 @@ impl ChainConfigLoader {
             configs: HashMap::new(),
         }
     }
-    
+
     /// Load all chain configurations from directory
     /// Invalid configs are skipped with a warning rather than failing the entire operation
-    pub fn load_from_directory(&mut self, config_dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
-        let entries = std::fs::read_dir(config_dir)?;
-        
-        for entry in entries {
-            let entry = entry?;
-            if entry.path().extension() == Some(std::ffi::OsStr::new("toml")) {
-                let path = entry.path();
-                let content = std::fs::read_to_string(&path)?;
-                
-                match toml::from_str::<ChainConfig>(&content) {
-                    Ok(config) => {
-                        let chain_id = config.chain_id.clone();
-                        self.configs.insert(chain_id.clone(), config);
-                        println!("Loaded chain config: {}", chain_id);
-                    }
-                    Err(e) => {
-                        eprintln!("Warning: Failed to parse {}: {}", path.display(), e);
-                        // Skip invalid config and continue
-                    }
-                }
-            }
+    pub fn load_from_directory(
+        &mut self,
+        config_dir: &Path,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut paths: Vec<PathBuf> = std::fs::read_dir(config_dir)?
+            .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+            .filter(|path| path.extension() == Some(std::ffi::OsStr::new("toml")))
+            .collect();
+
+        paths.sort();
+
+        for path in paths {
+            self.load_file(&path)?;
         }
-        
+
         Ok(())
     }
-    
+
+    /// Load a single chain configuration file.
+    ///
+    /// Invalid configs are skipped with a warning rather than failing the entire operation.
+    pub fn load_file(&mut self, path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+        let content = std::fs::read_to_string(path)?;
+
+        match toml::from_str::<ChainConfig>(&content) {
+            Ok(config) => {
+                let chain_id = config.chain_id.clone();
+                self.configs.insert(chain_id.clone(), config);
+                println!("Loaded chain config: {}", chain_id);
+            }
+            Err(e) => {
+                eprintln!("Warning: Failed to parse {}: {}", path.display(), e);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Load chain configurations from the default search locations.
+    ///
+    /// Search order:
+    /// 1. `CSV_CHAIN_CONFIG_DIR`
+    /// 2. `chains`
+    pub fn load_from_default_locations(
+        &mut self,
+    ) -> Result<Option<PathBuf>, Box<dyn std::error::Error>> {
+        let mut candidates = Vec::new();
+
+        if let Ok(path) = std::env::var("CSV_CHAIN_CONFIG_DIR") {
+            candidates.push(PathBuf::from(path));
+        }
+        candidates.push(PathBuf::from("chains"));
+
+        for candidate in candidates {
+            if candidate.exists() {
+                self.load_from_directory(&candidate)?;
+                return Ok(Some(candidate));
+            }
+        }
+
+        Ok(None)
+    }
+
+    /// Insert or replace a configuration programmatically.
+    pub fn insert_config(&mut self, config: ChainConfig) {
+        self.configs.insert(config.chain_id.clone(), config);
+    }
+
     /// Get configuration for specific chain
     pub fn get_config(&self, chain_id: &str) -> Option<&ChainConfig> {
         self.configs.get(chain_id)
     }
-    
+
     /// Get all loaded configurations
     pub fn all_configs(&self) -> &HashMap<String, ChainConfig> {
         &self.configs
     }
-    
+
     /// Get all supported chain IDs
     pub fn supported_chain_ids(&self) -> Vec<String> {
         self.configs.keys().cloned().collect()
@@ -126,11 +168,11 @@ impl ChainConfigLoader {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_chain_config_loader() {
         let mut loader = ChainConfigLoader::new();
-        
+
         let config = ChainConfig {
             chain_id: "test-chain".to_string(),
             chain_name: "Test Chain".to_string(),
@@ -150,9 +192,9 @@ mod tests {
             },
             custom_settings: HashMap::new(),
         };
-        
+
         loader.configs.insert("test-chain".to_string(), config);
-        
+
         let retrieved = loader.get_config("test-chain");
         assert!(retrieved.is_some());
         assert_eq!(retrieved.unwrap().chain_id, "test-chain");

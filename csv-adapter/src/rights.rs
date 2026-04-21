@@ -182,12 +182,13 @@ impl RightsManager {
         // 5. Return a transfer ID for tracking
         let transfer_id = format!("xfer-{}", hex::encode(generate_salt()));
 
-        self.client.emit_event(crate::events::Event::TransferProgress {
-            transfer_id: transfer_id.clone(),
-            from_chain: Chain::Bitcoin, // Would be the source chain
-            to_chain,
-            step: "lock".to_string(),
-        });
+        self.client
+            .emit_event(crate::events::Event::TransferProgress {
+                transfer_id: transfer_id.clone(),
+                from_chain: Chain::Bitcoin, // Would be the source chain
+                to_chain,
+                step: "lock".to_string(),
+            });
 
         Ok(transfer_id)
     }

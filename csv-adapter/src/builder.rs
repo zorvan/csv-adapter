@@ -175,12 +175,10 @@ impl ClientBuilder {
                 crate::client::StoreHandle::InMemory(csv_adapter_core::InMemorySealStore::new())
             }
             #[cfg(feature = "sqlite")]
-            StoreBackend::Sqlite { ref path } => {
-                crate::client::StoreHandle::Sqlite(
-                    csv_adapter_store::SqliteSealStore::open(path)
-                        .map_err(|e| CsvError::StoreError(e.to_string()))?,
-                )
-            }
+            StoreBackend::Sqlite { ref path } => crate::client::StoreHandle::Sqlite(
+                csv_adapter_store::SqliteSealStore::open(path)
+                    .map_err(|e| CsvError::StoreError(e.to_string()))?,
+            ),
         };
 
         Ok(crate::client::CsvClient {

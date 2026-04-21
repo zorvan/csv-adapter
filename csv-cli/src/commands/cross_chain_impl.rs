@@ -286,10 +286,8 @@ impl TransferVerifier for UniversalTransferVerifier {
 
         // Only trust is_finalized flag for chains with deterministic finality.
         // Bitcoin and Ethereum use probabilistic finality — must check confirmations.
-        let has_deterministic_finality = matches!(
-            finality.source_chain,
-            ChainId::Sui | ChainId::Aptos
-        );
+        let has_deterministic_finality =
+            matches!(finality.source_chain, ChainId::Sui | ChainId::Aptos);
         let meets_finality = if has_deterministic_finality && finality.is_finalized {
             true
         } else {

@@ -213,8 +213,7 @@ fn row_to_seal(row: &SqliteRow) -> Result<SealRecord> {
         seal_ref: row.try_get("seal_ref")?,
         right_id: row.try_get::<Option<String>, _>("right_id")?,
         status,
-        consumed_at: row
-            .try_get::<Option<chrono::DateTime<chrono::Utc>>, _>("consumed_at")?,
+        consumed_at: row.try_get::<Option<chrono::DateTime<chrono::Utc>>, _>("consumed_at")?,
         consumed_tx: row.try_get::<Option<String>, _>("consumed_tx")?,
         block_height: row.try_get::<i64, _>("block_height")? as u64,
     })

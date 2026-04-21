@@ -12,9 +12,8 @@ use super::chain_indexer::{AddressIndexingResult, ChainIndexer, ChainResult};
 use super::rpc_manager::RpcManager;
 use csv_explorer_shared::{
     ChainConfig, CommitmentScheme, ContractStatus, ContractType, CsvContract, EnhancedRightRecord,
-    EnhancedSealRecord, EnhancedTransferRecord, FinalityProofType,
-    InclusionProofType, RightRecord, SealRecord, SealStatus, SealType,
-    TransferRecord,
+    EnhancedSealRecord, EnhancedTransferRecord, FinalityProofType, InclusionProofType, RightRecord,
+    SealRecord, SealStatus, SealType, TransferRecord,
 };
 
 /// Aptos-specific indexer.
@@ -399,7 +398,7 @@ impl AptosIndexer {
             manager.get_client("aptos")
         } else {
             Some(Client::new())
-         };
+        };
 
         let base_url = rpc_url.trim_end_matches('/');
         let url = format!("{}/v1/transactions?start={}&limit=100", base_url, version);

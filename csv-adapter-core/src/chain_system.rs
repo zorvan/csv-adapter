@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 /// Simplified chain registry for basic chain information
-/// 
+///
 /// Note: For full adapter storage with trait objects, use `ChainRegistry` from `chain_adapter`.
 #[derive(Clone)]
 pub struct SimpleChainRegistry {
@@ -30,7 +30,7 @@ impl SimpleChainRegistry {
             adapters: HashMap::new(),
         }
     }
-    
+
     /// Register a chain
     pub fn register_chain(&mut self, chain_id: String, chain_name: String) {
         let info = ChainInfo {
@@ -39,20 +39,20 @@ impl SimpleChainRegistry {
             supports_nfts: true,
             supports_smart_contracts: true,
         };
-        
+
         self.adapters.insert(chain_id, info);
     }
-    
+
     /// Get all supported chains
     pub fn supported_chains(&self) -> Vec<String> {
         self.adapters.keys().cloned().collect()
     }
-    
+
     /// Get chain info
     pub fn get_chain_info(&self, chain_id: &str) -> Option<&ChainInfo> {
         self.adapters.get(chain_id)
     }
-    
+
     /// Check if chain supports NFTs
     pub fn supports_nfts(&self, chain_id: &str) -> bool {
         self.adapters

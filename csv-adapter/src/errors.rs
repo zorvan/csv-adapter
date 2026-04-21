@@ -128,7 +128,10 @@ impl CsvError {
             ),
             Self::RightNotFound(id) => ErrorSuggestion::new(
                 "CSV_004",
-                format!("Right not found: {}. Rights exist in client state, not on-chain.", id),
+                format!(
+                    "Right not found: {}. Rights exist in client state, not on-chain.",
+                    id
+                ),
                 "https://docs.csv.dev/errors/CSV_004",
             ),
             Self::TransferNotFound(id) => ErrorSuggestion::new(
@@ -138,7 +141,10 @@ impl CsvError {
             ),
             Self::RightAlreadyConsumed(id) => ErrorSuggestion::new(
                 "CSV_006",
-                format!("Right {} has already been consumed (single-use seal violated)", id),
+                format!(
+                    "Right {} has already been consumed (single-use seal violated)",
+                    id
+                ),
                 "https://docs.csv.dev/errors/CSV_006",
             ),
             Self::InvalidCommitment(msg) => ErrorSuggestion::new(

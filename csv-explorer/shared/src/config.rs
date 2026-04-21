@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use crate::types::Network;
+use csv_adapter_core::ChainDiscovery;
 
 /// Top-level explorer configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -154,7 +155,7 @@ impl ExplorerConfig {
         let content = std::fs::read_to_string(path).map_err(crate::ExplorerError::Io)?;
         let config: ExplorerConfig =
             toml::from_str(&content).map_err(|e| crate::ExplorerError::Toml(e.to_string()))?;
-        Ok(config)
+        Ok(config.with_discovered_chains())
     }
 
     /// Load configuration from the default locations.
@@ -199,7 +200,41 @@ impl ExplorerConfig {
                 poll_interval_ms: default_poll_interval(),
             },
             chains: HashMap::new(),
-        })
+        }
+        .with_discovered_chains())
+    }
+
+    /// Merge in chain defaults discovered from the shared `chains/` configuration directory.
+    pub fn with_discovered_chains(mut self) -> Self {
+        let mut discovery = ChainDiscovery::new();
+        if discovery.load_default_chains().is_err() {
+            return self;
+        }
+
+        for (chain_id, chain_config) in discovery.all_chain_configs() {
+            self.chains
+                .entry(chain_id.clone())
+                .or_insert_with(|| ChainConfig {
+                    enabled: default_chain_enabled(),
+                    network: parse_network(&chain_config.default_network),
+                    rpc_url: chain_config
+                        .rpc_endpoints
+                        .first()
+                        .cloned()
+                        .unwrap_or_default(),
+                    start_block: None,
+                });
+        }
+
+        self
+    }
+}
+
+fn parse_network(network: &str) -> Network {
+    match network.to_ascii_lowercase().as_str() {
+        "test" | "testnet" | "sepolia" => Network::Testnet,
+        "dev" | "devnet" | "regtest" => Network::Devnet,
+        _ => Network::Mainnet,
     }
 }
 

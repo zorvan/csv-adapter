@@ -222,8 +222,7 @@ fn row_to_transfer(row: &SqliteRow) -> Result<TransferRecord> {
         proof_ref: row.try_get::<Option<String>, _>("proof_ref")?,
         status,
         created_at: row.try_get::<chrono::DateTime<chrono::Utc>, _>("created_at")?,
-        completed_at: row
-            .try_get::<Option<chrono::DateTime<chrono::Utc>>, _>("completed_at")?,
+        completed_at: row.try_get::<Option<chrono::DateTime<chrono::Utc>>, _>("completed_at")?,
         duration_ms: row
             .try_get::<Option<i64>, _>("duration_ms")?
             .map(|v| v as u64),

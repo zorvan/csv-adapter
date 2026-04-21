@@ -1,8 +1,9 @@
 //! Network state hook.
 
-use dioxus::prelude::*;
-use csv_adapter_core::Chain;
+use crate::chains::supported_wallet_chains;
 use crate::services::network::NetworkType;
+use csv_adapter_core::Chain;
+use dioxus::prelude::*;
 
 /// Network state.
 #[derive(Clone, PartialEq)]
@@ -11,14 +12,18 @@ pub struct NetworkState {
 }
 
 /// Network context.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct NetworkContext {
     pub state: Signal<NetworkState>,
 }
 
 impl NetworkContext {
     pub fn get_network(&self, chain: Chain) -> NetworkType {
-        self.state.read().networks.get(&chain).copied()
+        self.state
+            .read()
+            .networks
+            .get(&chain)
+            .copied()
             .unwrap_or(NetworkType::Testnet)
     }
 
@@ -34,18 +39,15 @@ impl NetworkContext {
 /// Network provider component.
 #[component]
 pub fn NetworkProvider(children: Element) -> Element {
-    let mut state = use_signal(|| NetworkState {
-        networks: [
-            (Chain::Bitcoin, NetworkType::Testnet),
-            (Chain::Ethereum, NetworkType::Testnet),
-            (Chain::Sui, NetworkType::Testnet),
-            (Chain::Aptos, NetworkType::Testnet),
-            (Chain::Solana, NetworkType::Testnet),
-        ].into_iter().collect(),
+    let state = use_signal(|| NetworkState {
+        networks: supported_wallet_chains()
+            .into_iter()
+            .map(|chain| (chain, NetworkType::Testnet))
+            .collect(),
     });
 
     use_context_provider(|| NetworkContext { state });
-    
+
     rsx! { { children } }
 }
 

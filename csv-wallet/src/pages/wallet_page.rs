@@ -1,12 +1,13 @@
 //! Wallet Management page with per-chain account management, export/import JSON.
 
-use dioxus::prelude::*;
-use csv_adapter_core::Chain;
-use wasm_bindgen::prelude::*;
+use crate::chains::supported_wallet_chains;
+use crate::components::{all_chain_displays, Card, ChainDisplay};
 use crate::context::{use_wallet_context, WalletContext};
 use crate::routes::Route;
 use crate::wallet_core::ChainAccount;
-use crate::components::{Card, ChainDisplay, all_chain_displays};
+use csv_adapter_core::Chain;
+use dioxus::prelude::*;
+use wasm_bindgen::prelude::*;
 
 const EXPECTED_JSON_EXAMPLE: &str = r#"{"accounts": [{"id": "...", "chain": "bitcoin", "name": "...", "private_key": "...", "address": "..."}], "selected_account_id": null}"#;
 
@@ -40,7 +41,12 @@ pub fn WalletPage() -> Element {
         "No accounts".to_string()
     };
 
-    let tabs = vec![WalletTab::Accounts, WalletTab::AddAccount, WalletTab::Export, WalletTab::Import];
+    let tabs = vec![
+        WalletTab::Accounts,
+        WalletTab::AddAccount,
+        WalletTab::Export,
+        WalletTab::Import,
+    ];
 
     rsx! {
         div { class: "space-y-6 stagger-children",
@@ -100,7 +106,7 @@ fn AccountsTab() -> Element {
 
     rsx! {
         div { class: "space-y-6",
-            for chain in [Chain::Bitcoin, Chain::Ethereum, Chain::Sui, Chain::Aptos, Chain::Solana] {
+            for chain in supported_wallet_chains() {
                 ChainAccountsSection { chain }
             }
         }
@@ -406,7 +412,8 @@ fn trigger_download(filename: &str, content: &str) {
         let blob = web_sys::Blob::new_with_str_sequence_and_options(
             &js_sys::Array::from_iter([js_sys::JsString::from(content)]),
             &opts,
-        ).ok();
+        )
+        .ok();
 
         if let Some(blob) = blob {
             let url = web_sys::Url::create_object_url_with_blob(&blob).ok();

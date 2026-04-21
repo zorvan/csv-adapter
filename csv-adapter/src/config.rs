@@ -106,7 +106,6 @@ pub enum StoreConfig {
     },
 }
 
-
 /// Top-level CSV Adapter configuration.
 ///
 /// Can be loaded from a TOML file or constructed programmatically.
@@ -249,10 +248,7 @@ impl Config {
     /// Check if a chain is enabled in the configuration.
     pub fn is_chain_enabled(&self, chain: Chain) -> bool {
         let name = chain.to_string();
-        self.chains
-            .get(&name)
-            .map(|c| c.enabled)
-            .unwrap_or(false)
+        self.chains.get(&name).map(|c| c.enabled).unwrap_or(false)
     }
 
     /// Set the RPC URL for a specific chain.

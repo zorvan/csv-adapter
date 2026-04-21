@@ -3,15 +3,15 @@
 //! Each account belongs to a specific chain and has its own private key.
 //! Multiple accounts per chain are supported.
 
-use csv_adapter_core::Chain;
-use rand::RngCore;
-use rand::rngs::OsRng;
-use secp256k1::{Secp256k1, SecretKey};
-use ed25519_dalek::{SigningKey, VerifyingKey};
-use sha3::Keccak256;
 use blake2::Blake2b;
+use csv_adapter_core::Chain;
+use ed25519_dalek::{SigningKey, VerifyingKey};
+use rand::rngs::OsRng;
+use rand::RngCore;
+use secp256k1::{Secp256k1, SecretKey};
+use serde::{Deserialize, Serialize};
 use sha2::Digest;
-use serde::{Serialize, Deserialize};
+use sha3::Keccak256;
 use uuid::Uuid;
 
 /// A single blockchain account with its own private key and address.
@@ -37,8 +37,7 @@ impl ChainAccount {
     /// Derive address from private key for a specific chain.
     pub fn derive_address(chain: Chain, hex_key: &str) -> Result<String, String> {
         let hex_clean = hex_key.strip_prefix("0x").unwrap_or(hex_key);
-        let bytes = hex::decode(hex_clean)
-            .map_err(|e| format!("Invalid hex: {}", e))?;
+        let bytes = hex::decode(hex_clean).map_err(|e| format!("Invalid hex: {}", e))?;
 
         match chain {
             Chain::Bitcoin => Self::derive_bitcoin_address(&bytes),
@@ -247,14 +246,12 @@ impl WalletData {
 
     /// Export as JSON string.
     pub fn to_json(&self) -> Result<String, String> {
-        serde_json::to_string_pretty(self)
-            .map_err(|e| format!("Failed to serialize: {}", e))
+        serde_json::to_string_pretty(self).map_err(|e| format!("Failed to serialize: {}", e))
     }
 
     /// Import from JSON string.
     pub fn from_json(json: &str) -> Result<Self, String> {
-        serde_json::from_str(json)
-            .map_err(|e| format!("Failed to parse JSON: {}", e))
+        serde_json::from_str(json).map_err(|e| format!("Failed to parse JSON: {}", e))
     }
 
     /// Generate a random hex key for testing (32 bytes).

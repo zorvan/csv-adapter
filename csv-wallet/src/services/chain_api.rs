@@ -205,9 +205,9 @@ impl ChainApi {
 
         // mempool.space returns: { chain_stats: { funded_txo_sum, spent_txo_sum }, ... }
         let json: serde_json::Value = response.json().await?;
-        let stats = json
-            .get("chain_stats")
-            .ok_or_else(|| ChainApiError::ApiError("Missing chain_stats in response".to_string()))?;
+        let stats = json.get("chain_stats").ok_or_else(|| {
+            ChainApiError::ApiError("Missing chain_stats in response".to_string())
+        })?;
 
         let funded = stats
             .get("funded_txo_sum")
@@ -244,12 +244,7 @@ impl ChainApi {
             "id": 1
         });
 
-        let response = self
-            .client
-            .post(&config.api_url)
-            .json(&body)
-            .send()
-            .await?;
+        let response = self.client.post(&config.api_url).json(&body).send().await?;
 
         if !response.status().is_success() {
             return Err(ChainApiError::ApiError(format!(
@@ -290,12 +285,7 @@ impl ChainApi {
             }
         });
 
-        let response = self
-            .client
-            .post(&config.api_url)
-            .json(&body)
-            .send()
-            .await?;
+        let response = self.client.post(&config.api_url).json(&body).send().await?;
 
         if !response.status().is_success() {
             return Err(ChainApiError::ApiError(format!(
@@ -309,7 +299,9 @@ impl ChainApi {
             .get("result")
             .and_then(|v| v.get("totalBalance"))
             .and_then(|v| v.as_str())
-            .ok_or_else(|| ChainApiError::ApiError("Missing totalBalance in response".to_string()))?;
+            .ok_or_else(|| {
+                ChainApiError::ApiError("Missing totalBalance in response".to_string())
+            })?;
 
         // Parse balance (in MIST) to SUI (1 SUI = 10^9 MIST)
         let balance_mist: f64 = total_balance
@@ -330,9 +322,7 @@ impl ChainApi {
         let resource_type = "0x1::coin::CoinStore<0x1::aptos_coin::AptosCoin>";
         let url = format!(
             "{}/accounts/{}/resource/{}",
-            config.api_url,
-            address,
-            resource_type
+            config.api_url, address, resource_type
         );
 
         let response = self.client.get(&url).send().await?;
@@ -378,12 +368,7 @@ impl ChainApi {
             "params": [address]
         });
 
-        let response = self
-            .client
-            .post(&config.api_url)
-            .json(&body)
-            .send()
-            .await?;
+        let response = self.client.post(&config.api_url).json(&body).send().await?;
 
         if !response.status().is_success() {
             return Err(ChainApiError::ApiError(format!(

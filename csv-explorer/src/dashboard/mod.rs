@@ -3,10 +3,10 @@
 //! Provides a web-based dashboard for monitoring cross-chain rights,
 //! transfers, and real-time indexing status.
 
-use std::sync::Arc;
-use std::collections::HashMap;
-use warp::{Filter, Reply};
 use crate::indexing::IndexingManager;
+use std::collections::HashMap;
+use std::sync::Arc;
+use warp::{Filter, Reply};
 
 /// Dashboard server
 pub struct DashboardServer {
@@ -26,38 +26,40 @@ pub struct DashboardStatus {
 
 impl DashboardServer {
     /// Create a new dashboard server
-    pub fn new(indexing_manager: Arc<IndexingManager>) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+    pub fn new(
+        indexing_manager: Arc<IndexingManager>,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         Ok(Self {
             indexing_manager,
             port: 3000,
             is_running: false,
         })
     }
-    
+
     /// Start the dashboard server
     pub async fn start(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         if self.is_running {
             return Err("Dashboard server already running".into());
         }
-        
+
         println!("Starting Dashboard server on port {}", self.port);
-        
+
         // Create dashboard routes
         let routes = self.create_routes();
-        
+
         // Start the server
         let addr: std::net::SocketAddr = ([0, 0, 0, 0], self.port).into();
         warp::serve(routes).run(addr).await;
-        
+
         Ok(())
     }
-    
+
     /// Stop the dashboard server
     pub fn stop(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         println!("Stopping Dashboard server");
         Ok(())
     }
-    
+
     /// Create dashboard routes
     fn create_routes(&self) -> impl Filter<Extract = impl Reply, Error = warp::Rejection> + Clone {
         // Main dashboard page
@@ -68,7 +70,7 @@ impl DashboardServer {
                 move || indexing_manager.clone()
             }))
             .and_then(handlers::serve_dashboard);
-        
+
         // API endpoints for dashboard data
         let api_metrics = warp::path("api")
             .and(warp::path("metrics"))
@@ -78,7 +80,7 @@ impl DashboardServer {
                 move || indexing_manager.clone()
             }))
             .and_then(handlers::get_metrics);
-        
+
         let api_rights = warp::path("api")
             .and(warp::path("rights"))
             .and(warp::get())
@@ -87,7 +89,7 @@ impl DashboardServer {
                 move || indexing_manager.clone()
             }))
             .and_then(handlers::get_rights_summary);
-        
+
         let api_transfers = warp::path("api")
             .and(warp::path("transfers"))
             .and(warp::get())
@@ -96,7 +98,7 @@ impl DashboardServer {
                 move || indexing_manager.clone()
             }))
             .and_then(handlers::get_transfers_summary);
-        
+
         let api_chains = warp::path("api")
             .and(warp::path("chains"))
             .and(warp::get())
@@ -105,18 +107,18 @@ impl DashboardServer {
                 move || indexing_manager.clone()
             }))
             .and_then(handlers::get_chain_status);
-        
+
         // Static assets (CSS, JS)
         let static_files = warp::path("static")
             .and(warp::fs::dir("./static"))
             .or(warp::path("favicon.ico").and(warp::fs::file("./static/favicon.ico")));
-        
+
         // CORS headers
         let cors = warp::cors()
             .allow_any_origin()
             .allow_headers(vec!["content-type"])
             .allow_methods(vec!["GET", "POST"]);
-        
+
         // Combine all routes
         dashboard
             .or(api_metrics)
@@ -126,7 +128,7 @@ impl DashboardServer {
             .or(static_files)
             .with(cors)
     }
-    
+
     /// Get dashboard status
     pub async fn get_status(&self) -> DashboardStatus {
         DashboardStatus {
@@ -142,7 +144,7 @@ impl DashboardServer {
 pub mod handlers {
     use super::*;
     use crate::indexing::{RightsQuery, TransferQuery};
-    
+
     /// Serve the main dashboard HTML page
     pub async fn serve_dashboard(
         _indexing_manager: Arc<IndexingManager>,
@@ -150,7 +152,7 @@ pub mod handlers {
         let html = generate_dashboard_html().await;
         Ok(warp::reply::html(html))
     }
-    
+
     /// Get metrics for dashboard
     pub async fn get_metrics(
         indexing_manager: Arc<IndexingManager>,
@@ -158,7 +160,7 @@ pub mod handlers {
         let metrics = indexing_manager.get_metrics().await;
         Ok(warp::reply::json(&metrics))
     }
-    
+
     /// Get rights summary for dashboard
     pub async fn get_rights_summary(
         indexing_manager: Arc<IndexingManager>,
@@ -170,7 +172,7 @@ pub mod handlers {
             limit: Some(100),
             offset: Some(0),
         };
-        
+
         match indexing_manager.search_rights(&query).await {
             Ok(rights) => {
                 let summary = serde_json::json!({
@@ -186,7 +188,7 @@ pub mod handlers {
             }))),
         }
     }
-    
+
     /// Get transfers summary for dashboard
     pub async fn get_transfers_summary(
         indexing_manager: Arc<IndexingManager>,
@@ -200,7 +202,7 @@ pub mod handlers {
             limit: Some(100),
             offset: Some(0),
         };
-        
+
         match indexing_manager.search_transfers(&query).await {
             Ok(transfers) => {
                 let summary = serde_json::json!({
@@ -217,7 +219,7 @@ pub mod handlers {
             }))),
         }
     }
-    
+
     /// Get chain status for dashboard
     pub async fn get_chain_status(
         indexing_manager: Arc<IndexingManager>,
@@ -262,61 +264,67 @@ pub mod handlers {
 
         Ok(warp::reply::json(&chain_status))
     }
-    
+
     /// Group rights by chain
     fn group_rights_by_chain(rights: &[crate::indexing::IndexedRight]) -> serde_json::Value {
         let mut chain_counts = HashMap::new();
-        
+
         for right in rights {
             *chain_counts.entry(&right.chain).or_insert(0) += 1;
         }
-        
+
         serde_json::to_value(chain_counts).unwrap_or(serde_json::Value::Object(Default::default()))
     }
-    
+
     /// Group rights by status
     fn group_rights_by_status(rights: &[crate::indexing::IndexedRight]) -> serde_json::Value {
         let mut status_counts = HashMap::new();
-        
+
         for right in rights {
             let status_str = format!("{:?}", right.status);
             *status_counts.entry(status_str).or_insert(0) += 1;
         }
-        
+
         serde_json::to_value(status_counts).unwrap_or(serde_json::Value::Object(Default::default()))
     }
-    
+
     /// Group transfers by from chain
-    fn group_transfers_by_from_chain(transfers: &[crate::indexing::IndexedTransfer]) -> serde_json::Value {
+    fn group_transfers_by_from_chain(
+        transfers: &[crate::indexing::IndexedTransfer],
+    ) -> serde_json::Value {
         let mut chain_counts = HashMap::new();
-        
+
         for transfer in transfers {
             *chain_counts.entry(&transfer.from_chain).or_insert(0) += 1;
         }
-        
+
         serde_json::to_value(chain_counts).unwrap_or(serde_json::Value::Object(Default::default()))
     }
-    
+
     /// Group transfers by to chain
-    fn group_transfers_by_to_chain(transfers: &[crate::indexing::IndexedTransfer]) -> serde_json::Value {
+    fn group_transfers_by_to_chain(
+        transfers: &[crate::indexing::IndexedTransfer],
+    ) -> serde_json::Value {
         let mut chain_counts = HashMap::new();
-        
+
         for transfer in transfers {
             *chain_counts.entry(&transfer.to_chain).or_insert(0) += 1;
         }
-        
+
         serde_json::to_value(chain_counts).unwrap_or(serde_json::Value::Object(Default::default()))
     }
-    
+
     /// Group transfers by status
-    fn group_transfers_by_status(transfers: &[crate::indexing::IndexedTransfer]) -> serde_json::Value {
+    fn group_transfers_by_status(
+        transfers: &[crate::indexing::IndexedTransfer],
+    ) -> serde_json::Value {
         let mut status_counts = HashMap::new();
-        
+
         for transfer in transfers {
             let status_str = format!("{:?}", transfer.status);
             *status_counts.entry(status_str).or_insert(0) += 1;
         }
-        
+
         serde_json::to_value(status_counts).unwrap_or(serde_json::Value::Object(Default::default()))
     }
 }
@@ -632,11 +640,10 @@ async fn generate_dashboard_html() -> String {
 
 #[cfg(test)]
 mod tests {
-    
+
     #[tokio::test]
     async fn test_dashboard_server_creation() {
         // This test would require a mock IndexingManager
-        // For now, we'll just test that the function compiles
-        assert!(true);
+        // For now, we only need this async harness to type-check.
     }
 }

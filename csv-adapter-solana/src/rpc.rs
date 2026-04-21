@@ -4,10 +4,7 @@
 use std::time::Duration;
 
 use solana_sdk::{
-    pubkey::Pubkey,
-    signature::Signature,
-    transaction::Transaction,
-    account::Account,
+    account::Account, pubkey::Pubkey, signature::Signature, transaction::Transaction,
 };
 
 use crate::error::{SolanaError, SolanaResult};
@@ -20,7 +17,8 @@ pub trait SolanaRpc: Send + Sync {
     async fn get_account(&self, pubkey: &Pubkey) -> SolanaResult<Account>;
 
     /// Get multiple accounts
-    async fn get_multiple_accounts(&self, pubkeys: &[Pubkey]) -> SolanaResult<Vec<Option<Account>>>;
+    async fn get_multiple_accounts(&self, pubkeys: &[Pubkey])
+        -> SolanaResult<Vec<Option<Account>>>;
 
     /// Get transaction with status
     async fn get_transaction(&self, signature: &Signature) -> SolanaResult<String>;
@@ -35,10 +33,17 @@ pub trait SolanaRpc: Send + Sync {
     async fn get_slot_with_commitment(&self, commitment: &str) -> SolanaResult<u64>;
 
     /// Get account changes between slots
-    async fn get_account_changes(&self, from_slot: u64, to_slot: u64) -> SolanaResult<Vec<AccountChange>>;
+    async fn get_account_changes(
+        &self,
+        from_slot: u64,
+        to_slot: u64,
+    ) -> SolanaResult<Vec<AccountChange>>;
 
     /// Wait for transaction confirmation
-    async fn wait_for_confirmation(&self, signature: &Signature) -> SolanaResult<ConfirmationStatus>;
+    async fn wait_for_confirmation(
+        &self,
+        signature: &Signature,
+    ) -> SolanaResult<ConfirmationStatus>;
 }
 
 /// Real RPC client implementation
@@ -75,7 +80,10 @@ impl SolanaRpc for RealSolanaRpc {
         Err(SolanaError::Rpc("RPC client not implemented".to_string()))
     }
 
-    async fn get_multiple_accounts(&self, _pubkeys: &[Pubkey]) -> SolanaResult<Vec<Option<Account>>> {
+    async fn get_multiple_accounts(
+        &self,
+        _pubkeys: &[Pubkey],
+    ) -> SolanaResult<Vec<Option<Account>>> {
         // Simplified implementation - would need actual RPC client
         Err(SolanaError::Rpc("RPC client not implemented".to_string()))
     }
@@ -100,12 +108,19 @@ impl SolanaRpc for RealSolanaRpc {
         Err(SolanaError::Rpc("RPC client not implemented".to_string()))
     }
 
-    async fn get_account_changes(&self, _from_slot: u64, _to_slot: u64) -> SolanaResult<Vec<AccountChange>> {
+    async fn get_account_changes(
+        &self,
+        _from_slot: u64,
+        _to_slot: u64,
+    ) -> SolanaResult<Vec<AccountChange>> {
         // Simplified implementation - would need actual RPC client
         Ok(vec![])
     }
 
-    async fn wait_for_confirmation(&self, _signature: &Signature) -> SolanaResult<ConfirmationStatus> {
+    async fn wait_for_confirmation(
+        &self,
+        _signature: &Signature,
+    ) -> SolanaResult<ConfirmationStatus> {
         // Simplified implementation - would need actual RPC client
         Ok(ConfirmationStatus::Confirmed)
     }
@@ -145,12 +160,20 @@ impl SolanaRpc for MockSolanaRpc {
             .ok_or_else(|| SolanaError::AccountNotFound(pubkey.to_string()))
     }
 
-    async fn get_multiple_accounts(&self, pubkeys: &[Pubkey]) -> SolanaResult<Vec<Option<Account>>> {
-        Ok(pubkeys.iter().map(|pk| self.accounts.get(pk).cloned()).collect())
+    async fn get_multiple_accounts(
+        &self,
+        pubkeys: &[Pubkey],
+    ) -> SolanaResult<Vec<Option<Account>>> {
+        Ok(pubkeys
+            .iter()
+            .map(|pk| self.accounts.get(pk).cloned())
+            .collect())
     }
 
     async fn get_transaction(&self, _signature: &Signature) -> SolanaResult<String> {
-        Err(SolanaError::Rpc("Mock RPC: get_transaction not implemented".to_string()))
+        Err(SolanaError::Rpc(
+            "Mock RPC: get_transaction not implemented".to_string(),
+        ))
     }
 
     async fn send_transaction(&self, _transaction: &Transaction) -> SolanaResult<Signature> {
@@ -165,11 +188,18 @@ impl SolanaRpc for MockSolanaRpc {
         Ok(1000)
     }
 
-    async fn get_account_changes(&self, _from_slot: u64, _to_slot: u64) -> SolanaResult<Vec<AccountChange>> {
+    async fn get_account_changes(
+        &self,
+        _from_slot: u64,
+        _to_slot: u64,
+    ) -> SolanaResult<Vec<AccountChange>> {
         Ok(vec![])
     }
 
-    async fn wait_for_confirmation(&self, _signature: &Signature) -> SolanaResult<ConfirmationStatus> {
+    async fn wait_for_confirmation(
+        &self,
+        _signature: &Signature,
+    ) -> SolanaResult<ConfirmationStatus> {
         Ok(ConfirmationStatus::Confirmed)
     }
 }

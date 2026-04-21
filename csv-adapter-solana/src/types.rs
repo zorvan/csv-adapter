@@ -1,8 +1,8 @@
 //! Type definitions for Solana adapter
 
-use solana_sdk::{pubkey::Pubkey, signature::Signature};
 use csv_adapter_core::Hash;
 use serde::{Deserialize, Serialize};
+use solana_sdk::{pubkey::Pubkey, signature::Signature};
 
 /// Solana-specific seal reference
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -70,8 +70,12 @@ struct BlockInfo {
 
 #[async_trait]
 impl ChainIndexer for BitcoinIndexer {
-    fn chain_id(&self) -> &str { "bitcoin" }
-    fn chain_name(&self) -> &str { "Bitcoin" }
+    fn chain_id(&self) -> &str {
+        "bitcoin"
+    }
+    fn chain_name(&self) -> &str {
+        "Bitcoin"
+    }
 
     async fn initialize(&self) -> ChainResult<()> {
         tracing::info!(chain = "bitcoin", "Bitcoin indexer initialized");
@@ -103,7 +107,12 @@ impl ChainIndexer for BitcoinIndexer {
             }
         }
 
-        tracing::debug!(chain = "bitcoin", block, count = rights.len(), "Indexed rights");
+        tracing::debug!(
+            chain = "bitcoin",
+            block,
+            count = rights.len(),
+            "Indexed rights"
+        );
         Ok(rights)
     }
 
@@ -112,12 +121,18 @@ impl ChainIndexer for BitcoinIndexer {
         let mut seals = Vec::new();
 
         let relevant: HashSet<&str> = self
-            .csv_addresses.iter().map(String::as_str)
+            .csv_addresses
+            .iter()
+            .map(String::as_str)
             .chain(self.priority_addresses.iter().map(String::as_str))
             .collect();
 
         if relevant.is_empty() {
-            tracing::debug!(chain = "bitcoin", block, "No relevant addresses — skipping seal scan");
+            tracing::debug!(
+                chain = "bitcoin",
+                block,
+                "No relevant addresses — skipping seal scan"
+            );
             return Ok(seals);
         }
 
@@ -126,10 +141,13 @@ impl ChainIndexer for BitcoinIndexer {
             // FIX: actually check addresses instead of always returning false
             // ---------------------------------------------------------------
             let output_match = tx.vout.iter().any(|v| {
-                v.scriptpubkey_address.as_deref().is_some_and(|a| relevant.contains(a))
+                v.scriptpubkey_address
+                    .as_deref()
+                    .is_some_and(|a| relevant.contains(a))
             });
             let input_match = tx.vin.iter().any(|vin| {
-                vin.prevout.as_ref()
+                vin.prevout
+                    .as_ref()
                     .and_then(|p| p.scriptpubkey_address.as_deref())
                     .is_some_and(|a| relevant.contains(a))
             });
@@ -142,7 +160,8 @@ impl ChainIndexer for BitcoinIndexer {
             for vin in &tx.vin {
                 if let (Some(ref prev_txid), Some(prev_vout)) = (&vin.txid, vin.vout) {
                     let prev_addr = vin
-                        .prevout.as_ref()
+                        .prevout
+                        .as_ref()
                         .and_then(|p| p.scriptpubkey_address.as_deref())
                         .unwrap_or("");
 
@@ -163,7 +182,12 @@ impl ChainIndexer for BitcoinIndexer {
             }
         }
 
-        tracing::debug!(chain = "bitcoin", block, count = seals.len(), "Indexed seals (CSV-related only)");
+        tracing::debug!(
+            chain = "bitcoin",
+            block,
+            count = seals.len(),
+            "Indexed seals (CSV-related only)"
+        );
         Ok(seals)
     }
 
@@ -183,7 +207,9 @@ impl ChainIndexer for BitcoinIndexer {
             for vout in &tx.vout {
                 if vout.scriptpubkey_type.as_deref() == Some("op_return") {
                     if let Some(right) = self.parse_right_from_op_return(tx, vout, block).await {
-                        let scheme = self.detect_commitment_scheme(&[]).unwrap_or(CommitmentScheme::HashBased);
+                        let scheme = self
+                            .detect_commitment_scheme(&[])
+                            .unwrap_or(CommitmentScheme::HashBased);
                         rights.push(EnhancedRightRecord {
                             id: right.id.clone(),
                             chain: right.chain.clone(),
@@ -216,22 +242,28 @@ impl ChainIndexer for BitcoinIndexer {
 
     async fn index_enhanced_seals(&self, block: u64) -> ChainResult<Vec<EnhancedSealRecord>> {
         let seals = self.index_seals(block).await?;
-        Ok(seals.into_iter().map(|s| EnhancedSealRecord {
-            id: s.id.clone(),
-            chain: s.chain.clone(),
-            seal_type: s.seal_type.to_string(),
-            seal_ref: s.seal_ref.clone(),
-            right_id: s.right_id.clone(),
-            status: s.status.to_string(),
-            consumed_at: s.consumed_at,
-            consumed_tx: s.consumed_tx.clone(),
-            block_height: s.block_height,
-            seal_proof_type: "merkle".to_string(),
-            seal_proof_verified: None,
-        }).collect())
+        Ok(seals
+            .into_iter()
+            .map(|s| EnhancedSealRecord {
+                id: s.id.clone(),
+                chain: s.chain.clone(),
+                seal_type: s.seal_type.to_string(),
+                seal_ref: s.seal_ref.clone(),
+                right_id: s.right_id.clone(),
+                status: s.status.to_string(),
+                consumed_at: s.consumed_at,
+                consumed_tx: s.consumed_tx.clone(),
+                block_height: s.block_height,
+                seal_proof_type: "merkle".to_string(),
+                seal_proof_verified: None,
+            })
+            .collect())
     }
 
-    async fn index_enhanced_transfers(&self, _block: u64) -> ChainResult<Vec<EnhancedTransferRecord>> {
+    async fn index_enhanced_transfers(
+        &self,
+        _block: u64,
+    ) -> ChainResult<Vec<EnhancedTransferRecord>> {
         Ok(Vec::new())
     }
 
@@ -313,7 +345,9 @@ impl BitcoinIndexer {
 
     fn rpc_client(&self) -> (String, Client) {
         if let Some(ref mgr) = self.rpc_manager {
-            if let Some((url, client)) = futures::executor::block_on(mgr.get_healthy_endpoint("bitcoin")) {
+            if let Some((url, client)) =
+                futures::executor::block_on(mgr.get_healthy_endpoint("bitcoin"))
+            {
                 return (url, client);
             }
         }
@@ -344,13 +378,19 @@ impl BitcoinIndexer {
             Ok(r) => r.text().await?.trim().to_string(),
             Err(e) => {
                 tracing::warn!(chain = chain_id, block, error = %e, "Failed to fetch block hash");
-                return Ok(BlockInfo { height: block, tx: Vec::new() });
+                return Ok(BlockInfo {
+                    height: block,
+                    tx: Vec::new(),
+                });
             }
         };
 
         if block_hash.is_empty() || block_hash.starts_with('{') {
             tracing::warn!(chain = chain_id, block, "Unexpected block hash response");
-            return Ok(BlockInfo { height: block, tx: Vec::new() });
+            return Ok(BlockInfo {
+                height: block,
+                tx: Vec::new(),
+            });
         }
 
         // Step 2: hash → txids
@@ -359,7 +399,10 @@ impl BitcoinIndexer {
             Ok(r) => r.json().await.unwrap_or_default(),
             Err(e) => {
                 tracing::warn!(chain = chain_id, block, error = %e, "Failed to fetch txids");
-                return Ok(BlockInfo { height: block, tx: Vec::new() });
+                return Ok(BlockInfo {
+                    height: block,
+                    tx: Vec::new(),
+                });
             }
         };
 
@@ -393,7 +436,10 @@ impl BitcoinIndexer {
             }
         }
 
-        Ok(BlockInfo { height: block, tx: transactions })
+        Ok(BlockInfo {
+            height: block,
+            tx: transactions,
+        })
     }
 
     async fn parse_right_from_op_return(
@@ -444,7 +490,9 @@ impl BitcoinIndexer {
             &payload[32..64]
         };
 
-        let owner = tx.vin.first()
+        let owner = tx
+            .vin
+            .first()
             .and_then(|vin| vin.txid.as_ref())
             .map(|txid| format!("btc-{}", &txid[..8]))
             .unwrap_or_else(|| "unknown".to_string());

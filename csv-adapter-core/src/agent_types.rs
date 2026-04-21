@@ -9,7 +9,7 @@
 //! - **Structured status**: All operations return machine-readable progress
 //! - **Fix suggestions**: Errors include actionable `FixAction` for autonomous resolution
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Agent-friendly transfer status with structured progress
@@ -97,10 +97,14 @@ impl TransferStatus {
     pub fn progress_percent(&self) -> u8 {
         match self {
             Self::Initiated { .. } => 0,
-            Self::Locking { current_confirmations, required_confirmations, .. } => {
-                ((current_confirmations * 25) / required_confirmations).min(25) as u8
-            }
-            Self::GeneratingProof { progress_percent, .. } => *progress_percent,
+            Self::Locking {
+                current_confirmations,
+                required_confirmations,
+                ..
+            } => ((current_confirmations * 25) / required_confirmations).min(25) as u8,
+            Self::GeneratingProof {
+                progress_percent, ..
+            } => *progress_percent,
             Self::SubmittingProof { .. } => 50,
             Self::Verifying { .. } => 75,
             Self::Minting { .. } => 90,
@@ -249,7 +253,10 @@ impl std::str::FromStr for Chain {
             "sui" => Ok(Self::Sui),
             "aptos" | "apt" => Ok(Self::Aptos),
             "solana" | "sol" => Ok(Self::Solana),
-            _ => Err(format!("Unknown chain: {}. Supported: bitcoin, ethereum, sui, aptos, solana", s)),
+            _ => Err(format!(
+                "Unknown chain: {}. Supported: bitcoin, ethereum, sui, aptos, solana",
+                s
+            )),
         }
     }
 }

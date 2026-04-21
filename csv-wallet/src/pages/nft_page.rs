@@ -1,12 +1,12 @@
 //! NFT Gallery page component
 
+use crate::context::{NftCollection, NftRecord, NftStatus};
 use dioxus::prelude::*;
-use crate::context::{NftRecord, NftCollection, NftStatus};
 
 #[component]
 pub fn NftPage() -> Element {
     let mut selected_tab = use_signal(|| 0); // 0: NFTs, 1: Collections
-    
+
     rsx! {
         div { class: "min-h-screen bg-gray-50 dark:bg-gray-900",
             div { class: "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8",
@@ -15,7 +15,7 @@ pub fn NftPage() -> Element {
                     h1 { class: "text-3xl font-bold text-gray-900 dark:text-white mb-4",
                         "NFT Gallery"
                     }
-                    
+
                     // Tab navigation
                     div { class: "border-b border-gray-200 dark:border-gray-700",
                         nav { class: "-mb-px flex space-x-8",
@@ -57,7 +57,8 @@ pub fn NftPage() -> Element {
 #[component]
 pub fn NftGallery() -> Element {
     // Mock NFT data for demonstration
-    let mock_nfts = [NftRecord {
+    let mock_nfts = [
+        NftRecord {
             id: "nft-1".to_string(),
             chain: csv_adapter_core::Chain::Ethereum,
             collection_id: Some("collection-1".to_string()),
@@ -86,7 +87,8 @@ pub fn NftGallery() -> Element {
             external_url: Some("https://magiceden.io/items/567".to_string()),
             created_at: 1640995200,
             status: NftStatus::Owned,
-        }];
+        },
+    ];
 
     rsx! {
         div { class: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6",
@@ -102,7 +104,8 @@ pub fn NftGallery() -> Element {
 #[component]
 pub fn NftCollections() -> Element {
     // Mock collection data
-    let mock_collections = [NftCollection {
+    let mock_collections = [
+        NftCollection {
             id: "collection-1".to_string(),
             chain: csv_adapter_core::Chain::Ethereum,
             name: "Bored Ape Yacht Club".to_string(),
@@ -127,7 +130,8 @@ pub fn NftCollections() -> Element {
             owner_count: 1200,
             floor_price: Some(2.8),
             created_at: 1640995200,
-        }];
+        },
+    ];
 
     rsx! {
         div { class: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6",
@@ -177,7 +181,7 @@ fn NftCard(nft: NftRecord) -> Element {
                         }
                     }
                 }
-                
+
                 // Chain badge
                 div { class: "absolute top-2 right-2",
                     span { class: "px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
@@ -185,7 +189,7 @@ fn NftCard(nft: NftRecord) -> Element {
                     }
                 }
             }
-            
+
             // NFT Info
             div { class: "p-4",
                 div { class: "flex items-start justify-between",
@@ -196,23 +200,23 @@ fn NftCard(nft: NftRecord) -> Element {
                         "{nft.status}"
                     }
                 }
-                
+
                 if let Some(symbol) = &nft.symbol {
                     p { class: "text-sm text-gray-600 dark:text-gray-400 mt-1",
                         "Symbol: {symbol}"
                     }
                 }
-                
+
                 if let Some(collection_id) = &nft.collection_id {
                     p { class: "text-sm text-gray-600 dark:text-gray-400 mt-1",
                         "Collection: {collection_id}"
                     }
                 }
-                
+
                 p { class: "text-xs text-gray-500 dark:text-gray-500 mt-2",
                     "Owner: {nft.owner}"
                 }
-                
+
                 if let Some(external_url) = &nft.external_url {
                     a {
                         href: "{external_url}",
@@ -245,7 +249,7 @@ fn CollectionCard(collection: NftCollection) -> Element {
                         }
                     }
                 }
-                
+
                 // Chain badge
                 div { class: "absolute top-2 right-2",
                     span { class: "px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
@@ -253,7 +257,7 @@ fn CollectionCard(collection: NftCollection) -> Element {
                     }
                 }
             }
-            
+
             // Collection Info
             div { class: "p-4",
                 div { class: "flex items-start justify-between",
@@ -264,13 +268,13 @@ fn CollectionCard(collection: NftCollection) -> Element {
                         "{collection.symbol}"
                     }
                 }
-                
+
                 if let Some(description) = &collection.description {
                     p { class: "text-sm text-gray-600 dark:text-gray-400 mt-2 line-clamp-2",
                         "{description}"
                     }
                 }
-                
+
                 div { class: "mt-3 space-y-1",
                     div { class: "flex justify-between text-sm",
                         span { class: "text-gray-500 dark:text-gray-400",
@@ -280,7 +284,7 @@ fn CollectionCard(collection: NftCollection) -> Element {
                             "Owners: {collection.owner_count}"
                         }
                     }
-                    
+
                     if let Some(floor_price) = &collection.floor_price {
                         div { class: "flex justify-between text-sm",
                             span { class: "text-gray-500 dark:text-gray-400",
@@ -292,7 +296,7 @@ fn CollectionCard(collection: NftCollection) -> Element {
                         }
                     }
                 }
-                
+
                 if let Some(external_url) = &collection.external_url {
                     a {
                         href: "{external_url}",
@@ -309,7 +313,9 @@ fn CollectionCard(collection: NftCollection) -> Element {
 fn get_status_color(status: &NftStatus) -> &'static str {
     match status {
         NftStatus::Owned => "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-        NftStatus::Transferred => "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+        NftStatus::Transferred => {
+            "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+        }
         NftStatus::Burned => "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
         NftStatus::Listed => "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
     }
