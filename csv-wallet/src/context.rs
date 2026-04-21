@@ -356,8 +356,19 @@ impl WalletContext {
 
         // Load wallet data (per-chain accounts)
         if let Some(wallet_json) = store.get_raw(storage::WALLET_MNEMONIC_KEY).ok().flatten() {
-            if let Ok(wallet) = WalletData::from_json(&wallet_json) {
-                self.state.write().wallet = wallet;
+            match WalletData::from_json(&wallet_json) {
+                Ok(wallet) => {
+                    self.state.write().wallet = wallet;
+                    web_sys::console::log_1(&"Wallet loaded successfully".into());
+                }
+                Err(e) => {
+                    web_sys::console::error_1(&format!("Failed to load wallet: {}", e).into());
+                    // Try to migrate old format without balance field
+                    if let Ok(mut wallet) = serde_json::from_str::<WalletData>(&wallet_json) {
+                        web_sys::console::log_1(&"Wallet loaded with migration".into());
+                        self.state.write().wallet = wallet;
+                    }
+                }
             }
         }
     }
