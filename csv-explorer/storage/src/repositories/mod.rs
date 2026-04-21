@@ -10,7 +10,7 @@ pub mod transfers;
 
 pub use advanced_proofs::AdvancedProofRepository;
 pub use contracts::ContractsRepository;
-pub use priority_addresses::PriorityAddressRepository;
+pub use priority_addresses::{IndexingActivityRequest, PriorityAddressRepository};
 pub use rights::RightsRepository;
 pub use seals::SealsRepository;
 pub use stats::StatsRepository;

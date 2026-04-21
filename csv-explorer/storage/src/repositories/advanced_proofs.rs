@@ -9,6 +9,7 @@ use csv_explorer_shared::{
     SealProofCount, SealProofFilter,
 };
 use sqlx::{Row, SqlitePool};
+use std::str::FromStr;
 
 /// Repository for advanced commitment and proof data.
 #[derive(Clone)]

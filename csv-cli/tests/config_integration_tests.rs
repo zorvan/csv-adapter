@@ -112,7 +112,7 @@ fn test_cli_handles_empty_config_file() {
         .expect("Failed to execute command");
     
     let stderr = String::from_utf8_lossy(&output.stderr);
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    let _stdout = String::from_utf8_lossy(&output.stdout);
     
     // Should not error about TOML parsing
     assert!(

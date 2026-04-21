@@ -59,22 +59,22 @@ pub struct CrossChainProof {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ProofData {
-    MerkleProof {
+    Merkle {
         root: String,
         path: Vec<String>,
         leaf: String,
     },
-    MptProof {
+    Mpt {
         account_proof: Vec<String>,
         storage_proof: Vec<String>,
         value: String,
     },
-    CheckpointProof {
+    Checkpoint {
         checkpoint_digest: String,
         transaction_block: u64,
         certificate: String,
     },
-    LedgerProof {
+    Ledger {
         ledger_version: u64,
         proof: Vec<u8>,
         root_hash: String,
@@ -93,9 +93,9 @@ pub struct ContractDeployment {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum ContractType {
-    CsvRegistry,
-    CsvBridge,
-    CsvLock,
+    Registry,
+    Bridge,
+    Lock,
 }
 
 /// Main blockchain service.
@@ -202,27 +202,27 @@ impl BlockchainService {
         // 4. Serialize the proof data
         
         let proof_data = match source_chain {
-            Chain::Bitcoin => ProofData::MerkleProof {
+            Chain::Bitcoin => ProofData::Merkle {
                 root: String::new(),
                 path: vec![],
                 leaf: lock_tx_hash.to_string(),
             },
-            Chain::Ethereum => ProofData::MptProof {
+            Chain::Ethereum => ProofData::Mpt {
                 account_proof: vec![],
                 storage_proof: vec![],
                 value: right_id.to_string(),
             },
-            Chain::Sui => ProofData::CheckpointProof {
+            Chain::Sui => ProofData::Checkpoint {
                 checkpoint_digest: String::new(),
                 transaction_block: 0,
                 certificate: String::new(),
             },
-            Chain::Aptos => ProofData::LedgerProof {
+            Chain::Aptos => ProofData::Ledger {
                 ledger_version: 0,
                 proof: vec![],
                 root_hash: String::new(),
             },
-            Chain::Solana => ProofData::MerkleProof {
+            Chain::Solana => ProofData::Merkle {
                 root: String::new(),
                 path: vec![],
                 leaf: lock_tx_hash.to_string(),

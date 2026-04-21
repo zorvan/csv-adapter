@@ -104,7 +104,9 @@ impl RpcClient for SolanaRpcClient {
 }
 
 /// Solana wallet implementation
-pub struct SolanaWallet;
+pub struct SolanaWallet {
+    _keypair: Option<()>,
+}
 
 #[async_trait]
 impl Wallet for SolanaWallet {
@@ -128,8 +130,8 @@ impl Wallet for SolanaWallet {
         Err(ChainError::NotImplemented("generate_address".to_string()))
     }
     
-    fn from_private_key(&self, _private_key: &str) -> crate::chain_adapter::ChainResult<()> {
-        Err(ChainError::NotImplemented("from_private_key".to_string()))
+    fn import_from_private_key(&self, _private_key: &str) -> ChainResult<()> {
+        Err(ChainError::NotImplemented("import_from_private_key".to_string()))
     }
 }
 

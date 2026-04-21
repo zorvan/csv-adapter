@@ -111,6 +111,7 @@ pub mod chain_config;
 pub mod chain_system;
 pub mod chain_adapter;
 pub mod chain_discovery;
+pub mod chain_plugin;
 pub mod adapters;
 pub mod adapter_factory;
 
@@ -196,6 +197,10 @@ pub use chain_config::{
 };
 pub use chain_discovery::ChainDiscovery;
 pub use chain_system::{ChainInfo, SimpleChainRegistry};
+pub use chain_plugin::{
+    ChainPlugin, ChainPluginMetadata, ChainPluginRegistry, ChainPluginBuilder,
+    ChainPluginBuildError,
+};
 pub use adapter_factory::{AdapterFactory, create_adapter, is_chain_supported};
 
 // ===========================================================================

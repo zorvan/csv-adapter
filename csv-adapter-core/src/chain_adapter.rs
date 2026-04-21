@@ -136,7 +136,7 @@ pub trait Wallet: Send + Sync {
     fn generate_address(&self) -> ChainResult<String>;
     
     /// Import from private key
-    fn from_private_key(&self, private_key: &str) -> ChainResult<()>;
+    fn import_from_private_key(&self, private_key: &str) -> ChainResult<()>;
 }
 
 /// Registry for managing chain adapters

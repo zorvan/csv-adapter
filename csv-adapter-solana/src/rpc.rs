@@ -1,5 +1,6 @@
 //! RPC client for Solana adapter
 
+#[cfg(feature = "rpc")]
 use std::time::Duration;
 
 use solana_sdk::{

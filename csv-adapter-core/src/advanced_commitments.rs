@@ -9,6 +9,7 @@
 //! This module provides type infrastructure for indexing and querying.
 
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
 // ---------------------------------------------------------------------------
 // Commitment Scheme Types
@@ -51,21 +52,25 @@ impl core::fmt::Display for CommitmentScheme {
     }
 }
 
-impl CommitmentScheme {
+impl FromStr for CommitmentScheme {
+    type Err = ();
+
     /// Parse from string
-    pub fn from_str(s: &str) -> Option<Self> {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "hash_based" => Some(CommitmentScheme::HashBased),
-            "pedersen" => Some(CommitmentScheme::Pedersen),
-            "kzg" => Some(CommitmentScheme::KZG),
-            "bulletproofs" => Some(CommitmentScheme::Bulletproofs),
-            "multilinear" => Some(CommitmentScheme::Multilinear),
-            "fri" => Some(CommitmentScheme::FRI),
-            "custom" => Some(CommitmentScheme::Custom),
-            _ => None,
+            "hash_based" => Ok(CommitmentScheme::HashBased),
+            "pedersen" => Ok(CommitmentScheme::Pedersen),
+            "kzg" => Ok(CommitmentScheme::KZG),
+            "bulletproofs" => Ok(CommitmentScheme::Bulletproofs),
+            "multilinear" => Ok(CommitmentScheme::Multilinear),
+            "fri" => Ok(CommitmentScheme::FRI),
+            "custom" => Ok(CommitmentScheme::Custom),
+            _ => Err(()),
         }
     }
+}
 
+impl CommitmentScheme {
     /// Convert to string
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -118,20 +123,24 @@ impl core::fmt::Display for InclusionProofType {
     }
 }
 
-impl InclusionProofType {
+impl FromStr for InclusionProofType {
+    type Err = ();
+
     /// Parse from string
-    pub fn from_str(s: &str) -> Option<Self> {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "merkle" => Some(InclusionProofType::Merkle),
-            "merkle_patricia" => Some(InclusionProofType::MerklePatricia),
-            "object_proof" => Some(InclusionProofType::ObjectProof),
-            "accumulator" => Some(InclusionProofType::Accumulator),
-            "account_state" => Some(InclusionProofType::AccountState),
-            "custom" => Some(InclusionProofType::Custom),
-            _ => None,
+            "merkle" => Ok(InclusionProofType::Merkle),
+            "merkle_patricia" => Ok(InclusionProofType::MerklePatricia),
+            "object_proof" => Ok(InclusionProofType::ObjectProof),
+            "accumulator" => Ok(InclusionProofType::Accumulator),
+            "account_state" => Ok(InclusionProofType::AccountState),
+            "custom" => Ok(InclusionProofType::Custom),
+            _ => Err(()),
         }
     }
+}
 
+impl InclusionProofType {
     /// Convert to string
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -180,19 +189,23 @@ impl core::fmt::Display for FinalityProofType {
     }
 }
 
-impl FinalityProofType {
+impl FromStr for FinalityProofType {
+    type Err = ();
+
     /// Parse from string
-    pub fn from_str(s: &str) -> Option<Self> {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "confirmation_depth" => Some(FinalityProofType::ConfirmationDepth),
-            "checkpoint" => Some(FinalityProofType::Checkpoint),
-            "finalized_block" => Some(FinalityProofType::FinalizedBlock),
-            "slot_based" => Some(FinalityProofType::SlotBased),
-            "custom" => Some(FinalityProofType::Custom),
-            _ => None,
+            "confirmation_depth" => Ok(FinalityProofType::ConfirmationDepth),
+            "checkpoint" => Ok(FinalityProofType::Checkpoint),
+            "finalized_block" => Ok(FinalityProofType::FinalizedBlock),
+            "slot_based" => Ok(FinalityProofType::SlotBased),
+            "custom" => Ok(FinalityProofType::Custom),
+            _ => Err(()),
         }
     }
+}
 
+impl FinalityProofType {
     /// Convert to string
     pub fn as_str(&self) -> &'static str {
         match self {

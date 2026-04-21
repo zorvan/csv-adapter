@@ -42,7 +42,7 @@ pub struct SyncCoordinator {
 }
 
 #[derive(Debug, Clone)]
-struct ChainSyncState {
+pub struct ChainSyncState {
     chain_id: String,
     chain_name: String,
     status: ChainStatus,
@@ -178,8 +178,7 @@ impl SyncCoordinator {
 
                 join_set.spawn(async move {
                     let _permit = sem.acquire().await.expect("semaphore closed");
-                    if let Err(e) = sync_chain(
-                        indexer.as_ref(),
+                    let ctx = SyncContext::new(
                         &sync_repo,
                         &rights_repo,
                         &seals_repo,
@@ -190,9 +189,8 @@ impl SyncCoordinator {
                         &chain_states,
                         &total_indexed,
                         chain_config.as_ref(),
-                    )
-                    .await
-                    {
+                    );
+                    if let Err(e) = sync_chain(indexer.as_ref(), &ctx).await {
                         tracing::error!(
                             chain = indexer.chain_id(),
                             error = %e,
@@ -281,8 +279,7 @@ impl SyncCoordinator {
             c
         });
 
-        sync_chain(
-            indexer.as_ref(),
+        let ctx = SyncContext::new(
             &self.sync_repo,
             &self.rights_repo,
             &self.seals_repo,
@@ -293,8 +290,8 @@ impl SyncCoordinator {
             &self.chain_states,
             &self.total_indexed,
             effective_config.as_ref(),
-        )
-        .await
+        );
+        sync_chain(indexer.as_ref(), &ctx).await
     }
 
     // -----------------------------------------------------------------------
@@ -314,22 +311,70 @@ impl SyncCoordinator {
 }
 
 // ---------------------------------------------------------------------------
+// Sync Context - encapsulates all repository and state dependencies
+// ---------------------------------------------------------------------------
+
+/// Context passed to sync operations containing all repository and state dependencies.
+pub struct SyncContext<'a> {
+    /// Repository for sync progress tracking
+    pub sync_repo: &'a SyncRepository,
+    /// Repository for rights data
+    pub rights_repo: &'a RightsRepository,
+    /// Repository for seals data
+    pub seals_repo: &'a SealsRepository,
+    /// Repository for transfers data
+    pub transfers_repo: &'a TransfersRepository,
+    /// Repository for contracts data
+    pub contracts_repo: &'a ContractsRepository,
+    /// Repository for advanced proof data
+    pub advanced_repo: &'a AdvancedProofRepository,
+    /// Number of blocks to process per batch
+    pub batch_size: u64,
+    /// Shared chain state tracking
+    pub chain_states: &'a Arc<RwLock<Vec<ChainSyncState>>>,
+    /// Shared total indexed counter
+    pub total_indexed: &'a Arc<RwLock<u64>>,
+    /// Chain-specific configuration
+    pub chain_config: Option<&'a ChainConfig>,
+}
+
+impl<'a> SyncContext<'a> {
+    /// Create a new sync context
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        sync_repo: &'a SyncRepository,
+        rights_repo: &'a RightsRepository,
+        seals_repo: &'a SealsRepository,
+        transfers_repo: &'a TransfersRepository,
+        contracts_repo: &'a ContractsRepository,
+        advanced_repo: &'a AdvancedProofRepository,
+        batch_size: u64,
+        chain_states: &'a Arc<RwLock<Vec<ChainSyncState>>>,
+        total_indexed: &'a Arc<RwLock<u64>>,
+        chain_config: Option<&'a ChainConfig>,
+    ) -> Self {
+        Self {
+            sync_repo,
+            rights_repo,
+            seals_repo,
+            transfers_repo,
+            contracts_repo,
+            advanced_repo,
+            batch_size,
+            chain_states,
+            total_indexed,
+            chain_config,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Core per-chain sync function
 // ---------------------------------------------------------------------------
 
-#[allow(clippy::too_many_arguments)]
 async fn sync_chain(
     indexer: &dyn ChainIndexer,
-    sync_repo: &SyncRepository,
-    rights_repo: &RightsRepository,
-    seals_repo: &SealsRepository,
-    transfers_repo: &TransfersRepository,
-    contracts_repo: &ContractsRepository,
-    advanced_repo: &AdvancedProofRepository,
-    batch_size: u64,
-    chain_states: &Arc<RwLock<Vec<ChainSyncState>>>,
-    total_indexed: &Arc<RwLock<u64>>,
-    chain_config: Option<&ChainConfig>,
+    ctx: &SyncContext<'_>,
 ) -> Result<(), ExplorerError> {
     let chain_id = indexer.chain_id();
 
@@ -339,7 +384,7 @@ async fn sync_chain(
     //   2. config start_block (first-ever run override)
     //   3. genesis (0)                                     ← fallback
     // -----------------------------------------------------------------------
-    let db_block = sync_repo.get_latest_block(chain_id).await?;
+    let db_block = ctx.sync_repo.get_latest_block(chain_id).await?;
 
     let from_block = match db_block {
         Some(block) => {
@@ -347,7 +392,7 @@ async fn sync_chain(
             block
         }
         None => {
-            let configured = chain_config.and_then(|c| c.start_block).unwrap_or(0);
+            let configured = ctx.chain_config.and_then(|c| c.start_block).unwrap_or(0);
             if configured > 0 {
                 tracing::info!(
                     chain = chain_id,
@@ -367,23 +412,23 @@ async fn sync_chain(
     // Get chain tip — update state regardless
     let tip = match indexer.get_chain_tip().await {
         Ok(tip) => {
-            update_chain_state(chain_states, chain_id, tip, ChainStatus::Syncing).await;
+            update_chain_state(ctx.chain_states, chain_id, tip, ChainStatus::Syncing).await;
             tip
         }
         Err(e) => {
-            update_chain_state(chain_states, chain_id, 0, ChainStatus::Error).await;
+            update_chain_state(ctx.chain_states, chain_id, 0, ChainStatus::Error).await;
             tracing::warn!(chain = chain_id, error = %e, "Failed to get chain tip");
             return Err(e);
         }
     };
 
     if from_block >= tip {
-        update_chain_state(chain_states, chain_id, tip, ChainStatus::Synced).await;
+        update_chain_state(ctx.chain_states, chain_id, tip, ChainStatus::Synced).await;
         return Ok(());
     }
 
     let start = from_block + 1;
-    let end = (start + batch_size - 1).min(tip);
+    let end = (start + ctx.batch_size - 1).min(tip);
 
     tracing::debug!(chain = chain_id, from = start, to = end, "Syncing batch");
 
@@ -408,7 +453,7 @@ async fn sync_chain(
         match rights_res {
             Ok(rights) => {
                 for right in &rights {
-                    if let Err(e) = rights_repo.insert(right).await {
+                    if let Err(e) = ctx.rights_repo.insert(right).await {
                         tracing::warn!(chain = chain_id, block = current, right_id = %right.id, error = %e, "Failed to insert right");
                     }
                 }
@@ -419,7 +464,7 @@ async fn sync_chain(
         match seals_res {
             Ok(seals) => {
                 for seal in &seals {
-                    if let Err(e) = seals_repo.insert(seal).await {
+                    if let Err(e) = ctx.seals_repo.insert(seal).await {
                         tracing::warn!(chain = chain_id, block = current, seal_id = %seal.id, error = %e, "Failed to insert seal");
                     }
                 }
@@ -430,7 +475,7 @@ async fn sync_chain(
         match transfers_res {
             Ok(transfers) => {
                 for transfer in &transfers {
-                    if let Err(e) = transfers_repo.insert(transfer).await {
+                    if let Err(e) = ctx.transfers_repo.insert(transfer).await {
                         tracing::warn!(chain = chain_id, block = current, transfer_id = %transfer.id, error = %e, "Failed to insert transfer");
                     }
                 }
@@ -441,7 +486,7 @@ async fn sync_chain(
         match contracts_res {
             Ok(contracts) => {
                 for contract in &contracts {
-                    if let Err(e) = contracts_repo.insert(contract).await {
+                    if let Err(e) = ctx.contracts_repo.insert(contract).await {
                         tracing::warn!(chain = chain_id, block = current, contract_id = %contract.id, error = %e, "Failed to insert contract");
                     }
                 }
@@ -452,7 +497,7 @@ async fn sync_chain(
         // Store enhanced records
         if let Ok(enhanced_rights) = enh_rights_res {
             for right in &enhanced_rights {
-                if let Err(e) = advanced_repo.insert_enhanced_right(right).await {
+                if let Err(e) = ctx.advanced_repo.insert_enhanced_right(right).await {
                     tracing::warn!(chain = chain_id, block = current, right_id = %right.id, error = %e, "Failed to insert enhanced right");
                 }
             }
@@ -460,7 +505,7 @@ async fn sync_chain(
 
         if let Ok(enhanced_seals) = enh_seals_res {
             for seal in &enhanced_seals {
-                if let Err(e) = advanced_repo.insert_enhanced_seal(seal).await {
+                if let Err(e) = ctx.advanced_repo.insert_enhanced_seal(seal).await {
                     tracing::warn!(chain = chain_id, block = current, seal_id = %seal.id, error = %e, "Failed to insert enhanced seal");
                 }
             }
@@ -468,20 +513,20 @@ async fn sync_chain(
 
         if let Ok(enhanced_transfers) = enh_transfers_res {
             for transfer in &enhanced_transfers {
-                if let Err(e) = advanced_repo.insert_enhanced_transfer(transfer).await {
+                if let Err(e) = ctx.advanced_repo.insert_enhanced_transfer(transfer).await {
                     tracing::warn!(chain = chain_id, block = current, transfer_id = %transfer.id, error = %e, "Failed to insert enhanced transfer");
                 }
             }
         }
 
         // Persist progress
-        sync_repo.update_progress(chain_id, current, None).await?;
-        { *total_indexed.write().await += 1; }
+        ctx.sync_repo.update_progress(chain_id, current, None).await?;
+        { *ctx.total_indexed.write().await += 1; }
 
         current += 1;
     }
 
-    update_chain_state(chain_states, chain_id, end, ChainStatus::Synced).await;
+    update_chain_state(ctx.chain_states, chain_id, end, ChainStatus::Synced).await;
     tracing::info!(chain = chain_id, block = end, "Synced to block");
     Ok(())
 }

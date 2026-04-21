@@ -17,7 +17,7 @@ use csv_explorer_shared::{
 };
 
 use crate::chain_indexer::ChainIndexer;
-use csv_explorer_storage::repositories::PriorityAddressRepository;
+use csv_explorer_storage::repositories::{IndexingActivityRequest, PriorityAddressRepository};
 
 /// Configuration for the wallet-indexer bridge.
 #[derive(Debug, Clone)]
@@ -342,39 +342,45 @@ impl WalletIndexerBridge {
                         for addr in &batch {
                             self.priority_repo
                                 .record_indexing_activity(
-                                    addr,
-                                    &chain_id,
-                                    network,
-                                    "rights",
-                                    result.rights_indexed,
-                                    result.errors.is_empty(),
-                                    result.errors.first().map(|(_, e)| e.as_str()),
+                                    IndexingActivityRequest::new(
+                                        addr,
+                                        &chain_id,
+                                        network,
+                                        "rights",
+                                        result.rights_indexed,
+                                        result.errors.is_empty(),
+                                    )
+                                    .with_error(result.errors.first().map(|(_, e)| e.as_str()).unwrap_or("")),
                                 )
                                 .await
                                 .ok();
 
                             self.priority_repo
                                 .record_indexing_activity(
-                                    addr,
-                                    &chain_id,
-                                    network,
-                                    "seals",
-                                    result.seals_indexed,
-                                    result.errors.is_empty(),
-                                    result.errors.first().map(|(_, e)| e.as_str()),
+                                    IndexingActivityRequest::new(
+                                        addr,
+                                        &chain_id,
+                                        network,
+                                        "seals",
+                                        result.seals_indexed,
+                                        result.errors.is_empty(),
+                                    )
+                                    .with_error(result.errors.first().map(|(_, e)| e.as_str()).unwrap_or("")),
                                 )
                                 .await
                                 .ok();
 
                             self.priority_repo
                                 .record_indexing_activity(
-                                    addr,
-                                    &chain_id,
-                                    network,
-                                    "transfers",
-                                    result.transfers_indexed,
-                                    result.errors.is_empty(),
-                                    result.errors.first().map(|(_, e)| e.as_str()),
+                                    IndexingActivityRequest::new(
+                                        addr,
+                                        &chain_id,
+                                        network,
+                                        "transfers",
+                                        result.transfers_indexed,
+                                        result.errors.is_empty(),
+                                    )
+                                    .with_error(result.errors.first().map(|(_, e)| e.as_str()).unwrap_or("")),
                                 )
                                 .await
                                 .ok();
@@ -408,13 +414,15 @@ impl WalletIndexerBridge {
                         for addr in &batch {
                             self.priority_repo
                                 .record_indexing_activity(
-                                    addr,
-                                    &chain_id,
-                                    network,
-                                    "error",
-                                    0,
-                                    false,
-                                    Some(&e.to_string()),
+                                    IndexingActivityRequest::new(
+                                        addr,
+                                        &chain_id,
+                                        network,
+                                        "error",
+                                        0,
+                                        false,
+                                    )
+                                    .with_error(&e.to_string()),
                                 )
                                 .await
                                 .ok();

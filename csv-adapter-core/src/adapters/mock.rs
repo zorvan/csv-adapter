@@ -179,7 +179,7 @@ impl Wallet for MockWallet {
         Ok(format!("mock_address_{}", rand::random::<u32>()))
     }
     
-    fn from_private_key(&self, _private_key: &str) -> ChainResult<()> {
+    fn import_from_private_key(&self, _private_key: &str) -> ChainResult<()> {
         Ok(())
     }
 }

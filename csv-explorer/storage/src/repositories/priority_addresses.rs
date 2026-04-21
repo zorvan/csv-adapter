@@ -7,6 +7,52 @@ use csv_explorer_shared::{
 };
 use sqlx::{Row, SqlitePool};
 
+/// Parameters for recording an indexing activity.
+pub struct IndexingActivityRequest<'a> {
+    /// The address being indexed
+    pub address: &'a str,
+    /// The chain identifier
+    pub chain: &'a str,
+    /// The network type
+    pub network: Network,
+    /// The type of data indexed
+    pub indexed_type: &'a str,
+    /// Number of items indexed
+    pub items_count: u64,
+    /// Whether indexing succeeded
+    pub success: bool,
+    /// Optional error message
+    pub error: Option<&'a str>,
+}
+
+impl<'a> IndexingActivityRequest<'a> {
+    /// Create a new indexing activity request
+    pub fn new(
+        address: &'a str,
+        chain: &'a str,
+        network: Network,
+        indexed_type: &'a str,
+        items_count: u64,
+        success: bool,
+    ) -> Self {
+        Self {
+            address,
+            chain,
+            network,
+            indexed_type,
+            items_count,
+            success,
+            error: None,
+        }
+    }
+
+    /// Set the error message (builder pattern)
+    pub fn with_error(mut self, error: &'a str) -> Self {
+        self.error = Some(error);
+        self
+    }
+}
+
 /// Repository for managing priority addresses.
 pub struct PriorityAddressRepository {
     pool: SqlitePool,
@@ -405,15 +451,9 @@ impl PriorityAddressRepository {
     /// Record an indexing activity.
     pub async fn record_indexing_activity(
         &self,
-        address: &str,
-        chain: &str,
-        network: Network,
-        indexed_type: &str,
-        items_count: u64,
-        success: bool,
-        error: Option<&str>,
+        request: IndexingActivityRequest<'_>,
     ) -> Result<(), sqlx::Error> {
-        let network_str = match network {
+        let network_str = match request.network {
             Network::Mainnet => "mainnet",
             Network::Testnet => "testnet",
             Network::Devnet => "devnet",
@@ -426,13 +466,13 @@ impl PriorityAddressRepository {
             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
             "#,
         )
-        .bind(address)
-        .bind(chain)
+        .bind(request.address)
+        .bind(request.chain)
         .bind(network_str)
-        .bind(indexed_type)
-        .bind(items_count as i64)
-        .bind(success)
-        .bind(error)
+        .bind(request.indexed_type)
+        .bind(request.items_count as i64)
+        .bind(request.success)
+        .bind(request.error)
         .execute(&self.pool)
         .await?;
 
