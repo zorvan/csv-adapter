@@ -2,7 +2,8 @@
 
 use dioxus::prelude::*;
 use std::rc::Rc;
-use wasm_bindgen::prelude::*;
+use wasm_bindgen::closure::Closure;
+use wasm_bindgen::JsCast;
 use crate::routes::Route;
 use crate::context::{use_wallet_context, Network, generate_id, truncate_address, TrackedRight, RightStatus, TrackedTransfer, TransferStatus, SealRecord, DeployedContract, ProofRecord, TestResult, TestStatus, NotificationKind};
 use crate::wallet_core::ChainAccount;
@@ -1273,20 +1274,20 @@ pub fn CrossChain() -> Element {
 
 #[component]
 pub fn CrossChainTransfer() -> Element {
-    let mut wallet_ctx = use_wallet_context();
+    let wallet_ctx = use_wallet_context();
     let mut wallet_conn = use_wallet_connection();
     let mut from_chain = use_signal(|| Chain::Bitcoin);
     let mut to_chain = use_signal(|| Chain::Sui);
     let mut right_id = use_signal(String::new);
     let mut dest_owner = use_signal(String::new);
     let mut step = use_signal(|| 0);
-    let mut result = use_signal(|| Option::<String>::None);
+    let result = use_signal(|| Option::<String>::None);
     let mut error = use_signal(|| Option::<String>::None);
     let mut executing = use_signal(|| false);
 
     // Check if we have a connected wallet for the source chain
     let has_wallet = wallet_conn.is_connected();
-    let wallet_chain = wallet_ctx.selected_chain();
+    let _wallet_chain = wallet_ctx.selected_chain();
 
     let steps = [
         "Connect wallet",
@@ -1319,17 +1320,17 @@ pub fn CrossChainTransfer() -> Element {
             let to = *to_chain.read();
             let right = right_id.read().clone();
             let dest = dest_owner.read().clone();
-            let wallet = wallet_conn.wallet().expect("Wallet not connected");
+            wallet_conn.wallet().expect("Wallet not connected");
             let mut step_signal = step;
             let mut result_signal = result;
-            let mut error_signal = error;
+            let _error_signal = error;
             let mut executing_signal = executing;
             let mut wallet_ctx = wallet_ctx.clone();
             
             async move {
                 use crate::services::blockchain_service::{BlockchainService, BlockchainConfig};
                 
-                let service = BlockchainService::new(BlockchainConfig::default());
+                let _service = BlockchainService::new(BlockchainConfig::default());
                 
                 // Step 1: Lock right on source chain
                 step_signal.set(1);

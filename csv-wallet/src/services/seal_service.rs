@@ -104,7 +104,7 @@ impl SealManager {
             .map_err(|e| SealError::Storage(format!("{:?}", e)))?
             .ok_or_else(|| SealError::Storage("localStorage not available".to_string()))?;
 
-        let prefix = format!("csv-seals:");
+        let prefix = "csv-seals:".to_string();
         let mut records = Vec::new();
 
         for i in 0..storage.length().unwrap_or(0) {

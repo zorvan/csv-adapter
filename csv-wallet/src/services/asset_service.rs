@@ -79,7 +79,7 @@ impl AssetManager {
             .map_err(|e| AssetError::Storage(format!("{:?}", e)))?
             .ok_or_else(|| AssetError::Storage("localStorage not available".to_string()))?;
 
-        let prefix = format!("csv-assets:");
+        let prefix = "csv-assets:".to_string();
         let mut records = Vec::new();
 
         for i in 0..storage.length().unwrap_or(0) {

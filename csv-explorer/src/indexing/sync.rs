@@ -317,6 +317,7 @@ impl SyncCoordinator {
 // Core per-chain sync function
 // ---------------------------------------------------------------------------
 
+#[allow(clippy::too_many_arguments)]
 async fn sync_chain(
     indexer: &dyn ChainIndexer,
     sync_repo: &SyncRepository,

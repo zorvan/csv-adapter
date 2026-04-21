@@ -3,7 +3,6 @@
 use dioxus::prelude::*;
 use csv_adapter_core::Chain;
 use crate::wallet_core::{WalletData, ChainAccount};
-use crate::routes::Route;
 use crate::storage::{self, LocalStorageManager, PersistedState};
 
 /// Network type.

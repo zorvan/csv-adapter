@@ -108,7 +108,7 @@ impl ChainApi {
     pub fn new() -> Result<Self, ChainApiError> {
         let client = Client::builder()
             .build()
-            .map_err(|e| ChainApiError::HttpError(e))?;
+            .map_err(ChainApiError::HttpError)?;
 
         let mut configs = std::collections::HashMap::new();
         configs.insert(

@@ -3,7 +3,6 @@
 
 use csv_adapter_core::Chain;
 use serde::{Deserialize, Serialize};
-use wasm_bindgen::prelude::*;
 
 /// Blockchain operation error.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -135,7 +134,7 @@ impl BlockchainService {
         &self,
         chain: Chain,
         contract_type: ContractType,
-        signer: &BrowserWallet,
+        _signer: &BrowserWallet,
     ) -> Result<ContractDeployment, BlockchainError> {
         web_sys::console::log_1(&format!("Deploying {:?} contract to {:?}", contract_type, chain).into());
         
@@ -150,8 +149,8 @@ impl BlockchainService {
         // For now, return a placeholder that shows the structure
         let deployment = ContractDeployment {
             chain,
-            contract_address: format!("0x{}", hex::encode(&[0u8; 20])),
-            tx_hash: format!("0x{}", hex::encode(&[0u8; 32])),
+            contract_address: format!("0x{}", hex::encode([0u8; 20])),
+            tx_hash: format!("0x{}", hex::encode([0u8; 32])),
             deployed_at: js_sys::Date::now() as u64 / 1000,
             contract_type,
         };
@@ -164,15 +163,15 @@ impl BlockchainService {
         &self,
         chain: Chain,
         right_id: &str,
-        owner: &str,
-        contract_address: &str,
-        signer: &BrowserWallet,
+        _owner: &str,
+        _contract_address: &str,
+        _signer: &BrowserWallet,
     ) -> Result<TransactionReceipt, BlockchainError> {
         web_sys::console::log_1(&format!("Locking right {} on {:?}", right_id, chain).into());
         
         // Real implementation would call the lock method on the CSV contract
         let receipt = TransactionReceipt {
-            tx_hash: format!("0x{}", hex::encode(&[0u8; 32])),
+            tx_hash: format!("0x{}", hex::encode([0u8; 32])),
             block_number: None,
             gas_used: None,
             status: TransactionStatus::Pending,
@@ -249,8 +248,8 @@ impl BlockchainService {
     pub async fn verify_proof(
         &self,
         target_chain: Chain,
-        proof: &CrossChainProof,
-        contract_address: &str,
+        _proof: &CrossChainProof,
+        _contract_address: &str,
     ) -> Result<bool, BlockchainError> {
         web_sys::console::log_1(&format!("Verifying proof on {:?}", target_chain).into());
         
@@ -267,15 +266,15 @@ impl BlockchainService {
         chain: Chain,
         right_id: &str,
         owner: &str,
-        value: u64,
-        contract_address: &str,
-        signer: &BrowserWallet,
+        _value: u64,
+        _contract_address: &str,
+        _signer: &BrowserWallet,
     ) -> Result<TransactionReceipt, BlockchainError> {
         web_sys::console::log_1(&format!("Minting right {} on {:?} for {}", right_id, chain, owner).into());
         
         // Real implementation would call the mint method on the CSV contract
         let receipt = TransactionReceipt {
-            tx_hash: format!("0x{}", hex::encode(&[0u8; 32])),
+            tx_hash: format!("0x{}", hex::encode([0u8; 32])),
             block_number: None,
             gas_used: None,
             status: TransactionStatus::Pending,
@@ -353,7 +352,7 @@ impl BlockchainService {
         ).await?;
         
         Ok(CrossChainTransferResult {
-            transfer_id: format!("0x{}", hex::encode(&[0u8; 32])),
+            transfer_id: format!("0x{}", hex::encode([0u8; 32])),
             lock_tx_hash: lock_receipt.tx_hash,
             mint_tx_hash: mint_receipt.tx_hash,
             proof,
@@ -399,7 +398,7 @@ impl BrowserWallet {
     }
     
     /// Sign a transaction using the browser wallet.
-    pub async fn sign_transaction(&self, tx_data: &[u8]) -> Result<Vec<u8>, BlockchainError> {
+    pub async fn sign_transaction(&self, _tx_data: &[u8]) -> Result<Vec<u8>, BlockchainError> {
         // This would integrate with the actual browser extension
         // For now, return placeholder
         Ok(vec![0u8; 65])
@@ -409,7 +408,6 @@ impl BrowserWallet {
 /// Wallet connection utilities.
 pub mod wallet_connection {
     use super::*;
-    use wasm_bindgen_futures::JsFuture;
     
     /// Check if MetaMask is installed.
     pub fn is_metamask_installed() -> bool {
