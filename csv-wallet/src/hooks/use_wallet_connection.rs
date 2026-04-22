@@ -229,6 +229,7 @@ fn wallet_type_name(wallet_type: &WalletType) -> String {
         WalletType::SuiWallet => "Sui Wallet".to_string(),
         WalletType::Petra => "Petra".to_string(),
         WalletType::Leather => "Leather".to_string(),
+        WalletType::Native => "Native".to_string(),
         WalletType::Custom(s) => s.clone(),
     }
 }

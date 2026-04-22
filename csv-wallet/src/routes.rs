@@ -47,6 +47,8 @@ pub enum Route {
     // Contracts
     #[route("/contracts")]
     Contracts {},
+    #[route("/contracts/add")]
+    AddContract {},
     #[route("/contracts/deploy")]
     DeployContract {},
     #[route("/contracts/status")]
