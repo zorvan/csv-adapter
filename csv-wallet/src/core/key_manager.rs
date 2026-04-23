@@ -3,6 +3,7 @@
 //! Handles key derivation and signing operations for all supported chains.
 
 use csv_adapter_core::Chain;
+use csv_adapter_core::agent_types::{HasErrorSuggestion, FixAction, error_codes};
 use secp256k1::{Secp256k1, SecretKey, XOnlyPublicKey};
 use ed25519_dalek::{SigningKey, VerifyingKey};
 use sha2::{Sha256, Digest};
@@ -21,6 +22,70 @@ pub enum KeyError {
     /// Signing error
     #[error("Signing error: {0}")]
     SigningError(String),
+}
+
+impl HasErrorSuggestion for KeyError {
+    fn error_code(&self) -> &'static str {
+        match self {
+            KeyError::InvalidKeyFormat(_) => error_codes::WALLET_KEY_INVALID_FORMAT,
+            KeyError::DerivationError(_) => error_codes::WALLET_KEY_DERIVATION_FAILED,
+            KeyError::SigningError(_) => error_codes::WALLET_SIGNING_FAILED,
+        }
+    }
+
+    fn description(&self) -> String {
+        self.to_string()
+    }
+
+    fn suggested_fix(&self) -> String {
+        match self {
+            KeyError::InvalidKeyFormat(_) => {
+                "Invalid key format. For seed phrases, ensure: \
+                 1) 12 or 24 BIP-39 words, 2) Words from standard wordlist, \
+                 3) Correct spelling. For private keys, ensure: \
+                 1) 64 hex characters, 2) Valid for the target chain.".to_string()
+            }
+            KeyError::DerivationError(_) => {
+                "Key derivation failed. Check: \
+                 1) The seed/mnemonic is valid, 2) The derivation path is correct, \
+                 3) The target chain uses the right curve (secp256k1 vs ed25519). \
+                 Common paths: m/44'/60'/0'/0/0 (Ethereum), m/86'/0'/0'/0/0 (Bitcoin Taproot).".to_string()
+            }
+            KeyError::SigningError(_) => {
+                "Signing operation failed. Ensure: \
+                 1) The key is valid and complete, 2) The message format is correct, \
+                 3) The signing algorithm matches the key type (ECDSA vs EdDSA).".to_string()
+            }
+        }
+    }
+
+    fn docs_url(&self) -> String {
+        error_codes::docs_url(self.error_code())
+    }
+
+    fn fix_action(&self) -> Option<FixAction> {
+        match self {
+            KeyError::InvalidKeyFormat(_) => {
+                Some(FixAction::CheckState {
+                    url: "https://docs.csv.dev/wallet/key-formats".to_string(),
+                    what: "Verify key format matches BIP-39 or hex private key".to_string(),
+                })
+            }
+            KeyError::DerivationError(_) => {
+                Some(FixAction::CheckState {
+                    url: "https://docs.csv.dev/wallet/derivation-paths".to_string(),
+                    what: "Verify correct BIP-32 derivation path for target chain".to_string(),
+                })
+            }
+            KeyError::SigningError(_) => {
+                Some(FixAction::Retry {
+                    parameter_changes: std::collections::HashMap::from([
+                        ("verify_key_type".to_string(), "true".to_string()),
+                    ]),
+                })
+            }
+        }
+    }
 }
 
 /// Key manager handling multi-chain key operations.

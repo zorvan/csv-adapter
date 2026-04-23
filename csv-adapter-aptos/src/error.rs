@@ -4,6 +4,7 @@
 //! with chain-specific error variants and recovery guidance.
 
 use thiserror::Error;
+use csv_adapter_core::agent_types::{HasErrorSuggestion, FixAction, error_codes};
 
 /// Comprehensive error types for the Aptos adapter.
 ///
@@ -94,6 +95,157 @@ impl AptosError {
     /// Construct an error for chain reorg
     pub fn reorg(version: u64) -> Self {
         AptosError::ReorgDetected { version }
+    }
+}
+
+impl HasErrorSuggestion for AptosError {
+    fn error_code(&self) -> &'static str {
+        match self {
+            AptosError::RpcError(_) => error_codes::APT_RPC_ERROR,
+            AptosError::ResourceUsed(_) => error_codes::APT_RESOURCE_USED,
+            AptosError::StateProofFailed(_) => error_codes::APT_STATE_PROOF_FAILED,
+            AptosError::EventProofFailed(_) => error_codes::APT_EVENT_PROOF_FAILED,
+            AptosError::CheckpointFailed(_) => error_codes::APT_CHECKPOINT_FAILED,
+            AptosError::TransactionFailed(_) => error_codes::APT_TRANSACTION_FAILED,
+            AptosError::SerializationError(_) => error_codes::APT_SERIALIZATION_ERROR,
+            AptosError::ConfirmationTimeout { .. } => error_codes::APT_CONFIRMATION_TIMEOUT,
+            AptosError::ReorgDetected { .. } => error_codes::APT_REORG_DETECTED,
+            AptosError::NetworkMismatch { .. } => error_codes::APT_NETWORK_MISMATCH,
+            AptosError::CoreError(e) => e.error_code(),
+        }
+    }
+
+    fn description(&self) -> String {
+        self.to_string()
+    }
+
+    fn suggested_fix(&self) -> String {
+        match self {
+            AptosError::RpcError(_) => {
+                "Aptos RPC call failed. Check: \
+                 1) Your internet connection, \
+                 2) The RPC endpoint is accessible (try https://fullnode.mainnet.aptoslabs.com), \
+                 3) Rate limits haven't been exceeded. \
+                 For testnet, use https://fullnode.testnet.aptoslabs.com".to_string()
+            }
+            AptosError::ResourceUsed(resource) => {
+                format!(
+                    "The Aptos resource {} has already been consumed. \
+                     Resources can only be used once. Use a different resource \
+                     or check the resource state on the Aptos explorer.",
+                    resource
+                )
+            }
+            AptosError::StateProofFailed(_) => {
+                "The state proof verification failed against the accumulator root. \
+                 This may indicate: \
+                 1) The resource doesn't exist at the claimed version, \
+                 2) The proof is for a different resource, or \
+                 3) A chain reorganization occurred. \
+                 Re-fetch the proof from a reliable RPC endpoint.".to_string()
+            }
+            AptosError::EventProofFailed(_) => {
+                "The event proof verification failed. Check: \
+                 1) The transaction version is correct, \
+                 2) The event key matches, \
+                 3) The event data hasn't been pruned. \
+                 Re-verify against a full node with complete history.".to_string()
+            }
+            AptosError::CheckpointFailed(_) => {
+                "Checkpoint certification failed. This may indicate: \
+                 1) The epoch change is in progress, \
+                 2) Validator set has changed, or \
+                 3) The ledger version is not yet committed. \
+                 Wait for the next block and retry.".to_string()
+            }
+            AptosError::TransactionFailed(_) => {
+                "Transaction execution failed. Check: \
+                 1) You have sufficient gas (APT tokens), \
+                 2) The transaction sequence number is correct, \
+                 3) The Move contract doesn't abort. \
+                 Simulate the transaction first to identify issues.".to_string()
+            }
+            AptosError::SerializationError(_) => {
+                "BCS serialization/deserialization failed. Ensure the data \
+                 structure matches the expected Move types and all required \
+                 fields are present.".to_string()
+            }
+            AptosError::ConfirmationTimeout { tx_hash, timeout_ms } => {
+                format!(
+                    "Transaction {} did not confirm within {}ms. \
+                     The transaction may still succeed. Check the transaction \
+                     status on the Aptos explorer before retrying.",
+                    tx_hash, timeout_ms
+                )
+            }
+            AptosError::ReorgDetected { version } => {
+                format!(
+                    "Chain reorganization detected at version {}. \
+                     Your anchor may be invalid. Wait for the reorg to complete \
+                     and republish at the new chain tip.",
+                    version
+                )
+            }
+            AptosError::NetworkMismatch { expected, actual } => {
+                format!(
+                    "Network mismatch: expected chain_id {}, got {}. \
+                     Ensure your configuration matches the target network. \
+                     Mainnet is chain_id 1, testnet is chain_id 2.",
+                    expected, actual
+                )
+            }
+            AptosError::CoreError(e) => e.suggested_fix(),
+        }
+    }
+
+    fn docs_url(&self) -> String {
+        match self {
+            AptosError::CoreError(e) => e.docs_url(),
+            _ => error_codes::docs_url(self.error_code()),
+        }
+    }
+
+    fn fix_action(&self) -> Option<FixAction> {
+        match self {
+            AptosError::RpcError(_) => {
+                Some(FixAction::Retry {
+                    parameter_changes: std::collections::HashMap::from([
+                        ("rpc_endpoint".to_string(), "https://fullnode.mainnet.aptoslabs.com".to_string()),
+                    ]),
+                })
+            }
+            AptosError::ConfirmationTimeout { .. } => {
+                Some(FixAction::Retry {
+                    parameter_changes: std::collections::HashMap::from([
+                        ("wait_seconds".to_string(), "30".to_string()),
+                    ]),
+                })
+            }
+            AptosError::TransactionFailed(_) => {
+                Some(FixAction::Retry {
+                    parameter_changes: std::collections::HashMap::from([
+                        ("check_gas".to_string(), "true".to_string()),
+                        ("simulate_first".to_string(), "true".to_string()),
+                        ("update_sequence".to_string(), "true".to_string()),
+                    ]),
+                })
+            }
+            AptosError::ReorgDetected { .. } => {
+                Some(FixAction::CheckState {
+                    url: "https://explorer.aptoslabs.com".to_string(),
+                    what: "Check current Aptos ledger version".to_string(),
+                })
+            }
+            AptosError::StateProofFailed(_) | AptosError::EventProofFailed(_) => {
+                Some(FixAction::Retry {
+                    parameter_changes: std::collections::HashMap::from([
+                        ("rpc_endpoint".to_string(), "try_alternative".to_string()),
+                    ]),
+                })
+            }
+            AptosError::CoreError(e) => e.fix_action(),
+            _ => None,
+        }
     }
 }
 

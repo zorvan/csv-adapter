@@ -6,7 +6,7 @@
 
 use thiserror::Error;
 
-use csv_adapter_core::agent_types::{ErrorSuggestion, FixAction};
+use csv_adapter_core::agent_types::{FixAction, HasErrorSuggestion, error_codes};
 use csv_adapter_core::Chain;
 
 /// Unified error type for all CSV operations.
@@ -97,127 +97,6 @@ pub enum CsvError {
 }
 
 impl CsvError {
-    /// Convert this error into an [`ErrorSuggestion`] for agent consumption.
-    ///
-    /// Each variant maps to a machine-readable error code and a suggested
-    /// fix action where applicable.
-    pub fn to_suggestion(&self) -> ErrorSuggestion {
-        match self {
-            Self::ChainNotSupported(chain) => ErrorSuggestion::new(
-                "CSV_001",
-                format!("Chain {} is not supported or not enabled", chain),
-                "https://docs.csv.dev/errors/CSV_001",
-            ),
-            Self::InsufficientFunds { chain, needed, .. } => {
-                let mut suggestion = ErrorSuggestion::new(
-                    "CSV_002",
-                    format!("Insufficient funds on {} chain", chain),
-                    "https://docs.csv.dev/errors/CSV_002",
-                );
-                // Add faucet hint for testnets
-                suggestion = suggestion.with_fix(FixAction::FundFromFaucet {
-                    url: format!("https://faucet.{}.csv.dev", chain),
-                    amount: needed.clone(),
-                });
-                suggestion
-            }
-            Self::InvalidRightId(id) => ErrorSuggestion::new(
-                "CSV_003",
-                format!("Invalid Right ID: {}", id),
-                "https://docs.csv.dev/errors/CSV_003",
-            ),
-            Self::RightNotFound(id) => ErrorSuggestion::new(
-                "CSV_004",
-                format!(
-                    "Right not found: {}. Rights exist in client state, not on-chain.",
-                    id
-                ),
-                "https://docs.csv.dev/errors/CSV_004",
-            ),
-            Self::TransferNotFound(id) => ErrorSuggestion::new(
-                "CSV_005",
-                format!("Transfer not found: {}", id),
-                "https://docs.csv.dev/errors/CSV_005",
-            ),
-            Self::RightAlreadyConsumed(id) => ErrorSuggestion::new(
-                "CSV_006",
-                format!(
-                    "Right {} has already been consumed (single-use seal violated)",
-                    id
-                ),
-                "https://docs.csv.dev/errors/CSV_006",
-            ),
-            Self::InvalidCommitment(msg) => ErrorSuggestion::new(
-                "CSV_007",
-                format!("Invalid commitment: {}", msg),
-                "https://docs.csv.dev/errors/CSV_007",
-            ),
-            Self::ProofVerificationFailed(msg) => {
-                let mut suggestion = ErrorSuggestion::new(
-                    "CSV_008",
-                    format!("Proof verification failed: {}", msg),
-                    "https://docs.csv.dev/errors/CSV_008",
-                );
-                suggestion = suggestion.with_fix(FixAction::CheckState {
-                    url: "https://docs.csv.dev/proof-verification".to_string(),
-                    what: "Check source chain confirmations and proof format".to_string(),
-                });
-                suggestion
-            }
-            Self::WalletError(msg) => ErrorSuggestion::new(
-                "CSV_009",
-                format!("Wallet error: {}", msg),
-                "https://docs.csv.dev/errors/CSV_009",
-            ),
-            Self::NetworkError(msg) => {
-                let mut suggestion = ErrorSuggestion::new(
-                    "CSV_010",
-                    format!("Network error: {}", msg),
-                    "https://docs.csv.dev/errors/CSV_010",
-                );
-                suggestion = suggestion.with_fix(FixAction::Retry {
-                    parameter_changes: std::collections::HashMap::new(),
-                });
-                suggestion
-            }
-            Self::SerializationError(msg) => ErrorSuggestion::new(
-                "CSV_011",
-                format!("Serialization error: {}", msg),
-                "https://docs.csv.dev/errors/CSV_011",
-            ),
-            Self::ConfigError(msg) => ErrorSuggestion::new(
-                "CSV_012",
-                format!("Configuration error: {}", msg),
-                "https://docs.csv.dev/errors/CSV_012",
-            ),
-            Self::StoreError(msg) => ErrorSuggestion::new(
-                "CSV_013",
-                format!("Store error: {}", msg),
-                "https://docs.csv.dev/errors/CSV_013",
-            ),
-            Self::BuilderError(msg) => ErrorSuggestion::new(
-                "CSV_014",
-                format!("Builder validation error: {}", msg),
-                "https://docs.csv.dev/errors/CSV_014",
-            ),
-            Self::EventStreamError(msg) => ErrorSuggestion::new(
-                "CSV_015",
-                format!("Event stream error: {}", msg),
-                "https://docs.csv.dev/errors/CSV_015",
-            ),
-            Self::AdapterError { chain, message } => ErrorSuggestion::new(
-                "CSV_016",
-                format!("Adapter error on {}: {}", chain, message),
-                "https://docs.csv.dev/errors/CSV_016",
-            ),
-            Self::Generic(msg) => ErrorSuggestion::new(
-                "CSV_099",
-                format!("CSV error: {}", msg),
-                "https://docs.csv.dev/errors/CSV_099",
-            ),
-        }
-    }
-
     /// Check if this error is retryable (transient).
     pub fn is_retryable(&self) -> bool {
         matches!(
@@ -229,6 +108,147 @@ impl CsvError {
     /// Check if this error indicates an insufficient funds condition.
     pub fn is_insufficient_funds(&self) -> bool {
         matches!(self, Self::InsufficientFunds { .. })
+    }
+}
+
+impl HasErrorSuggestion for CsvError {
+    fn error_code(&self) -> &'static str {
+        match self {
+            Self::ChainNotSupported(_) => error_codes::CSV_CHAIN_NOT_SUPPORTED,
+            Self::InsufficientFunds { .. } => error_codes::CSV_INSUFFICIENT_FUNDS,
+            Self::InvalidRightId(_) => error_codes::CSV_INVALID_RIGHT_ID,
+            Self::RightNotFound(_) => error_codes::CSV_RIGHT_NOT_FOUND,
+            Self::TransferNotFound(_) => error_codes::CSV_TRANSFER_NOT_FOUND,
+            Self::RightAlreadyConsumed(_) => error_codes::CSV_RIGHT_ALREADY_CONSUMED,
+            Self::InvalidCommitment(_) => error_codes::CSV_INVALID_COMMITMENT,
+            Self::ProofVerificationFailed(_) => error_codes::CSV_PROOF_VERIFICATION_FAILED,
+            Self::WalletError(_) => error_codes::CSV_WALLET_ERROR,
+            Self::NetworkError(_) => error_codes::CSV_NETWORK_ERROR,
+            Self::SerializationError(_) => error_codes::CSV_SERIALIZATION_ERROR,
+            Self::ConfigError(_) => error_codes::CSV_CONFIG_ERROR,
+            Self::StoreError(_) => error_codes::CSV_STORE_ERROR,
+            Self::BuilderError(_) => error_codes::CSV_BUILDER_ERROR,
+            Self::EventStreamError(_) => error_codes::CSV_EVENT_STREAM_ERROR,
+            Self::AdapterError { .. } => error_codes::CSV_ADAPTER_ERROR,
+            Self::Generic(_) => error_codes::CSV_GENERIC,
+        }
+    }
+
+    fn description(&self) -> String {
+        self.to_string()
+    }
+
+    fn suggested_fix(&self) -> String {
+        match self {
+            Self::ChainNotSupported(chain) => {
+                format!(
+                    "Chain '{}' is not supported. Supported chains: bitcoin, ethereum, sui, aptos, solana. \
+                     Check for SDK updates or enable the chain in configuration.",
+                    chain
+                )
+            }
+            Self::InsufficientFunds { chain, needed, .. } => {
+                format!(
+                    "Insufficient funds on {} chain. Fund your wallet before retrying. \
+                     Amount needed: {}. Visit https://faucet.{}.csv.dev for testnet funds.",
+                    chain, needed, chain
+                )
+            }
+            Self::InvalidRightId(id) => {
+                format!(
+                    "Right ID '{}' is invalid. Right IDs must be 32-byte hex strings (0x + 64 hex chars). \
+                     Verify the ID format and try again.",
+                    id
+                )
+            }
+            Self::RightNotFound(id) => {
+                format!(
+                    "Right '{}' not found. Rights exist in client-side state, not on-chain. \
+                     Check: 1) The ID is correct, 2) You own this right, 3) It wasn't already consumed.",
+                    id
+                )
+            }
+            Self::TransferNotFound(id) => {
+                format!(
+                    "Transfer '{}' not found. Check the transfer ID is correct \
+                     and the transfer was successfully initiated.",
+                    id
+                )
+            }
+            Self::RightAlreadyConsumed(id) => {
+                format!(
+                    "Right '{}' has already been consumed. Rights are single-use seals. \
+                     You cannot transfer or use this right again.",
+                    id
+                )
+            }
+            Self::InvalidCommitment(msg) => {
+                format!(
+                    "Invalid commitment: {}. Check the commitment parameters \
+                     and regenerate with correct inputs.",
+                    msg
+                )
+            }
+            Self::ProofVerificationFailed(_) => {
+                "Proof verification failed. Check: 1) Source chain has enough confirmations, \
+                 2) The proof wasn't tampered with, 3) The anchor is still valid (no reorg).".to_string()
+            }
+            Self::WalletError(msg) => {
+                format!("Wallet error: {}. Check wallet configuration and retry.", msg)
+            }
+            Self::NetworkError(_) => {
+                "Network error. Check your internet connection and RPC endpoint configuration. \
+                 Try a different RPC provider if the issue persists.".to_string()
+            }
+            Self::SerializationError(_) => {
+                "Serialization error. Check data format matches expected schema.".to_string()
+            }
+            Self::ConfigError(_) => {
+                "Configuration error. Review your config file for missing or invalid fields.".to_string()
+            }
+            Self::StoreError(_) => {
+                "Store error. Check storage is accessible and not corrupted.".to_string()
+            }
+            Self::BuilderError(_) => {
+                "Builder validation error. Check all required fields are set correctly.".to_string()
+            }
+            Self::EventStreamError(_) => {
+                "Event stream error. Check the stream endpoint and retry.".to_string()
+            }
+            Self::AdapterError { chain, message } => {
+                format!("Adapter error on {}: {}. Check chain-specific documentation.", chain, message)
+            }
+            Self::Generic(msg) => {
+                format!("CSV error: {}. Check logs for details or contact support.", msg)
+            }
+        }
+    }
+
+    fn docs_url(&self) -> String {
+        error_codes::docs_url(self.error_code())
+    }
+
+    fn fix_action(&self) -> Option<FixAction> {
+        match self {
+            Self::InsufficientFunds { chain, needed, .. } => {
+                Some(FixAction::FundFromFaucet {
+                    url: format!("https://faucet.{}.csv.dev", chain),
+                    amount: needed.clone(),
+                })
+            }
+            Self::NetworkError(_) => {
+                Some(FixAction::Retry {
+                    parameter_changes: std::collections::HashMap::new(),
+                })
+            }
+            Self::ProofVerificationFailed(_) => {
+                Some(FixAction::CheckState {
+                    url: "https://docs.csv.dev/proof-verification".to_string(),
+                    what: "Check source chain confirmations and proof format".to_string(),
+                })
+            }
+            _ => None,
+        }
     }
 }
 

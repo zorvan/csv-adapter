@@ -6,6 +6,7 @@ use aes_gcm::{
     aead::{Aead, AeadCore, KeyInit, OsRng},
     Aes256Gcm, Nonce, Key,
 };
+use csv_adapter_core::agent_types::{HasErrorSuggestion, FixAction, error_codes};
 use zeroize::Zeroize;
 
 /// Error type for encryption operations.
@@ -20,6 +21,63 @@ pub enum EncryptionError {
     /// Invalid password
     #[error("Invalid password")]
     InvalidPassword,
+}
+
+impl HasErrorSuggestion for EncryptionError {
+    fn error_code(&self) -> &'static str {
+        match self {
+            EncryptionError::EncryptionFailed(_) => error_codes::WALLET_ENCRYPTION_FAILED,
+            EncryptionError::DecryptionFailed(_) => error_codes::WALLET_DECRYPTION_FAILED,
+            EncryptionError::InvalidPassword => error_codes::WALLET_INVALID_PASSWORD,
+        }
+    }
+
+    fn description(&self) -> String {
+        self.to_string()
+    }
+
+    fn suggested_fix(&self) -> String {
+        match self {
+            EncryptionError::EncryptionFailed(_) => {
+                "Wallet encryption failed. This may indicate a system issue. \
+                 Try: 1) Restarting the application, 2) Using a different password, \
+                 3) Checking available system memory.".to_string()
+            }
+            EncryptionError::DecryptionFailed(_) => {
+                "Wallet decryption failed. The data may be corrupted or the \
+                 wrong encryption parameters were used. Ensure you have the \
+                 correct wallet file and try again.".to_string()
+            }
+            EncryptionError::InvalidPassword => {
+                "Invalid password. The password you entered does not match \
+                 the one used to encrypt this wallet. Check for: \
+                 1) Typos or extra spaces, 2) Caps Lock, 3) Different keyboard layout. \
+                 Passwords cannot be recovered - ensure you have your mnemonic backed up.".to_string()
+            }
+        }
+    }
+
+    fn docs_url(&self) -> String {
+        error_codes::docs_url(self.error_code())
+    }
+
+    fn fix_action(&self) -> Option<FixAction> {
+        match self {
+            EncryptionError::InvalidPassword => {
+                Some(FixAction::CheckState {
+                    url: "https://docs.csv.dev/wallet/recovery".to_string(),
+                    what: "Verify password or recover from mnemonic".to_string(),
+                })
+            }
+            EncryptionError::EncryptionFailed(_) | EncryptionError::DecryptionFailed(_) => {
+                Some(FixAction::Retry {
+                    parameter_changes: std::collections::HashMap::from([
+                        ("verify_memory".to_string(), "true".to_string()),
+                    ]),
+                })
+            }
+        }
+    }
 }
 
 /// Encrypted wallet data.

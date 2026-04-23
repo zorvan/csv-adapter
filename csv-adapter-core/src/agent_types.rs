@@ -12,6 +12,178 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// Trait for types that can provide machine-actionable error suggestions.
+///
+/// Implement this trait on error types to enable AI agents to auto-resolve issues.
+pub trait HasErrorSuggestion {
+    /// Get the error code for this error.
+    fn error_code(&self) -> &'static str;
+
+    /// Get a human-readable description of the error.
+    fn description(&self) -> String;
+
+    /// Get the suggested fix for this error.
+    fn suggested_fix(&self) -> String;
+
+    /// Get the documentation URL for this error.
+    fn docs_url(&self) -> String;
+
+    /// Get the optional machine-actionable fix action.
+    fn fix_action(&self) -> Option<FixAction>;
+
+    /// Convert this error into a complete ErrorSuggestion.
+    fn to_suggestion(&self) -> ErrorSuggestion {
+        ErrorSuggestion {
+            error_code: self.error_code().to_string(),
+            message: self.description(),
+            docs_url: self.docs_url(),
+            fix: self.fix_action(),
+        }
+    }
+}
+
+/// Centralized error codes for all CSV components.
+///
+/// These codes follow the pattern: COMPONENT_NUMBER (e.g., CORE_001, BTC_001)
+pub mod error_codes {
+    // Core adapter errors (CORE_001 - CORE_099)
+    pub const CORE_SEAL_REPLAY: &str = "CORE_001";
+    pub const CORE_INVALID_SEAL: &str = "CORE_002";
+    pub const CORE_COMMITMENT_MISMATCH: &str = "CORE_003";
+    pub const CORE_INCLUSION_PROOF_FAILED: &str = "CORE_004";
+    pub const CORE_FINALITY_NOT_REACHED: &str = "CORE_005";
+    pub const CORE_REORG_INVALID: &str = "CORE_006";
+    pub const CORE_NETWORK_ERROR: &str = "CORE_007";
+    pub const CORE_PUBLISH_FAILED: &str = "CORE_008";
+    pub const CORE_SERIALIZATION_ERROR: &str = "CORE_009";
+    pub const CORE_INVALID_CONFIG: &str = "CORE_010";
+    pub const CORE_VERSION_MISMATCH: &str = "CORE_011";
+    pub const CORE_DOMAIN_SEPARATOR_MISMATCH: &str = "CORE_012";
+    pub const CORE_SIGNATURE_VERIFICATION_FAILED: &str = "CORE_013";
+    pub const CORE_GENERIC: &str = "CORE_099";
+
+    // Bitcoin adapter errors (BTC_001 - BTC_099)
+    pub const BTC_RPC_ERROR: &str = "BTC_001";
+    pub const BTC_TRANSACTION_NOT_FOUND: &str = "BTC_002";
+    pub const BTC_UTXO_SPENT: &str = "BTC_003";
+    pub const BTC_INVALID_MERKLE_PROOF: &str = "BTC_004";
+    pub const BTC_REGISTRY_FULL: &str = "BTC_005";
+    pub const BTC_REORG_DETECTED: &str = "BTC_006";
+    pub const BTC_INSUFFICIENT_CONFIRMATIONS: &str = "BTC_007";
+
+    // Ethereum adapter errors (ETH_001 - ETH_099)
+    pub const ETH_RPC_ERROR: &str = "ETH_001";
+    pub const ETH_SLOT_USED: &str = "ETH_002";
+    pub const ETH_INVALID_RECEIPT_PROOF: &str = "ETH_003";
+    pub const ETH_REORG_DETECTED: &str = "ETH_004";
+    pub const ETH_INSUFFICIENT_CONFIRMATIONS: &str = "ETH_005";
+
+    // Sui adapter errors (SUI_001 - SUI_099)
+    pub const SUI_RPC_ERROR: &str = "SUI_001";
+    pub const SUI_OBJECT_USED: &str = "SUI_002";
+    pub const SUI_STATE_PROOF_FAILED: &str = "SUI_003";
+    pub const SUI_EVENT_PROOF_FAILED: &str = "SUI_004";
+    pub const SUI_CHECKPOINT_FAILED: &str = "SUI_005";
+    pub const SUI_TRANSACTION_FAILED: &str = "SUI_006";
+    pub const SUI_SERIALIZATION_ERROR: &str = "SUI_007";
+    pub const SUI_CONFIRMATION_TIMEOUT: &str = "SUI_008";
+    pub const SUI_REORG_DETECTED: &str = "SUI_009";
+    pub const SUI_NETWORK_MISMATCH: &str = "SUI_010";
+
+    // Aptos adapter errors (APT_001 - APT_099)
+    pub const APT_RPC_ERROR: &str = "APT_001";
+    pub const APT_RESOURCE_USED: &str = "APT_002";
+    pub const APT_STATE_PROOF_FAILED: &str = "APT_003";
+    pub const APT_EVENT_PROOF_FAILED: &str = "APT_004";
+    pub const APT_CHECKPOINT_FAILED: &str = "APT_005";
+    pub const APT_TRANSACTION_FAILED: &str = "APT_006";
+    pub const APT_SERIALIZATION_ERROR: &str = "APT_007";
+    pub const APT_CONFIRMATION_TIMEOUT: &str = "APT_008";
+    pub const APT_REORG_DETECTED: &str = "APT_009";
+    pub const APT_NETWORK_MISMATCH: &str = "APT_010";
+
+    // Solana adapter errors (SOL_001 - SOL_099)
+    pub const SOL_RPC_ERROR: &str = "SOL_001";
+    pub const SOL_TRANSACTION_ERROR: &str = "SOL_002";
+    pub const SOL_ACCOUNT_NOT_FOUND: &str = "SOL_003";
+    pub const SOL_INVALID_PROGRAM_ID: &str = "SOL_004";
+    pub const SOL_INVALID_INSTRUCTION: &str = "SOL_005";
+    pub const SOL_INSUFFICIENT_FUNDS: &str = "SOL_006";
+    pub const SOL_NETWORK_ERROR: &str = "SOL_007";
+    pub const SOL_SERIALIZATION_ERROR: &str = "SOL_008";
+    pub const SOL_DESERIALIZATION_ERROR: &str = "SOL_009";
+    pub const SOL_KEYPAIR_ERROR: &str = "SOL_010";
+    pub const SOL_WALLET_ERROR: &str = "SOL_011";
+    pub const SOL_COMMITMENT_ERROR: &str = "SOL_012";
+    pub const SOL_SEAL_CREATION_ERROR: &str = "SOL_013";
+    pub const SOL_ANCHOR_CREATION_ERROR: &str = "SOL_014";
+    pub const SOL_PROOF_GENERATION_ERROR: &str = "SOL_015";
+    pub const SOL_INVALID_INPUT: &str = "SOL_016";
+
+    // Wallet errors (WALLET_001 - WALLET_099)
+    pub const WALLET_ENCRYPTION_FAILED: &str = "WALLET_001";
+    pub const WALLET_DECRYPTION_FAILED: &str = "WALLET_002";
+    pub const WALLET_INVALID_PASSWORD: &str = "WALLET_003";
+    pub const WALLET_KEY_INVALID_FORMAT: &str = "WALLET_004";
+    pub const WALLET_KEY_DERIVATION_FAILED: &str = "WALLET_005";
+    pub const WALLET_SIGNING_FAILED: &str = "WALLET_006";
+    pub const WALLET_STORAGE_NOT_FOUND: &str = "WALLET_007";
+    pub const WALLET_STORAGE_SERIALIZATION: &str = "WALLET_008";
+    pub const WALLET_SEAL_NOT_FOUND: &str = "WALLET_009";
+    pub const WALLET_ASSET_NOT_FOUND: &str = "WALLET_010";
+    pub const WALLET_ASSET_INVALID_DATA: &str = "WALLET_011";
+    pub const WALLET_CHAIN_API_HTTP: &str = "WALLET_012";
+    pub const WALLET_CHAIN_API_JSON: &str = "WALLET_013";
+    pub const WALLET_CHAIN_API_INVALID_ADDRESS: &str = "WALLET_014";
+    pub const WALLET_CHAIN_API_ERROR: &str = "WALLET_015";
+    pub const WALLET_BROWSER_STORAGE: &str = "WALLET_016";
+    pub const WALLET_NATIVE_SIGNER_ERROR: &str = "WALLET_017";
+    pub const WALLET_SEAL_SERVICE_ERROR: &str = "WALLET_018";
+
+    // Explorer errors (EXP_001 - EXP_099)
+    pub const EXP_IO_ERROR: &str = "EXP_001";
+    pub const EXP_TOML_ERROR: &str = "EXP_002";
+    pub const EXP_JSON_ERROR: &str = "EXP_003";
+    pub const EXP_DATABASE_ERROR: &str = "EXP_004";
+    pub const EXP_MIGRATION_ERROR: &str = "EXP_005";
+    pub const EXP_ENTITY_NOT_FOUND: &str = "EXP_006";
+    pub const EXP_HTTP_ERROR: &str = "EXP_007";
+    pub const EXP_RPC_ERROR: &str = "EXP_008";
+    pub const EXP_RPC_PARSE_ERROR: &str = "EXP_009";
+    pub const EXP_INDEXER_STOPPED: &str = "EXP_010";
+    pub const EXP_BLOCK_ERROR: &str = "EXP_011";
+    pub const EXP_CHAIN_REORG: &str = "EXP_012";
+    pub const EXP_GRAPHQL_ERROR: &str = "EXP_013";
+    pub const EXP_HTTP_SERVER_ERROR: &str = "EXP_014";
+    pub const EXP_HEX_DECODE_ERROR: &str = "EXP_015";
+    pub const EXP_PARSE_ERROR: &str = "EXP_016";
+    pub const EXP_INTERNAL_ERROR: &str = "EXP_017";
+
+    // Meta-crate errors (CSV_001 - CSV_099)
+    pub const CSV_CHAIN_NOT_SUPPORTED: &str = "CSV_001";
+    pub const CSV_INSUFFICIENT_FUNDS: &str = "CSV_002";
+    pub const CSV_INVALID_RIGHT_ID: &str = "CSV_003";
+    pub const CSV_RIGHT_NOT_FOUND: &str = "CSV_004";
+    pub const CSV_TRANSFER_NOT_FOUND: &str = "CSV_005";
+    pub const CSV_RIGHT_ALREADY_CONSUMED: &str = "CSV_006";
+    pub const CSV_INVALID_COMMITMENT: &str = "CSV_007";
+    pub const CSV_PROOF_VERIFICATION_FAILED: &str = "CSV_008";
+    pub const CSV_WALLET_ERROR: &str = "CSV_009";
+    pub const CSV_NETWORK_ERROR: &str = "CSV_010";
+    pub const CSV_SERIALIZATION_ERROR: &str = "CSV_011";
+    pub const CSV_CONFIG_ERROR: &str = "CSV_012";
+    pub const CSV_STORE_ERROR: &str = "CSV_013";
+    pub const CSV_BUILDER_ERROR: &str = "CSV_014";
+    pub const CSV_EVENT_STREAM_ERROR: &str = "CSV_015";
+    pub const CSV_ADAPTER_ERROR: &str = "CSV_016";
+    pub const CSV_GENERIC: &str = "CSV_099";
+
+    /// Generate a documentation URL for an error code.
+    pub fn docs_url(code: &str) -> String {
+        format!("https://docs.csv.dev/errors/{}", code)
+    }
+}
+
 /// Agent-friendly transfer status with structured progress
 ///
 /// Every operation returns machine-readable progress that agents can parse and act upon.

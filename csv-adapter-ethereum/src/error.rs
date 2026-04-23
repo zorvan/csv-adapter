@@ -1,6 +1,7 @@
 //! Ethereum adapter error types
 
 use thiserror::Error;
+use csv_adapter_core::agent_types::{HasErrorSuggestion, FixAction, error_codes};
 
 /// Ethereum adapter specific errors
 #[derive(Error, Debug)]
@@ -40,6 +41,106 @@ impl EthereumError {
             EthereumError::SlotUsed(_) => false,
             EthereumError::InvalidReceiptProof(_) => false,
             EthereumError::CoreError(_) => false,
+        }
+    }
+}
+
+impl HasErrorSuggestion for EthereumError {
+    fn error_code(&self) -> &'static str {
+        match self {
+            EthereumError::RpcError(_) => error_codes::ETH_RPC_ERROR,
+            EthereumError::SlotUsed(_) => error_codes::ETH_SLOT_USED,
+            EthereumError::InvalidReceiptProof(_) => error_codes::ETH_INVALID_RECEIPT_PROOF,
+            EthereumError::ReorgDetected { .. } => error_codes::ETH_REORG_DETECTED,
+            EthereumError::InsufficientConfirmations { .. } => error_codes::ETH_INSUFFICIENT_CONFIRMATIONS,
+            EthereumError::CoreError(e) => e.error_code(),
+        }
+    }
+
+    fn description(&self) -> String {
+        self.to_string()
+    }
+
+    fn suggested_fix(&self) -> String {
+        match self {
+            EthereumError::RpcError(_) => {
+                "Ethereum RPC call failed. Check: \
+                 1) Your internet connection, \
+                 2) The RPC endpoint is accessible (try https://ethereum-rpc.publicnode.com), \
+                 3) Rate limits haven't been exceeded. \
+                 Ensure you're using the correct network (mainnet/sepolia).".to_string()
+            }
+            EthereumError::SlotUsed(slot) => {
+                format!(
+                    "The storage slot {} is already used. Each seal requires a unique slot. \
+                     Use a different slot index or verify the existing seal state.",
+                    slot
+                )
+            }
+            EthereumError::InvalidReceiptProof(_) => {
+                "The transaction receipt proof is invalid. This may indicate: \
+                 1) The transaction is not in the claimed block, \
+                 2) The receipt root hash is incorrect, or \
+                 3) The proof structure is malformed. \
+                 Regenerate the proof from a confirmed transaction.".to_string()
+            }
+            EthereumError::ReorgDetected { block, depth } => {
+                format!(
+                    "Chain reorganization detected at block {} with depth {}. \
+                     Your anchor may be invalid. Wait for the reorg to complete \
+                     and republish at the new chain tip.",
+                    block, depth
+                )
+            }
+            EthereumError::InsufficientConfirmations { got, need } => {
+                format!(
+                    "Insufficient confirmations: got {}, need {}. \
+                     Wait for {} more block confirmations (approximately {} seconds).",
+                    got, need, need - got, (need - got) * 12
+                )
+            }
+            EthereumError::CoreError(e) => e.suggested_fix(),
+        }
+    }
+
+    fn docs_url(&self) -> String {
+        match self {
+            EthereumError::CoreError(e) => e.docs_url(),
+            _ => error_codes::docs_url(self.error_code()),
+        }
+    }
+
+    fn fix_action(&self) -> Option<FixAction> {
+        match self {
+            EthereumError::RpcError(_) => {
+                Some(FixAction::Retry {
+                    parameter_changes: std::collections::HashMap::from([
+                        ("rpc_endpoint".to_string(), "https://ethereum-rpc.publicnode.com".to_string()),
+                        ("network".to_string(), "mainnet".to_string()),
+                    ]),
+                })
+            }
+            EthereumError::InsufficientConfirmations { need, .. } => {
+                Some(FixAction::WaitForConfirmations {
+                    confirmations: *need as u32,
+                    estimated_seconds: (*need as u64) * 12,
+                })
+            }
+            EthereumError::ReorgDetected { .. } => {
+                Some(FixAction::CheckState {
+                    url: "https://etherscan.io".to_string(),
+                    what: "Check current Ethereum chain tip".to_string(),
+                })
+            }
+            EthereumError::SlotUsed(_) => {
+                Some(FixAction::Retry {
+                    parameter_changes: std::collections::HashMap::from([
+                        ("increment_slot".to_string(), "true".to_string()),
+                    ]),
+                })
+            }
+            EthereumError::CoreError(e) => e.fix_action(),
+            _ => None,
         }
     }
 }

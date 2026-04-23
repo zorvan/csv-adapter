@@ -4,6 +4,7 @@
 
 use chrono::{DateTime, Utc};
 use csv_adapter_core::Chain;
+use csv_adapter_core::agent_types::{HasErrorSuggestion, FixAction, error_codes};
 use serde::{Deserialize, Serialize};
 
 use crate::storage::{seal_storage, LocalStorageManager};
@@ -52,6 +53,59 @@ pub enum SealError {
     NotFound(String),
     #[error("Invalid seal data: {0}")]
     InvalidData(String),
+}
+
+impl HasErrorSuggestion for SealError {
+    fn error_code(&self) -> &'static str {
+        error_codes::WALLET_SEAL_SERVICE_ERROR
+    }
+
+    fn description(&self) -> String {
+        self.to_string()
+    }
+
+    fn suggested_fix(&self) -> String {
+        match self {
+            SealError::Storage(_) => {
+                "Seal storage error. Check localStorage is enabled and not full. \
+                 Try clearing old seals or using a different browser.".to_string()
+            }
+            SealError::NotFound(id) => {
+                format!(
+                    "Seal '{}' not found. Check: 1) The seal ID is correct, \
+                     2) The seal was successfully created, 3) Storage hasn't been cleared.",
+                    id
+                )
+            }
+            SealError::InvalidData(_) => {
+                "Invalid seal data format. The seal record may be corrupted. \
+                 Try recreating the seal with valid parameters.".to_string()
+            }
+        }
+    }
+
+    fn docs_url(&self) -> String {
+        error_codes::docs_url(self.error_code())
+    }
+
+    fn fix_action(&self) -> Option<FixAction> {
+        match self {
+            SealError::NotFound(_) => {
+                Some(FixAction::CheckState {
+                    url: "https://docs.csv.dev/seals".to_string(),
+                    what: "Verify seal exists in storage".to_string(),
+                })
+            }
+            SealError::InvalidData(_) => {
+                Some(FixAction::Retry {
+                    parameter_changes: std::collections::HashMap::from([
+                        ("recreate_seal".to_string(), "true".to_string()),
+                    ]),
+                })
+            }
+            _ => None,
+        }
+    }
 }
 
 impl From<crate::storage::StorageError> for SealError {

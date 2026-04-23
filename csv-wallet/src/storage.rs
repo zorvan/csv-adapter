@@ -1,5 +1,6 @@
 //! Persistent storage using browser localStorage.
 
+use csv_adapter_core::agent_types::{HasErrorSuggestion, FixAction, error_codes};
 use serde::{Deserialize, Serialize};
 use web_sys::{Storage, Window};
 
@@ -15,6 +16,55 @@ pub enum StorageError {
     /// Not found
     #[error("Not found: {0}")]
     NotFound(String),
+}
+
+impl HasErrorSuggestion for StorageError {
+    fn error_code(&self) -> &'static str {
+        error_codes::WALLET_BROWSER_STORAGE
+    }
+
+    fn description(&self) -> String {
+        self.to_string()
+    }
+
+    fn suggested_fix(&self) -> String {
+        match self {
+            StorageError::BrowserError(_) => {
+                "Browser storage API error. Check: \
+                 1) LocalStorage is enabled in your browser, \
+                 2) You are not in private/incognito mode, \
+                 3) Storage quota has not been exceeded. \
+                 Try clearing some storage or using a different browser.".to_string()
+            }
+            StorageError::SerializeError(_) => {
+                "Failed to serialize data for browser storage. \
+                 Ensure all data types are JSON-serializable.".to_string()
+            }
+            StorageError::NotFound(key) => {
+                format!(
+                    "Item '{}' not found in browser storage. \
+                     It may have been deleted or never saved.",
+                    key
+                )
+            }
+        }
+    }
+
+    fn docs_url(&self) -> String {
+        error_codes::docs_url(self.error_code())
+    }
+
+    fn fix_action(&self) -> Option<FixAction> {
+        match self {
+            StorageError::BrowserError(_) => {
+                Some(FixAction::CheckState {
+                    url: "https://docs.csv.dev/wallet/browser-storage".to_string(),
+                    what: "Verify localStorage is enabled and not full".to_string(),
+                })
+            }
+            _ => None,
+        }
+    }
 }
 
 /// LocalStorage-based storage manager.

@@ -4,6 +4,7 @@
 //! using the private keys stored in ChainAccount. No external wallet needed.
 
 use csv_adapter_core::Chain;
+use csv_adapter_core::agent_types::{HasErrorSuggestion, FixAction, error_codes};
 use serde::{Deserialize, Serialize};
 
 /// Transaction to be signed.
@@ -38,6 +39,71 @@ pub enum SignerError {
     UnsupportedChain(Chain),
     #[error("Serialization error: {0}")]
     SerializationError(String),
+}
+
+impl HasErrorSuggestion for SignerError {
+    fn error_code(&self) -> &'static str {
+        error_codes::WALLET_NATIVE_SIGNER_ERROR
+    }
+
+    fn description(&self) -> String {
+        self.to_string()
+    }
+
+    fn suggested_fix(&self) -> String {
+        match self {
+            SignerError::InvalidPrivateKey(_) => {
+                "Invalid private key format. Ensure the key is: \
+                 1) 64 hex characters (32 bytes), \
+                 2) Optionally prefixed with '0x', \
+                 3) A valid secp256k1 (Ethereum/Bitcoin) or ed25519 (Sui/Aptos/Solana) key. \
+                 Never share private keys - they control your funds.".to_string()
+            }
+            SignerError::SigningFailed(_) => {
+                "Transaction signing failed. Check: \
+                 1) The private key is valid and has funds, \
+                 2) The transaction format matches the chain, \
+                 3) The nonce/sequence number is correct. \
+                 Retry with corrected parameters.".to_string()
+            }
+            SignerError::UnsupportedChain(chain) => {
+                format!(
+                    "Chain {:?} is not supported for native signing. \
+                     Supported chains: Ethereum, Sui, Aptos, Solana, Bitcoin. \
+                     Use a wallet extension or external signer for other chains.",
+                    chain
+                )
+            }
+            SignerError::SerializationError(_) => {
+                "Failed to serialize transaction data. Check all fields are valid \
+                 and the transaction structure matches the expected format.".to_string()
+            }
+        }
+    }
+
+    fn docs_url(&self) -> String {
+        error_codes::docs_url(self.error_code())
+    }
+
+    fn fix_action(&self) -> Option<FixAction> {
+        match self {
+            SignerError::InvalidPrivateKey(_) => {
+                Some(FixAction::CheckState {
+                    url: "https://docs.csv.dev/wallet/key-management".to_string(),
+                    what: "Verify private key format and derivation path".to_string(),
+                })
+            }
+            SignerError::SigningFailed(_) | SignerError::SerializationError(_) => {
+                Some(FixAction::Retry {
+                    parameter_changes: std::collections::HashMap::from([
+                        ("verify_nonce".to_string(), "true".to_string()),
+                        ("check_chain_id".to_string(), "true".to_string()),
+                    ]),
+                })
+            }
+            _ => None,
+        }
+    }
 }
 
 /// Native signer using private keys.

@@ -4,6 +4,7 @@
 
 use chrono::{DateTime, Utc};
 use csv_adapter_core::Chain;
+use csv_adapter_core::agent_types::{HasErrorSuggestion, FixAction, error_codes};
 use serde::{Deserialize, Serialize};
 
 use crate::storage::{asset_storage, LocalStorageManager};
@@ -36,6 +37,63 @@ pub enum AssetError {
     NotFound(String),
     #[error("Invalid asset data: {0}")]
     InvalidData(String),
+}
+
+impl HasErrorSuggestion for AssetError {
+    fn error_code(&self) -> &'static str {
+        match self {
+            AssetError::Storage(_) => error_codes::WALLET_BROWSER_STORAGE,
+            AssetError::NotFound(_) => error_codes::WALLET_ASSET_NOT_FOUND,
+            AssetError::InvalidData(_) => error_codes::WALLET_ASSET_INVALID_DATA,
+        }
+    }
+
+    fn description(&self) -> String {
+        self.to_string()
+    }
+
+    fn suggested_fix(&self) -> String {
+        match self {
+            AssetError::Storage(_) => {
+                "Browser storage error for assets. Check localStorage is enabled \
+                 and not full. Try clearing old assets or using a different browser.".to_string()
+            }
+            AssetError::NotFound(id) => {
+                format!(
+                    "Asset '{}' not found. Check: 1) The asset ID is correct, \
+                     2) The asset was added to your wallet, 3) The storage hasn't been cleared.",
+                    id
+                )
+            }
+            AssetError::InvalidData(_) => {
+                "Invalid asset data format. The stored asset may be corrupted \
+                 or from an incompatible version. Try removing and re-adding the asset.".to_string()
+            }
+        }
+    }
+
+    fn docs_url(&self) -> String {
+        error_codes::docs_url(self.error_code())
+    }
+
+    fn fix_action(&self) -> Option<FixAction> {
+        match self {
+            AssetError::NotFound(_) => {
+                Some(FixAction::CheckState {
+                    url: "https://docs.csv.dev/wallet/assets".to_string(),
+                    what: "Verify asset exists in wallet".to_string(),
+                })
+            }
+            AssetError::InvalidData(_) => {
+                Some(FixAction::Retry {
+                    parameter_changes: std::collections::HashMap::from([
+                        ("reimport_asset".to_string(), "true".to_string()),
+                    ]),
+                })
+            }
+            _ => None,
+        }
+    }
 }
 
 impl From<crate::storage::StorageError> for AssetError {

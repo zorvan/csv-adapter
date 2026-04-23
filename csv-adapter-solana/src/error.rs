@@ -1,6 +1,7 @@
 //! Error types for Solana adapter
 
 use thiserror::Error;
+use csv_adapter_core::agent_types::{HasErrorSuggestion, FixAction, error_codes};
 
 /// Solana-specific errors
 #[derive(Debug, Error)]
@@ -106,5 +107,176 @@ impl From<ed25519_dalek::ed25519::Error> for SolanaError {
 impl From<SolanaError> for csv_adapter_core::error::AdapterError {
     fn from(err: SolanaError) -> Self {
         csv_adapter_core::error::AdapterError::NetworkError(format!("Solana: {}", err))
+    }
+}
+
+impl SolanaError {
+    /// Whether this error is transient and may be retried
+    pub fn is_transient(&self) -> bool {
+        matches!(
+            self,
+            SolanaError::Rpc(_)
+                | SolanaError::Network(_)
+                | SolanaError::Commitment(_)
+        )
+    }
+}
+
+impl HasErrorSuggestion for SolanaError {
+    fn error_code(&self) -> &'static str {
+        match self {
+            SolanaError::Rpc(_) => error_codes::SOL_RPC_ERROR,
+            SolanaError::Transaction(_) => error_codes::SOL_TRANSACTION_ERROR,
+            SolanaError::AccountNotFound(_) => error_codes::SOL_ACCOUNT_NOT_FOUND,
+            SolanaError::InvalidProgramId(_) => error_codes::SOL_INVALID_PROGRAM_ID,
+            SolanaError::InvalidInstruction(_) => error_codes::SOL_INVALID_INSTRUCTION,
+            SolanaError::InsufficientFunds { .. } => error_codes::SOL_INSUFFICIENT_FUNDS,
+            SolanaError::Network(_) => error_codes::SOL_NETWORK_ERROR,
+            SolanaError::Serialization(_) => error_codes::SOL_SERIALIZATION_ERROR,
+            SolanaError::Deserialization(_) => error_codes::SOL_DESERIALIZATION_ERROR,
+            SolanaError::Keypair(_) => error_codes::SOL_KEYPAIR_ERROR,
+            SolanaError::Wallet(_) => error_codes::SOL_WALLET_ERROR,
+            SolanaError::Commitment(_) => error_codes::SOL_COMMITMENT_ERROR,
+            SolanaError::SealCreation(_) => error_codes::SOL_SEAL_CREATION_ERROR,
+            SolanaError::AnchorCreation(_) => error_codes::SOL_ANCHOR_CREATION_ERROR,
+            SolanaError::ProofGeneration(_) => error_codes::SOL_PROOF_GENERATION_ERROR,
+            SolanaError::InvalidInput(_) => error_codes::SOL_INVALID_INPUT,
+        }
+    }
+
+    fn description(&self) -> String {
+        self.to_string()
+    }
+
+    fn suggested_fix(&self) -> String {
+        match self {
+            SolanaError::Rpc(_) => {
+                "Solana RPC call failed. Check: \
+                 1) Your internet connection, \
+                 2) The RPC endpoint is accessible (try https://api.mainnet-beta.solana.com), \
+                 3) Rate limits haven't been exceeded. \
+                 For devnet, use https://api.devnet.solana.com".to_string()
+            }
+            SolanaError::Transaction(msg) => {
+                format!(
+                    "Solana transaction failed: {}. Check: \
+                     1) You have sufficient SOL for fees, \
+                     2) The instruction data is valid, \
+                     3) The program exists and is executable. \
+                     Simulate the transaction before sending.",
+                    msg
+                )
+            }
+            SolanaError::AccountNotFound(addr) => {
+                format!(
+                    "Account {} was not found. The account may not exist yet \
+                     (needs funding) or may have been closed. Fund the account \
+                     with at least 0.001 SOL (rent-exempt minimum).",
+                    addr
+                )
+            }
+            SolanaError::InvalidProgramId(id) => {
+                format!(
+                    "Invalid program ID: {}. Verify the program is deployed \
+                     and the address is correct. Check on Solana Explorer.",
+                    id
+                )
+            }
+            SolanaError::InvalidInstruction(msg) => {
+                format!(
+                    "Invalid instruction: {}. Check the instruction data \
+                     matches the program's expected format and all accounts \
+                     are provided in the correct order.",
+                    msg
+                )
+            }
+            SolanaError::InsufficientFunds { required, available } => {
+                format!(
+                    "Insufficient funds: need {} lamports, have {}. \
+                     Fund your wallet with at least {} more lamports ({} SOL).",
+                    required, available,
+                    required.saturating_sub(*available),
+                    (required.saturating_sub(*available)) as f64 / 1e9
+                )
+            }
+            SolanaError::Network(_) => {
+                "Network communication failed. Check your internet connection \
+                 and verify the Solana network is accessible.".to_string()
+            }
+            SolanaError::Serialization(_) => {
+                "Data serialization failed. Ensure the data structure matches \
+                 the expected format for Solana programs.".to_string()
+            }
+            SolanaError::Deserialization(_) => {
+                "Data deserialization failed. The data format may have changed \
+                 or be incompatible with the expected structure.".to_string()
+            }
+            SolanaError::Keypair(_) => {
+                "Keypair operation failed. Verify the private key format \
+                 and ensure it's a valid ed25519 key.".to_string()
+            }
+            SolanaError::Wallet(_) => {
+                "Wallet operation failed. Check wallet configuration \
+                 and ensure the wallet has the required permissions.".to_string()
+            }
+            SolanaError::Commitment(_) => {
+                "Commitment level error. Use 'confirmed' or 'finalized' \
+                 for reliable results. 'processed' may be too optimistic.".to_string()
+            }
+            SolanaError::SealCreation(_) => {
+                "Failed to create seal. Check the seal parameters \
+                 and ensure the account has sufficient space.".to_string()
+            }
+            SolanaError::AnchorCreation(_) => {
+                "Failed to create anchor. Verify the blockhash is recent \
+                 and the transaction is properly signed.".to_string()
+            }
+            SolanaError::ProofGeneration(_) => {
+                "Proof generation failed. Check the anchor is confirmed \
+                 and has the required number of signatures.".to_string()
+            }
+            SolanaError::InvalidInput(_) => {
+                "Invalid input provided. Check all parameters are valid \
+                 and within acceptable ranges.".to_string()
+            }
+        }
+    }
+
+    fn docs_url(&self) -> String {
+        error_codes::docs_url(self.error_code())
+    }
+
+    fn fix_action(&self) -> Option<FixAction> {
+        match self {
+            SolanaError::Rpc(_) | SolanaError::Network(_) => {
+                Some(FixAction::Retry {
+                    parameter_changes: std::collections::HashMap::from([
+                        ("rpc_endpoint".to_string(), "https://api.mainnet-beta.solana.com".to_string()),
+                    ]),
+                })
+            }
+            SolanaError::InsufficientFunds { required, available } => {
+                let need = required.saturating_sub(*available);
+                Some(FixAction::FundFromFaucet {
+                    url: "https://faucet.solana.com".to_string(),
+                    amount: format!("{} lamports ({} SOL)", need, need as f64 / 1e9),
+                })
+            }
+            SolanaError::AccountNotFound(_) => {
+                Some(FixAction::FundFromFaucet {
+                    url: "https://faucet.solana.com".to_string(),
+                    amount: "0.001 SOL (rent-exempt minimum)".to_string(),
+                })
+            }
+            SolanaError::Transaction(_) | SolanaError::InvalidInstruction(_) => {
+                Some(FixAction::Retry {
+                    parameter_changes: std::collections::HashMap::from([
+                        ("simulate_first".to_string(), "true".to_string()),
+                        ("check_program".to_string(), "true".to_string()),
+                    ]),
+                })
+            }
+            _ => None,
+        }
     }
 }

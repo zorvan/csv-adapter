@@ -4,6 +4,7 @@
 
 use super::manager::SealRecord;
 use csv_adapter_core::{Chain, RightId};
+use csv_adapter_core::agent_types::{HasErrorSuggestion, FixAction, error_codes};
 use std::collections::HashMap;
 use std::sync::Mutex;
 
@@ -16,6 +17,53 @@ pub enum SealStoreError {
     /// Serialization error
     #[error("Serialization error: {0}")]
     SerializationError(String),
+}
+
+impl HasErrorSuggestion for SealStoreError {
+    fn error_code(&self) -> &'static str {
+        match self {
+            SealStoreError::NotFound(_) => error_codes::WALLET_SEAL_NOT_FOUND,
+            SealStoreError::SerializationError(_) => error_codes::WALLET_STORAGE_SERIALIZATION,
+        }
+    }
+
+    fn description(&self) -> String {
+        self.to_string()
+    }
+
+    fn suggested_fix(&self) -> String {
+        match self {
+            SealStoreError::NotFound(id) => {
+                format!(
+                    "Seal '{}' not found in storage. \
+                     Check: 1) The seal ID is correct, \
+                     2) The seal was created successfully, \
+                     3) You are looking in the correct seal store.",
+                    id
+                )
+            }
+            SealStoreError::SerializationError(_) => {
+                "Failed to serialize seal data. Ensure the seal structure \
+                 is valid and all required fields are present.".to_string()
+            }
+        }
+    }
+
+    fn docs_url(&self) -> String {
+        error_codes::docs_url(self.error_code())
+    }
+
+    fn fix_action(&self) -> Option<FixAction> {
+        match self {
+            SealStoreError::NotFound(_) => {
+                Some(FixAction::CheckState {
+                    url: "https://docs.csv.dev/seals".to_string(),
+                    what: "Verify seal exists and was created successfully".to_string(),
+                })
+            }
+            _ => None,
+        }
+    }
 }
 
 /// Seal store for in-memory storage.

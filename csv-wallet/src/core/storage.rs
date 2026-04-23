@@ -3,6 +3,7 @@
 //! Simple storage manager for wallets.
 
 use super::encryption::{EncryptedWallet, encrypt, decrypt, EncryptionError};
+use csv_adapter_core::agent_types::{HasErrorSuggestion, FixAction, error_codes};
 use std::collections::HashMap;
 use std::sync::Mutex;
 
@@ -18,6 +19,65 @@ pub enum StorageError {
     /// Serialization error
     #[error("Serialization error: {0}")]
     SerializationError(String),
+}
+
+impl HasErrorSuggestion for StorageError {
+    fn error_code(&self) -> &'static str {
+        match self {
+            StorageError::EncryptionError(e) => e.error_code(),
+            StorageError::NotFound(_) => error_codes::WALLET_STORAGE_NOT_FOUND,
+            StorageError::SerializationError(_) => error_codes::WALLET_STORAGE_SERIALIZATION,
+        }
+    }
+
+    fn description(&self) -> String {
+        self.to_string()
+    }
+
+    fn suggested_fix(&self) -> String {
+        match self {
+            StorageError::EncryptionError(e) => e.suggested_fix(),
+            StorageError::NotFound(id) => {
+                format!(
+                    "Wallet '{}' not found in storage. Check: \
+                     1) The wallet ID is correct, 2) You have created a wallet, \
+                     3) You are looking in the right storage location.",
+                    id
+                )
+            }
+            StorageError::SerializationError(_) => {
+                "Failed to serialize/deserialize wallet data. This may indicate \
+                 data corruption or version incompatibility. \
+                 Try restoring from a backup or mnemonic.".to_string()
+            }
+        }
+    }
+
+    fn docs_url(&self) -> String {
+        match self {
+            StorageError::EncryptionError(e) => e.docs_url(),
+            _ => error_codes::docs_url(self.error_code()),
+        }
+    }
+
+    fn fix_action(&self) -> Option<FixAction> {
+        match self {
+            StorageError::EncryptionError(e) => e.fix_action(),
+            StorageError::NotFound(_) => {
+                Some(FixAction::CheckState {
+                    url: "https://docs.csv.dev/wallet/storage".to_string(),
+                    what: "Verify wallet exists and storage location is correct".to_string(),
+                })
+            }
+            StorageError::SerializationError(_) => {
+                Some(FixAction::Retry {
+                    parameter_changes: std::collections::HashMap::from([
+                        ("restore_from_mnemonic".to_string(), "true".to_string()),
+                    ]),
+                })
+            }
+        }
+    }
 }
 
 /// Wallet storage manager (in-memory for now).

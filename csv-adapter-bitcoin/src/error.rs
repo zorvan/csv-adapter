@@ -1,6 +1,7 @@
 //! Bitcoin adapter error types
 
 use thiserror::Error;
+use csv_adapter_core::agent_types::{HasErrorSuggestion, FixAction, error_codes};
 
 /// Bitcoin adapter specific errors
 #[derive(Error, Debug)]
@@ -77,6 +78,121 @@ impl BitcoinError {
             BitcoinError::InvalidMerkleProof(_) => false,
             BitcoinError::RegistryFull(_) => false,
             BitcoinError::CoreError(_) => false,
+        }
+    }
+}
+
+impl HasErrorSuggestion for BitcoinError {
+    fn error_code(&self) -> &'static str {
+        match self {
+            BitcoinError::RpcError(_) => error_codes::BTC_RPC_ERROR,
+            BitcoinError::TransactionNotFound(_) => error_codes::BTC_TRANSACTION_NOT_FOUND,
+            BitcoinError::UTXOSpent(_) => error_codes::BTC_UTXO_SPENT,
+            BitcoinError::InvalidMerkleProof(_) => error_codes::BTC_INVALID_MERKLE_PROOF,
+            BitcoinError::RegistryFull(_) => error_codes::BTC_REGISTRY_FULL,
+            BitcoinError::ReorgDetected { .. } => error_codes::BTC_REORG_DETECTED,
+            BitcoinError::InsufficientConfirmations { .. } => error_codes::BTC_INSUFFICIENT_CONFIRMATIONS,
+            BitcoinError::CoreError(e) => e.error_code(),
+        }
+    }
+
+    fn description(&self) -> String {
+        self.to_string()
+    }
+
+    fn suggested_fix(&self) -> String {
+        match self {
+            BitcoinError::RpcError(_) => {
+                "Bitcoin RPC call failed. Check: \
+                 1) Your internet connection, \
+                 2) The RPC endpoint is accessible (try https://mempool.space/api), \
+                 3) Rate limits haven't been exceeded. \
+                 Retry with a different RPC provider if needed.".to_string()
+            }
+            BitcoinError::TransactionNotFound(txid) => {
+                format!(
+                    "Transaction {} was not found. It may not have been broadcast yet, \
+                     or it was dropped from the mempool. Wait a few minutes and retry, \
+                     or rebroadcast the transaction.",
+                    txid
+                )
+            }
+            BitcoinError::UTXOSpent(outpoint) => {
+                format!(
+                    "The UTXO {} has already been spent. \
+                     Use a different, unspent UTXO. Check your wallet balance \
+                     and available UTXOs.",
+                    outpoint
+                )
+            }
+            BitcoinError::InvalidMerkleProof(_) => {
+                "The Merkle proof is invalid. This may indicate: \
+                 1) The transaction is not in the claimed block, \
+                 2) The block hash is incorrect, or \
+                 3) The proof structure is malformed. \
+                 Regenerate the proof from a confirmed transaction.".to_string()
+            }
+            BitcoinError::RegistryFull(_) => {
+                "The seal registry has reached maximum capacity. \
+                 Finalize existing seals or use a different registry instance. \
+                 Contact the registry operator for capacity increases.".to_string()
+            }
+            BitcoinError::ReorgDetected { height, depth } => {
+                format!(
+                    "Chain reorganization detected at height {} with depth {}. \
+                     Your anchor may be invalid. Wait for the reorg to complete \
+                     and republish at the new chain tip.",
+                    height, depth
+                )
+            }
+            BitcoinError::InsufficientConfirmations { got, need } => {
+                format!(
+                    "Insufficient confirmations: got {}, need {}. \
+                     Wait for {} more block confirmations (approximately {} minutes).",
+                    got, need, need - got, (need - got) * 10
+                )
+            }
+            BitcoinError::CoreError(e) => e.suggested_fix(),
+        }
+    }
+
+    fn docs_url(&self) -> String {
+        match self {
+            BitcoinError::CoreError(e) => e.docs_url(),
+            _ => error_codes::docs_url(self.error_code()),
+        }
+    }
+
+    fn fix_action(&self) -> Option<FixAction> {
+        match self {
+            BitcoinError::RpcError(_) => {
+                Some(FixAction::Retry {
+                    parameter_changes: std::collections::HashMap::from([
+                        ("rpc_endpoint".to_string(), "https://mempool.space/api".to_string()),
+                    ]),
+                })
+            }
+            BitcoinError::InsufficientConfirmations { need, .. } => {
+                Some(FixAction::WaitForConfirmations {
+                    confirmations: *need as u32,
+                    estimated_seconds: (*need as u64) * 600,
+                })
+            }
+            BitcoinError::ReorgDetected { .. } => {
+                Some(FixAction::CheckState {
+                    url: "https://mempool.space".to_string(),
+                    what: "Check current Bitcoin chain tip".to_string(),
+                })
+            }
+            BitcoinError::TransactionNotFound(_) => {
+                Some(FixAction::Retry {
+                    parameter_changes: std::collections::HashMap::from([
+                        ("wait_seconds".to_string(), "60".to_string()),
+                    ]),
+                })
+            }
+            BitcoinError::CoreError(e) => e.fix_action(),
+            _ => None,
         }
     }
 }

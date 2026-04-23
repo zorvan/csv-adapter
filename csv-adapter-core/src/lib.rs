@@ -165,7 +165,7 @@ pub use advanced_commitments::{
 };
 
 // Agent-friendly types
-pub use agent_types::{ErrorSuggestion, FixAction};
+pub use agent_types::{ErrorSuggestion, FixAction, HasErrorSuggestion, error_codes};
 
 // Production hardening
 pub use hardening::{

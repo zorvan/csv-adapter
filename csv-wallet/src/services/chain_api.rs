@@ -4,6 +4,7 @@
 //! across Bitcoin, Ethereum, Sui, and Aptos using wasm-compatible HTTP requests.
 
 use csv_adapter_core::Chain;
+use csv_adapter_core::agent_types::{HasErrorSuggestion, FixAction, error_codes};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
@@ -93,6 +94,80 @@ pub enum ChainApiError {
     /// API returned an error.
     #[error("Chain API error: {0}")]
     ApiError(String),
+}
+
+impl HasErrorSuggestion for ChainApiError {
+    fn error_code(&self) -> &'static str {
+        match self {
+            ChainApiError::HttpError(_) => error_codes::WALLET_CHAIN_API_HTTP,
+            ChainApiError::JsonError(_) => error_codes::WALLET_CHAIN_API_JSON,
+            ChainApiError::InvalidAddress(_) => error_codes::WALLET_CHAIN_API_INVALID_ADDRESS,
+            ChainApiError::ApiError(_) => error_codes::WALLET_CHAIN_API_ERROR,
+        }
+    }
+
+    fn description(&self) -> String {
+        self.to_string()
+    }
+
+    fn suggested_fix(&self) -> String {
+        match self {
+            ChainApiError::HttpError(_) => {
+                "HTTP request to chain API failed. Check: \
+                 1) Your internet connection, 2) The API endpoint is accessible, \
+                 3) You're not being blocked by CORS (browser) or firewalls. \
+                 Try a different RPC provider if the issue persists.".to_string()
+            }
+            ChainApiError::JsonError(_) => {
+                "Failed to parse API response. The API format may have changed \
+                 or the response is malformed. Try: 1) A different API endpoint, \
+                 2) Updating to the latest SDK version.".to_string()
+            }
+            ChainApiError::InvalidAddress(chain) => {
+                format!(
+                    "Invalid address format for {}. Ensure the address matches \
+                     the chain's format (e.g., 0x... for Ethereum, bc1... for Bitcoin).",
+                    chain
+                )
+            }
+            ChainApiError::ApiError(msg) => {
+                format!(
+                    "Chain API returned an error: {}. \
+                     Check the API documentation for this specific error. \
+                     The endpoint may be temporarily unavailable.",
+                    msg
+                )
+            }
+        }
+    }
+
+    fn docs_url(&self) -> String {
+        error_codes::docs_url(self.error_code())
+    }
+
+    fn fix_action(&self) -> Option<FixAction> {
+        match self {
+            ChainApiError::HttpError(_) | ChainApiError::ApiError(_) => {
+                Some(FixAction::Retry {
+                    parameter_changes: std::collections::HashMap::from([
+                        ("rpc_endpoint".to_string(), "try_alternative".to_string()),
+                    ]),
+                })
+            }
+            ChainApiError::JsonError(_) => {
+                Some(FixAction::CheckState {
+                    url: "https://docs.csv.dev/rpc-providers".to_string(),
+                    what: "Verify API endpoint is compatible".to_string(),
+                })
+            }
+            ChainApiError::InvalidAddress(_) => {
+                Some(FixAction::CheckState {
+                    url: "https://docs.csv.dev/addresses".to_string(),
+                    what: "Verify address format for target chain".to_string(),
+                })
+            }
+        }
+    }
 }
 
 /// Service for querying chain balances via external APIs.
