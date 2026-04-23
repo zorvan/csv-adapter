@@ -251,6 +251,333 @@ impl core::fmt::Display for DoubleSpendError {
 
 use serde::{Deserialize, Serialize};
 
+/// Optimized cross-chain seal registry with O(1) lookups using HashMap and Bloom filter.
+///
+/// This is a high-performance version of `CrossChainSealRegistry` that provides:
+/// - O(1) seal existence checks via bloom filter for negative lookups
+/// - O(1) exact lookups via HashMap for consumed seals
+/// - Configurable capacity for pre-allocated storage
+///
+/// Use this when performance is critical and you need to handle large numbers of seals.
+#[cfg(feature = "std")]
+pub struct OptimizedCrossChainSealRegistry {
+    /// Map from seal identity to consumption events (HashMap for O(1) lookups)
+    consumed_seals: std::collections::HashMap<Vec<u8>, Vec<SealConsumption>>,
+    /// Map from Right ID to seals that consumed it
+    right_consumption_map: std::collections::HashMap<Hash, Vec<SealConsumption>>,
+    /// Set of known chain identifiers
+    known_chains: BTreeSet<ChainId>,
+    /// Bloom filter for fast negative lookups
+    bloom_filter: crate::performance::BloomFilter,
+    /// Cache for recent seal status checks
+    status_cache: std::collections::HashMap<Vec<u8>, SealStatus>,
+    /// Maximum cache size for status cache
+    max_cache_size: usize,
+}
+
+#[cfg(feature = "std")]
+impl OptimizedCrossChainSealRegistry {
+    /// Create a new optimized registry with default capacity.
+    pub fn new() -> Self {
+        Self::with_capacity(100_000, 0.01)
+    }
+
+    /// Create a new optimized registry with specified bloom filter capacity.
+    ///
+    /// # Arguments
+    /// * `capacity` - Expected number of seals (for bloom filter sizing)
+    /// * `false_positive_rate` - Acceptable false positive rate for bloom filter (0.0-1.0)
+    pub fn with_capacity(capacity: usize, false_positive_rate: f64) -> Self {
+        // Ensure valid bloom filter parameters
+        let capacity = capacity.max(100); // Minimum 100 items
+        let false_positive_rate = false_positive_rate.clamp(0.0001, 0.5); // Valid range
+
+        Self {
+            consumed_seals: std::collections::HashMap::with_capacity(capacity),
+            right_consumption_map: std::collections::HashMap::with_capacity(capacity),
+            known_chains: BTreeSet::new(),
+            bloom_filter: crate::performance::BloomFilter::new(capacity, false_positive_rate),
+            status_cache: std::collections::HashMap::with_capacity(1000),
+            max_cache_size: 1000,
+        }
+    }
+
+    /// Record a seal consumption event with optimized O(1) checks.
+    pub fn record_consumption(
+        &mut self,
+        consumption: SealConsumption,
+    ) -> Result<(), Box<DoubleSpendError>> {
+        let seal_key = consumption.seal_ref.to_vec();
+        let seal_hash = Hash::new(
+            seal_key
+                .as_slice()
+                .try_into()
+                .unwrap_or_else(|_| {
+                    let mut arr = [0u8; 32];
+                    let len = seal_key.len().min(32);
+                    arr[..len].copy_from_slice(&seal_key[..len]);
+                    arr
+                }),
+        );
+
+        // Fast bloom filter check first (O(1))
+        let might_exist = self.bloom_filter.might_contain(&seal_hash);
+
+        // If bloom filter says no seal exists, we can skip HashMap lookup
+        let is_double_spend = if might_exist {
+            // Bloom filter says it might exist - need to check HashMap
+            self.consumed_seals.contains_key(&seal_key)
+                && !self
+                    .consumed_seals
+                    .get(&seal_key)
+                    .map_or(true, |v| v.is_empty())
+        } else {
+            // Bloom filter says definitely not present - fast path
+            false
+        };
+
+        // Track known chains
+        self.known_chains.insert(consumption.chain.clone());
+
+        // Add to bloom filter (always add, even on double-spend for auditing)
+        self.bloom_filter.insert(&seal_hash);
+
+        // Clear status cache entry if it exists
+        self.status_cache.remove(&seal_key);
+
+        // Check if already consumed
+        if is_double_spend {
+            let existing = self.consumed_seals.get(&seal_key).unwrap();
+            let is_cross_chain = existing.iter().any(|e| e.chain != consumption.chain);
+
+            let err = DoubleSpendError {
+                seal_ref: consumption.seal_ref.clone(),
+                existing_consumptions: existing.clone(),
+                new_consumption: consumption.clone(),
+                is_cross_chain,
+            };
+
+            // Still record for auditing purposes
+            self.consumed_seals
+                .entry(seal_key)
+                .or_default()
+                .push(consumption.clone());
+
+            self.right_consumption_map
+                .entry(consumption.right_id.0)
+                .or_default()
+                .push(consumption);
+
+            return Err(Box::new(err));
+        }
+
+        // Record the consumption
+        self.consumed_seals
+            .entry(seal_key)
+            .or_default()
+            .push(consumption.clone());
+
+        // Track by Right ID
+        self.right_consumption_map
+            .entry(consumption.right_id.0)
+            .or_default()
+            .push(consumption);
+
+        Ok(())
+    }
+
+    /// Check the status of a seal with bloom filter optimization.
+    pub fn check_seal_status(&mut self, seal_ref: &SealRef) -> SealStatus {
+        let key = seal_ref.to_vec();
+
+        // Check cache first (O(1))
+        if let Some(cached) = self.status_cache.get(&key) {
+            return cached.clone();
+        }
+
+        let seal_hash = Hash::new(
+            key.as_slice()
+                .try_into()
+                .unwrap_or_else(|_| {
+                    let mut arr = [0u8; 32];
+                    let len = key.len().min(32);
+                    arr[..len].copy_from_slice(&key[..len]);
+                    arr
+                }),
+        );
+
+        // Fast bloom filter check (O(1)) - if negative, seal is definitely not consumed
+        if !self.bloom_filter.might_contain(&seal_hash) {
+            let status = SealStatus::Unconsumed;
+            self.cache_status(key, status.clone());
+            return status;
+        }
+
+        // Bloom filter says it might exist - check HashMap (O(1))
+        let status = match self.consumed_seals.get(&key) {
+            None => SealStatus::Unconsumed,
+            Some(consumptions) if consumptions.len() == 1 => {
+                let c = &consumptions[0];
+                SealStatus::ConsumedOnChain {
+                    chain: c.chain.clone(),
+                    consumption: c.clone(),
+                }
+            }
+            Some(consumptions) => SealStatus::DoubleSpent {
+                consumptions: consumptions.clone(),
+            },
+        };
+
+        self.cache_status(key, status.clone());
+        status
+    }
+
+    /// Immutable version of check_seal_status (no caching).
+    pub fn check_seal_status_immutable(&self, seal_ref: &SealRef) -> SealStatus {
+        let key = seal_ref.to_vec();
+        let seal_hash = Hash::new(
+            key.as_slice()
+                .try_into()
+                .unwrap_or_else(|_| {
+                    let mut arr = [0u8; 32];
+                    let len = key.len().min(32);
+                    arr[..len].copy_from_slice(&key[..len]);
+                    arr
+                }),
+        );
+
+        // Fast bloom filter check (O(1))
+        if !self.bloom_filter.might_contain(&seal_hash) {
+            return SealStatus::Unconsumed;
+        }
+
+        // Check HashMap
+        match self.consumed_seals.get(&key) {
+            None => SealStatus::Unconsumed,
+            Some(consumptions) if consumptions.len() == 1 => {
+                let c = &consumptions[0];
+                SealStatus::ConsumedOnChain {
+                    chain: c.chain.clone(),
+                    consumption: c.clone(),
+                }
+            }
+            Some(consumptions) => SealStatus::DoubleSpent {
+                consumptions: consumptions.clone(),
+            },
+        }
+    }
+
+    /// Cache a status result.
+    fn cache_status(&mut self, key: Vec<u8>, status: SealStatus) {
+        if self.status_cache.len() >= self.max_cache_size {
+            // Simple eviction: clear half the cache
+            let keys_to_remove: Vec<_> = self.status_cache.keys().take(self.max_cache_size / 2).cloned().collect();
+            for k in keys_to_remove {
+                self.status_cache.remove(&k);
+            }
+        }
+        self.status_cache.insert(key, status);
+    }
+
+    /// Check if a seal has been consumed (anywhere) with O(1) bloom filter check.
+    pub fn is_seal_consumed(&self, seal_ref: &SealRef) -> bool {
+        let seal_key = seal_ref.to_vec();
+        let seal_hash = Hash::new(
+            seal_key
+                .as_slice()
+                .try_into()
+                .unwrap_or_else(|_| {
+                    let mut arr = [0u8; 32];
+                    let len = seal_key.len().min(32);
+                    arr[..len].copy_from_slice(&seal_key[..len]);
+                    arr
+                }),
+        );
+
+        // Fast bloom filter check first (O(1))
+        if !self.bloom_filter.might_contain(&seal_hash) {
+            return false;
+        }
+
+        // Bloom filter says might exist - confirm with HashMap
+        self.consumed_seals.contains_key(&seal_key)
+    }
+
+    /// Get all consumption events for a specific seal.
+    pub fn get_consumption_history(&self, seal_ref: &SealRef) -> Vec<SealConsumption> {
+        let key = seal_ref.to_vec();
+        self.consumed_seals
+            .get(&key)
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    /// Get all seals consumed by a specific Right.
+    pub fn get_seals_for_right(&self, right_id: &RightId) -> Vec<SealConsumption> {
+        self.right_consumption_map
+            .get(&right_id.0)
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    /// Get all known chains.
+    pub fn known_chains(&self) -> Vec<&ChainId> {
+        self.known_chains.iter().collect()
+    }
+
+    /// Get total number of unique seals tracked.
+    pub fn total_seals(&self) -> usize {
+        self.consumed_seals.len()
+    }
+
+    /// Get number of double-spend incidents detected.
+    pub fn double_spend_count(&self) -> usize {
+        self.consumed_seals
+            .values()
+            .filter(|consumptions| consumptions.len() > 1)
+            .count()
+    }
+
+    /// Get bloom filter statistics.
+    pub fn bloom_stats(&self) -> crate::performance::FilterStats {
+        self.bloom_filter.stats()
+    }
+
+    /// Clear the status cache.
+    pub fn clear_cache(&mut self) {
+        self.status_cache.clear();
+    }
+
+    /// Pre-populate the bloom filter from existing seals.
+    pub fn rebuild_bloom_filter(&mut self) {
+        let capacity = self.consumed_seals.len().max(1000);
+        let mut new_filter = crate::performance::BloomFilter::new(capacity, 0.01);
+
+        for key in self.consumed_seals.keys() {
+            let seal_hash = Hash::new(
+                key.as_slice()
+                    .try_into()
+                    .unwrap_or_else(|_| {
+                        let mut arr = [0u8; 32];
+                        let len = key.len().min(32);
+                        arr[..len].copy_from_slice(&key[..len]);
+                        arr
+                    }),
+            );
+            new_filter.insert(&seal_hash);
+        }
+
+        self.bloom_filter = new_filter;
+    }
+}
+
+#[cfg(feature = "std")]
+impl Default for OptimizedCrossChainSealRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -377,5 +704,126 @@ mod tests {
         registry.record_consumption(c1).unwrap();
 
         assert_eq!(registry.known_chains().len(), 1);
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    fn test_optimized_registry_basic() {
+        let mut registry = OptimizedCrossChainSealRegistry::new();
+        let right_id = RightId(Hash::new([0xCD; 32]));
+        let consumption = make_consumption(ChainId::Bitcoin, vec![0x01], right_id);
+
+        assert!(registry.record_consumption(consumption).is_ok());
+        assert_eq!(registry.total_seals(), 1);
+        assert_eq!(registry.double_spend_count(), 0);
+
+        // Check bloom filter stats
+        let stats = registry.bloom_stats();
+        assert!(stats.bit_count > 0);
+        assert!(stats.hash_count > 0);
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    fn test_optimized_registry_bloom_filter_negative_lookup() {
+        let mut registry = OptimizedCrossChainSealRegistry::new();
+        let seal = SealRef::new(vec![0x99], None).unwrap();
+
+        // Check unconsumed seal - should be O(1) via bloom filter
+        let status = registry.check_seal_status(&seal);
+        assert!(matches!(status, SealStatus::Unconsumed));
+
+        // Bloom filter should have been checked
+        let stats = registry.bloom_stats();
+        assert!(stats.bit_count > 0);
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    fn test_optimized_registry_double_spend_detection() {
+        let mut registry = OptimizedCrossChainSealRegistry::new();
+        let right_id = RightId(Hash::new([0xCD; 32]));
+        let seal_bytes = vec![0x01];
+
+        // Consume on Bitcoin
+        let c1 = make_consumption(ChainId::Bitcoin, seal_bytes.clone(), right_id.clone());
+        registry.record_consumption(c1).unwrap();
+
+        // Try same-chain double spend
+        let c2 = make_consumption(ChainId::Bitcoin, seal_bytes.clone(), right_id.clone());
+        let result = registry.record_consumption(c2);
+        assert!(result.is_err());
+
+        // Try cross-chain double spend
+        let c3 = make_consumption(ChainId::Ethereum, seal_bytes, right_id);
+        let result = registry.record_consumption(c3);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.is_cross_chain);
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    fn test_optimized_registry_status_caching() {
+        let mut registry = OptimizedCrossChainSealRegistry::new();
+        let right_id = RightId(Hash::new([0xCD; 32]));
+        let seal = SealRef::new(vec![0x01], None).unwrap();
+
+        // First check (cache miss)
+        let _ = registry.check_seal_status(&seal);
+
+        // Record consumption
+        let c1 = make_consumption(ChainId::Bitcoin, vec![0x01], right_id);
+        registry.record_consumption(c1).unwrap();
+
+        // Second check (should hit cache now)
+        let _ = registry.check_seal_status(&seal);
+
+        // Clear cache and verify
+        registry.clear_cache();
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    fn test_optimized_registry_is_seal_consumed() {
+        let mut registry = OptimizedCrossChainSealRegistry::new();
+        let right_id = RightId(Hash::new([0xCD; 32]));
+        let seal = SealRef::new(vec![0x01], None).unwrap();
+
+        // Not consumed yet - bloom filter should give O(1) negative result
+        assert!(!registry.is_seal_consumed(&seal));
+
+        // Consume it
+        let c1 = make_consumption(ChainId::Bitcoin, vec![0x01], right_id);
+        registry.record_consumption(c1).unwrap();
+
+        // Now consumed
+        assert!(registry.is_seal_consumed(&seal));
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    fn test_optimized_registry_rebuild_bloom_filter() {
+        let mut registry = OptimizedCrossChainSealRegistry::new();
+
+        // Add some seals
+        for i in 0..100u8 {
+            let right_id = RightId(Hash::new([i; 32]));
+            let c = make_consumption(ChainId::Bitcoin, vec![i], right_id);
+            registry.record_consumption(c).unwrap();
+        }
+
+        // Rebuild bloom filter
+        registry.rebuild_bloom_filter();
+
+        // Verify all seals still detectable
+        for i in 0..100u8 {
+            let seal = SealRef::new(vec![i], None).unwrap();
+            assert!(registry.is_seal_consumed(&seal), "Seal {} should be consumed", i);
+        }
+
+        // Verify unconsumed seal still returns false
+        let unconsumed = SealRef::new(vec![0xFF], None).unwrap();
+        assert!(!registry.is_seal_consumed(&unconsumed));
     }
 }

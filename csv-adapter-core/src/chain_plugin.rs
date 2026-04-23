@@ -431,6 +431,7 @@ mod tests {
                 rpc_endpoints: vec![],
                 program_id: None,
                 block_explorer_urls: vec![],
+                start_block: 0,
                 capabilities: ChainCapabilities {
                     supports_nfts: true,
                     supports_smart_contracts: false,
@@ -505,6 +506,7 @@ mod tests {
                 rpc_endpoints: vec![],
                 program_id: None,
                 block_explorer_urls: vec![],
+                start_block: 0,
                 capabilities: ChainCapabilities {
                     supports_nfts: true,
                     supports_smart_contracts: false,

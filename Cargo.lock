@@ -2180,6 +2180,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bloomfilter"
+version = "3.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1f6d7f06817e48ea4e17532fa61bc4e8b9a101437f0623f69d2ea54284f3a817"
+dependencies = [
+ "siphasher 1.0.2",
+]
+
+[[package]]
 name = "blst"
 version = "0.3.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3148,6 +3157,7 @@ dependencies = [
  "async-trait",
  "bincode",
  "bitcoin 0.30.3",
+ "bloomfilter",
  "ed25519-dalek",
  "hex",
  "proptest",

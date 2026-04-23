@@ -1,29 +1,25 @@
 
 Q1 2026:
 
-Q1-1 Typed error classes with suggestions
-
-Q1-2 Seal registry performance optimization
-
 Q1-00 Wallet encryption + BIP-39 support + mnemonic recovery + common security and known attack vectors mitigation for dioxus web (specially local storage, cookies, session storage), desktop and mobile versions
 
-Q1-3 TypeScript SDK (core APIs) — npm install @csv-adapter/sdk
-Q1-4 Supply chain provenance app 
-Q1-4 Cross-chain subscription app
-Q1-6 Cross-chain NFT app
-Q1-7 create-csv-app scaffolding
-Q1-8 TypeScript SDK chain providers 
-Q1-9 WASM bindings for browser 
+Q1-03 TypeScript SDK (core APIs) — npm install @csv-adapter/sdk
+Q1-08 TypeScript SDK chain providers 
+Q1-04 Supply chain provenance app 
+Q1-05 Cross-chain subscription app
+Q1-06 Cross-chain NFT app
+Q1-16 DeFi applications (lending, DEX, yield aggregation, insurance)
+Q1-07 create-csv-app scaffolding
+
+Q1-09 WASM bindings for browser 
 
 Q1-10 Multi-sig wallet support
-Q1-11 ZK proof verification 
-Q1-12 Post-quantum signatures
+Q1-11 Zero-Knowledge Proofs and ZK proof verification 
+Q1-12 CSV Post-quantum signatures
 Q1-13 Fraud proof system
-Q1-14 MPC Wallet
+Q1-14 SMPC Wallet
 Q1-15 ZK-STARK support
 
-Q1-16 DeFi applications (lending, DEX, yield aggregation, insurance)
-Q1-17 Zero-Knowledge Proofs - Excluded per user request
 Q1-18 Advanced Privacy Features - Confidential transactions, private right ownership, anonymous transfers, privacy-preserving audit trails
 
 Q1-19 RGB asset import 

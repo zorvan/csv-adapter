@@ -154,6 +154,10 @@ pub use traits::AnchorLayer;
 // Cross-chain transfer
 pub use client::{ValidationClient, ValidationResult};
 pub use cross_chain::{CrossChainLockEvent, CrossChainRegistry, CrossChainRegistryEntry};
+pub use seal_registry::{
+    ChainId, CrossChainSealRegistry, DoubleSpendError, OptimizedCrossChainSealRegistry,
+    SealConsumption, SealStatus,
+};
 
 // ===========================================================================
 // Re-exports: Beta API (may receive additive changes)
@@ -188,6 +192,10 @@ pub use transition::Transition;
 
 // Cross-cutting (Phase 10)
 pub use monitor::{PendingPublication, PublicationTracker, ReorgEvent, ReorgMonitor};
+pub use performance::{
+    BloomFilter, CacheStats, FilterStats, PerformanceMetrics, PerformanceStats, ProofCache,
+    SealRegistryFilter, SequentialVerifier, VerificationResult,
+};
 pub use store::{AnchorRecord, InMemorySealStore, SealRecord, SealStore, StoreError};
 
 // Chain adapter system (Beta API)

@@ -30,6 +30,7 @@ async-trait = "0.1"
 bitcoin = { version = "0.30", optional = true }
 secp256k1 = { version = "0.28", features = ["rand-std"] }
 ed25519-dalek = { version = "2.0", features = ["rand_core"] }
+bloomfilter = { version = "3.0", default-features = false }
 
 [features]
 default = ["std"]

@@ -118,50 +118,47 @@ pub struct CacheStats {
     pub size: usize,
 }
 
-/// Bloom filter for fast seal registry lookups
+/// Thread-safe bloom filter for fast seal registry lookups
 pub struct SealRegistryFilter {
-    filter: Arc<RwLock<bloomfilter::Bloom>>,
-    false_positive_rate: f64,
+    filter: Arc<RwLock<BloomFilter>>,
 }
 
 impl SealRegistryFilter {
     /// Create a new bloom filter with specified capacity and false positive rate
     pub fn new(capacity: usize, false_positive_rate: f64) -> Self {
-        let filter = bloomfilter::Bloom::new(capacity, false_positive_rate);
         Self {
-            filter: Arc::new(RwLock::new(filter)),
-            false_positive_rate,
+            filter: Arc::new(RwLock::new(BloomFilter::new(capacity, false_positive_rate))),
         }
     }
 
     /// Check if a seal hash might exist in the registry
     pub fn might_contain(&self, hash: &Hash) -> bool {
         let filter = self.filter.read().unwrap();
-        filter.contains(hash)
+        filter.might_contain(hash)
     }
 
     /// Add a seal hash to the filter
     pub fn insert(&self, hash: &Hash) {
         let mut filter = self.filter.write().unwrap();
-        filter.set(hash);
+        filter.insert(hash);
     }
 
     /// Add multiple seal hashes to the filter
     pub fn insert_batch(&self, hashes: &[Hash]) {
         let mut filter = self.filter.write().unwrap();
-        for hash in hashes {
-            filter.set(hash);
-        }
+        filter.insert_batch(hashes);
     }
 
     /// Get filter statistics
     pub fn stats(&self) -> FilterStats {
         let filter = self.filter.read().unwrap();
-        FilterStats {
-            bit_count: filter.bit_count(),
-            hash_count: filter.hash_count(),
-            false_positive_rate: self.false_positive_rate,
-        }
+        filter.stats()
+    }
+
+    /// Clear the filter
+    pub fn clear(&self) {
+        let mut filter = self.filter.write().unwrap();
+        filter.clear();
     }
 }
 
@@ -311,43 +308,69 @@ pub struct PerformanceStats {
     pub filter_stats: FilterStats,
 }
 
-/// Simple bloom filter implementation (placeholder - would use real crate)
-mod bloomfilter {
-    use super::Hash;
+/// Bloom filter wrapper using the bloomfilter crate for O(1) negative lookups
+pub struct BloomFilter {
+    filter: bloomfilter::Bloom<[u8]>,
+    capacity: usize,
+    false_positive_rate: f64,
+}
 
-    pub struct Bloom {
-        bits: Vec<bool>,
-        hash_count: usize,
+impl BloomFilter {
+    /// Create a new bloom filter with specified capacity and false positive rate
+    pub fn new(capacity: usize, false_positive_rate: f64) -> Self {
+        // bloomfilter 3.0 requires a seed and returns Result
+        let filter = bloomfilter::Bloom::new_for_fp_rate_with_seed(
+            capacity,
+            false_positive_rate,
+            &[0u8; 32], // Default seed for deterministic behavior
+        )
+        .expect("Invalid bloom filter parameters: capacity must be > 0, fp_rate must be 0 < rate < 1");
+        Self {
+            filter,
+            capacity,
+            false_positive_rate,
+        }
     }
 
-    impl Bloom {
-        pub fn new(capacity: usize, _false_positive_rate: f64) -> Self {
-            let bit_count = (capacity as f64 * 2.0).ceil() as usize;
-            Self {
-                bits: vec![false; bit_count],
-                hash_count: 3,
-            }
-        }
+    /// Check if a hash might exist in the filter
+    pub fn might_contain(&self, hash: &Hash) -> bool {
+        self.filter.check(hash.as_slice())
+    }
 
-        pub fn set(&mut self, _item: &Hash) {
-            // Placeholder implementation
-            let hash = Hash::zero();
-            let index = (hash.as_slice()[0] as usize) % self.bits.len();
-            self.bits[index] = true;
-        }
+    /// Add a hash to the filter
+    pub fn insert(&mut self, hash: &Hash) {
+        self.filter.set(hash.as_slice());
+    }
 
-        pub fn contains(&self, _item: &Hash) -> bool {
-            // Placeholder implementation
-            true
+    /// Add multiple hashes to the filter
+    pub fn insert_batch(&mut self, hashes: &[Hash]) {
+        for hash in hashes {
+            self.insert(hash);
         }
+    }
 
-        pub fn bit_count(&self) -> usize {
-            self.bits.len()
+    /// Get filter statistics
+    pub fn stats(&self) -> FilterStats {
+        FilterStats {
+            bit_count: bloomfilter::Bloom::<[u8]>::compute_bitmap_size(self.capacity, self.false_positive_rate),
+            hash_count: self.filter.number_of_hash_functions() as usize,
+            false_positive_rate: self.false_positive_rate,
         }
+    }
 
-        pub fn hash_count(&self) -> usize {
-            self.hash_count
-        }
+    /// Clear the filter
+    pub fn clear(&mut self) {
+        self.filter.clear();
+    }
+
+    /// Get number of items added (approximate)
+    pub fn len(&self) -> usize {
+        self.filter.len() as usize
+    }
+
+    /// Check if filter is empty
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }
 
