@@ -47,135 +47,249 @@ pub trait HasErrorSuggestion {
 /// These codes follow the pattern: COMPONENT_NUMBER (e.g., CORE_001, BTC_001)
 pub mod error_codes {
     // Core adapter errors (CORE_001 - CORE_099)
+    /// Seal replay attack detected.
     pub const CORE_SEAL_REPLAY: &str = "CORE_001";
+    /// Invalid seal provided.
     pub const CORE_INVALID_SEAL: &str = "CORE_002";
+    /// Commitment mismatch error.
     pub const CORE_COMMITMENT_MISMATCH: &str = "CORE_003";
+    /// Inclusion proof verification failed.
     pub const CORE_INCLUSION_PROOF_FAILED: &str = "CORE_004";
+    /// Finality not reached on chain.
     pub const CORE_FINALITY_NOT_REACHED: &str = "CORE_005";
+    /// Invalid reorganization detected.
     pub const CORE_REORG_INVALID: &str = "CORE_006";
+    /// Network communication error.
     pub const CORE_NETWORK_ERROR: &str = "CORE_007";
+    /// Failed to publish transaction.
     pub const CORE_PUBLISH_FAILED: &str = "CORE_008";
+    /// Serialization or deserialization error.
     pub const CORE_SERIALIZATION_ERROR: &str = "CORE_009";
+    /// Invalid configuration.
     pub const CORE_INVALID_CONFIG: &str = "CORE_010";
+    /// Version mismatch detected.
     pub const CORE_VERSION_MISMATCH: &str = "CORE_011";
+    /// Domain separator mismatch.
     pub const CORE_DOMAIN_SEPARATOR_MISMATCH: &str = "CORE_012";
+    /// Signature verification failed.
     pub const CORE_SIGNATURE_VERIFICATION_FAILED: &str = "CORE_013";
+    /// Generic core error.
     pub const CORE_GENERIC: &str = "CORE_099";
 
     // Bitcoin adapter errors (BTC_001 - BTC_099)
+    /// Bitcoin RPC error.
     pub const BTC_RPC_ERROR: &str = "BTC_001";
+    /// Bitcoin transaction not found.
     pub const BTC_TRANSACTION_NOT_FOUND: &str = "BTC_002";
+    /// Bitcoin UTXO already spent.
     pub const BTC_UTXO_SPENT: &str = "BTC_003";
+    /// Invalid Bitcoin Merkle proof.
     pub const BTC_INVALID_MERKLE_PROOF: &str = "BTC_004";
+    /// Bitcoin registry full.
     pub const BTC_REGISTRY_FULL: &str = "BTC_005";
+    /// Bitcoin reorganization detected.
     pub const BTC_REORG_DETECTED: &str = "BTC_006";
+    /// Insufficient Bitcoin confirmations.
     pub const BTC_INSUFFICIENT_CONFIRMATIONS: &str = "BTC_007";
 
     // Ethereum adapter errors (ETH_001 - ETH_099)
+    /// Ethereum RPC error.
     pub const ETH_RPC_ERROR: &str = "ETH_001";
+    /// Ethereum storage slot already used.
     pub const ETH_SLOT_USED: &str = "ETH_002";
+    /// Invalid Ethereum receipt proof.
     pub const ETH_INVALID_RECEIPT_PROOF: &str = "ETH_003";
+    /// Ethereum reorganization detected.
     pub const ETH_REORG_DETECTED: &str = "ETH_004";
+    /// Insufficient Ethereum confirmations.
     pub const ETH_INSUFFICIENT_CONFIRMATIONS: &str = "ETH_005";
 
     // Sui adapter errors (SUI_001 - SUI_099)
+    /// Sui RPC error.
     pub const SUI_RPC_ERROR: &str = "SUI_001";
+    /// Sui object already used.
     pub const SUI_OBJECT_USED: &str = "SUI_002";
+    /// Sui state proof failed.
     pub const SUI_STATE_PROOF_FAILED: &str = "SUI_003";
+    /// Sui event proof failed.
     pub const SUI_EVENT_PROOF_FAILED: &str = "SUI_004";
+    /// Sui checkpoint failed.
     pub const SUI_CHECKPOINT_FAILED: &str = "SUI_005";
+    /// Sui transaction failed.
     pub const SUI_TRANSACTION_FAILED: &str = "SUI_006";
+    /// Sui serialization error.
     pub const SUI_SERIALIZATION_ERROR: &str = "SUI_007";
+    /// Sui confirmation timeout.
     pub const SUI_CONFIRMATION_TIMEOUT: &str = "SUI_008";
+    /// Sui reorganization detected.
     pub const SUI_REORG_DETECTED: &str = "SUI_009";
+    /// Sui network mismatch.
     pub const SUI_NETWORK_MISMATCH: &str = "SUI_010";
 
     // Aptos adapter errors (APT_001 - APT_099)
+    /// Aptos RPC error.
     pub const APT_RPC_ERROR: &str = "APT_001";
+    /// Aptos resource already used.
     pub const APT_RESOURCE_USED: &str = "APT_002";
+    /// Aptos state proof failed.
     pub const APT_STATE_PROOF_FAILED: &str = "APT_003";
+    /// Aptos event proof failed.
     pub const APT_EVENT_PROOF_FAILED: &str = "APT_004";
+    /// Aptos checkpoint failed.
     pub const APT_CHECKPOINT_FAILED: &str = "APT_005";
+    /// Aptos transaction failed.
     pub const APT_TRANSACTION_FAILED: &str = "APT_006";
+    /// Aptos serialization error.
     pub const APT_SERIALIZATION_ERROR: &str = "APT_007";
+    /// Aptos confirmation timeout.
     pub const APT_CONFIRMATION_TIMEOUT: &str = "APT_008";
+    /// Aptos reorganization detected.
     pub const APT_REORG_DETECTED: &str = "APT_009";
+    /// Aptos network mismatch.
     pub const APT_NETWORK_MISMATCH: &str = "APT_010";
 
     // Solana adapter errors (SOL_001 - SOL_099)
+    /// Solana RPC error.
     pub const SOL_RPC_ERROR: &str = "SOL_001";
+    /// Solana transaction error.
     pub const SOL_TRANSACTION_ERROR: &str = "SOL_002";
+    /// Solana account not found.
     pub const SOL_ACCOUNT_NOT_FOUND: &str = "SOL_003";
+    /// Solana invalid program ID.
     pub const SOL_INVALID_PROGRAM_ID: &str = "SOL_004";
+    /// Solana invalid instruction.
     pub const SOL_INVALID_INSTRUCTION: &str = "SOL_005";
+    /// Solana insufficient funds.
     pub const SOL_INSUFFICIENT_FUNDS: &str = "SOL_006";
+    /// Solana network error.
     pub const SOL_NETWORK_ERROR: &str = "SOL_007";
+    /// Solana serialization error.
     pub const SOL_SERIALIZATION_ERROR: &str = "SOL_008";
+    /// Solana deserialization error.
     pub const SOL_DESERIALIZATION_ERROR: &str = "SOL_009";
+    /// Solana keypair error.
     pub const SOL_KEYPAIR_ERROR: &str = "SOL_010";
+    /// Solana wallet error.
     pub const SOL_WALLET_ERROR: &str = "SOL_011";
+    /// Solana commitment error.
     pub const SOL_COMMITMENT_ERROR: &str = "SOL_012";
+    /// Solana seal creation error.
     pub const SOL_SEAL_CREATION_ERROR: &str = "SOL_013";
+    /// Solana anchor creation error.
     pub const SOL_ANCHOR_CREATION_ERROR: &str = "SOL_014";
+    /// Solana proof generation error.
     pub const SOL_PROOF_GENERATION_ERROR: &str = "SOL_015";
+    /// Solana invalid input.
     pub const SOL_INVALID_INPUT: &str = "SOL_016";
 
     // Wallet errors (WALLET_001 - WALLET_099)
+    /// Wallet encryption failed.
     pub const WALLET_ENCRYPTION_FAILED: &str = "WALLET_001";
+    /// Wallet decryption failed.
     pub const WALLET_DECRYPTION_FAILED: &str = "WALLET_002";
+    /// Wallet invalid password.
     pub const WALLET_INVALID_PASSWORD: &str = "WALLET_003";
+    /// Wallet key invalid format.
     pub const WALLET_KEY_INVALID_FORMAT: &str = "WALLET_004";
+    /// Wallet key derivation failed.
     pub const WALLET_KEY_DERIVATION_FAILED: &str = "WALLET_005";
+    /// Wallet signing failed.
     pub const WALLET_SIGNING_FAILED: &str = "WALLET_006";
+    /// Wallet storage not found.
     pub const WALLET_STORAGE_NOT_FOUND: &str = "WALLET_007";
+    /// Wallet storage serialization error.
     pub const WALLET_STORAGE_SERIALIZATION: &str = "WALLET_008";
+    /// Wallet seal not found.
     pub const WALLET_SEAL_NOT_FOUND: &str = "WALLET_009";
+    /// Wallet asset not found.
     pub const WALLET_ASSET_NOT_FOUND: &str = "WALLET_010";
+    /// Wallet asset invalid data.
     pub const WALLET_ASSET_INVALID_DATA: &str = "WALLET_011";
+    /// Wallet chain API HTTP error.
     pub const WALLET_CHAIN_API_HTTP: &str = "WALLET_012";
+    /// Wallet chain API JSON error.
     pub const WALLET_CHAIN_API_JSON: &str = "WALLET_013";
+    /// Wallet chain API invalid address.
     pub const WALLET_CHAIN_API_INVALID_ADDRESS: &str = "WALLET_014";
+    /// Wallet chain API error.
     pub const WALLET_CHAIN_API_ERROR: &str = "WALLET_015";
+    /// Wallet browser storage error.
     pub const WALLET_BROWSER_STORAGE: &str = "WALLET_016";
+    /// Wallet native signer error.
     pub const WALLET_NATIVE_SIGNER_ERROR: &str = "WALLET_017";
+    /// Wallet seal service error.
     pub const WALLET_SEAL_SERVICE_ERROR: &str = "WALLET_018";
 
     // Explorer errors (EXP_001 - EXP_099)
+    /// Explorer I/O error.
     pub const EXP_IO_ERROR: &str = "EXP_001";
+    /// Explorer TOML error.
     pub const EXP_TOML_ERROR: &str = "EXP_002";
+    /// Explorer JSON error.
     pub const EXP_JSON_ERROR: &str = "EXP_003";
+    /// Explorer database error.
     pub const EXP_DATABASE_ERROR: &str = "EXP_004";
+    /// Explorer migration error.
     pub const EXP_MIGRATION_ERROR: &str = "EXP_005";
+    /// Explorer entity not found.
     pub const EXP_ENTITY_NOT_FOUND: &str = "EXP_006";
+    /// Explorer HTTP error.
     pub const EXP_HTTP_ERROR: &str = "EXP_007";
+    /// Explorer RPC error.
     pub const EXP_RPC_ERROR: &str = "EXP_008";
+    /// Explorer RPC parse error.
     pub const EXP_RPC_PARSE_ERROR: &str = "EXP_009";
+    /// Explorer indexer stopped.
     pub const EXP_INDEXER_STOPPED: &str = "EXP_010";
+    /// Explorer block error.
     pub const EXP_BLOCK_ERROR: &str = "EXP_011";
+    /// Explorer chain reorganization.
     pub const EXP_CHAIN_REORG: &str = "EXP_012";
+    /// Explorer GraphQL error.
     pub const EXP_GRAPHQL_ERROR: &str = "EXP_013";
+    /// Explorer HTTP server error.
     pub const EXP_HTTP_SERVER_ERROR: &str = "EXP_014";
+    /// Explorer hex decode error.
     pub const EXP_HEX_DECODE_ERROR: &str = "EXP_015";
+    /// Explorer parse error.
     pub const EXP_PARSE_ERROR: &str = "EXP_016";
+    /// Explorer internal error.
     pub const EXP_INTERNAL_ERROR: &str = "EXP_017";
 
     // Meta-crate errors (CSV_001 - CSV_099)
+    /// CSV chain not supported.
     pub const CSV_CHAIN_NOT_SUPPORTED: &str = "CSV_001";
+    /// CSV insufficient funds.
     pub const CSV_INSUFFICIENT_FUNDS: &str = "CSV_002";
+    /// CSV invalid right ID.
     pub const CSV_INVALID_RIGHT_ID: &str = "CSV_003";
+    /// CSV right not found.
     pub const CSV_RIGHT_NOT_FOUND: &str = "CSV_004";
+    /// CSV transfer not found.
     pub const CSV_TRANSFER_NOT_FOUND: &str = "CSV_005";
+    /// CSV right already consumed.
     pub const CSV_RIGHT_ALREADY_CONSUMED: &str = "CSV_006";
+    /// CSV invalid commitment.
     pub const CSV_INVALID_COMMITMENT: &str = "CSV_007";
+    /// CSV proof verification failed.
     pub const CSV_PROOF_VERIFICATION_FAILED: &str = "CSV_008";
+    /// CSV wallet error.
     pub const CSV_WALLET_ERROR: &str = "CSV_009";
+    /// CSV network error.
     pub const CSV_NETWORK_ERROR: &str = "CSV_010";
+    /// CSV serialization error.
     pub const CSV_SERIALIZATION_ERROR: &str = "CSV_011";
+    /// CSV config error.
     pub const CSV_CONFIG_ERROR: &str = "CSV_012";
+    /// CSV store error.
     pub const CSV_STORE_ERROR: &str = "CSV_013";
+    /// CSV builder error.
     pub const CSV_BUILDER_ERROR: &str = "CSV_014";
+    /// CSV event stream error.
     pub const CSV_EVENT_STREAM_ERROR: &str = "CSV_015";
+    /// CSV adapter error.
     pub const CSV_ADAPTER_ERROR: &str = "CSV_016";
+    /// CSV generic error.
     pub const CSV_GENERIC: &str = "CSV_099";
 
     /// Generate a documentation URL for an error code.

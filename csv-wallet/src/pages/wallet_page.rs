@@ -63,6 +63,7 @@ pub fn WalletPage() -> Element {
                 div { class: "flex gap-1 overflow-x-auto",
                     for tab in tabs {
                         button {
+                            key: "{tab}",
                             onclick: move |_| active_tab.set(tab),
                             class: "px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap",
                             class: if active_tab() == tab { "bg-blue-600 text-white" } else { "text-gray-400 hover:text-gray-200 hover:bg-gray-800" },
@@ -107,7 +108,7 @@ fn AccountsTab() -> Element {
     rsx! {
         div { class: "space-y-6",
             for chain in supported_wallet_chains() {
-                ChainAccountsSection { chain }
+                ChainAccountsSection { key: "{chain}", chain }
             }
         }
     }
@@ -128,7 +129,7 @@ fn ChainAccountsSection(chain: Chain) -> Element {
             children: rsx! {
                 div { class: "space-y-2",
                     for account in chain_accounts {
-                        ChainAccountRow { account: account.clone(), wallet_ctx: wallet_ctx.clone() }
+                        ChainAccountRow { key: "{account.id}", account: account.clone(), wallet_ctx: wallet_ctx.clone() }
                     }
                 }
             }

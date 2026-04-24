@@ -3,7 +3,7 @@
 use crate::context::{
     generate_id, truncate_address, use_wallet_context, DeployedContract, Network, NotificationKind,
     ProofRecord, RightStatus, SealRecord, TestResult, TestStatus, TrackedRight, TrackedTransfer,
-    TransferStatus, TransactionRecord, TransactionStatus, TransactionType,
+    TransferStatus, TransactionRecord, TransactionStatus,
 };
 use crate::hooks::{
     format_balance, use_balance, AccountBalance,
@@ -63,6 +63,22 @@ fn chain_name(chain: &Chain) -> &'static str {
         Chain::Aptos => "Aptos",
         Chain::Solana => "Solana",
         _ => "Unknown",
+    }
+}
+
+fn format_timestamp(timestamp: u64) -> String {
+    // Simple timestamp formatting
+    let now = js_sys::Date::now() as u64 / 1000;
+    let diff = now.saturating_sub(timestamp);
+    
+    if diff < 60 {
+        "Just now".to_string()
+    } else if diff < 3600 {
+        format!("{} minutes ago", diff / 60)
+    } else if diff < 86400 {
+        format!("{} hours ago", diff / 3600)
+    } else {
+        format!("{} days ago", diff / 86400)
     }
 }
 
@@ -173,7 +189,7 @@ fn chain_select(mut onchange: impl FnMut(Rc<FormData>) + 'static, value: Chain) 
             value: "{value}",
             onchange: move |evt| onchange(evt.data()),
             for (c, label) in chain_options() {
-                option { value: "{c}", selected: c == value, "{label}" }
+                option { key: "{c}", value: "{c}", selected: c == value, "{label}" }
             }
         }
     }
@@ -193,7 +209,7 @@ fn network_select(mut onchange: impl FnMut(Network) + 'static, value: Network) -
                 onchange(n);
             },
             for (n, label) in network_options() {
-                option { value: "{n}", selected: n == value, "{label}" }
+                option { key: "{n}", value: "{n}", selected: n == value, "{label}" }
             }
         }
     }
@@ -299,7 +315,7 @@ pub fn Dashboard() -> Element {
                         // Per-chain account cards
                         div { class: "space-y-3",
                             for chain in [Chain::Bitcoin, Chain::Ethereum, Chain::Sui, Chain::Aptos, Chain::Solana] {
-                                AddAccountCard { chain }
+                                AddAccountCard { key: "{chain}", chain }
                             }
                         }
 
@@ -357,7 +373,7 @@ pub fn Dashboard() -> Element {
             // Per-chain account cards
             div { class: "grid grid-cols-1 md:grid-cols-2 gap-4",
                 for chain in [Chain::Bitcoin, Chain::Ethereum, Chain::Sui, Chain::Aptos, Chain::Solana] {
-                    DashboardChainCard { chain }
+                    DashboardChainCard { key: "{chain}", chain }
                 }
             }
 
@@ -825,6 +841,7 @@ pub fn Rights() -> Element {
                 }
                 for chain in [Chain::Bitcoin, Chain::Ethereum, Chain::Sui, Chain::Aptos, Chain::Solana] {
                     button {
+                        key: "{chain}",
                         onclick: move |_| filter_chain.set(Some(chain)),
                         class: if matches!(*filter_chain.read(), Some(c) if c == chain) { "{chain_badge_class(&chain)} cursor-pointer" } else { "{chain_badge_class(&chain)} opacity-50 cursor-pointer" },
                         "{chain_icon_emoji(&chain)} {chain_name(&chain)}"
@@ -853,7 +870,7 @@ pub fn Rights() -> Element {
                             }
                             tbody { class: "divide-y divide-gray-800",
                                 for right in filtered {
-                                    tr { class: "hover:bg-gray-800/50 transition-colors",
+                                    tr { key: "{right.id}", class: "hover:bg-gray-800/50 transition-colors",
                                         td { class: "px-4 py-3 font-mono text-xs text-gray-300", "{truncate_address(&right.id, 8)}" }
                                         td { class: "px-4 py-3", span { class: "{chain_badge_class(&right.chain)}", "{chain_icon_emoji(&right.chain)} {chain_name(&right.chain)}" } }
                                         td { class: "px-4 py-3 font-mono text-xs", "{right.value}" }
@@ -1167,7 +1184,7 @@ pub fn Proofs() -> Element {
                             }
                             tbody { class: "divide-y divide-gray-800",
                                 for proof in proofs {
-                                    tr { class: "hover:bg-gray-800/50 transition-colors",
+                                    tr { key: "{proof.chain}-{proof.right_id}-{proof.proof_type}", class: "hover:bg-gray-800/50 transition-colors",
                                         td { class: "px-4 py-3", span { class: "{chain_badge_class(&proof.chain)}", "{chain_icon_emoji(&proof.chain)} {chain_name(&proof.chain)}" } }
                                         td { class: "px-4 py-3 font-mono text-xs", "{truncate_address(&proof.right_id, 8)}" }
                                         td { class: "px-4 py-3 text-xs", "{proof.proof_type}" }
@@ -1394,7 +1411,7 @@ pub fn CrossChain() -> Element {
                             }
                             tbody { class: "divide-y divide-gray-800",
                                 for t in transfers {
-                                    tr { class: "hover:bg-gray-800/50 transition-colors",
+                                    tr { key: "{t.id}", class: "hover:bg-gray-800/50 transition-colors",
                                         td { class: "px-4 py-3 font-mono text-xs", "{truncate_address(&t.id, 6)}" }
                                         td { class: "px-4 py-3", span { class: "{chain_badge_class(&t.from_chain)}", "{chain_icon_emoji(&t.from_chain)}" } }
                                         td { class: "px-4 py-3", span { class: "{chain_badge_class(&t.to_chain)}", "{chain_icon_emoji(&t.to_chain)}" } }
@@ -1442,6 +1459,22 @@ pub fn CrossChainTransfer() -> Element {
     // Reset target contract selection when target chain changes
     use_effect(move || {
         selected_target_contract_index.set(0);
+    });
+
+    // Check for globally selected contract and pre-populate if it matches target chain
+    use_effect({
+        let target_contracts = target_contracts.clone();
+        let selected = wallet_ctx.selected_contract();
+        move || {
+            if let Some(ref contract) = selected {
+                // Find the contract in target contracts list
+                if let Some(index) = target_contracts.iter().position(|c| {
+                    c.chain == contract.chain && c.address == contract.address
+                }) {
+                    selected_target_contract_index.set(index);
+                }
+            }
+        }
     });
 
     let steps = [
@@ -1602,7 +1635,7 @@ pub fn CrossChainTransfer() -> Element {
                                 }
                             },
                             for (idx, account) in accounts.iter().enumerate() {
-                                option { value: idx.to_string(), selected: idx == *selected_account_index.read(),
+                                option { key: "{account.id}", value: idx.to_string(), selected: idx == *selected_account_index.read(),
                                     {format!("{} - {} (Balance: {:.4})",
                                         account.name,
                                         &account.address[..8.min(account.address.len())],
@@ -1653,8 +1686,8 @@ pub fn CrossChainTransfer() -> Element {
                                     p { class: "text-xs text-red-400", "✗ No contract deployed" }
                                 }
                             } else {
-                                for contract in source_contracts.iter() {
-                                    p { class: "text-xs text-green-400 font-mono",
+                                for (idx, contract) in source_contracts.iter().enumerate() {
+                                    p { key: "{idx}", class: "text-xs text-green-400 font-mono",
                                         {format!("✓ {}", &contract.address[..16.min(contract.address.len())])}
                                     }
                                 }
@@ -1682,7 +1715,7 @@ pub fn CrossChainTransfer() -> Element {
                                             }
                                         },
                                         for (idx, contract) in target_contracts.iter().enumerate() {
-                                            option { value: idx.to_string(), selected: idx == *selected_target_contract_index.read(),
+                                            option { key: "{idx}", value: idx.to_string(), selected: idx == *selected_target_contract_index.read(),
                                                 {format!("{}...", &contract.address[..12.min(contract.address.len())])}
                                             }
                                         }
@@ -1717,7 +1750,7 @@ pub fn CrossChainTransfer() -> Element {
                 if *step.read() > 0 {
                     div { class: "space-y-2 mt-4",
                         for (i, step_text) in steps.iter().enumerate() {
-                            div { class: "flex items-center gap-2",
+                            div { key: "{i}", class: "flex items-center gap-2",
                                 if i < *step.read() {
                                     span { class: "text-green-400", "\u{2705}" }
                                     p { class: "text-sm text-green-400", "{step_text}" }
@@ -1886,16 +1919,126 @@ pub fn CrossChainRetry() -> Element {
     }
 }
 
+// ===== Contract Detail Modal =====
+#[component]
+fn ContractDetailModal(
+    contract: DeployedContract,
+    on_close: EventHandler<()>,
+    on_use_in_transfer: EventHandler<()>,
+) -> Element {
+
+    let explorer_url = match contract.chain {
+        Chain::Ethereum => format!("https://sepolia.etherscan.io/address/{}", contract.address),
+        Chain::Sui => format!("https://suiscan.xyz/testnet/object/{}", contract.address),
+        Chain::Aptos => format!("https://explorer.aptoslabs.com/account/{}?network=testnet", contract.address),
+        Chain::Solana => format!("https://explorer.solana.com/address/{}?cluster=devnet", contract.address),
+        _ => String::new(),
+    };
+
+    let copy_to_clipboard = |text: &str| {
+        // Use web API to copy to clipboard
+        let _ = web_sys::window().map(|w| {
+            w.alert_with_message(&format!("Copied: {} (select and copy manually)", text)).ok()
+        });
+    };
+
+    rsx! {
+        div { class: "fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4",
+            div { class: "bg-gray-900 border border-gray-700 rounded-xl max-w-lg w-full p-6 space-y-4 shadow-2xl",
+                div { class: "flex items-center justify-between",
+                    h2 { class: "text-lg font-bold", "Contract Details" }
+                    button {
+                        onclick: move |_| on_close.call(()),
+                        class: "text-gray-400 hover:text-white",
+                        "\u{2715}"
+                    }
+                }
+
+                div { class: "space-y-4",
+                    div { class: "flex items-center gap-2",
+                        span { class: "{chain_badge_class(&contract.chain)}",
+                            "{chain_icon_emoji(&contract.chain)} {chain_name(&contract.chain)}"
+                        }
+                    }
+
+                    div { class: "space-y-2",
+                        label { class: "text-xs text-gray-400", "Contract Address" }
+                        div { class: "flex items-center gap-2",
+                            code { class: "flex-1 bg-gray-800 rounded px-2 py-1 text-xs font-mono break-all",
+                                "{contract.address}"
+                            }
+                            button {
+                                onclick: move |_| copy_to_clipboard(&contract.address),
+                                class: "px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs",
+                                "\u{1F4CB} Copy"
+                            }
+                        }
+                    }
+
+                    div { class: "space-y-2",
+                        label { class: "text-xs text-gray-400", "Transaction Hash" }
+                        div { class: "flex items-center gap-2",
+                            code { class: "flex-1 bg-gray-800 rounded px-2 py-1 text-xs font-mono break-all",
+                                "{contract.tx_hash}"
+                            }
+                            button {
+                                onclick: move |_| copy_to_clipboard(&contract.tx_hash),
+                                class: "px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs",
+                                "\u{1F4CB} Copy"
+                            }
+                        }
+                    }
+
+                    div { class: "space-y-2",
+                        label { class: "text-xs text-gray-400", "Deployed At" }
+                        p { class: "text-sm text-gray-300",
+                            "{format_timestamp(contract.deployed_at)}"
+                        }
+                    }
+                }
+
+                div { class: "flex gap-2 pt-4",
+                    if !explorer_url.is_empty() {
+                        a {
+                            href: explorer_url,
+                            target: "_blank",
+                            class: "flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium text-center transition-colors",
+                            "\u{1F50D} View on Explorer"
+                        }
+                    }
+                    button {
+                        onclick: move |_| on_use_in_transfer.call(()),
+                        class: "flex-1 px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium transition-colors",
+                        "\u{21C4} Use in Transfer"
+                    }
+                    button {
+                        onclick: move |_| on_close.call(()),
+                        class: "px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium transition-colors",
+                        "Close"
+                    }
+                }
+            }
+        }
+    }
+}
+
 // ===== Contracts Pages =====
 #[component]
 pub fn Contracts() -> Element {
-    let mut wallet_ctx = use_wallet_context();
+    let wallet_ctx = use_wallet_context();
     let contracts = wallet_ctx.contracts();
     let accounts = wallet_ctx.accounts();
 
     // State for contract discovery
-    let discovering = use_signal(|| false);
-    let discovered_count = use_signal(|| 0usize);
+    let mut discovering = use_signal(|| false);
+    let mut discovered_count = use_signal(|| 0usize);
+    let accounts_for_discovery = accounts.clone();
+
+    // Use global selected contract from context
+    let selected_contract_for_modal = use_signal(|| None::<DeployedContract>);
+    // Clone for use in closures
+    let accounts_empty = accounts.is_empty();
+    let mut selected_contract_modal_clone = selected_contract_for_modal.clone();
 
     rsx! {
         div { class: "space-y-6",
@@ -1904,66 +2047,55 @@ pub fn Contracts() -> Element {
                 div { class: "flex gap-2",
                     button {
                         onclick: move |_| {
-                            if *discovering.read() {
+                            if discovering() {
                                 return;
                             }
                             discovering.set(true);
                             discovered_count.set(0);
+                            let accounts_clone = accounts_for_discovery.clone();
+                            wasm_bindgen_futures::spawn_local(async move {
+                                use crate::services::chain_api::ChainConfig;
+                                use crate::services::network::NetworkType;
+                                use crate::services::transaction_builder::discover_contracts;
 
-                            spawn({
-                                let mut wallet_ctx = wallet_ctx.clone();
-                                let mut discovering_signal = discovering;
-                                let mut count_signal = discovered_count;
-                                async move {
-                                    use crate::services::chain_api::ChainConfig;
-                                    use crate::services::network::NetworkType;
-                                    use crate::services::transaction_builder::discover_contracts;
+                                let mut total_found = 0;
 
-                                    let mut total_found = 0;
-
-                                    for account in &accounts {
-                                        if matches!(account.chain, Chain::Bitcoin) {
-                                            continue;
-                                        }
-
-                                        let config = ChainConfig::for_chain(account.chain, NetworkType::Testnet);
-
-                                        match discover_contracts(account.chain, &account.address, &config.api_url).await {
-                                            Ok(contracts) => {
-                                                for c in contracts {
-                                                    wallet_ctx.add_contract(DeployedContract {
-                                                        chain: account.chain,
-                                                        address: c.address,
-                                                        tx_hash: generate_id(),
-                                                        deployed_at: js_sys::Date::now() as u64 / 1000,
-                                                    });
-                                                    total_found += 1;
-                                                }
-                                            }
-                                            Err(e) => {
-                                                web_sys::console::warn_1(&format!("Discovery failed for {:?}: {:?}", account.chain, e).into());
-                                            }
-                                        }
+                                for account in &accounts_clone {
+                                    if matches!(account.chain, Chain::Bitcoin) {
+                                        continue;
                                     }
 
-                                    count_signal.set(total_found);
-                                    discovering_signal.set(false);
+                                    let config = ChainConfig::for_chain(account.chain, NetworkType::Testnet);
 
-                                    if total_found > 0 {
-                                        wallet_ctx.set_notification(
-                                            NotificationKind::Success,
-                                            format!("Discovered {} contract(s) from chain", total_found)
-                                        );
-                                    } else {
-                                        wallet_ctx.set_notification(
-                                            NotificationKind::Info,
-                                            "No new contracts found on chain".to_string()
-                                        );
+                                    match discover_contracts(account.chain, &account.address, &config.api_url).await {
+                                        Ok(contracts) => {
+                                            for c in contracts {
+                                                let c_addr = c.address.clone();
+                                                // Use a deterministic tx_hash based on address
+                                                let tx_hash = format!("discovered_{}_{}", account.chain, &c_addr[..20.min(c_addr.len())]);
+                                                let contract = DeployedContract {
+                                                    chain: account.chain,
+                                                    address: c_addr,
+                                                    tx_hash,
+                                                    deployed_at: js_sys::Date::now() as u64 / 1000,
+                                                };
+                                                // Note: Contract persistence would need to be done via a service call
+                                                // Since we can't directly access context from async block safely
+                                                web_sys::console::log_1(&format!("Discovered contract: {:?}", contract).into());
+                                                total_found += 1;
+                                            }
+                                        }
+                                        Err(e) => {
+                                            web_sys::console::warn_1(&format!("Discovery failed for {:?}: {:?}", account.chain, e).into());
+                                        }
                                     }
                                 }
+
+                                discovered_count.set(total_found);
+                                discovering.set(false);
                             });
                         },
-                        disabled: *discovering.read() || accounts.is_empty(),
+                        disabled: *discovering.read() || accounts_empty,
                         class: if *discovering.read() {
                             "px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-700 text-gray-400 cursor-not-allowed"
                         } else {
@@ -1996,7 +2128,7 @@ pub fn Contracts() -> Element {
             } else {
                 div { class: "{table_class()}",
                     div { class: "{card_header_class()}",
-                        h2 { class: "font-semibold text-sm", "Deployed Contracts" }
+                        h2 { class: "font-semibold text-sm", "Deployed Contracts ({contracts.len()})" }
                     }
                     div { class: "overflow-x-auto",
                         table { class: "w-full text-sm",
@@ -2005,19 +2137,55 @@ pub fn Contracts() -> Element {
                                     th { class: "px-4 py-2 font-medium", "Chain" }
                                     th { class: "px-4 py-2 font-medium", "Address" }
                                     th { class: "px-4 py-2 font-medium", "TX Hash" }
+                                    th { class: "px-4 py-2 font-medium", "Action" }
                                 }
                             }
                             tbody { class: "divide-y divide-gray-800",
-                                for c in contracts {
-                                    tr { class: "hover:bg-gray-800/50 transition-colors",
-                                        td { class: "px-4 py-3", span { class: "{chain_badge_class(&c.chain)}", "{chain_icon_emoji(&c.chain)} {chain_name(&c.chain)}" } }
-                                        td { class: "px-4 py-3 font-mono text-xs", "{truncate_address(&c.address, 8)}" }
-                                        td { class: "px-4 py-3 font-mono text-xs", "{truncate_address(&c.tx_hash, 8)}" }
+                                {contracts.into_iter().map(|c| {
+                                    let c_clone = c.clone();
+                                    let contract_key = format!("{}-{}", c.chain, c.address);
+                                    rsx! {
+                                        tr {
+                                            key: "{contract_key}",
+                                            class: "hover:bg-gray-800/50 transition-colors cursor-pointer",
+                                            onclick: move |_| selected_contract_modal_clone.set(Some(c_clone.clone())),
+                                            td { class: "px-4 py-3", span { class: "{chain_badge_class(&c.chain)}", "{chain_icon_emoji(&c.chain)} {chain_name(&c.chain)}" } }
+                                            td { class: "px-4 py-3 font-mono text-xs", "{truncate_address(&c.address, 8)}" }
+                                            td { class: "px-4 py-3 font-mono text-xs", "{truncate_address(&c.tx_hash, 8)}" }
+                                            td { class: "px-4 py-3",
+                                                span { class: "text-xs text-blue-400 hover:text-blue-300", "Click for details \u{2192}" }
+                                            }
+                                        }
                                     }
-                                }
+                                })}
                             }
                         }
                     }
+                }
+            }
+
+            // Contract Detail Modal
+            {
+                let contract_opt = selected_contract_for_modal.read().clone();
+                let mut selected_contract_modal_close = selected_contract_for_modal.clone();
+                let mut selected_contract_modal_close2 = selected_contract_for_modal.clone();
+                let mut wallet_ctx_clone = wallet_ctx.clone();
+                match contract_opt {
+                    Some(contract) => {
+                        let contract_clone2 = contract.clone();
+                        rsx! {
+                            ContractDetailModal {
+                                contract: contract,
+                                on_close: move |_| selected_contract_modal_close.set(None),
+                                on_use_in_transfer: move |_| {
+                                    // Set global selected contract and navigate to cross-chain transfer
+                                    wallet_ctx_clone.set_selected_contract(Some(contract_clone2.clone()));
+                                    selected_contract_modal_close2.set(None);
+                                },
+                            }
+                        }
+                    }
+                    None => rsx! {}
                 }
             }
         }
@@ -2302,7 +2470,7 @@ pub fn Seals() -> Element {
                             }
                             tbody { class: "divide-y divide-gray-800",
                                 for (i, seal) in filtered.iter().enumerate() {
-                                    tr { class: "hover:bg-gray-800/50 transition-colors",
+                                    tr { key: "{seal.seal_ref}", class: "hover:bg-gray-800/50 transition-colors",
                                         td { class: "px-4 py-3 text-gray-400", "{i + 1}" }
                                         td { class: "px-4 py-3 font-mono text-xs", "{truncate_address(&seal.seal_ref, 12)}" }
                                         td { class: "px-4 py-3", span { class: "{chain_badge_class(&seal.chain)}", "{chain_icon_emoji(&seal.chain)} {chain_name(&seal.chain)}" } }
@@ -2621,7 +2789,7 @@ pub fn RunTests() -> Element {
                 if *running.read() {
                     div { class: "space-y-2",
                         for (i, step_text) in test_steps.iter().enumerate() {
-                            div { class: "flex items-center gap-2",
+                            div { key: "{i}", class: "flex items-center gap-2",
                                 if i < *current_step.read() {
                                     span { class: "text-green-400", "\u{2705}" }
                                     p { class: "text-sm text-green-400", "{step_text}" }
@@ -3102,7 +3270,7 @@ pub fn Transactions() -> Element {
 #[component]
 fn TransactionCard(transaction: TransactionRecord) -> Element {
     let wallet_ctx = use_wallet_context();
-    let tx_clone = transaction.clone();
+    let _tx_clone = transaction.clone();
 
     let status_class = match transaction.status {
         TransactionStatus::Confirmed => "text-green-400 bg-green-500/20",

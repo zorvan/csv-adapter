@@ -67,6 +67,15 @@ pub enum WalletAction {
     },
     /// List wallets
     List,
+    /// Set or get address for a chain
+    Address {
+        /// Chain name
+        #[arg(value_enum)]
+        chain: Chain,
+        /// Address to set (if not provided, shows current address)
+        #[arg(value_name = "ADDRESS")]
+        address: Option<String>,
+    },
 }
 
 pub fn execute(action: WalletAction, config: &Config, state: &mut State) -> Result<()> {
@@ -82,6 +91,7 @@ pub fn execute(action: WalletAction, config: &Config, state: &mut State) -> Resu
         WalletAction::Export { chain, format } => cmd_export(chain, format, config, state),
         WalletAction::Import { chain, secret } => cmd_import(chain, secret, config, state),
         WalletAction::List => cmd_list(config, state),
+        WalletAction::Address { chain, address } => cmd_address(chain, address, state),
     }
 }
 
@@ -1201,4 +1211,29 @@ fn fetch_balance(chain: Chain, addr: &str, config: &Config) -> Result<String> {
             }
         }
     }
+}
+
+/// Set or get address for a chain
+fn cmd_address(chain: Chain, address: Option<String>, state: &mut State) -> Result<()> {
+    match address {
+        Some(addr) => {
+            // Set the address
+            state.store_address(chain.clone(), addr.clone());
+            output::success(&format!("Stored address for {}: {}", chain, addr));
+            output::info(&format!("You can now use 'csv contract fetch --chain {}' to discover contracts", chain));
+        }
+        None => {
+            // Get the address
+            match state.get_address(&chain) {
+                Some(addr) => {
+                    output::info(&format!("Address for {}: {}", chain, addr));
+                }
+                None => {
+                    output::warning(&format!("No address configured for {}", chain));
+                    output::info(&format!("Use 'csv wallet address {} <ADDRESS>' to set an address", chain));
+                }
+            }
+        }
+    }
+    Ok(())
 }

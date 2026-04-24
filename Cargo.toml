@@ -51,7 +51,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 prometheus = "0.13"
 lazy_static = "1.4"
 clap = { version = "4", features = ["derive"] }
-hex = "0.4"
+hex = "0.4.3"
 sha3 = "0.10"
 thiserror = "1.0"
 anyhow = "1.0"

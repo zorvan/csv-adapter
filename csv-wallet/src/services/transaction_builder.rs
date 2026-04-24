@@ -414,6 +414,7 @@ pub async fn discover_contracts(
         Chain::Sui => discover_sui_contracts(address, rpc_url).await,
         Chain::Aptos => discover_aptos_contracts(address, rpc_url).await,
         Chain::Ethereum => discover_ethereum_contracts(address, rpc_url).await,
+        Chain::Solana => discover_solana_contracts(address, rpc_url).await,
         _ => Ok(Vec::new()), // Bitcoin doesn't have contracts
     }
 }
@@ -434,14 +435,16 @@ pub enum ContractType {
     Unknown,
 }
 
-/// Discover Sui packages owned by address
+/// Discover Sui packages published by address
+/// Looks for UpgradeCap and Publisher objects to find actual package IDs
 async fn discover_sui_contracts(
     address: &str,
     rpc_url: &str,
 ) -> Result<Vec<DiscoveredContract>, BlockchainError> {
     let client = reqwest::Client::new();
-    
-    // Query for objects owned by address
+    let mut contracts = Vec::new();
+
+    // Query for UpgradeCap objects - these indicate published packages
     let body = serde_json::json!({
         "jsonrpc": "2.0",
         "method": "suix_getOwnedObjects",
@@ -449,101 +452,140 @@ async fn discover_sui_contracts(
             address,
             {
                 "filter": {
-                    "MatchNone": [{"Package": {}}]  // Exclude packages themselves
+                    "StructType": "0x2::package::UpgradeCap"
                 },
                 "options": {
                     "showType": true,
                     "showContent": true,
-                    "showDisplay": true
+                    "showDisplay": false
                 }
             }
         ],
         "id": 1
     });
-    
+
     let response = client.post(rpc_url)
         .json(&body)
         .send()
         .await
         .map_err(|e| BlockchainError {
-            message: format!("Failed to query Sui objects: {}", e),
+            message: format!("Failed to query Sui packages: {}", e),
             chain: Some(Chain::Sui),
             code: None,
         })?;
-    
+
     let json: serde_json::Value = response.json().await.map_err(|e| BlockchainError {
         message: format!("Failed to parse Sui response: {}", e),
         chain: Some(Chain::Sui),
         code: None,
     })?;
-    
-    let mut contracts = Vec::new();
-    
+
     if let Some(data) = json.get("result").and_then(|r| r.get("data")).and_then(|d| d.as_array()) {
         for obj in data {
-            if let Some(obj_type) = obj.get("data").and_then(|d| d.get("type")).and_then(|t| t.as_str()) {
-                // Look for CSV-related object types
-                if obj_type.contains("csv_seal") || obj_type.contains("Anchor") {
-                    let object_id = obj.get("data")
-                        .and_then(|d| d.get("objectId"))
-                        .and_then(|o| o.as_str())
-                        .unwrap_or("unknown");
-                    
-                    contracts.push(DiscoveredContract {
-                        address: object_id.to_string(),
-                        contract_type: ContractType::Lock,
-                        description: format!("CSV Seal object: {}", obj_type),
-                    });
+            // Extract package ID from the UpgradeCap's content.fields.package
+            if let Some(content) = obj.get("data").and_then(|d| d.get("content")) {
+                if let Some(fields) = content.get("fields") {
+                    if let Some(package_id) = fields.get("package").and_then(|p| p.as_str()) {
+                        contracts.push(DiscoveredContract {
+                            address: package_id.to_string(),
+                            contract_type: ContractType::Package,
+                            description: "Published Sui package".to_string(),
+                        });
+                    }
                 }
             }
         }
     }
-    
+
+    // Also check for Publisher objects
+    let body2 = serde_json::json!({
+        "jsonrpc": "2.0",
+        "method": "suix_getOwnedObjects",
+        "params": [
+            address,
+            {
+                "filter": {
+                    "StructType": "0x2::package::Publisher"
+                },
+                "options": {
+                    "showType": true,
+                    "showContent": true
+                }
+            }
+        ],
+        "id": 2
+    });
+
+    let response2 = client.post(rpc_url)
+        .json(&body2)
+        .send()
+        .await;
+
+    if let Ok(resp) = response2 {
+        if let Ok(json2) = resp.json::<serde_json::Value>().await {
+            if let Some(data) = json2.get("result").and_then(|r| r.get("data")).and_then(|d| d.as_array()) {
+                for obj in data {
+                    if let Some(content) = obj.get("data").and_then(|d| d.get("content")) {
+                        if let Some(fields) = content.get("fields") {
+                            if let Some(package_id) = fields.get("package").and_then(|p| p.as_str()) {
+                                if !contracts.iter().any(|c| c.address == package_id) {
+                                    contracts.push(DiscoveredContract {
+                                        address: package_id.to_string(),
+                                        contract_type: ContractType::Package,
+                                        description: "Published Sui package".to_string(),
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     Ok(contracts)
 }
 
-/// Discover Aptos modules/resources for address
+/// Discover Aptos modules at address
+/// Returns the address itself if it has modules deployed (it's a contract address)
 async fn discover_aptos_contracts(
     address: &str,
     rpc_url: &str,
 ) -> Result<Vec<DiscoveredContract>, BlockchainError> {
     let client = reqwest::Client::new();
-    
-    // Query resources for account
-    let url = format!("{}/v1/accounts/{}/resources", rpc_url.trim_end_matches('/'), address);
-    
-    let response = client.get(&url)
-        .send()
-        .await
-        .map_err(|e| BlockchainError {
-            message: format!("Failed to query Aptos resources: {}", e),
-            chain: Some(Chain::Aptos),
-            code: None,
-        })?;
-    
-    let json: serde_json::Value = response.json().await.map_err(|e| BlockchainError {
-        message: format!("Failed to parse Aptos response: {}", e),
-        chain: Some(Chain::Aptos),
-        code: None,
-    })?;
-    
     let mut contracts = Vec::new();
-    
-    if let Some(resources) = json.as_array() {
-        for resource in resources {
-            if let Some(type_str) = resource.get("type").and_then(|t| t.as_str()) {
-                // Look for CSV-related resource types
-                if type_str.contains("csv_seal") || type_str.contains("Anchor") {
+
+    // Query modules published at this address
+    let modules_url = format!("{}/v1/accounts/{}/modules", rpc_url.trim_end_matches('/'), address);
+
+    let response = client.get(&modules_url).send().await;
+
+    if let Ok(resp) = response {
+        if resp.status().is_success() {
+            let json: serde_json::Value = resp.json().await.unwrap_or_default();
+
+            if let Some(modules) = json.as_array() {
+                if !modules.is_empty() {
+                    // The address itself has modules deployed - this IS a contract address
+                    let module_names: Vec<String> = modules
+                        .iter()
+                        .filter_map(|m| m.get("abi").and_then(|a| a.get("name")).and_then(|n| n.as_str()))
+                        .map(|s| s.to_string())
+                        .take(5) // Limit to first 5 modules
+                        .collect();
+
                     contracts.push(DiscoveredContract {
                         address: address.to_string(),
-                        contract_type: ContractType::Lock,
-                        description: format!("CSV resource: {}", type_str),
+                        contract_type: ContractType::Unknown,
+                        description: format!("Contract with {} module(s): {}",
+                            modules.len(),
+                            module_names.join(", ")),
                     });
                 }
             }
         }
     }
-    
+
     Ok(contracts)
 }
 
@@ -587,6 +629,69 @@ async fn discover_ethereum_contracts(
                 address: address.to_string(),
                 contract_type: ContractType::Unknown,
                 description: format!("Smart contract ({} bytes)", (code.len() - 2) / 2),
+            });
+        }
+    }
+    
+    Ok(contracts)
+}
+
+/// Discover Solana programs
+async fn discover_solana_contracts(
+    address: &str,
+    rpc_url: &str,
+) -> Result<Vec<DiscoveredContract>, BlockchainError> {
+    use web_sys::console;
+    
+    let client = reqwest::Client::new();
+    
+    // Query for account info to check if it's a program
+    let body = serde_json::json!({
+        "jsonrpc": "2.0",
+        "method": "getAccountInfo",
+        "params": [address, {"encoding": "jsonParsed"}],
+        "id": 1
+    });
+    
+    console::log_1(&format!("Discovering Solana program at: {}", address).into());
+    
+    let response = client
+        .post(rpc_url)
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| BlockchainError {
+            message: format!("Failed to query Solana account: {}", e),
+            chain: Some(Chain::Solana),
+            code: None,
+        })?;
+    
+    let json: serde_json::Value = response
+        .json()
+        .await
+        .map_err(|e| BlockchainError {
+            message: format!("Failed to parse Solana response: {}", e),
+            chain: Some(Chain::Solana),
+            code: None,
+        })?;
+    
+    let mut contracts = Vec::new();
+    
+    // Check if this is a program (executable account)
+    if let Some(owner) = json
+        .get("result")
+        .and_then(|r| r.get("value"))
+        .and_then(|v| v.get("owner"))
+        .and_then(|o| o.as_str())
+    {
+        console::log_1(&format!("Solana account owner: {}", owner).into());
+        
+        // BPFLoader accounts indicate programs
+        if owner.contains("BPFLoader") {
+            contracts.push(DiscoveredContract {
+                address: address.to_string(),
+                contract_type: ContractType::Unknown,
+                description: "Solana program (BPF Loader)".to_string(),
             });
         }
     }

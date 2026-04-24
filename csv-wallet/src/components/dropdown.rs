@@ -7,7 +7,6 @@ use dioxus::prelude::*;
 fn DropdownOption<T: PartialEq + Clone + std::fmt::Display + 'static>(
     option: T,
     selected_str: String,
-    idx: usize,
     on_change: EventHandler<T>,
     on_close: EventHandler<()>,
 ) -> Element {
@@ -15,7 +14,6 @@ fn DropdownOption<T: PartialEq + Clone + std::fmt::Display + 'static>(
 
     rsx! {
         button {
-            key: "{idx}",
             onclick: move |_: MouseEvent| {
                 on_change.call(option.clone());
                 on_close.call(());
@@ -57,7 +55,6 @@ pub fn Dropdown<T: PartialEq + Clone + std::fmt::Display + 'static>(
                             key: "{idx}",
                             option,
                             selected_str: selected_str.clone(),
-                            idx,
                             on_change: on_change,
                             on_close: move |_| is_open.set(false),
                         }

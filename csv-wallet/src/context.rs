@@ -98,7 +98,7 @@ impl std::fmt::Display for TransferStatus {
 }
 
 /// A deployed contract.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct DeployedContract {
     pub chain: Chain,
     pub address: String,
@@ -341,6 +341,7 @@ pub struct WalletContext {
     state: Signal<AppState>,
     store: Option<LocalStorageManager>,
     loaded: Signal<bool>,
+    selected_contract: Signal<Option<DeployedContract>>,
 }
 
 impl PartialEq for WalletContext {
@@ -352,12 +353,17 @@ impl PartialEq for WalletContext {
 
 impl WalletContext {
     /// Create context with localStorage persistence.
-    pub fn new(state: Signal<AppState>, loaded: Signal<bool>) -> Self {
+    pub fn new(
+        state: Signal<AppState>,
+        loaded: Signal<bool>,
+        selected_contract: Signal<Option<DeployedContract>>,
+    ) -> Self {
         let store = storage::wallet_storage().ok();
         let mut ctx = Self {
             state,
             store,
             loaded,
+            selected_contract,
         };
         ctx.load_persisted();
         ctx.loaded.set(true);
@@ -376,6 +382,15 @@ impl WalletContext {
         web_sys::console::log_1(
             &format!("Wallet reloaded. Accounts: {}", self.accounts().len()).into(),
         );
+    }
+
+    // ===== Selected Contract for Transfer =====
+    pub fn selected_contract(&self) -> Option<DeployedContract> {
+        self.selected_contract.read().clone()
+    }
+
+    pub fn set_selected_contract(&mut self, contract: Option<DeployedContract>) {
+        self.selected_contract.set(contract);
     }
 
     // ===== Persistence =====
@@ -707,22 +722,43 @@ impl WalletContext {
 
     // ===== Contracts =====
     pub fn contracts(&self) -> Vec<DeployedContract> {
-        self.state.read().contracts.clone()
+        let contracts = self.state.read().contracts.clone();
+        // Deduplicate by chain+address to prevent Dioxus key errors
+        let mut seen = std::collections::HashSet::new();
+        contracts
+            .into_iter()
+            .filter(|c| {
+                let key = format!("{:?}-{}", c.chain, c.address);
+                seen.insert(key)
+            })
+            .collect()
     }
 
     pub fn contracts_for_chain(&self, chain: Chain) -> Vec<DeployedContract> {
-        self.state
-            .read()
-            .contracts
-            .iter()
+        let contracts = self.state.read().contracts.clone();
+        // Deduplicate by chain+address to prevent Dioxus key errors
+        let mut seen = std::collections::HashSet::new();
+        contracts
+            .into_iter()
             .filter(|c| c.chain == chain)
-            .cloned()
+            .filter(|c| {
+                let key = format!("{:?}-{}", c.chain, c.address);
+                seen.insert(key)
+            })
             .collect()
     }
 
     pub fn add_contract(&mut self, contract: DeployedContract) {
-        self.state.write().contracts.push(contract);
-        self.save_persisted();
+        let mut state = self.state.write();
+        // Check for duplicate by chain+address
+        let is_duplicate = state.contracts.iter().any(|c| {
+            c.chain == contract.chain && c.address == contract.address
+        });
+        if !is_duplicate {
+            state.contracts.push(contract);
+            drop(state); // Drop the lock before calling save_persisted
+            self.save_persisted();
+        }
     }
 
     // ===== Seals =====
@@ -873,7 +909,8 @@ impl WalletContext {
 pub fn WalletProvider(children: Element) -> Element {
     let state = use_signal(AppState::default);
     let loaded = use_signal(|| false);
-    let ctx = use_hook(|| WalletContext::new(state, loaded));
+    let selected_contract = use_signal(|| None);
+    let ctx = use_hook(|| WalletContext::new(state, loaded, selected_contract));
     use_context_provider(|| ctx.clone());
 
     rsx! { { children } }

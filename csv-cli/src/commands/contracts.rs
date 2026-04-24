@@ -13,18 +13,11 @@ use crate::state::{DeployedContract, State};
 #[derive(Debug, Clone)]
 struct DiscoveredContract {
     pub address: String,
-    pub contract_type: ContractType,
+
     pub description: String,
 }
 
 #[derive(Debug, Clone)]
-enum ContractType {
-    Lock,
-    Mint,
-    Package,
-    Program,
-    Unknown,
-}
 
 #[derive(Subcommand)]
 pub enum ContractAction {
@@ -615,11 +608,19 @@ fn cmd_list(state: &State) -> Result<()> {
     let mut rows = Vec::new();
 
     for (chain, contract) in &state.contracts {
+        // Format timestamp as human-readable date
+        let deployed_str = format_timestamp(contract.deployed_at);
+        // Show full tx_hash if it's short, otherwise truncate reasonably
+        let tx_display = if contract.tx_hash.len() <= 25 {
+            contract.tx_hash.clone()
+        } else {
+            format!("{}...", &contract.tx_hash[..22])
+        };
         rows.push(vec![
             format!("{}", chain),
             contract.address.clone(),
-            format!("{}...", &contract.tx_hash[..10.min(contract.tx_hash.len())]),
-            contract.deployed_at.to_string(),
+            tx_display,
+            deployed_str,
         ]);
     }
 
@@ -808,7 +809,7 @@ async fn discover_sui_contracts(
 
                     contracts.push(DiscoveredContract {
                         address: object_id.to_string(),
-                        contract_type: ContractType::Lock,
+                        
                         description: format!("CSV Seal object: {}", obj_type),
                     });
                 }
@@ -849,7 +850,7 @@ async fn discover_aptos_contracts(
                 if type_str.contains("csv_seal") || type_str.contains("Anchor") {
                     contracts.push(DiscoveredContract {
                         address: address.to_string(),
-                        contract_type: ContractType::Lock,
+                        
                         description: format!("CSV resource: {}", type_str),
                     });
                 }
@@ -894,7 +895,7 @@ async fn discover_ethereum_contracts(
             // This is a contract address
             contracts.push(DiscoveredContract {
                 address: address.to_string(),
-                contract_type: ContractType::Unknown,
+                
                 description: format!("Smart contract ({} bytes)", (code.len() - 2) / 2),
             });
         }
@@ -943,11 +944,20 @@ async fn discover_solana_contracts(
         if owner.contains("BPFLoader") {
             contracts.push(DiscoveredContract {
                 address: address.to_string(),
-                contract_type: ContractType::Program,
+                
                 description: "Solana program (BPF Loader)".to_string(),
             });
         }
     }
 
     Ok(contracts)
+}
+
+/// Format Unix timestamp as human-readable date/time
+fn format_timestamp(timestamp: u64) -> String {
+    use std::time::{Duration, UNIX_EPOCH};
+    
+    let datetime = UNIX_EPOCH + Duration::from_secs(timestamp);
+    let datetime = chrono::DateTime::<chrono::Local>::from(datetime);
+    datetime.format("%Y-%m-%d %H:%M:%S").to_string()
 }

@@ -4,7 +4,7 @@ Q1 2026:
 Q1-06 Cross-chain NFT Rust App
 Q1-04 Supply chain provenance Rust App 
 Q1-05 Cross-chain subscription Rust App
-Q1-16 DeFi applications (lending, DEX, yield aggregation, insurance) Rust App
+Q1-16 DeFi applications (lending, DEX, yield aggregation, staking, perpetuals, options, insurance) with the low latency algorithms, Rust App
 Q1-07 create-csv-app scaffolding Rust App
 
 Q1-00 Wallet encryption + BIP-39 support + mnemonic recovery + common security and known attack vectors mitigation for dioxus web (specially local storage, cookies, session storage), desktop and mobile versions
