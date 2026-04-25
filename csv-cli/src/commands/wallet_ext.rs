@@ -1,6 +1,8 @@
 //! Extension commands for csv-wallet integration
 
 use anyhow::Result;
+use csv_adapter_store::unified::WalletAccount;
+
 use crate::config::{Chain, Config};
 use crate::state::UnifiedStateManager;
 use crate::output;
@@ -57,19 +59,33 @@ pub fn cmd_import_csv_wallet(path: Option<String>, config: &Config, state: &mut 
             }
         };
         
-        // Check existing address first, then update
-        let existing = state.get_address(&chain).map(|s| s.to_string());
-        let was_same = existing.as_ref() == Some(&account.address);
+        // Check if account with same ID already exists
+        let existing = state.storage.wallet.accounts.iter()
+            .find(|a| a.id == account.id)
+            .cloned();
+        let was_same = existing.as_ref().map(|e| e.address == account.address).unwrap_or(false);
         
-        // Update address in state
-        state.store_address(chain.clone(), account.address.clone());
+        // Create wallet account with all imported data
+        let wallet_account = WalletAccount {
+            id: account.id.clone(),
+            chain: chain.clone(),
+            name: account.name.clone(),
+            address: account.address.clone(),
+            private_key: Some(account.private_key.clone()),
+            xpub: None,
+            derivation_path: None,
+        };
+        
+        // Store account (preserves multiple accounts per chain)
+        state.set_account(wallet_account);
         
         if was_same {
-            output::info(&format!("{}: {} (already set)", chain, &account.address[..16.min(account.address.len())]));
+            output::info(&format!("{} [{}]: {} (already set)", chain, account.id, &account.address[..16.min(account.address.len())]));
         } else {
-            output::success(&format!("{}: {} -> {}", 
+            output::success(&format!("{} [{}]: {} -> {}", 
                 chain, 
-                existing.as_ref().map(|a| &a[..16.min(a.len())]).unwrap_or("none"),
+                account.id,
+                existing.as_ref().map(|a| &a.address[..16.min(a.address.len())]).unwrap_or("none"),
                 &account.address[..16.min(account.address.len())]
             ));
             if existing.is_some() {

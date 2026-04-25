@@ -77,12 +77,12 @@ fn cmd_create(chain: Chain, value: Option<u64>, _config: &Config, state: &mut Un
     let right_id = Hash::new(right_id_bytes);
 
     let tracked = RightRecord {
-        id: right_id.to_string(),
+        id: right_id.to_hex(),
         chain: chain.clone(),
         seal_ref: String::new(), // Would come from adapter
         owner: String::new(),    // Would come from wallet
         value: value.unwrap_or(0),
-        commitment: right_id.to_string(),
+        commitment: right_id.to_hex(),
         nullifier: None,
         status: RightStatus::Active,
         created_at: std::time::SystemTime::now()

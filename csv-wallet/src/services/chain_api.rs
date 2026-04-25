@@ -33,8 +33,9 @@ impl ChainConfig {
         let is_testnet = network.is_testnet();
         let api_url = match chain {
             Chain::Bitcoin => {
+                // Use signet for testnet (consistent with csv-cli)
                 if is_testnet {
-                    "https://mempool.space/testnet/api".to_string()
+                    "https://mempool.space/signet/api".to_string()
                 } else {
                     "https://mempool.space/api".to_string()
                 }
