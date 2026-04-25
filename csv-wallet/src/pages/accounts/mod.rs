@@ -2,9 +2,12 @@
 
 use crate::context::types::{RightStatus, TransferStatus};
 use crate::context::use_wallet_context;
+use crate::hooks::{format_balance, use_balance, AccountBalance};
 use crate::pages::common::*;
 use crate::routes::Route;
+use csv_adapter_core::Chain;
 use dioxus::prelude::*;
+use std::collections::HashMap;
 
 pub mod transactions;
 
@@ -17,6 +20,53 @@ pub fn Dashboard() -> Element {
     let rights = wallet_ctx.rights();
     let transfers = wallet_ctx.transfers();
     let has_wallet = wallet_ctx.is_initialized();
+
+    // Balance state for all accounts
+    let mut account_balances = use_signal(HashMap::<String, AccountBalance>::new);
+    let mut balances_loading = use_signal(|| false);
+
+    // Fetch balances for all accounts when dashboard loads
+    use_effect({
+        let accounts_to_fetch = accounts.clone();
+        move || {
+            if accounts_to_fetch.is_empty() {
+                return;
+            }
+
+            balances_loading.set(true);
+            let accounts_to_fetch = accounts_to_fetch.clone();
+
+            spawn(async move {
+                use crate::services::chain_api::ChainApi;
+                let api = ChainApi::default();
+                let mut balances = HashMap::new();
+
+                for account in accounts_to_fetch {
+                    let balance_result = api.get_balance(account.chain, &account.address).await;
+
+                    let balance = match balance_result {
+                        Ok(b) => b,
+                        Err(_) => 0.0,
+                    };
+                    let error = balance_result.err().map(|e| e.to_string());
+
+                    let balance_data = AccountBalance {
+                        account_id: account.id.clone(),
+                        chain: account.chain,
+                        address: account.address.clone(),
+                        balance,
+                        loading: false,
+                        error,
+                    };
+
+                    balances.insert(account.id.clone(), balance_data);
+                }
+
+                account_balances.set(balances);
+                balances_loading.set(false);
+            });
+        }
+    });
 
     if !has_wallet {
         return rsx! {
@@ -50,20 +100,41 @@ pub fn Dashboard() -> Element {
                 {stat_card("Network", "Testnet", "\u{1F310}")}
             }
 
-            // Chain Addresses Section
+            // Chain Addresses Section with Balances
             if !accounts.is_empty() {
                 div { class: "{card_class()} p-5",
-                    h2 { class: "text-lg font-semibold mb-4", "Your Addresses" }
+                    div { class: "flex items-center justify-between mb-4",
+                        h2 { class: "text-lg font-semibold", "Your Accounts" }
+                        if *balances_loading.read() {
+                            span { class: "text-xs text-gray-400 animate-pulse", "Loading balances..." }
+                        }
+                    }
                     div { class: "space-y-3",
                         for account in accounts {
                             div { key: "{account.id}", class: "flex items-center justify-between p-3 bg-gray-800/50 rounded-lg",
-                                div { class: "flex items-center gap-3",
+                                div { class: "flex items-center gap-3 flex-1",
                                     span { class: "{chain_badge_class(&account.chain)}",
                                         "{chain_icon_emoji(&account.chain)} {chain_name(&account.chain)}"
                                     }
-                                    p { class: "font-mono text-sm text-gray-300", "{truncate_address(&account.address, 12)}" }
+                                    div { class: "flex-1",
+                                        p { class: "font-mono text-sm text-gray-300", "{truncate_address(&account.address, 12)}" }
+                                        // Display balance
+                                        if let Some(balance_data) = account_balances.read().get(&account.id) {
+                                            if balance_data.loading {
+                                                p { class: "text-xs text-gray-500", "Loading..." }
+                                            } else if let Some(ref error) = balance_data.error {
+                                                p { class: "text-xs text-red-400", "Error: {error}" }
+                                            } else {
+                                                p { class: "text-xs text-green-400 font-medium",
+                                                    "{format_balance(balance_data.balance, account.chain)}"
+                                                }
+                                            }
+                                        } else {
+                                            p { class: "text-xs text-gray-500", "Balance: -" }
+                                        }
+                                    }
                                 }
-                                Link { to: Route::AccountTransactions { id: account.id.clone() }, class: "text-xs text-blue-400 hover:text-blue-300",
+                                Link { to: Route::AccountTransactions { id: account.id.clone() }, class: "text-xs text-blue-400 hover:text-blue-300 ml-4",
                                     "View Transactions \u{2192}"
                                 }
                             }

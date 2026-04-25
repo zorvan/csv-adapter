@@ -1,283 +1,280 @@
-//! CLI state management — persistent state across CLI invocations
+//! CLI state management — persistent state using unified storage
 
-use std::collections::HashMap;
 use std::path::Path;
 
-use csv_adapter_core::hash::Hash;
-use serde::{Deserialize, Deserializer, Serialize};
+pub use csv_adapter_store::unified::{
+    Chain, ContractRecord, GasAccount, RightRecord, RightStatus, SealRecord, 
+    TransactionRecord, TransactionStatus, TransactionType,
+    TransferRecord, TransferStatus, UnifiedStorage, WalletAccount,
+};
 
-use crate::config;
-
-/// A Right tracked by the CLI
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TrackedRight {
-    /// Right ID
-    pub id: Hash,
-    /// Chain where this Right is anchored
-    pub chain: config::Chain,
-    /// Seal reference (chain-specific)
-    pub seal_ref: Vec<u8>,
-    /// Current owner
-    pub owner: Vec<u8>,
-    /// Commitment hash
-    pub commitment: Hash,
-    /// Nullifier (if consumed)
-    pub nullifier: Option<Hash>,
-    /// Whether this Right has been consumed
-    pub consumed: bool,
+/// Unified state manager for CLI
+pub struct UnifiedStateManager {
+    pub storage: UnifiedStorage,
+    file_path: String,
 }
 
-/// A cross-chain transfer tracked by the CLI
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TrackedTransfer {
-    /// Transfer ID (hash of source seal + dest chain)
-    pub id: Hash,
-    /// Source chain
-    pub source_chain: config::Chain,
-    /// Destination chain
-    pub dest_chain: config::Chain,
-    /// Right ID being transferred
-    pub right_id: Hash,
-    /// Sender address on source chain
-    pub sender_address: Option<String>,
-    /// Destination owner address
-    pub destination_address: Option<String>,
-    /// Source transaction hash
-    pub source_tx_hash: Option<Hash>,
-    /// Source transaction fee
-    pub source_fee: Option<u64>,
-    /// Destination transaction hash
-    pub dest_tx_hash: Option<Hash>,
-    /// Destination transaction fee
-    pub destination_fee: Option<u64>,
-    /// Destination contract address
-    pub destination_contract: Option<String>,
-    /// Inclusion proof (JSON bytes)
-    pub proof: Option<Vec<u8>>,
-    /// Transfer status
-    pub status: TransferStatus,
-    /// Created timestamp
-    pub created_at: u64,
-    /// Completed timestamp
-    pub completed_at: Option<u64>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum TransferStatus {
-    Initiated,
-    Locked,
-    ProofGenerated,
-    Verified,
-    Minted,
-    Completed,
-    Failed { reason: String },
-}
-
-/// Deployed contract info
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DeployedContract {
-    pub chain: config::Chain,
-    pub address: String,
-    pub tx_hash: String,
-    pub deployed_at: u64,
-}
-
-/// Persistent CLI state
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct State {
-    /// Tracked Rights
-    pub rights: Vec<TrackedRight>,
-    /// Tracked transfers
-    pub transfers: Vec<TrackedTransfer>,
-    /// Deployed contracts (multiple per chain supported)
-    #[serde(default, deserialize_with = "deserialize_contracts")]
-    pub contracts: HashMap<config::Chain, Vec<DeployedContract>>,
-    /// Known addresses per chain
-    pub addresses: HashMap<config::Chain, String>,
-    /// Gas payment accounts per chain
-    #[serde(default)]
-    pub gas_accounts: HashMap<config::Chain, String>,
-    /// Seal consumption registry (simplified)
-    pub consumed_seals: Vec<Vec<u8>>,
-}
-
-/// Backward-compatible contracts deserializer.
-/// Accepts both:
-/// - current format: { "sui": [ { ... } ] }
-/// - legacy format:  { "sui": { ... } }
-fn deserialize_contracts<'de, D>(
-    deserializer: D,
-) -> Result<HashMap<config::Chain, Vec<DeployedContract>>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    use serde::de::Error;
-    use serde_json::Value;
-
-    let raw = HashMap::<config::Chain, Value>::deserialize(deserializer)?;
-    let mut out = HashMap::new();
-
-    for (chain, value) in raw {
-        match value {
-            Value::Array(items) => {
-                let contracts = items
-                    .into_iter()
-                    .map(|v| serde_json::from_value(v).map_err(D::Error::custom))
-                    .collect::<Result<Vec<DeployedContract>, _>>()?;
-                out.insert(chain, contracts);
-            }
-            Value::Object(_) => {
-                let contract: DeployedContract =
-                    serde_json::from_value(value).map_err(D::Error::custom)?;
-                out.insert(chain, vec![contract]);
-            }
-            _ => {
-                return Err(D::Error::custom(
-                    "contracts entries must be an object or array of objects",
-                ));
-            }
-        }
-    }
-
-    Ok(out)
-}
-
-impl State {
-    /// Load state from file
-    pub fn load() -> anyhow::Result<Self> {
-        let path = state_path();
-        if Path::new(&path).exists() {
-            let content = std::fs::read_to_string(&path)?;
-            let state: State = serde_json::from_str(&content)?;
-            Ok(state)
+impl UnifiedStateManager {
+    /// Default storage path
+    pub fn default_path() -> String {
+        if let Some(home) = dirs::home_dir() {
+            home.join(".csv/unified_storage.json").to_string_lossy().to_string()
         } else {
-            let state = State::default();
-            state.save()?;
-            Ok(state)
+            std::env::temp_dir().join("csv-unified-storage.json").to_string_lossy().to_string()
         }
     }
 
-    #[allow(dead_code)]
+    /// Load unified state from file
+    pub fn load() -> anyhow::Result<Self> {
+        let path = Self::default_path();
+        let storage = if Path::new(&path).exists() {
+            let content = std::fs::read_to_string(&path)?;
+            serde_json::from_str(&content)?
+        } else {
+            UnifiedStorage::new().with_defaults()
+        };
+        
+        Ok(Self {
+            storage,
+            file_path: path,
+        })
+    }
+
+    /// Load from a specific path
+    pub fn load_from(path: &str) -> anyhow::Result<Self> {
+        let storage = if Path::new(path).exists() {
+            let content = std::fs::read_to_string(path)?;
+            serde_json::from_str(&content)?
+        } else {
+            UnifiedStorage::new().with_defaults()
+        };
+        
+        Ok(Self {
+            storage,
+            file_path: path.to_string(),
+        })
+    }
+
+    /// Create new with defaults
+    pub fn new() -> Self {
+        Self {
+            storage: UnifiedStorage::new().with_defaults(),
+            file_path: Self::default_path(),
+        }
+    }
+
     /// Save state to file
     pub fn save(&self) -> anyhow::Result<()> {
-        let path = state_path();
-        if let Some(parent) = Path::new(&path).parent() {
+        let path = Path::new(&self.file_path);
+        if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        let content = serde_json::to_string_pretty(self)?;
-        std::fs::write(&path, content)?;
+        let content = serde_json::to_string_pretty(&self.storage)?;
+        std::fs::write(&self.file_path, content)?;
         Ok(())
     }
 
+    // --- Rights Management ---
+    
     /// Add a Right to tracking
-    #[allow(dead_code)]
-    pub fn add_right(&mut self, right: TrackedRight) {
-        self.rights.push(right);
+    pub fn add_right(&mut self, right: RightRecord) {
+        self.storage.rights.push(right);
     }
 
     /// Get a Right by ID
-    pub fn get_right(&self, id: &Hash) -> Option<&TrackedRight> {
-        self.rights.iter().find(|r| r.id == *id)
+    pub fn get_right(&self, id: &str) -> Option<&RightRecord> {
+        self.storage.get_right(id)
     }
 
     /// Mark a Right as consumed
-    #[allow(dead_code)]
-    pub fn consume_right(&mut self, id: &Hash) -> anyhow::Result<()> {
-        let right = self
-            .rights
-            .iter_mut()
-            .find(|r| r.id == *id)
-            .ok_or_else(|| anyhow::anyhow!("Right {:?} not found", id))?;
-        right.consumed = true;
-        Ok(())
-    }
-
-    /// Add a transfer to tracking
-    pub fn add_transfer(&mut self, transfer: TrackedTransfer) {
-        self.transfers.push(transfer);
-    }
-
-    /// Get a transfer by ID
-    pub fn get_transfer(&self, id: &Hash) -> Option<&TrackedTransfer> {
-        self.transfers.iter().find(|t| t.id == *id)
-    }
-
-    /// Update transfer status
-    #[allow(dead_code)]
-    pub fn update_transfer_status(
-        &mut self,
-        id: &Hash,
-        status: TransferStatus,
-    ) -> anyhow::Result<()> {
-        let transfer = self
-            .transfers
-            .iter_mut()
-            .find(|t| t.id == *id)
-            .ok_or_else(|| anyhow::anyhow!("Transfer {:?} not found", id))?;
-        transfer.status = status;
-        Ok(())
-    }
-
-    /// Check if a seal has been consumed
-    pub fn is_seal_consumed(&self, seal_bytes: &[u8]) -> bool {
-        self.consumed_seals.contains(&seal_bytes.to_vec())
-    }
-
-    /// Record a seal consumption
-    pub fn record_seal_consumption(&mut self, seal_bytes: Vec<u8>) {
-        if !self.is_seal_consumed(&seal_bytes) {
-            self.consumed_seals.push(seal_bytes);
+    pub fn consume_right(&mut self, id: &str) -> anyhow::Result<()> {
+        if let Some(right) = self.storage.rights.iter_mut().find(|r| r.id == id) {
+            right.status = RightStatus::Consumed;
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("Right {} not found", id))
         }
     }
 
+    // --- Transfer Management ---
+    
+    /// Add a transfer to tracking
+    pub fn add_transfer(&mut self, transfer: TransferRecord) {
+        self.storage.transfers.push(transfer);
+    }
+
+    /// Get a transfer by ID
+    pub fn get_transfer(&self, id: &str) -> Option<&TransferRecord> {
+        self.storage.get_transfer(id)
+    }
+
+    /// Update transfer status
+    pub fn update_transfer_status(&mut self, id: &str, status: TransferStatus) -> anyhow::Result<()> {
+        if let Some(transfer) = self.storage.transfers.iter_mut().find(|t| t.id == id) {
+            transfer.status = status;
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("Transfer {} not found", id))
+        }
+    }
+
+    // --- Seal Management ---
+    
+    /// Check if a seal has been consumed
+    pub fn is_seal_consumed(&self, seal_ref: &str) -> bool {
+        self.storage.seals.iter().any(|s| s.seal_ref == seal_ref && s.consumed)
+    }
+
+    /// Record a seal consumption
+    pub fn record_seal_consumption(&mut self, seal_ref: String) {
+        if let Some(seal) = self.storage.seals.iter_mut().find(|s| s.seal_ref == seal_ref) {
+            seal.consumed = true;
+        } else {
+            // Create new seal record if not exists
+            // Note: chain and value would need to be provided by caller
+        }
+    }
+
+    /// Add or update a seal
+    pub fn add_seal(&mut self, seal: SealRecord) {
+        if let Some(existing) = self.storage.seals.iter_mut().find(|s| s.seal_ref == seal.seal_ref) {
+            *existing = seal;
+        } else {
+            self.storage.seals.push(seal);
+        }
+    }
+
+    // --- Contract Management ---
+    
     /// Store deployed contract info
-    pub fn store_contract(&mut self, contract: DeployedContract) {
-        self.contracts
-            .entry(contract.chain.clone())
-            .or_insert_with(Vec::new)
-            .push(contract);
+    pub fn store_contract(&mut self, contract: ContractRecord) {
+        // Remove existing contract at same address
+        self.storage.contracts.retain(|c| c.address != contract.address);
+        self.storage.contracts.push(contract);
     }
 
     /// Get all deployed contracts for a chain
-    pub fn get_contracts(&self, chain: &config::Chain) -> Vec<&DeployedContract> {
-        self.contracts
-            .get(chain)
-            .map(|contracts| contracts.iter().collect())
-            .unwrap_or_default()
+    pub fn get_contracts(&self, chain: &Chain) -> Vec<&ContractRecord> {
+        self.storage.get_contracts(chain)
     }
 
-    /// Get the first/primary deployed contract for a chain (for backward compatibility)
-    pub fn get_contract(&self, chain: &config::Chain) -> Option<&DeployedContract> {
-        self.contracts.get(chain).and_then(|contracts| contracts.first())
+    /// Get the first/primary deployed contract for a chain
+    pub fn get_contract(&self, chain: &Chain) -> Option<&ContractRecord> {
+        self.storage.contracts.iter().find(|c| &c.chain == chain)
     }
 
-    /// Store an address for a chain
-    pub fn store_address(&mut self, chain: config::Chain, address: String) {
-        self.addresses.insert(chain, address);
+    // --- Address/Account Management ---
+    
+    /// Store an address for a chain (creates or updates wallet account)
+    pub fn store_address(&mut self, chain: Chain, address: String) {
+        self.storage.set_account(WalletAccount {
+            id: format!("{}-cli", chain),
+            chain,
+            name: format!("{} CLI Account", chain),
+            address,
+            private_key: None,
+            xpub: None,
+            derivation_path: None,
+        });
     }
 
     /// Get address for a chain
-    pub fn get_address(&self, chain: &config::Chain) -> Option<&String> {
-        self.addresses.get(chain)
+    pub fn get_address(&self, chain: &Chain) -> Option<&str> {
+        self.storage.get_account(chain).map(|a| a.address.as_str())
     }
 
     /// Store a gas payment account for a chain
-    pub fn store_gas_account(&mut self, chain: config::Chain, address: String) {
-        self.gas_accounts.insert(chain, address);
+    pub fn store_gas_account(&mut self, chain: Chain, address: String) {
+        // Remove existing
+        self.storage.gas_accounts.retain(|g| g.chain != chain);
+        self.storage.gas_accounts.push(GasAccount { chain, address });
     }
 
     /// Get gas payment account for a chain
     /// Falls back to regular wallet address if no dedicated gas account exists
-    pub fn get_gas_account(&self, chain: &config::Chain) -> Option<&String> {
-        self.gas_accounts.get(chain).or_else(|| self.get_address(chain))
+    pub fn get_gas_account(&self, chain: &Chain) -> Option<&str> {
+        self.storage.get_gas_account(chain)
     }
-}
 
-fn state_path() -> String {
-    let data_dir = if let Some(home) = dirs::home_dir() {
-        home.join(".csv/data")
-    } else {
-        std::env::temp_dir().join("csv-data")
-    };
-    data_dir.join("state.json").to_string_lossy().to_string()
+    // --- Chain Configuration ---
+    
+    /// Get chain configuration
+    pub fn chain_config(&self, chain: &Chain) -> Option<&crate::config::ChainConfig> {
+        self.storage.chains.get(chain)
+    }
+
+    /// Set chain configuration
+    pub fn set_chain_config(&mut self, chain: Chain, config: crate::config::ChainConfig) {
+        self.storage.chains.insert(chain, config);
+    }
+
+    // --- Wallet/Account Access ---
+    
+    /// Get wallet account for a chain
+    pub fn get_account(&self, chain: &Chain) -> Option<&WalletAccount> {
+        self.storage.get_account(chain)
+    }
+
+    /// Set wallet account
+    pub fn set_account(&mut self, account: WalletAccount) {
+        self.storage.set_account(account);
+    }
+
+    /// Export for wallet import
+    pub fn export_json(&self) -> anyhow::Result<String> {
+        Ok(serde_json::to_string_pretty(&self.storage)?)
+    }
+
+    /// Import from wallet export
+    pub fn import_json(&mut self, json: &str) -> anyhow::Result<()> {
+        self.storage = serde_json::from_str(json)?;
+        Ok(())
+    }
+    
+    // --- Transaction Recording ---
+    
+    /// Record a transaction from a transfer
+    pub fn record_transaction_from_transfer(
+        &mut self,
+        transfer: &TransferRecord,
+        tx_type: TransactionType,
+    ) -> TransactionRecord {
+        let tx = TransactionRecord {
+            id: format!("tx-{}-{:x}", transfer.id, std::time::UNIX_EPOCH.elapsed().unwrap_or_default().as_secs()),
+            chain: match tx_type {
+                TransactionType::CrossChainLock => transfer.source_chain.clone(),
+                TransactionType::CrossChainMint => transfer.dest_chain.clone(),
+                _ => transfer.source_chain.clone(),
+            },
+            tx_hash: match tx_type {
+                TransactionType::CrossChainLock | TransactionType::RightTransfer => {
+                    transfer.source_tx_hash.clone().unwrap_or_default()
+                }
+                TransactionType::CrossChainMint => {
+                    transfer.dest_tx_hash.clone().unwrap_or_default()
+                }
+                _ => transfer.source_tx_hash.clone().unwrap_or_default(),
+            },
+            tx_type,
+            status: match transfer.status {
+                TransferStatus::Completed => TransactionStatus::Confirmed,
+                TransferStatus::Failed => TransactionStatus::Failed,
+                _ => TransactionStatus::Pending,
+            },
+            from_address: transfer.sender_address.clone().unwrap_or_default(),
+            to_address: transfer.destination_address.clone(),
+            amount: None,
+            fee: match tx_type {
+                TransactionType::CrossChainLock => transfer.source_fee,
+                TransactionType::CrossChainMint => transfer.dest_fee,
+                _ => transfer.source_fee,
+            },
+            block_number: None,
+            confirmations: None,
+            created_at: transfer.created_at,
+            explorer_url: None,
+        };
+        self.storage.transactions.push(tx.clone());
+        tx
+    }
 }

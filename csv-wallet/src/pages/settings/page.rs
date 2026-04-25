@@ -134,7 +134,7 @@ pub fn Settings() -> Element {
                             onclick: move |_| {
                                 // Clear all localStorage
                                 if let Ok(storage) = crate::storage::wallet_storage() {
-                                    let _ = storage.delete(crate::storage::WALLET_STATE_KEY);
+                                    let _ = storage.delete(crate::storage::UNIFIED_STORAGE_KEY);
                                     let _ = storage.delete(crate::storage::WALLET_MNEMONIC_KEY);
                                 }
                                 ctx_clear.lock();

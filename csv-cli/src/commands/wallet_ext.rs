@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 use crate::config::{Chain, Config};
-use crate::state::State;
+use crate::state::UnifiedStateManager;
 use crate::output;
 
 // ===== csv-wallet JSON format structures =====
@@ -23,7 +23,7 @@ struct CsvWalletAccount {
 }
 
 /// Import full wallet from csv-wallet JSON export
-pub fn cmd_import_csv_wallet(path: Option<String>, config: &Config, state: &mut State) -> Result<()> {
+pub fn cmd_import_csv_wallet(path: Option<String>, config: &Config, state: &mut UnifiedStateManager) -> Result<()> {
     let path = path.unwrap_or_else(|| {
         dirs::home_dir()
             .map(|h| h.join(".csv/wallet/csv-wallet.json").to_string_lossy().to_string())
@@ -88,7 +88,7 @@ pub fn cmd_import_csv_wallet(path: Option<String>, config: &Config, state: &mut 
 }
 
 /// Export wallet to csv-wallet JSON format
-pub fn cmd_export_csv_wallet(output: Option<String>, config: &Config, state: &State) -> Result<()> {
+pub fn cmd_export_csv_wallet(output: Option<String>, config: &Config, state: &UnifiedStateManager) -> Result<()> {
     let output_path = output.unwrap_or_else(|| {
         dirs::home_dir()
             .map(|h| h.join(".csv/wallet/csv-cli-export.json").to_string_lossy().to_string())
@@ -138,7 +138,7 @@ pub fn cmd_export_csv_wallet(output: Option<String>, config: &Config, state: &St
 }
 
 /// Sync with csv-wallet (bidirectional - import addresses from csv-wallet)
-pub fn cmd_sync_csv_wallet(path: Option<String>, config: &Config, state: &mut State) -> Result<()> {
+pub fn cmd_sync_csv_wallet(path: Option<String>, config: &Config, state: &mut UnifiedStateManager) -> Result<()> {
     let path = path.unwrap_or_else(|| {
         dirs::home_dir()
             .map(|h| h.join(".csv/wallet/csv-wallet.json").to_string_lossy().to_string())

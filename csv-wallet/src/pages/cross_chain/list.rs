@@ -34,18 +34,30 @@ pub fn CrossChain() -> Element {
                                     th { class: "px-4 py-2 font-medium", "To" }
                                     th { class: "px-4 py-2 font-medium", "Right ID" }
                                     th { class: "px-4 py-2 font-medium", "Status" }
+                                    th { class: "px-4 py-2 font-medium", "" }
                                 }
                             }
                             tbody { class: "divide-y divide-gray-800",
                                 for (idx, t) in transfers.iter().enumerate() {
                                     tr { key: "{idx}-{t.id}", class: "hover:bg-gray-800/50 transition-colors",
-                                        td { class: "px-4 py-3 font-mono text-xs", "{truncate_address(&t.id, 6)}" }
+                                        td { class: "px-4 py-3",
+                                            Link { to: Route::TransferDetail { id: t.id.clone() },
+                                                class: "font-mono text-xs text-blue-400 hover:text-blue-300",
+                                                "{truncate_address(&t.id, 6)}"
+                                            }
+                                        }
                                         td { class: "px-4 py-3", span { class: "{chain_badge_class(&t.from_chain)}", "{chain_icon_emoji(&t.from_chain)}" } }
                                         td { class: "px-4 py-3", span { class: "{chain_badge_class(&t.to_chain)}", "{chain_icon_emoji(&t.to_chain)}" } }
                                         td { class: "px-4 py-3 font-mono text-xs", "{truncate_address(&t.right_id, 8)}" }
                                         td { class: "px-4 py-3",
                                             span { class: "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {transfer_status_class(&t.status)}",
                                                 "{t.status}"
+                                            }
+                                        }
+                                        td { class: "px-4 py-3",
+                                            Link { to: Route::TransferDetail { id: t.id.clone() },
+                                                class: "text-xs text-blue-400 hover:text-blue-300",
+                                                "View Details \u{2192}"
                                             }
                                         }
                                     }

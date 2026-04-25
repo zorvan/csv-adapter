@@ -8,7 +8,7 @@ use csv_adapter_core::hash::Hash;
 
 use crate::config::{Chain, Config};
 use crate::output;
-use crate::state::{State, TrackedRight};
+use crate::state::{UnifiedStateManager, RightRecord};
 
 #[derive(Subcommand)]
 pub enum RightAction {
@@ -46,7 +46,7 @@ pub enum RightAction {
     },
 }
 
-pub fn execute(action: RightAction, config: &Config, state: &mut State) -> Result<()> {
+pub fn execute(action: RightAction, config: &Config, state: &mut UnifiedStateManager) -> Result<()> {
     match action {
         RightAction::Create { chain, value } => cmd_create(chain, value, config, state),
         RightAction::Show { right_id } => cmd_show(right_id, state),
@@ -56,7 +56,7 @@ pub fn execute(action: RightAction, config: &Config, state: &mut State) -> Resul
     }
 }
 
-fn cmd_create(chain: Chain, value: Option<u64>, _config: &Config, state: &mut State) -> Result<()> {
+fn cmd_create(chain: Chain, value: Option<u64>, _config: &Config, state: &mut UnifiedStateManager) -> Result<()> {
     output::header(&format!("Creating Right on {}", chain));
 
     // In production, this would call the chain adapter to create a seal
@@ -76,7 +76,7 @@ fn cmd_create(chain: Chain, value: Option<u64>, _config: &Config, state: &mut St
 
     let right_id = Hash::new(right_id_bytes);
 
-    let tracked = TrackedRight {
+    let tracked = RightRecord {
         id: right_id,
         chain: chain.clone(),
         seal_ref: vec![], // Would come from adapter
@@ -98,14 +98,14 @@ fn cmd_create(chain: Chain, value: Option<u64>, _config: &Config, state: &mut St
     );
     output::kv("Status", "Created");
 
-    // State is automatically saved after command execution
+    // UnifiedStateManager is automatically saved after command execution
     println!();
     output::info("Right created. Use 'csv right show <right_id>' to view details");
 
     Ok(())
 }
 
-fn cmd_show(right_id: String, state: &State) -> Result<()> {
+fn cmd_show(right_id: String, state: &UnifiedStateManager) -> Result<()> {
     let bytes = hex::decode(right_id.trim_start_matches("0x"))
         .map_err(|e| anyhow::anyhow!("Invalid Right ID: {}", e))?;
 
@@ -144,7 +144,7 @@ fn cmd_show(right_id: String, state: &State) -> Result<()> {
     Ok(())
 }
 
-fn cmd_list(chain: Option<Chain>, state: &State) -> Result<()> {
+fn cmd_list(chain: Option<Chain>, state: &UnifiedStateManager) -> Result<()> {
     output::header("Tracked Rights");
 
     let headers = vec!["Right ID", "Chain", "Status", "Commitment"];
@@ -182,7 +182,7 @@ fn cmd_list(chain: Option<Chain>, state: &State) -> Result<()> {
     Ok(())
 }
 
-fn cmd_transfer(right_id: String, to: String, _state: &State) -> Result<()> {
+fn cmd_transfer(right_id: String, to: String, _state: &UnifiedStateManager) -> Result<()> {
     output::header(&format!("Transferring Right to {}", to));
     output::kv("Right ID", &right_id);
     output::kv("New Owner", &to);
@@ -190,7 +190,7 @@ fn cmd_transfer(right_id: String, to: String, _state: &State) -> Result<()> {
     Ok(())
 }
 
-fn cmd_consume(right_id: String, _state: &State) -> Result<()> {
+fn cmd_consume(right_id: String, _state: &UnifiedStateManager) -> Result<()> {
     output::header("Consuming Right");
     output::kv("Right ID", &right_id);
     output::info("This will consume the seal and make the Right unusable");

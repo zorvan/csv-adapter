@@ -68,6 +68,13 @@ pub struct TrackedTransfer {
     pub dest_owner: String,
     pub status: TransferStatus,
     pub created_at: u64,
+    // Transaction details
+    pub source_tx_hash: Option<String>,
+    pub dest_tx_hash: Option<String>,
+    pub source_contract: Option<String>,
+    pub dest_contract: Option<String>,
+    pub source_fee: Option<String>,
+    pub dest_fee: Option<String>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]

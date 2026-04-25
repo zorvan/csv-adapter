@@ -2,9 +2,10 @@
 
 use crate::context::state::AppState;
 use crate::context::types::*;
-use crate::storage::{self, LocalStorageManager, PersistedState};
+use crate::storage::{self, LocalStorageManager, UnifiedStorageManager, UNIFIED_STORAGE_KEY, WALLET_MNEMONIC_KEY};
 use crate::wallet_core::{ChainAccount, WalletData};
 use csv_adapter_core::Chain;
+use csv_adapter_store::unified::{WalletConfig, WalletAccount};
 use dioxus::prelude::*;
 
 /// Wallet context.
@@ -71,7 +72,7 @@ impl WalletContext {
         let mut s = self.state.write();
 
         // Load app state (rights, seals, etc.)
-        if let Some(persisted) = store.try_load::<PersistedState>(storage::WALLET_STATE_KEY) {
+        if let Some(persisted) = store.try_load::<csv_adapter_store::unified::UnifiedStorage>(UNIFIED_STORAGE_KEY) {
             if let Ok(c) = persisted.selected_chain.parse::<Chain>() {
                 s.selected_chain = c;
             }
@@ -118,6 +119,12 @@ impl WalletContext {
                             _ => TransferStatus::Initiated,
                         },
                         created_at: t.created_at,
+                        source_tx_hash: None,
+                        dest_tx_hash: None,
+                        source_contract: None,
+                        dest_contract: None,
+                        source_fee: None,
+                        dest_fee: None,
                     })
                 })
                 .collect();
@@ -161,7 +168,7 @@ impl WalletContext {
         }
 
         // Load wallet data (per-chain accounts)
-        if let Some(wallet_json) = store.get_raw(storage::WALLET_MNEMONIC_KEY).ok().flatten() {
+        if let Some(wallet_json) = store.get_raw(WALLET_MNEMONIC_KEY).ok().flatten() {
             let parse_result = WalletData::from_json(&wallet_json).or_else(|_| {
                 serde_json::from_str::<String>(&wallet_json)
                     .ok()
@@ -185,7 +192,7 @@ impl WalletContext {
         let Some(store) = &self.store else { return };
         let s = self.state.read();
 
-        let persisted = PersistedState {
+        let persisted = csv_adapter_store::unified::UnifiedStorage {
             initialized: !s.wallet.is_empty(),
             selected_chain: s.selected_chain.to_string(),
             selected_network: s.selected_network.to_string(),
@@ -246,14 +253,14 @@ impl WalletContext {
                 .collect(),
         };
 
-        if let Err(e) = store.save(storage::WALLET_STATE_KEY, &persisted) {
+        if let Err(e) = store.save(UNIFIED_STORAGE_KEY, &persisted) {
             web_sys::console::error_1(&format!("Failed to save state: {:?}", e).into());
         }
 
         // Save wallet data separately
         match s.wallet.to_json() {
             Ok(wallet_json) => {
-                if let Err(e) = store.set_raw(storage::WALLET_MNEMONIC_KEY, &wallet_json) {
+                if let Err(e) = store.set_raw(WALLET_MNEMONIC_KEY, &wallet_json) {
                     web_sys::console::error_1(&format!("Failed to save wallet: {:?}", e).into());
                 }
             }
@@ -543,8 +550,8 @@ impl WalletContext {
         drop(s);
         // Also clear storage
         if let Some(store) = &self.store {
-            let _ = store.delete(storage::WALLET_STATE_KEY);
-            let _ = store.delete(storage::WALLET_MNEMONIC_KEY);
+            let _ = store.delete(UNIFIED_STORAGE_KEY);
+            let _ = store.delete(WALLET_MNEMONIC_KEY);
         }
     }
 }

@@ -5,7 +5,7 @@ use clap::Subcommand;
 
 use crate::config::{Chain, Config};
 use crate::output;
-use crate::state::State;
+use crate::state::UnifiedStateManager;
 
 #[derive(Subcommand)]
 pub enum ValidateAction {
@@ -34,7 +34,7 @@ pub enum ValidateAction {
     },
 }
 
-pub fn execute(action: ValidateAction, config: &Config, state: &State) -> Result<()> {
+pub fn execute(action: ValidateAction, config: &Config, state: &UnifiedStateManager) -> Result<()> {
     match action {
         ValidateAction::Consignment { file } => cmd_consignment(file, config, state),
         ValidateAction::Proof { proof, chain } => cmd_proof(proof, chain, config, state),
@@ -43,7 +43,7 @@ pub fn execute(action: ValidateAction, config: &Config, state: &State) -> Result
     }
 }
 
-fn cmd_consignment(file: String, _config: &Config, _state: &State) -> Result<()> {
+fn cmd_consignment(file: String, _config: &Config, _state: &UnifiedStateManager) -> Result<()> {
     output::header("Validating Consignment");
 
     let content = std::fs::read_to_string(&file)?;
@@ -66,7 +66,7 @@ fn cmd_consignment(file: String, _config: &Config, _state: &State) -> Result<()>
     Ok(())
 }
 
-fn cmd_proof(proof_file: String, chain: Chain, _config: &Config, _state: &State) -> Result<()> {
+fn cmd_proof(proof_file: String, chain: Chain, _config: &Config, _state: &UnifiedStateManager) -> Result<()> {
     output::header(&format!("Validating Proof on {}", chain));
 
     let content = std::fs::read_to_string(&proof_file)?;
@@ -97,7 +97,7 @@ fn cmd_proof(proof_file: String, chain: Chain, _config: &Config, _state: &State)
     Ok(())
 }
 
-fn cmd_seal(seal_ref: String, _config: &Config, state: &State) -> Result<()> {
+fn cmd_seal(seal_ref: String, _config: &Config, state: &UnifiedStateManager) -> Result<()> {
     output::header("Validating Seal Consumption");
 
     let seal_bytes = hex::decode(seal_ref.trim_start_matches("0x"))
@@ -117,7 +117,7 @@ fn cmd_seal(seal_ref: String, _config: &Config, state: &State) -> Result<()> {
     Ok(())
 }
 
-fn cmd_commitment_chain(file: String, _config: &Config, _state: &State) -> Result<()> {
+fn cmd_commitment_chain(file: String, _config: &Config, _state: &UnifiedStateManager) -> Result<()> {
     output::header("Validating Commitment Chain");
 
     let content = std::fs::read_to_string(&file)?;

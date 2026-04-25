@@ -3235,8 +3235,12 @@ dependencies = [
 name = "csv-adapter-store"
 version = "0.3.0"
 dependencies = [
+ "clap",
  "csv-adapter-core",
+ "dirs",
  "rusqlite",
+ "serde",
+ "serde_json",
  "thiserror 1.0.69",
 ]
 
@@ -3413,6 +3417,7 @@ dependencies = [
  "console_error_panic_hook",
  "csv-adapter-core",
  "csv-adapter-solana",
+ "csv-adapter-store",
  "dioxus 0.7.6",
  "dioxus-router",
  "ed25519-dalek",

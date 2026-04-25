@@ -107,6 +107,10 @@ pub struct CrossChainTransferResult {
     pub mint_tx_hash: String,
     pub proof: Option<CrossChainProof>,
     pub status: CrossChainStatus,
+    /// Gas fee for the lock transaction on source chain (in native token units)
+    pub source_fee: Option<u64>,
+    /// Gas fee for the mint transaction on destination chain (in native token units)
+    pub dest_fee: Option<u64>,
 }
 
 /// Map of deployed contracts by chain.

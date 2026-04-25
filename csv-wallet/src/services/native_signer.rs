@@ -173,8 +173,15 @@ impl NativeSigner {
         Self::encode_bytes(&mut rlp, &[]); // r = 0
         Self::encode_bytes(&mut rlp, &[]); // s = 0
 
+        // Debug logging
+        web_sys::console::log_1(&format!("RLP encoding - nonce: {}, gas_price: {}, gas_limit: {}", nonce, gas_price, gas_limit).into());
+        web_sys::console::log_1(&format!("RLP encoding - to_bytes len: {}, data len: {}", to_bytes.len(), data.len()).into());
+        web_sys::console::log_1(&format!("RLP encoding - chain_id: {}, rlp len: {}", chain_id, rlp.len()).into());
+        web_sys::console::log_1(&format!("RLP rlp hex: 0x{}", hex::encode(&rlp)).into());
+
         // Add RLP list prefix
         let encoded = Self::prefix_list(&rlp);
+        web_sys::console::log_1(&format!("RLP encoded hex: 0x{}", hex::encode(&encoded)).into());
         
         // Hash and sign
         let hash = Keccak256::digest(&encoded);
@@ -206,7 +213,11 @@ impl NativeSigner {
         Self::encode_bytes(&mut signed_rlp, r);
         Self::encode_bytes(&mut signed_rlp, s);
 
+        web_sys::console::log_1(&format!("RLP signed - v: {}, signed_rlp len: {}", v, signed_rlp.len()).into());
+        web_sys::console::log_1(&format!("RLP signed_rlp hex: 0x{}", hex::encode(&signed_rlp)).into());
+
         let signed_encoded = Self::prefix_list(&signed_rlp);
+        web_sys::console::log_1(&format!("RLP signed_encoded hex: 0x{}", hex::encode(&signed_encoded)).into());
         let tx_hash = format!("0x{}", hex::encode(Keccak256::digest(&signed_encoded)));
 
         Ok(SignedTransaction {
@@ -396,8 +407,8 @@ impl NativeSigner {
             let bytes = value.to_be_bytes();
             let start = bytes.iter().position(|&x| x != 0).unwrap_or(8);
             let len = 8 - start;
-            if len == 1 && bytes[7] < 0x80 {
-                buf.push(bytes[7]);
+            if len == 1 && bytes[start] < 0x80 {
+                buf.push(bytes[start]);
             } else {
                 buf.push(0x80 + len as u8);
                 buf.extend_from_slice(&bytes[start..]);
@@ -412,11 +423,16 @@ impl NativeSigner {
             buf.push(0x80 + bytes.len() as u8);
             buf.extend_from_slice(bytes);
         } else {
-            let len_bytes = bytes.len().to_be_bytes();
-            let start = len_bytes.iter().position(|&x| x != 0).unwrap_or(8);
+            // Long string: prefix + length bytes + content
+            // Use u64 to ensure 8-byte representation on all platforms (including WASM32)
+            let len = bytes.len() as u64;
+            let len_be = len.to_be_bytes();
+            // Count how many leading zero bytes to skip
+            let start = len_be.iter().position(|&x| x != 0).unwrap_or(8);
             let len_len = 8 - start;
+            // 0xb7 + number of bytes used to encode the length
             buf.push(0xb7 + len_len as u8);
-            buf.extend_from_slice(&len_bytes[start..]);
+            buf.extend_from_slice(&len_be[start..]);
             buf.extend_from_slice(bytes);
         }
     }
@@ -427,11 +443,16 @@ impl NativeSigner {
             result.extend_from_slice(bytes);
             result
         } else {
-            let len_bytes = bytes.len().to_be_bytes();
-            let start = len_bytes.iter().position(|&x| x != 0).unwrap_or(8);
+            // Long list: prefix + length bytes + content
+            // Use u64 to ensure 8-byte representation on all platforms (including WASM32)
+            let len = bytes.len() as u64;
+            let len_be = len.to_be_bytes();
+            // Count how many leading zero bytes to skip
+            let start = len_be.iter().position(|&x| x != 0).unwrap_or(8);
             let len_len = 8 - start;
+            // 0xf7 + number of bytes used to encode the length
             let mut result = vec![0xf7 + len_len as u8];
-            result.extend_from_slice(&len_bytes[start..]);
+            result.extend_from_slice(&len_be[start..]);
             result.extend_from_slice(bytes);
             result
         }

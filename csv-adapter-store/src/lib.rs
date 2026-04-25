@@ -7,6 +7,15 @@ use csv_adapter_core::{AnchorRecord, Hash, SealRecord, SealStore, StoreError};
 use rusqlite::{params, Connection};
 use std::sync::Mutex;
 
+pub mod unified;
+
+pub use unified::{
+    Chain, ChainConfig, ContractRecord, FaucetConfig, GasAccount, Network,
+    ProofRecord, RightRecord, RightStatus, SealRecord as UnifiedSealRecord,
+    TransactionRecord, TransactionStatus, TransactionType, TransferRecord, TransferStatus,
+    UnifiedStorage, UnifiedStorageError, WalletAccount, WalletConfig,
+};
+
 /// SQLite-backed seal and anchor store
 pub struct SqliteSealStore {
     conn: Mutex<Connection>,

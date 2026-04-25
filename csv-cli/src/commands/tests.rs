@@ -5,7 +5,7 @@ use clap::Subcommand;
 
 use crate::config::{Chain, Config};
 use crate::output;
-use crate::state::State;
+use crate::state::UnifiedStateManager;
 
 #[derive(Subcommand)]
 pub enum TestAction {
@@ -52,7 +52,7 @@ fn parse_chain_pair(s: &str) -> Result<(Chain, Chain), String> {
     Ok((from, to))
 }
 
-pub fn execute(action: TestAction, config: &Config, state: &State) -> Result<()> {
+pub fn execute(action: TestAction, config: &Config, state: &UnifiedStateManager) -> Result<()> {
     match action {
         TestAction::Run { chain_pair, all } => cmd_run(chain_pair, all, config, state),
         TestAction::Scenario { name } => cmd_scenario(name, config, state),
@@ -64,7 +64,7 @@ fn cmd_run(
     chain_pair: Option<(Chain, Chain)>,
     all: bool,
     config: &Config,
-    state: &State,
+    state: &UnifiedStateManager,
 ) -> Result<()> {
     let pairs = if all {
         vec![
@@ -106,7 +106,7 @@ fn cmd_run(
     Ok(())
 }
 
-fn run_test_pair(from: &Chain, to: &Chain, config: &Config, _state: &State) -> Result<()> {
+fn run_test_pair(from: &Chain, to: &Chain, config: &Config, _state: &UnifiedStateManager) -> Result<()> {
     // Test 1: Check connectivity
     output::progress(1, 5, "Checking chain connectivity...");
     check_chain_connectivity(from, config)?;
@@ -215,7 +215,7 @@ fn check_chain_connectivity(chain: &Chain, config: &Config) -> Result<()> {
     }
 }
 
-fn cmd_scenario(name: String, _config: &Config, _state: &State) -> Result<()> {
+fn cmd_scenario(name: String, _config: &Config, _state: &UnifiedStateManager) -> Result<()> {
     output::header(&format!("Scenario: {}", name));
 
     match name.as_str() {
@@ -249,7 +249,7 @@ fn cmd_scenario(name: String, _config: &Config, _state: &State) -> Result<()> {
     Ok(())
 }
 
-fn cmd_results(state: &State) -> Result<()> {
+fn cmd_results(state: &UnifiedStateManager) -> Result<()> {
     output::header("Test Results");
 
     let headers = vec!["Transfer", "From", "To", "Status"];

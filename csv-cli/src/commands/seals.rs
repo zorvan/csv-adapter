@@ -5,7 +5,7 @@ use clap::Subcommand;
 
 use crate::config::{Chain, Config};
 use crate::output;
-use crate::state::State;
+use crate::state::UnifiedStateManager;
 
 #[derive(Subcommand)]
 pub enum SealAction {
@@ -42,7 +42,7 @@ pub enum SealAction {
     },
 }
 
-pub fn execute(action: SealAction, config: &Config, state: &mut State) -> Result<()> {
+pub fn execute(action: SealAction, config: &Config, state: &mut UnifiedStateManager) -> Result<()> {
     match action {
         SealAction::Create { chain, value } => cmd_create(chain, value, config, state),
         SealAction::Consume { chain, seal_ref } => cmd_consume(chain, seal_ref, config, state),
@@ -51,7 +51,7 @@ pub fn execute(action: SealAction, config: &Config, state: &mut State) -> Result
     }
 }
 
-fn cmd_create(chain: Chain, value: Option<u64>, _config: &Config, state: &mut State) -> Result<()> {
+fn cmd_create(chain: Chain, value: Option<u64>, _config: &Config, state: &mut UnifiedStateManager) -> Result<()> {
     output::header(&format!("Creating Seal on {}", chain));
 
     let seal_bytes: Vec<u8> = match chain {
@@ -92,7 +92,7 @@ fn cmd_create(chain: Chain, value: Option<u64>, _config: &Config, state: &mut St
     Ok(())
 }
 
-fn cmd_consume(chain: Chain, seal_ref: String, _config: &Config, state: &mut State) -> Result<()> {
+fn cmd_consume(chain: Chain, seal_ref: String, _config: &Config, state: &mut UnifiedStateManager) -> Result<()> {
     output::header(&format!("Consuming Seal on {}", chain));
 
     let seal_bytes = hex::decode(seal_ref.trim_start_matches("0x"))
@@ -112,7 +112,7 @@ fn cmd_consume(chain: Chain, seal_ref: String, _config: &Config, state: &mut Sta
     Ok(())
 }
 
-fn cmd_verify(chain: Chain, seal_ref: String, _config: &Config, state: &State) -> Result<()> {
+fn cmd_verify(chain: Chain, seal_ref: String, _config: &Config, state: &UnifiedStateManager) -> Result<()> {
     output::header(&format!("Verifying Seal on {}", chain));
 
     let seal_bytes = hex::decode(seal_ref.trim_start_matches("0x"))
@@ -131,7 +131,7 @@ fn cmd_verify(chain: Chain, seal_ref: String, _config: &Config, state: &State) -
     Ok(())
 }
 
-fn cmd_list(chain: Option<Chain>, state: &State) -> Result<()> {
+fn cmd_list(chain: Option<Chain>, state: &UnifiedStateManager) -> Result<()> {
     output::header("Consumed Seals");
 
     if state.consumed_seals.is_empty() {

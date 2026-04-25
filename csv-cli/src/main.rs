@@ -45,7 +45,7 @@ mod state;
 
 use commands::*;
 use config::Config;
-use state::State;
+use state::UnifiedStateManager;
 
 /// CLI version from Cargo.toml - single source of truth
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -157,7 +157,7 @@ fn main() -> anyhow::Result<()> {
 
     // Load configuration
     let config = Config::load(cli.config.as_deref())?;
-    let mut state = State::load()?;
+    let mut state = UnifiedStateManager::load()?;
 
     // Dispatch commands
     let result = match cli.command {

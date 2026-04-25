@@ -5,7 +5,7 @@ use clap::Subcommand;
 
 use crate::config::{Chain, Config, Network};
 use crate::output;
-use crate::state::State;
+use crate::state::UnifiedStateManager;
 
 #[derive(Subcommand)]
 pub enum WalletAction {
@@ -96,7 +96,7 @@ pub enum WalletAction {
     },
 }
 
-pub fn execute(action: WalletAction, config: &Config, state: &mut State) -> Result<()> {
+pub fn execute(action: WalletAction, config: &Config, state: &mut UnifiedStateManager) -> Result<()> {
     match action {
         WalletAction::Init {
             network,
@@ -121,7 +121,7 @@ fn cmd_init(
     words: u8,
     fund: bool,
     config: &Config,
-    state: &mut State,
+    state: &mut UnifiedStateManager,
 ) -> Result<()> {
     use std::collections::HashMap;
 
@@ -194,7 +194,7 @@ fn generate_wallet_for_chain(
     chain: &Chain,
     network: &Network,
     mnemonic: &str,
-    state: &mut State,
+    state: &mut UnifiedStateManager,
 ) -> Result<String> {
     match chain {
         Chain::Bitcoin => {
@@ -223,7 +223,7 @@ fn generate_wallet_for_chain(
 fn generate_bitcoin_from_mnemonic(
     network: &Network,
     mnemonic: &str,
-    state: &mut State,
+    state: &mut UnifiedStateManager,
 ) -> Result<String> {
     use bitcoin::Network as BtcNetwork;
 
@@ -254,7 +254,7 @@ fn generate_bitcoin_from_mnemonic(
     Ok(address)
 }
 
-fn generate_ethereum_from_mnemonic(_mnemonic: &str, state: &mut State) -> Result<String> {
+fn generate_ethereum_from_mnemonic(_mnemonic: &str, state: &mut UnifiedStateManager) -> Result<String> {
     use rand::RngCore;
 
     // Generate a simple Ethereum-like address (simplified)
@@ -266,7 +266,7 @@ fn generate_ethereum_from_mnemonic(_mnemonic: &str, state: &mut State) -> Result
     Ok(address)
 }
 
-fn generate_sui_from_mnemonic(_mnemonic: &str, state: &mut State) -> Result<String> {
+fn generate_sui_from_mnemonic(_mnemonic: &str, state: &mut UnifiedStateManager) -> Result<String> {
     use rand::RngCore;
 
     // Generate a simple Sui-like address (simplified)
@@ -278,7 +278,7 @@ fn generate_sui_from_mnemonic(_mnemonic: &str, state: &mut State) -> Result<Stri
     Ok(address)
 }
 
-fn generate_aptos_from_mnemonic(_mnemonic: &str, state: &mut State) -> Result<String> {
+fn generate_aptos_from_mnemonic(_mnemonic: &str, state: &mut UnifiedStateManager) -> Result<String> {
     use rand::RngCore;
 
     // Generate a simple Aptos-like address (simplified)
@@ -290,7 +290,7 @@ fn generate_aptos_from_mnemonic(_mnemonic: &str, state: &mut State) -> Result<St
     Ok(address)
 }
 
-fn generate_solana_from_mnemonic(_mnemonic: &str, state: &mut State) -> Result<String> {
+fn generate_solana_from_mnemonic(_mnemonic: &str, state: &mut UnifiedStateManager) -> Result<String> {
     use rand::RngCore;
 
     // Generate a simple Solana-like address (simplified - real impl uses ed25519)
@@ -387,7 +387,7 @@ fn fund_wallet_from_faucet(chain: &Chain, address: &str, network: &Network) -> R
     Ok(())
 }
 
-fn cmd_generate(chain: Chain, network: Network, _config: &Config, state: &mut State) -> Result<()> {
+fn cmd_generate(chain: Chain, network: Network, _config: &Config, state: &mut UnifiedStateManager) -> Result<()> {
     match chain {
         Chain::Bitcoin => generate_bitcoin(network, state),
         Chain::Ethereum => generate_ethereum(state),
@@ -397,7 +397,7 @@ fn cmd_generate(chain: Chain, network: Network, _config: &Config, state: &mut St
     }
 }
 
-fn generate_bitcoin(network: Network, state: &mut State) -> Result<()> {
+fn generate_bitcoin(network: Network, state: &mut UnifiedStateManager) -> Result<()> {
     use bitcoin::Network as BtcNetwork;
     use rand::RngCore;
 
@@ -437,7 +437,7 @@ fn generate_bitcoin(network: Network, state: &mut State) -> Result<()> {
     Ok(())
 }
 
-fn generate_ethereum(state: &mut State) -> Result<()> {
+fn generate_ethereum(state: &mut UnifiedStateManager) -> Result<()> {
     use rand::RngCore;
 
     let mut private_key = [0u8; 32];
@@ -469,7 +469,7 @@ fn generate_ethereum(state: &mut State) -> Result<()> {
     Ok(())
 }
 
-fn generate_sui(state: &mut State) -> Result<()> {
+fn generate_sui(state: &mut UnifiedStateManager) -> Result<()> {
     use blake2::{digest::Digest, Blake2b};
     use ed25519_dalek::SigningKey;
     use rand::RngCore;
@@ -502,7 +502,7 @@ fn generate_sui(state: &mut State) -> Result<()> {
     Ok(())
 }
 
-fn generate_aptos(state: &mut State) -> Result<()> {
+fn generate_aptos(state: &mut UnifiedStateManager) -> Result<()> {
     use ed25519_dalek::SigningKey;
     use rand::RngCore;
     use sha3::{Digest, Sha3_256};
@@ -534,7 +534,7 @@ fn generate_aptos(state: &mut State) -> Result<()> {
     Ok(())
 }
 
-fn generate_solana(state: &mut State) -> Result<()> {
+fn generate_solana(state: &mut UnifiedStateManager) -> Result<()> {
     use bs58;
     use ed25519_dalek::SigningKey;
     use rand::RngCore;
@@ -565,7 +565,7 @@ fn cmd_balance(
     chain: Chain,
     address: Option<String>,
     config: &Config,
-    state: &State,
+    state: &UnifiedStateManager,
 ) -> Result<()> {
     let addr = address
         .or_else(|| state.get_address(&chain).cloned())
@@ -758,7 +758,7 @@ fn cmd_balance(
     Ok(())
 }
 
-fn cmd_fund(chain: Chain, address: Option<String>, config: &Config, state: &State) -> Result<()> {
+fn cmd_fund(chain: Chain, address: Option<String>, config: &Config, state: &UnifiedStateManager) -> Result<()> {
     let addr = address
         .or_else(|| state.get_address(&chain).cloned())
         .ok_or_else(|| anyhow::anyhow!("No address for {}. Generate a wallet first.", chain))?;
@@ -842,7 +842,7 @@ fn cmd_fund(chain: Chain, address: Option<String>, config: &Config, state: &Stat
     Ok(())
 }
 
-fn cmd_export(chain: Chain, format: String, _config: &Config, state: &State) -> Result<()> {
+fn cmd_export(chain: Chain, format: String, _config: &Config, state: &UnifiedStateManager) -> Result<()> {
     let addr = state
         .get_address(&chain)
         .ok_or_else(|| anyhow::anyhow!("No wallet for {}. Generate one first.", chain))?;
@@ -867,7 +867,7 @@ fn cmd_export(chain: Chain, format: String, _config: &Config, state: &State) -> 
     Ok(())
 }
 
-fn cmd_import(chain: Chain, secret: String, _config: &Config, state: &mut State) -> Result<()> {
+fn cmd_import(chain: Chain, secret: String, _config: &Config, state: &mut UnifiedStateManager) -> Result<()> {
     output::header(&format!("Import Wallet: {}", chain));
     output::kv("Chain", &chain.to_string());
 
@@ -1035,7 +1035,7 @@ fn cmd_import(chain: Chain, secret: String, _config: &Config, state: &mut State)
     Ok(())
 }
 
-fn cmd_list(config: &Config, state: &State) -> Result<()> {
+fn cmd_list(config: &Config, state: &UnifiedStateManager) -> Result<()> {
     output::header("Wallets");
 
     let headers = vec!["Chain", "Address", "Balance", "Network"];
@@ -1235,7 +1235,7 @@ fn fetch_balance(chain: Chain, addr: &str, config: &Config) -> Result<String> {
 }
 
 /// Set or get address for a chain
-fn cmd_address(chain: Chain, address: Option<String>, state: &mut State) -> Result<()> {
+fn cmd_address(chain: Chain, address: Option<String>, state: &mut UnifiedStateManager) -> Result<()> {
     match address {
         Some(addr) => {
             // Set the address

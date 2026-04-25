@@ -1,4 +1,6 @@
 //! Configuration management — chains, wallets, RPC endpoints
+//!
+//! Uses unified storage types from csv-adapter-store for compatibility with csv-wallet.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -6,14 +8,19 @@ use std::sync::{Mutex, OnceLock};
 
 use serde::{Deserialize, Serialize};
 
-/// CSV Wallet exported JSON format (from csv-wallet)
+// Re-export unified types from csv-adapter-store
+pub use csv_adapter_store::unified::{
+    Chain, ChainConfig, FaucetConfig, Network, WalletAccount, WalletConfig,
+};
+
+/// CSV Wallet exported JSON format (legacy, for migration from csv-wallet < 0.4)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct CsvWalletData {
     accounts: Vec<CsvAccount>,
     selected_account_id: Option<String>,
 }
 
-/// CSV Wallet account entry
+/// CSV Wallet account entry (legacy format)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct CsvAccount {
     id: String,
@@ -24,7 +31,7 @@ struct CsvAccount {
 }
 
 impl CsvWalletData {
-    /// Load from csv-wallet JSON file
+    /// Load from csv-wallet JSON file (legacy format)
     fn load_from_file(path: &str) -> anyhow::Result<Self> {
         let content = std::fs::read_to_string(path)?;
         let data: CsvWalletData = serde_json::from_str(&content)?;
@@ -38,110 +45,83 @@ impl CsvWalletData {
 }
 
 /// Global cache for csv-wallet configs loaded at runtime
-static CSV_WALLET_CACHE: OnceLock<Mutex<HashMap<Chain, WalletConfig>>> = OnceLock::new();
+static CSV_WALLET_CACHE: OnceLock<Mutex<HashMap<Chain, LegacyWalletConfig>>> = OnceLock::new();
 
-fn get_csv_wallet_cache() -> &'static Mutex<HashMap<Chain, WalletConfig>> {
+fn get_csv_wallet_cache() -> &'static Mutex<HashMap<Chain, LegacyWalletConfig>> {
     CSV_WALLET_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-/// Network environment
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, clap::ValueEnum)]
-#[serde(rename_all = "lowercase")]
-pub enum Network {
-    Dev,
-    Test,
-    Main,
-}
-
-impl std::fmt::Display for Network {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Network::Dev => write!(f, "dev"),
-            Network::Test => write!(f, "test"),
-            Network::Main => write!(f, "main"),
-        }
-    }
-}
-
-/// Supported chains
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, clap::ValueEnum)]
-#[serde(rename_all = "lowercase")]
-pub enum Chain {
-    Bitcoin,
-    Ethereum,
-    Sui,
-    Aptos,
-    Solana,
-}
-
-impl std::fmt::Display for Chain {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Chain::Bitcoin => write!(f, "bitcoin"),
-            Chain::Ethereum => write!(f, "ethereum"),
-            Chain::Sui => write!(f, "sui"),
-            Chain::Aptos => write!(f, "aptos"),
-            Chain::Solana => write!(f, "solana"),
-        }
-    }
-}
-
-/// Chain-specific configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ChainConfig {
-    /// RPC endpoint URL
-    pub rpc_url: String,
-    /// Network environment
-    pub network: Network,
-    /// Contract/package address (if deployed)
-    pub contract_address: Option<String>,
-    /// Chain ID (for EVM chains) or magic bytes (Bitcoin)
-    pub chain_id: Option<u64>,
-    /// Finality depth (confirmations required)
-    pub finality_depth: u64,
-    /// Default gas price / fee rate
-    pub default_fee: Option<u64>,
-}
-
-/// Wallet configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WalletConfig {
-    /// Private key (hex) — for signing
+/// Legacy wallet config for backwards compatibility (maps to unified WalletAccount)
+#[derive(Debug, Clone)]
+struct LegacyWalletConfig {
     pub private_key: Option<String>,
-    /// Extended public key — for address derivation
     pub xpub: Option<String>,
-    /// Mnemonic phrase (space-separated)
     pub mnemonic: Option<String>,
-    /// Mnemonic passphrase (optional)
     pub mnemonic_passphrase: Option<String>,
-    /// BIP-44/86 derivation path
     pub derivation_path: Option<String>,
 }
 
-/// Faucet configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FaucetConfig {
-    /// Faucet endpoint URL
-    pub url: String,
-    /// Amount to request (chain-specific units)
-    pub amount: Option<u64>,
+/// Parse chain from string (for clap)
+pub fn parse_chain(s: &str) -> anyhow::Result<Chain> {
+    match s.to_lowercase().as_str() {
+        "bitcoin" => Ok(Chain::Bitcoin),
+        "ethereum" => Ok(Chain::Ethereum),
+        "sui" => Ok(Chain::Sui),
+        "aptos" => Ok(Chain::Aptos),
+        "solana" => Ok(Chain::Solana),
+        _ => Err(anyhow::anyhow!("Unknown chain: {}", s)),
+    }
 }
 
-/// Full CLI configuration
+/// Parse network from string (for clap)
+pub fn parse_network(s: &str) -> anyhow::Result<Network> {
+    match s.to_lowercase().as_str() {
+        "dev" => Ok(Network::Dev),
+        "test" => Ok(Network::Test),
+        "main" => Ok(Network::Main),
+        _ => Err(anyhow::anyhow!("Unknown network: {}", s)),
+    }
+}
+
+/// Full CLI configuration using unified storage types
+/// 
+/// Note: New code should use UnifiedStorage from csv_adapter_store::unified
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     /// Chain configurations
     #[serde(default)]
     pub chains: HashMap<Chain, ChainConfig>,
-    /// Wallet configurations (per chain)
+    /// Legacy wallet configurations (per chain) - migrated to unified.accounts
     #[serde(default)]
-    pub wallets: HashMap<Chain, WalletConfig>,
+    pub wallets: HashMap<Chain, LegacyWalletConfigToml>,
     /// Faucet configurations
     #[serde(default)]
     pub faucets: HashMap<Chain, FaucetConfig>,
     /// Data directory for state persistence
     #[serde(default = "default_data_dir")]
     pub data_dir: String,
+}
+
+/// Legacy wallet config for TOML parsing (will be migrated to unified WalletAccount)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LegacyWalletConfigToml {
+    pub private_key: Option<String>,
+    pub xpub: Option<String>,
+    pub mnemonic: Option<String>,
+    pub mnemonic_passphrase: Option<String>,
+    pub derivation_path: Option<String>,
+}
+
+impl From<LegacyWalletConfigToml> for LegacyWalletConfig {
+    fn from(cfg: LegacyWalletConfigToml) -> Self {
+        Self {
+            private_key: cfg.private_key,
+            xpub: cfg.xpub,
+            mnemonic: cfg.mnemonic,
+            mnemonic_passphrase: cfg.mnemonic_passphrase,
+            derivation_path: cfg.derivation_path,
+        }
+    }
 }
 
 fn default_data_dir() -> String {
@@ -319,27 +299,49 @@ impl Config {
             .ok_or_else(|| anyhow::anyhow!("Chain {} not configured", chain))
     }
 
-    /// Get wallet configuration
+    /// Get wallet configuration (legacy - use unified storage instead)
     /// First checks config.toml, then falls back to ~/.csv/wallet/csv-wallet.json
-    pub fn wallet(&self, chain: &Chain) -> Option<&WalletConfig> {
+    #[deprecated(since = "0.4.0", note = "Use unified storage WalletConfig instead")]
+    pub fn wallet(&self, chain: &Chain) -> Option<LegacyWalletConfig> {
         // First check config.toml wallets
         if let Some(wallet) = self.wallets.get(chain) {
-            return Some(wallet);
+            return Some(wallet.clone().into());
         }
 
-        // Fall back to csv-wallet exported JSON
+        // Fall back to csv-wallet exported JSON (legacy format)
         let csv_wallet_path = expand_path("~/.csv/wallet/csv-wallet.json");
         if let Ok(csv_wallet) = CsvWalletData::load_from_file(&csv_wallet_path) {
             if let Some(account) = csv_wallet.find_account(&chain.to_string()) {
-                // Create a WalletConfig from the CSV account
-                // We need to store it somewhere - use thread_local as a simple cache
-                // or just return a converted version
-                // Since we can't easily return a reference to a locally created value,
-                // we'll use a static cache
+                // Create a LegacyWalletConfig from the CSV account
                 return get_cached_wallet_config(chain, account);
             }
         }
 
+        None
+    }
+    
+    /// Get unified wallet account for a chain (preferred method)
+    pub fn wallet_account(&self, chain: &Chain) -> Option<WalletAccount> {
+        // First try to load from unified storage
+        if let Ok(unified) = crate::state::UnifiedStateManager::load() {
+            if let Some(account) = unified.storage.get_account(chain) {
+                return Some(account.clone());
+            }
+        }
+        
+        // Fall back to legacy config.toml
+        if let Some(legacy) = self.wallets.get(chain) {
+            return Some(WalletAccount {
+                id: format!("{}-legacy", chain),
+                chain: chain.clone(),
+                name: format!("{} Legacy", chain),
+                address: String::new(), // Will be derived from private key
+                private_key: legacy.private_key.clone(),
+                xpub: legacy.xpub.clone(),
+                derivation_path: legacy.derivation_path.clone(),
+            });
+        }
+        
         None
     }
 
@@ -353,19 +355,28 @@ impl Config {
         self.chains.insert(chain, config);
     }
 
-    /// Set wallet configuration
-    pub fn set_wallet(&mut self, chain: Chain, config: WalletConfig) {
+    /// Set wallet configuration (legacy TOML format)
+    pub fn set_wallet(&mut self, chain: Chain, config: LegacyWalletConfigToml) {
         self.wallets.insert(chain, config);
+    }
+    
+    /// Set unified wallet account
+    pub fn set_wallet_account(&mut self, chain: Chain, account: WalletAccount) -> anyhow::Result<()> {
+        // Also update unified storage
+        let mut unified = crate::state::UnifiedStateManager::load()?;
+        unified.storage.set_account(account);
+        unified.save()?;
+        Ok(())
     }
 }
 
-/// Get cached wallet config from csv-wallet data (internal helper)
-fn get_cached_wallet_config(chain: &Chain, account: &CsvAccount) -> Option<&'static WalletConfig> {
+/// Get cached wallet config from csv-wallet data (internal helper, legacy format)
+fn get_cached_wallet_config(chain: &Chain, account: &CsvAccount) -> Option<LegacyWalletConfig> {
     let cache = get_csv_wallet_cache();
     let mut cache = cache.lock().ok()?;
 
     // Insert if not exists
-    cache.entry(chain.clone()).or_insert_with(|| WalletConfig {
+    cache.entry(chain.clone()).or_insert_with(|| LegacyWalletConfig {
         private_key: Some(account.private_key.clone()),
         xpub: None,
         mnemonic: None,
@@ -373,10 +384,7 @@ fn get_cached_wallet_config(chain: &Chain, account: &CsvAccount) -> Option<&'sta
         derivation_path: None,
     });
 
-    // We need to leak the reference to get 'static lifetime
-    // This is safe because the cache lives for the entire program
-    let config = cache.get(chain)?;
-    Some(Box::leak(Box::new(config.clone())))
+    cache.get(chain).cloned()
 }
 
 /// Expand ~ to home directory

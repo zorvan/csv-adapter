@@ -1,6 +1,10 @@
-//! Persistent storage using browser localStorage.
+//! Persistent storage using browser localStorage with unified storage format.
+//!
+//! This module uses the unified storage types from csv-adapter-store, allowing
+//! seamless data sharing between csv-wallet (browser) and csv-cli (desktop).
 
 use csv_adapter_core::agent_types::{HasErrorSuggestion, FixAction, error_codes};
+use csv_adapter_store::unified::UnifiedStorage;
 use serde::{Deserialize, Serialize};
 use web_sys::{Storage, Window};
 
@@ -157,16 +161,9 @@ impl LocalStorageManager {
     }
 }
 
-/// Keys for wallet state persistence.
-pub const WALLET_STATE_KEY: &str = "state";
-pub const WALLET_MNEMONIC_KEY: &str = "mnemonic";
-pub const WALLET_RIGHTS_KEY: &str = "rights";
-pub const WALLET_TRANSFERS_KEY: &str = "transfers";
-pub const WALLET_SEALS_KEY: &str = "seals";
-pub const WALLET_PROOFS_KEY: &str = "proofs";
-pub const WALLET_CONTRACTS_KEY: &str = "contracts";
-pub const WALLET_SELECTED_CHAIN_KEY: &str = "selected_chain";
-pub const WALLET_SELECTED_NETWORK_KEY: &str = "selected_network";
+/// Storage keys
+pub const UNIFIED_STORAGE_KEY: &str = "unified_storage";
+pub const WALLET_MNEMONIC_KEY: &str = "mnemonic_encrypted";
 
 /// Get wallet storage instance.
 pub fn wallet_storage() -> Result<LocalStorageManager, StorageError> {
@@ -183,9 +180,123 @@ pub fn asset_storage() -> Result<LocalStorageManager, StorageError> {
     LocalStorageManager::new("csv-assets")
 }
 
-/// Persistable subset of app state (without wallet secret).
+/// Unified storage manager - handles the complete unified storage format
+pub struct UnifiedStorageManager {
+    storage: LocalStorageManager,
+}
+
+impl UnifiedStorageManager {
+    /// Create new unified storage manager
+    pub fn new() -> Result<Self, StorageError> {
+        Ok(Self {
+            storage: wallet_storage()?,
+        })
+    }
+
+    /// Load unified storage from localStorage
+    pub fn load(&self) -> Result<UnifiedStorage, StorageError> {
+        self.storage
+            .try_load::<UnifiedStorage>(UNIFIED_STORAGE_KEY)
+            .ok_or_else(|| StorageError::NotFound(UNIFIED_STORAGE_KEY.to_string()))
+    }
+
+    /// Load or create with defaults
+    pub fn load_or_default(&self) -> UnifiedStorage {
+        self.load().unwrap_or_else(|_| UnifiedStorage::new().with_defaults())
+    }
+
+    /// Save unified storage to localStorage
+    pub fn save(&self, storage: &UnifiedStorage) -> Result<(), StorageError> {
+        self.storage.save(UNIFIED_STORAGE_KEY, storage)
+    }
+
+    /// Save wallet mnemonic (encrypted separately for security)
+    pub fn save_mnemonic(&self, encrypted_mnemonic: &str) -> Result<(), StorageError> {
+        self.storage.set_raw(WALLET_MNEMONIC_KEY, encrypted_mnemonic)
+    }
+
+    /// Load encrypted mnemonic
+    pub fn load_mnemonic(&self) -> Result<Option<String>, StorageError> {
+        self.storage.get_raw(WALLET_MNEMONIC_KEY)
+    }
+
+    /// Check if unified storage exists
+    pub fn exists(&self) -> bool {
+        self.storage.contains(UNIFIED_STORAGE_KEY)
+    }
+
+    /// Export unified storage as JSON string (for CLI import)
+    pub fn export_json(&self) -> Result<String, StorageError> {
+        let storage = self.load()?;
+        serde_json::to_string_pretty(&storage)
+            .map_err(|e| StorageError::SerializeError(e.to_string()))
+    }
+
+    /// Import unified storage from JSON string (from CLI export)
+    pub fn import_json(&self, json: &str) -> Result<(), StorageError> {
+        let storage: UnifiedStorage = serde_json::from_str(json)
+            .map_err(|e| StorageError::SerializeError(e.to_string()))?;
+        self.save(&storage)
+    }
+}
+
+// Helper traits for migration from legacy string-based storage
+impl TryFrom<String> for Chain {
+    type Error = ();
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        match s.to_lowercase().as_str() {
+            "bitcoin" => Ok(Chain::Bitcoin),
+            "ethereum" => Ok(Chain::Ethereum),
+            "sui" => Ok(Chain::Sui),
+            "aptos" => Ok(Chain::Aptos),
+            "solana" => Ok(Chain::Solana),
+            _ => Err(()),
+        }
+    }
+}
+
+impl TryFrom<String> for Network {
+    type Error = ();
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        match s.to_lowercase().as_str() {
+            "dev" => Ok(Network::Dev),
+            "test" => Ok(Network::Test),
+            "main" => Ok(Network::Main),
+            _ => Err(()),
+        }
+    }
+}
+
+impl TryFrom<String> for csv_adapter_store::unified::RightStatus {
+    type Error = ();
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        match s.to_lowercase().as_str() {
+            "active" => Ok(csv_adapter_store::unified::RightStatus::Active),
+            "transferred" => Ok(csv_adapter_store::unified::RightStatus::Transferred),
+            "consumed" => Ok(csv_adapter_store::unified::RightStatus::Consumed),
+            _ => Err(()),
+        }
+    }
+}
+
+impl TryFrom<String> for csv_adapter_store::unified::TransferStatus {
+    type Error = ();
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        match s.to_lowercase().as_str() {
+            "initiated" => Ok(csv_adapter_store::unified::TransferStatus::Initiated),
+            "locked" => Ok(csv_adapter_store::unified::TransferStatus::Locked),
+            "verifying" => Ok(csv_adapter_store::unified::TransferStatus::Verifying),
+            "minting" => Ok(csv_adapter_store::unified::TransferStatus::Minting),
+            "completed" => Ok(csv_adapter_store::unified::TransferStatus::Completed),
+            "failed" => Ok(csv_adapter_store::unified::TransferStatus::Failed),
+            _ => Err(()),
+        }
+    }
+}
+
+/// Legacy state format for migration purposes (deprecated)
 #[derive(Serialize, Deserialize, Default)]
-pub struct PersistedState {
+pub struct LegacyState {
     pub initialized: bool,
     pub selected_chain: String,
     pub selected_network: String,
@@ -196,6 +307,7 @@ pub struct PersistedState {
     pub contracts: Vec<PersistedContract>,
 }
 
+/// Legacy persisted types for migration
 #[derive(Serialize, Deserialize)]
 pub struct PersistedRight {
     pub id: String,
@@ -240,3 +352,11 @@ pub struct PersistedContract {
     pub tx_hash: String,
     pub deployed_at: u64,
 }
+
+// Re-export unified types
+pub use csv_adapter_store::unified::{
+    Chain, ChainConfig, ContractRecord, FaucetConfig, GasAccount, Network, 
+    ProofRecord, RightRecord, RightStatus, SealRecord, TransactionRecord,
+    TransactionStatus, TransactionType, TransferRecord, TransferStatus, 
+    WalletAccount, WalletConfig, UnifiedStorage,
+};

@@ -7,7 +7,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::config::{Chain, Config};
 use crate::output;
-use crate::state::{DeployedContract, State};
+use crate::state::{ContractRecord, UnifiedStateManager};
 
 /// A discovered contract from chain query
 #[derive(Debug, Clone)]
@@ -55,7 +55,7 @@ pub enum ContractAction {
     },
 }
 
-pub fn execute(action: ContractAction, config: &Config, state: &mut State) -> Result<()> {
+pub fn execute(action: ContractAction, config: &Config, state: &mut UnifiedStateManager) -> Result<()> {
     match action {
         ContractAction::Deploy {
             chain,
@@ -74,7 +74,7 @@ fn cmd_deploy(
     network: Option<String>,
     deployer_key: Option<String>,
     config: &Config,
-    state: &mut State,
+    state: &mut UnifiedStateManager,
 ) -> Result<()> {
     let network_str = network.as_deref().unwrap_or("test");
 
@@ -107,7 +107,7 @@ fn cmd_deploy(
 }
 
 /// Deploy Ethereum contracts via Foundry
-fn deploy_ethereum(config: &Config, state: &mut State, deployer_key: Option<String>) -> Result<()> {
+fn deploy_ethereum(config: &Config, state: &mut UnifiedStateManager, deployer_key: Option<String>) -> Result<()> {
     let chain_config = config.chain(&Chain::Ethereum)?;
 
     output::progress(1, 5, "Compiling Solidity contracts...");
@@ -188,7 +188,7 @@ fn deploy_ethereum(config: &Config, state: &mut State, deployer_key: Option<Stri
         .unwrap_or_default()
         .as_secs();
 
-    state.store_contract(DeployedContract {
+    state.store_contract(ContractRecord {
         chain: Chain::Ethereum,
         address: csvlock_addr.clone(),
         tx_hash: stdout
@@ -205,7 +205,7 @@ fn deploy_ethereum(config: &Config, state: &mut State, deployer_key: Option<Stri
     });
 
     // Also store mint contract
-    state.store_contract(DeployedContract {
+    state.store_contract(ContractRecord {
         chain: Chain::Ethereum,
         address: csvmint_addr.clone(),
         tx_hash: "0xsee_csvlock_for_tx".to_string(),
@@ -222,7 +222,7 @@ fn deploy_ethereum(config: &Config, state: &mut State, deployer_key: Option<Stri
 }
 
 /// Deploy Sui contracts via sui CLI
-fn deploy_sui(config: &Config, state: &mut State) -> Result<()> {
+fn deploy_sui(config: &Config, state: &mut UnifiedStateManager) -> Result<()> {
     output::progress(1, 4, "Building Move package...");
 
     let sui_path = std::env::var("SUI_BIN").unwrap_or_else(|_| "sui".to_string());
@@ -298,7 +298,7 @@ fn deploy_sui(config: &Config, state: &mut State) -> Result<()> {
         .unwrap_or_default()
         .as_secs();
 
-    state.store_contract(DeployedContract {
+    state.store_contract(ContractRecord {
         chain: Chain::Sui,
         address: package_id.clone(),
         tx_hash: "0xsui_publish".to_string(),
@@ -313,7 +313,7 @@ fn deploy_sui(config: &Config, state: &mut State) -> Result<()> {
 }
 
 /// Deploy Aptos contracts via aptos CLI
-fn deploy_aptos(config: &Config, state: &mut State) -> Result<()> {
+fn deploy_aptos(config: &Config, state: &mut UnifiedStateManager) -> Result<()> {
     output::progress(1, 4, "Building Move package...");
 
     let aptos_path = std::env::var("APTOS_BIN").unwrap_or_else(|_| "aptos".to_string());
@@ -388,7 +388,7 @@ fn deploy_aptos(config: &Config, state: &mut State) -> Result<()> {
         .unwrap_or_default()
         .as_secs();
 
-    state.store_contract(DeployedContract {
+    state.store_contract(ContractRecord {
         chain: Chain::Aptos,
         address: account.clone(),
         tx_hash: "0xaptos_publish".to_string(),
@@ -403,7 +403,7 @@ fn deploy_aptos(config: &Config, state: &mut State) -> Result<()> {
 }
 
 /// Deploy Solana programs via Anchor CLI
-fn deploy_solana(config: &Config, state: &mut State) -> Result<()> {
+fn deploy_solana(config: &Config, state: &mut UnifiedStateManager) -> Result<()> {
     output::progress(1, 5, "Building Anchor program...");
 
     let anchor_path = std::env::var("ANCHOR_BIN").unwrap_or_else(|_| "anchor".to_string());
@@ -531,7 +531,7 @@ fn deploy_solana(config: &Config, state: &mut State) -> Result<()> {
         .unwrap_or_default()
         .as_secs();
 
-    state.store_contract(DeployedContract {
+    state.store_contract(ContractRecord {
         chain: Chain::Solana,
         address: program_id.clone(),
         tx_hash: "solana_deploy".to_string(),
@@ -565,7 +565,7 @@ fn extract_program_id(output: &str) -> Option<String> {
     None
 }
 
-fn cmd_status(chain: Chain, _config: &Config, state: &State) -> Result<()> {
+fn cmd_status(chain: Chain, _config: &Config, state: &UnifiedStateManager) -> Result<()> {
     output::header(&format!("Contract Status: {}", chain));
 
     let contracts = state.get_contracts(&chain);
@@ -595,7 +595,7 @@ fn cmd_status(chain: Chain, _config: &Config, state: &State) -> Result<()> {
     Ok(())
 }
 
-fn cmd_verify(chain: Chain, _config: &Config, state: &State) -> Result<()> {
+fn cmd_verify(chain: Chain, _config: &Config, state: &UnifiedStateManager) -> Result<()> {
     output::header(&format!("Verifying Contract: {}", chain));
 
     let contracts = state.get_contracts(&chain);
@@ -613,7 +613,7 @@ fn cmd_verify(chain: Chain, _config: &Config, state: &State) -> Result<()> {
     Ok(())
 }
 
-fn cmd_list(state: &State) -> Result<()> {
+fn cmd_list(state: &UnifiedStateManager) -> Result<()> {
     output::header("Deployed Contracts");
 
     let headers = vec![
@@ -626,22 +626,20 @@ fn cmd_list(state: &State) -> Result<()> {
     ];
     let mut rows = Vec::new();
 
-    for (chain, contracts) in &state.contracts {
-        for (idx, contract) in contracts.iter().enumerate() {
-            // Format timestamp as human-readable date
-            let deployed_str = format_timestamp(contract.deployed_at);
-            let tx_or_source = display_tx_or_discovery_note(chain.clone(), contract);
-            let explorer = contract_explorer_url(chain.clone(), &contract.address)
-                .unwrap_or_else(|| "-".to_string());
-            rows.push(vec![
-                format!("{}", chain),
-                (idx + 1).to_string(),
-                contract.address.clone(),
-                tx_or_source,
-                explorer,
-                deployed_str,
-            ]);
-        }
+    for (idx, contract) in state.storage.contracts.iter().enumerate() {
+        // Format timestamp as human-readable date
+        let deployed_str = format_timestamp(contract.deployed_at);
+        let tx_or_source = display_tx_or_discovery_note(contract.chain.clone(), contract);
+        let explorer = contract_explorer_url(contract.chain.clone(), &contract.address)
+            .unwrap_or_else(|| "-".to_string());
+        rows.push(vec![
+            format!("{}", contract.chain),
+            (idx + 1).to_string(),
+            contract.address.clone(),
+            tx_or_source,
+            explorer,
+            deployed_str,
+        ]);
     }
 
     if rows.is_empty() {
@@ -653,7 +651,7 @@ fn cmd_list(state: &State) -> Result<()> {
     Ok(())
 }
 
-fn display_tx_or_discovery_note(chain: Chain, contract: &DeployedContract) -> String {
+fn display_tx_or_discovery_note(chain: Chain, contract: &ContractRecord) -> String {
     if contract.tx_hash == "discovered_from_chain" {
         return format!("discovered on {} (address-based)", chain);
     }
@@ -723,14 +721,14 @@ fn extract_account(output: &str) -> Option<String> {
 }
 
 /// Fetch contracts from chain for stored addresses
-fn cmd_fetch(chain_filter: Option<Chain>, config: &Config, state: &mut State) -> Result<()> {
+fn cmd_fetch(chain_filter: Option<Chain>, config: &Config, state: &mut UnifiedStateManager) -> Result<()> {
     let rt = tokio::runtime::Runtime::new()?;
 
     let chains_to_fetch: Vec<Chain> = match chain_filter {
         Some(c) => vec![c],
         None => {
-            // Get all chains that have addresses stored
-            state.addresses.keys().cloned().collect()
+            // Get all chains that have accounts with addresses
+            state.storage.wallet.accounts.iter().map(|a| a.chain.clone()).collect()
         }
     };
 
@@ -744,7 +742,7 @@ fn cmd_fetch(chain_filter: Option<Chain>, config: &Config, state: &mut State) ->
     let mut total_discovered = 0;
 
     for chain in chains_to_fetch {
-        if let Some(address) = state.get_address(&chain).cloned() {
+        if let Some(address) = state.get_address(&chain).map(|s| s.to_string()) {
             if chain == Chain::Bitcoin {
                 continue; // Bitcoin doesn't have contracts
             }
@@ -758,7 +756,7 @@ fn cmd_fetch(chain_filter: Option<Chain>, config: &Config, state: &mut State) ->
 
             for contract in discovered {
                 output::info(&format!("  Found: {} - {}", contract.address, contract.description));
-                state.store_contract(DeployedContract {
+                state.store_contract(ContractRecord {
                     chain: chain.clone(),
                     address: contract.address,
                     tx_hash: "discovered_from_chain".to_string(),

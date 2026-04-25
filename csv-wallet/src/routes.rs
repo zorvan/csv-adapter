@@ -4,6 +4,7 @@ use dioxus::prelude::*;
 
 use crate::layout::Layout;
 use crate::pages::*;
+use crate::routes::cross_chain::TransferDetail;
 
 #[derive(Routable, PartialEq, Clone, Debug)]
 pub enum Route {
@@ -43,6 +44,8 @@ pub enum Route {
     CrossChainStatus {},
     #[route("/cross-chain/retry")]
     CrossChainRetry {},
+    #[route("/cross-chain/transfer/:id")]
+    TransferDetail { id: String },
 
     // Contracts
     #[route("/contracts")]

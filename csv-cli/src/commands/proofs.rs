@@ -7,7 +7,7 @@ use csv_adapter_core::hash::Hash;
 
 use crate::config::{Chain, Config};
 use crate::output;
-use crate::state::State;
+use crate::state::UnifiedStateManager;
 
 #[derive(Subcommand)]
 pub enum ProofAction {
@@ -44,7 +44,7 @@ pub enum ProofAction {
     },
 }
 
-pub fn execute(action: ProofAction, config: &Config, state: &State) -> Result<()> {
+pub fn execute(action: ProofAction, config: &Config, state: &UnifiedStateManager) -> Result<()> {
     match action {
         ProofAction::Generate {
             chain,
@@ -65,7 +65,7 @@ fn cmd_generate(
     right_id: String,
     output: Option<String>,
     config: &Config,
-    _state: &State,
+    _state: &UnifiedStateManager,
 ) -> Result<()> {
     output::header(&format!("Generating Proof on {}", chain));
 
@@ -144,7 +144,7 @@ fn cmd_verify(
     chain: Chain,
     proof_file: Option<String>,
     _config: &Config,
-    _state: &State,
+    _state: &UnifiedStateManager,
 ) -> Result<()> {
     output::header(&format!("Verifying Proof on {}", chain));
 
@@ -188,7 +188,7 @@ fn cmd_verify_cross_chain(
     dest: Chain,
     proof_file: String,
     _config: &Config,
-    _state: &State,
+    _state: &UnifiedStateManager,
 ) -> Result<()> {
     output::header(&format!(
         "Cross-Chain Proof Verification: {} → {}",

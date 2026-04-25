@@ -124,6 +124,11 @@ pub fn CrossChainTransfer() -> Element {
 
     // Execute real cross-chain transfer using native signing
     let execute_transfer = move |_| {
+        if !_has_source_contract {
+            error.set(Some(format!("No contract deployed on {:?}. Deploy a contract first.", *from_chain.read())));
+            return;
+        }
+
         if !has_target_contract {
             error.set(Some(format!("No contract deployed on {:?}. Deploy a contract first.", *to_chain.read())));
             return;
@@ -213,10 +218,24 @@ pub fn CrossChainTransfer() -> Element {
                 step_signal.set(1);
                 web_sys::console::log_1(&"Step 1: Locking right on source chain...".into());
 
-                // Build contracts map with selected target contract
+                // Build contracts map with both source and target contracts
                 let mut contracts = std::collections::HashMap::new();
-                
-                // Get target contracts and select the one user chose
+
+                // Add source chain contract (needed for locking)
+                let source_contracts = wallet_ctx.contracts_for_chain(from);
+                if !source_contracts.is_empty() {
+                    if let Some(contract) = source_contracts.first() {
+                        contracts.insert(from, crate::services::blockchain::ContractDeployment {
+                            chain: from,
+                            contract_address: contract.address.clone(),
+                            tx_hash: contract.tx_hash.clone(),
+                            deployed_at: contract.deployed_at,
+                            contract_type: crate::services::blockchain::ContractType::Lock,
+                        });
+                    }
+                }
+
+                // Add target chain contract (needed for minting)
                 let target_contracts = wallet_ctx.contracts_for_chain(to);
                 if !target_contracts.is_empty() {
                     let selected_idx = target_contract_idx.min(target_contracts.len() - 1);
@@ -240,10 +259,18 @@ pub fn CrossChainTransfer() -> Element {
                     &signer,
                 ).await {
                     Ok(transfer_result) => {
-                        step_signal.set(5);
+                        step_signal.set(6); // Set beyond last step to show all completed
                         let transfer_id = transfer_result.transfer_id.clone();
 
-                        // Record the transfer
+                        // Get contract addresses from the contracts map
+                        let source_contract = contracts.get(&from).map(|c| c.contract_address.clone());
+                        let dest_contract = contracts.get(&to).map(|c| c.contract_address.clone());
+
+                        // Format fees with appropriate chain units
+                        let source_fee_str = transfer_result.source_fee.map(|fee| format_fee(fee, from));
+                        let dest_fee_str = transfer_result.dest_fee.map(|fee| format_fee(fee, to));
+
+                        // Record the transfer with full details
                         wallet_ctx.add_transfer(TrackedTransfer {
                             id: transfer_id.clone(),
                             from_chain: from,
@@ -252,6 +279,12 @@ pub fn CrossChainTransfer() -> Element {
                             dest_owner: dest_addr.clone(),
                             status: TransferStatus::Completed,
                             created_at: js_sys::Date::now() as u64 / 1000,
+                            source_tx_hash: Some(transfer_result.lock_tx_hash.clone()),
+                            dest_tx_hash: Some(transfer_result.mint_tx_hash.clone()),
+                            source_contract,
+                            dest_contract,
+                            source_fee: source_fee_str,
+                            dest_fee: dest_fee_str,
                         });
 
                         result_signal.set(Some(format!(
@@ -532,5 +565,32 @@ pub fn CrossChainTransfer() -> Element {
                 }
             }
         }
+    }
+}
+
+/// Format fee amount for display with appropriate chain units.
+fn format_fee(fee: u64, chain: Chain) -> String {
+    match chain {
+        Chain::Bitcoin => {
+            // Bitcoin fees are in satoshis
+            format!("{:.8} BTC", fee as f64 / 100_000_000.0)
+        }
+        Chain::Ethereum => {
+            // Ethereum fees are in wei
+            format!("{:.6} ETH", fee as f64 / 1_000_000_000_000_000_000.0)
+        }
+        Chain::Sui => {
+            // Sui fees are in MIST (10^-9 SUI)
+            format!("{:.6} SUI", fee as f64 / 1_000_000_000.0)
+        }
+        Chain::Aptos => {
+            // Aptos fees are in octas (10^-8 APT)
+            format!("{:.6} APT", fee as f64 / 100_000_000.0)
+        }
+        Chain::Solana => {
+            // Solana fees are in lamports (10^-9 SOL)
+            format!("{:.6} SOL", fee as f64 / 1_000_000_000.0)
+        }
+        _ => format!("{}", fee),
     }
 }

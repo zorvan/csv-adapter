@@ -918,13 +918,27 @@ impl BlockchainService {
             )
             .await?;
 
+        // Generate transfer ID from hash of lock + mint TX hashes
+        let transfer_id = Self::generate_transfer_id(&lock_receipt.tx_hash, &mint_receipt.tx_hash);
+
         Ok(CrossChainTransferResult {
-            transfer_id: format!("0x{}", hex::encode([0u8; 32])),
+            transfer_id,
             lock_tx_hash: lock_receipt.tx_hash,
             mint_tx_hash: mint_receipt.tx_hash,
             proof: Some(proof),
             status: CrossChainStatus::Completed,
+            source_fee: lock_receipt.gas_used,
+            dest_fee: mint_receipt.gas_used,
         })
+    }
+
+    /// Generate a unique transfer ID from lock and mint transaction hashes.
+    fn generate_transfer_id(lock_tx_hash: &str, mint_tx_hash: &str) -> String {
+        use sha2::{Sha256, Digest};
+        let mut hasher = Sha256::new();
+        hasher.update(lock_tx_hash.as_bytes());
+        hasher.update(mint_tx_hash.as_bytes());
+        format!("0x{}", hex::encode(hasher.finalize()))
     }
 }
 

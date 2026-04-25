@@ -14,7 +14,7 @@ use csv_adapter_core::right::OwnershipProof;
 
 use crate::config::{Chain, Config};
 use crate::output;
-use crate::state::{State, TrackedRight, TrackedTransfer, TransferStatus};
+use crate::state::{UnifiedStateManager, RightRecord, TransferRecord, TransferStatus};
 
 /// RPC response for block height queries
 #[derive(Debug, serde::Deserialize)]
@@ -78,7 +78,7 @@ pub enum CrossChainAction {
     },
 }
 
-pub fn execute(action: CrossChainAction, config: &Config, state: &mut State) -> Result<()> {
+pub fn execute(action: CrossChainAction, config: &Config, state: &mut UnifiedStateManager) -> Result<()> {
     match action {
         CrossChainAction::Transfer {
             from,
@@ -100,7 +100,7 @@ fn cmd_transfer(
     dest_owner: Option<String>,
     simulation: bool,
     config: &Config,
-    state: &mut State,
+    state: &mut UnifiedStateManager,
 ) -> Result<()> {
     if from == to {
         return Err(anyhow::anyhow!(
@@ -127,7 +127,7 @@ fn cmd_transfer(
     let right_id_hash = Hash::new(right_bytes);
 
     // Use current wallet address on destination chain if not specified
-    let dest_owner_str = dest_owner.or_else(|| state.get_address(&to).cloned());
+    let dest_owner_str = dest_owner.or_else(|| state.get_address(&to).map(|s| s.to_string()));
     
     // Create ownership proof for destination
     let dest_owner_bytes = match &dest_owner_str {
@@ -405,11 +405,12 @@ Use --simulation for now, or transfer to ethereum/aptos in real mode.",
     // Build registry from state's consumed seals for double-spend detection
     let mut registry = CrossChainSealRegistry::new();
     // Inject state's known seals into the registry
-    for seal_bytes in &state.consumed_seals {
+    for seal in state.storage.seals.iter().filter(|s| s.consumed) {
         use csv_adapter_core::right::RightId;
         use csv_adapter_core::seal::SealRef;
         use csv_adapter_core::seal_registry::{ChainId as CoreChainId, SealConsumption};
-        if let Ok(seal_ref) = SealRef::new(seal_bytes.clone(), None) {
+        let seal_bytes = hex::decode(&seal.seal_ref).unwrap_or_default();
+        if let Ok(seal_ref) = SealRef::new(seal_bytes, None) {
             let consumption = SealConsumption {
                 chain: CoreChainId::Ethereum,
                 seal_ref,
@@ -428,7 +429,7 @@ Use --simulation for now, or transfer to ethereum/aptos in real mode.",
 
     // Step 4: Check CrossChainSealRegistry
     output::progress(4, 6, "Step 4: Checking seal registry...");
-    if state.is_seal_consumed(&right_bytes) {
+    if state.is_seal_consumed(&hex::encode(&right_bytes)) {
         output::error("Right has already been transferred (seal consumed)");
         return Err(anyhow::anyhow!("Double-spend detected"));
     }
@@ -450,15 +451,21 @@ Use --simulation for demo output, or wire real lock/mint providers first."
         ));
     }
 
+    // Get timestamp for records
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+
     // Step 6: Record in registry
     output::progress(6, 6, "Step 6: Recording transfer...");
-    state.record_seal_consumption(right_bytes.to_vec());
+    state.record_seal_consumption(hex::encode(&right_bytes));
     
     // Mark original right as consumed on source chain
-    let _ = state.consume_right(&right_id_hash);
+    let _ = state.consume_right(&hex::encode(right_id_hash.as_bytes()));
 
     // Collect address info before moving values
-    let sender_address = state.get_address(&from).cloned();
+    let sender_address = state.get_address(&from).map(|s| s.to_string());
     let dest_address = dest_owner_str.clone();
     let dest_contract = state.get_contract(&to).map(|c| c.address.clone());
 
@@ -467,14 +474,16 @@ Use --simulation for demo output, or wire real lock/mint providers first."
         if let Some(transfer_dest_addr) = &dest_address {
             if current_dest_addr == transfer_dest_addr {
                 // We own this right on destination chain, add to tracking
-                let new_right = TrackedRight {
-                    id: mint_result.destination_right.id.0,
+                let new_right = RightRecord {
+                    id: hex::encode(mint_result.destination_right.id.0.as_bytes()),
                     chain: to.clone(),
-                    seal_ref: mint_result.destination_seal.to_vec(),
-                    owner: dest_owner_bytes.clone(),
-                    commitment: mint_result.destination_right.commitment,
+                    seal_ref: hex::encode(&mint_result.destination_seal.seal_id),
+                    owner: hex::encode(&dest_owner_bytes),
+                    value: 0,
+                    commitment: hex::encode(mint_result.destination_right.commitment.as_bytes()),
                     nullifier: None,
-                    consumed: false,
+                    status: csv_adapter_store::unified::RightStatus::Active,
+                    created_at: timestamp,
                 };
                 state.add_right(new_right);
             }
@@ -482,24 +491,19 @@ Use --simulation for demo output, or wire real lock/mint providers first."
     }
 
     // Create tracked transfer
-    let timestamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
-
-    let transfer = TrackedTransfer {
-        id: transfer_id,
+    let transfer = TransferRecord {
+        id: hex::encode(&transfer_id),
         source_chain: from,
         dest_chain: to,
-        right_id: right_id_hash,
+        right_id: hex::encode(right_id_hash.as_bytes()),
         sender_address,
-        destination_address: dest_address.clone(),
-        source_tx_hash: Some(transfer_proof.lock_event.source_tx_hash),
+        destination_address: dest_address,
+        source_tx_hash: Some(hex::encode(transfer_proof.lock_event.source_tx_hash.as_bytes())),
         source_fee: None,
-        dest_tx_hash: Some(mint_result.registry_entry.mint_tx_hash),
-        destination_fee: None,
+        dest_tx_hash: Some(hex::encode(mint_result.registry_entry.mint_tx_hash.as_bytes())),
+        dest_fee: None,
         destination_contract: dest_contract,
-        proof: Some(serde_json::to_vec(&transfer_proof).unwrap_or_default()),
+        proof: Some(hex::encode(serde_json::to_vec(&transfer_proof).unwrap_or_default())),
         status: TransferStatus::Completed,
         created_at: timestamp,
         completed_at: Some(timestamp),
@@ -552,14 +556,14 @@ fn run_real_bitcoin_to_aptos(
     destination_contract: String,
     dest_owner_str: Option<String>,
     config: &Config,
-    state: &mut State,
+    state: &mut UnifiedStateManager,
 ) -> Result<()> {
     output::progress(1, 6, "Step 1: Locking Right on bitcoin...");
     let btc_cfg = config.chain(&Chain::Bitcoin)?;
     let btc_key = get_private_key(config, Chain::Bitcoin)?;
     let btc_address = state
         .get_address(&Chain::Bitcoin)
-        .cloned()
+        .map(|s| s.to_string())
         .ok_or_else(|| anyhow::anyhow!("Missing bitcoin wallet address in state"))?;
     let lock_data = format!("CSV:LOCK:{}", hex::encode(right_id_hash.as_bytes())).into_bytes();
     let source_txid_hex = publish_bitcoin_lock(&btc_address, &lock_data, &btc_cfg.rpc_url, &btc_key)?;
@@ -594,7 +598,7 @@ fn run_real_bitcoin_to_aptos(
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
-    state.add_transfer(TrackedTransfer {
+    state.add_transfer(TransferRecord {
         id: transfer_id,
         source_chain: Chain::Bitcoin,
         dest_chain: Chain::Aptos,
@@ -641,14 +645,14 @@ fn run_real_bitcoin_to_ethereum(
     dest_owner_str: Option<String>,
     dest_owner_bytes: Vec<u8>,
     config: &Config,
-    state: &mut State,
+    state: &mut UnifiedStateManager,
 ) -> Result<()> {
     output::progress(1, 6, "Step 1: Locking Right on bitcoin...");
     let btc_cfg = config.chain(&Chain::Bitcoin)?;
     let btc_key = get_private_key(config, Chain::Bitcoin)?;
     let btc_address = state
         .get_address(&Chain::Bitcoin)
-        .cloned()
+        .map(|s| s.to_string())
         .ok_or_else(|| anyhow::anyhow!("Missing bitcoin wallet address in state"))?;
     let lock_data = format!("CSV:LOCK:{}", hex::encode(right_id_hash.as_bytes())).into_bytes();
     let source_txid_hex = publish_bitcoin_lock(&btc_address, &lock_data, &btc_cfg.rpc_url, &btc_key)?;
@@ -689,7 +693,7 @@ fn run_real_bitcoin_to_ethereum(
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
-    state.add_transfer(TrackedTransfer {
+    state.add_transfer(TransferRecord {
         id: transfer_id,
         source_chain: Chain::Bitcoin,
         dest_chain: Chain::Ethereum,
@@ -739,14 +743,14 @@ fn run_real_ethereum_to_sui(
     _destination_contract: String,
     dest_owner_str: Option<String>,
     config: &Config,
-    state: &mut State,
+    state: &mut UnifiedStateManager,
 ) -> Result<()> {
     output::progress(1, 6, "Step 1: Locking Right on ethereum...");
     let eth_cfg = config.chain(&Chain::Ethereum)?;
     let eth_key = get_private_key(config, Chain::Ethereum)?;
     let eth_address = state
         .get_address(&Chain::Ethereum)
-        .cloned()
+        .map(|s| s.to_string())
         .ok_or_else(|| anyhow::anyhow!("Missing ethereum wallet address in state"))?;
     
     // Lock the right on Ethereum by calling the lock function
@@ -789,7 +793,7 @@ fn run_real_ethereum_to_sui(
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
-    state.add_transfer(TrackedTransfer {
+    state.add_transfer(TransferRecord {
         id: transfer_id,
         source_chain: Chain::Ethereum,
         dest_chain: Chain::Sui,
@@ -835,14 +839,14 @@ fn run_real_ethereum_to_aptos(
     destination_contract: String,
     dest_owner_str: Option<String>,
     config: &Config,
-    state: &mut State,
+    state: &mut UnifiedStateManager,
 ) -> Result<()> {
     output::progress(1, 6, "Step 1: Locking Right on ethereum...");
     let eth_cfg = config.chain(&Chain::Ethereum)?;
     let eth_key = get_private_key(config, Chain::Ethereum)?;
     let eth_address = state
         .get_address(&Chain::Ethereum)
-        .cloned()
+        .map(|s| s.to_string())
         .ok_or_else(|| anyhow::anyhow!("Missing ethereum wallet address in state"))?;
     
     // Lock the right on Ethereum
@@ -882,7 +886,7 @@ fn run_real_ethereum_to_aptos(
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
-    state.add_transfer(TrackedTransfer {
+    state.add_transfer(TransferRecord {
         id: transfer_id,
         source_chain: Chain::Ethereum,
         dest_chain: Chain::Aptos,
@@ -927,14 +931,14 @@ fn run_real_ethereum_to_solana(
     _destination_contract: String,
     dest_owner_str: Option<String>,
     config: &Config,
-    state: &mut State,
+    state: &mut UnifiedStateManager,
 ) -> Result<()> {
     output::progress(1, 6, "Step 1: Locking Right on ethereum...");
     let eth_cfg = config.chain(&Chain::Ethereum)?;
     let eth_key = get_private_key(config, Chain::Ethereum)?;
     let eth_address = state
         .get_address(&Chain::Ethereum)
-        .cloned()
+        .map(|s| s.to_string())
         .ok_or_else(|| anyhow::anyhow!("Missing ethereum wallet address in state"))?;
     
     // Lock the right on Ethereum
@@ -983,7 +987,7 @@ fn run_real_ethereum_to_solana(
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
-    state.add_transfer(TrackedTransfer {
+    state.add_transfer(TransferRecord {
         id: transfer_id,
         source_chain: Chain::Ethereum,
         dest_chain: Chain::Solana,
@@ -1500,7 +1504,7 @@ fn chain_to_chain_id(chain: &Chain) -> ChainId {
     }
 }
 
-fn cmd_status(transfer_id: String, state: &State) -> Result<()> {
+fn cmd_status(transfer_id: String, state: &UnifiedStateManager) -> Result<()> {
     let bytes = hex::decode(transfer_id.trim_start_matches("0x"))
         .map_err(|e| anyhow::anyhow!("Invalid Transfer ID: {}", e))?;
     let mut hash_bytes = [0u8; 32];
@@ -1554,7 +1558,7 @@ fn cmd_status(transfer_id: String, state: &State) -> Result<()> {
     Ok(())
 }
 
-fn cmd_list(from: Option<Chain>, to: Option<Chain>, state: &State) -> Result<()> {
+fn cmd_list(from: Option<Chain>, to: Option<Chain>, state: &UnifiedStateManager) -> Result<()> {
     output::header("Cross-Chain Transfers");
 
     let headers = vec!["Transfer ID", "From", "To", "Right ID", "Status"];
@@ -1596,7 +1600,7 @@ fn cmd_list(from: Option<Chain>, to: Option<Chain>, state: &State) -> Result<()>
     Ok(())
 }
 
-fn cmd_retry(transfer_id: String, _config: &Config, state: &mut State) -> Result<()> {
+fn cmd_retry(transfer_id: String, _config: &Config, state: &mut UnifiedStateManager) -> Result<()> {
     output::header("Retrying Transfer");
     output::kv("Transfer ID", &transfer_id);
 
