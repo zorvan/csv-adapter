@@ -8,7 +8,7 @@ use dioxus::prelude::*;
 
 #[component]
 pub fn Rights() -> Element {
-    let mut wallet_ctx = use_wallet_context();
+    let wallet_ctx = use_wallet_context();
     let rights = wallet_ctx.rights();
     let mut filter_chain = use_signal(|| Option::<Chain>::None);
 

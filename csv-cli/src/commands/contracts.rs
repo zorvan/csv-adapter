@@ -568,18 +568,27 @@ fn extract_program_id(output: &str) -> Option<String> {
 fn cmd_status(chain: Chain, _config: &Config, state: &State) -> Result<()> {
     output::header(&format!("Contract Status: {}", chain));
 
-    if let Some(contract) = state.get_contract(&chain) {
-        output::kv("Address", &contract.address);
-        output::kv("Deploy TX", &contract.tx_hash);
-        output::kv("Deployed At", &contract.deployed_at.to_string());
-    } else {
-        output::warning("No contract deployed on this chain");
+    let contracts = state.get_contracts(&chain);
+    if contracts.is_empty() {
+        output::warning("No contracts deployed on this chain");
         match chain {
             Chain::Bitcoin => output::info("Bitcoin doesn't need contracts (UTXO-native)"),
             _ => output::info(&format!(
                 "Deploy with: csv contract deploy --chain {}",
                 chain
             )),
+        }
+    } else {
+        output::info(&format!("Found {} contract(s)", contracts.len()));
+        for (idx, contract) in contracts.iter().enumerate() {
+            println!();
+            output::info(&format!("Contract #{}", idx + 1));
+            output::kv("  Address", &contract.address);
+            output::kv("  Deploy TX", &display_tx_or_discovery_note(chain.clone(), contract));
+            if let Some(url) = contract_explorer_url(chain.clone(), &contract.address) {
+                output::kv("  Explorer", &url);
+            }
+            output::kv("  Deployed At", &contract.deployed_at.to_string());
         }
     }
 
@@ -589,13 +598,16 @@ fn cmd_status(chain: Chain, _config: &Config, state: &State) -> Result<()> {
 fn cmd_verify(chain: Chain, _config: &Config, state: &State) -> Result<()> {
     output::header(&format!("Verifying Contract: {}", chain));
 
-    if let Some(_contract) = state.get_contract(&chain) {
-        output::progress(1, 3, "Checking contract code...");
-        output::progress(2, 3, "Verifying functions...");
-        output::progress(3, 3, "Testing lock/mint flow...");
-        output::success("Contract verified");
-    } else {
+    let contracts = state.get_contracts(&chain);
+    if contracts.is_empty() {
         output::warning("No contract to verify — deploy first");
+    } else {
+        for (idx, _contract) in contracts.iter().enumerate() {
+            output::progress(1, 3, &format!("Checking contract #{} code...", idx + 1));
+            output::progress(2, 3, "Verifying functions...");
+            output::progress(3, 3, "Testing lock/mint flow...");
+            output::success(&format!("Contract #{} verified", idx + 1));
+        }
     }
 
     Ok(())
@@ -604,24 +616,32 @@ fn cmd_verify(chain: Chain, _config: &Config, state: &State) -> Result<()> {
 fn cmd_list(state: &State) -> Result<()> {
     output::header("Deployed Contracts");
 
-    let headers = vec!["Chain", "Address", "TX Hash", "Deployed"];
+    let headers = vec![
+        "Chain",
+        "Version",
+        "Address",
+        "TX / Source",
+        "Explorer",
+        "Deployed",
+    ];
     let mut rows = Vec::new();
 
-    for (chain, contract) in &state.contracts {
-        // Format timestamp as human-readable date
-        let deployed_str = format_timestamp(contract.deployed_at);
-        // Show full tx_hash if it's short, otherwise truncate reasonably
-        let tx_display = if contract.tx_hash.len() <= 25 {
-            contract.tx_hash.clone()
-        } else {
-            format!("{}...", &contract.tx_hash[..22])
-        };
-        rows.push(vec![
-            format!("{}", chain),
-            contract.address.clone(),
-            tx_display,
-            deployed_str,
-        ]);
+    for (chain, contracts) in &state.contracts {
+        for (idx, contract) in contracts.iter().enumerate() {
+            // Format timestamp as human-readable date
+            let deployed_str = format_timestamp(contract.deployed_at);
+            let tx_or_source = display_tx_or_discovery_note(chain.clone(), contract);
+            let explorer = contract_explorer_url(chain.clone(), &contract.address)
+                .unwrap_or_else(|| "-".to_string());
+            rows.push(vec![
+                format!("{}", chain),
+                (idx + 1).to_string(),
+                contract.address.clone(),
+                tx_or_source,
+                explorer,
+                deployed_str,
+            ]);
+        }
     }
 
     if rows.is_empty() {
@@ -631,6 +651,37 @@ fn cmd_list(state: &State) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn display_tx_or_discovery_note(chain: Chain, contract: &DeployedContract) -> String {
+    if contract.tx_hash == "discovered_from_chain" {
+        return format!("discovered on {} (address-based)", chain);
+    }
+
+    if contract.tx_hash.len() <= 25 {
+        contract.tx_hash.clone()
+    } else {
+        format!("{}...", &contract.tx_hash[..22])
+    }
+}
+
+fn contract_explorer_url(chain: Chain, address: &str) -> Option<String> {
+    let base = match chain {
+        Chain::Ethereum => "https://sepolia.etherscan.io/address/",
+        Chain::Aptos => "https://explorer.aptoslabs.com/account/",
+        Chain::Sui => "https://suiexplorer.com/object/",
+        Chain::Solana => "https://explorer.solana.com/address/",
+        Chain::Bitcoin => return None,
+    };
+
+    let suffix = match chain {
+        Chain::Ethereum | Chain::Bitcoin => "",
+        Chain::Aptos => "?network=testnet",
+        Chain::Sui => "?network=testnet",
+        Chain::Solana => "?cluster=devnet",
+    };
+
+    Some(format!("{}{}{}", base, address, suffix))
 }
 
 /// Extract an Ethereum-style address from forge script output

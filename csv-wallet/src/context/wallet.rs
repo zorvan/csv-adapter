@@ -297,6 +297,13 @@ impl WalletContext {
         self.state.read().wallet.accounts_for_chain(chain).first().map(|a| a.address.clone())
     }
 
+    /// Get the gas payment account for a chain (falls back to regular address).
+    pub fn get_gas_account(&self, chain: Chain) -> Option<String> {
+        // Prefer a dedicated gas account if set, otherwise use the regular address.
+        self.state.read().wallet.get_gas_account(&chain).clone()
+            .or_else(|| self.address_for_chain(chain).clone())
+    }
+
     /// Refresh an account address (for chain swaps).
     pub fn refresh_account_address(&mut self, account_id: &str) -> Result<bool, ()> {
         // Find the account by ID and refresh its address

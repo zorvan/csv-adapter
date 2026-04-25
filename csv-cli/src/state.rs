@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use csv_adapter_core::hash::Hash;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::config;
 
@@ -89,8 +89,9 @@ pub struct State {
     pub rights: Vec<TrackedRight>,
     /// Tracked transfers
     pub transfers: Vec<TrackedTransfer>,
-    /// Deployed contracts
-    pub contracts: HashMap<config::Chain, DeployedContract>,
+    /// Deployed contracts (multiple per chain supported)
+    #[serde(default, deserialize_with = "deserialize_contracts")]
+    pub contracts: HashMap<config::Chain, Vec<DeployedContract>>,
     /// Known addresses per chain
     pub addresses: HashMap<config::Chain, String>,
     /// Gas payment accounts per chain
@@ -98,6 +99,47 @@ pub struct State {
     pub gas_accounts: HashMap<config::Chain, String>,
     /// Seal consumption registry (simplified)
     pub consumed_seals: Vec<Vec<u8>>,
+}
+
+/// Backward-compatible contracts deserializer.
+/// Accepts both:
+/// - current format: { "sui": [ { ... } ] }
+/// - legacy format:  { "sui": { ... } }
+fn deserialize_contracts<'de, D>(
+    deserializer: D,
+) -> Result<HashMap<config::Chain, Vec<DeployedContract>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    use serde::de::Error;
+    use serde_json::Value;
+
+    let raw = HashMap::<config::Chain, Value>::deserialize(deserializer)?;
+    let mut out = HashMap::new();
+
+    for (chain, value) in raw {
+        match value {
+            Value::Array(items) => {
+                let contracts = items
+                    .into_iter()
+                    .map(|v| serde_json::from_value(v).map_err(D::Error::custom))
+                    .collect::<Result<Vec<DeployedContract>, _>>()?;
+                out.insert(chain, contracts);
+            }
+            Value::Object(_) => {
+                let contract: DeployedContract =
+                    serde_json::from_value(value).map_err(D::Error::custom)?;
+                out.insert(chain, vec![contract]);
+            }
+            _ => {
+                return Err(D::Error::custom(
+                    "contracts entries must be an object or array of objects",
+                ));
+            }
+        }
+    }
+
+    Ok(out)
 }
 
 impl State {
@@ -190,12 +232,23 @@ impl State {
 
     /// Store deployed contract info
     pub fn store_contract(&mut self, contract: DeployedContract) {
-        self.contracts.insert(contract.chain.clone(), contract);
+        self.contracts
+            .entry(contract.chain.clone())
+            .or_insert_with(Vec::new)
+            .push(contract);
     }
 
-    /// Get deployed contract for a chain
+    /// Get all deployed contracts for a chain
+    pub fn get_contracts(&self, chain: &config::Chain) -> Vec<&DeployedContract> {
+        self.contracts
+            .get(chain)
+            .map(|contracts| contracts.iter().collect())
+            .unwrap_or_default()
+    }
+
+    /// Get the first/primary deployed contract for a chain (for backward compatibility)
     pub fn get_contract(&self, chain: &config::Chain) -> Option<&DeployedContract> {
-        self.contracts.get(chain)
+        self.contracts.get(chain).and_then(|contracts| contracts.first())
     }
 
     /// Store an address for a chain

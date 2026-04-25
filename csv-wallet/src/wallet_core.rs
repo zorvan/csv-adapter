@@ -237,6 +237,11 @@ impl WalletData {
         self.accounts.iter().filter(|a| a.chain == chain).collect()
     }
 
+    /// Get the gas account address for a chain (first account for now).
+    pub fn get_gas_account(&self, chain: &Chain) -> Option<String> {
+        self.accounts_for_chain(*chain).first().map(|a| a.address.clone())
+    }
+
     /// Get accounts count for a chain.
     pub fn account_count_for_chain(&self, chain: Chain) -> usize {
         self.accounts.iter().filter(|a| a.chain == chain).count()
