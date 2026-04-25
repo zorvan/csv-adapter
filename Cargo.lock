@@ -1985,7 +1985,6 @@ dependencies = [
  "bech32 0.9.1",
  "bitcoin-private",
  "bitcoin_hashes 0.12.0",
- "bitcoinconsensus",
  "hex-conservative",
  "hex_lit",
  "secp256k1 0.27.0",
@@ -2004,9 +2003,11 @@ dependencies = [
  "bitcoin-io",
  "bitcoin-units",
  "bitcoin_hashes 0.14.1",
+ "bitcoinconsensus",
  "hex-conservative",
  "hex_lit",
  "secp256k1 0.29.1",
+ "serde",
 ]
 
 [[package]]
@@ -2014,6 +2015,9 @@ name = "bitcoin-internals"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "30bdbe14aa07b06e6cfeffc529a1f099e5fbe249524f8125358604df99a4bed2"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "bitcoin-io"
@@ -2034,6 +2038,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "346568ebaab2918487cea76dd55dae13c27bb618cdb737c952e69eb2017c4118"
 dependencies = [
  "bitcoin-internals",
+ "serde",
 ]
 
 [[package]]
@@ -2054,16 +2059,16 @@ checksum = "26ec84b80c482df901772e931a9a681e26a1b9ee2302edeff23cb30328745c8b"
 dependencies = [
  "bitcoin-io",
  "hex-conservative",
+ "serde",
 ]
 
 [[package]]
 name = "bitcoinconsensus"
-version = "0.20.2-0.5.0"
+version = "0.105.0+25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54505558b77e0aa21b2491a7b39cbae9db22ac8b1bc543ef4600edb762306f9c"
+checksum = "f260ac8fb2c621329013fc0ed371c940fcc512552dcbcb9095ed0179098c9e18"
 dependencies = [
  "cc",
- "libc",
 ]
 
 [[package]]
@@ -3136,8 +3141,9 @@ name = "csv-adapter-bitcoin"
 version = "0.3.0"
 dependencies = [
  "bip32",
- "bitcoin 0.30.3",
+ "bitcoin 0.32.8",
  "bitcoin_hashes 0.12.0",
+ "bitcoin_hashes 0.14.1",
  "bitcoincore-rpc",
  "csv-adapter-core",
  "csv-adapter-store",
@@ -3145,7 +3151,7 @@ dependencies = [
  "log",
  "rand 0.8.6",
  "reqwest 0.12.28",
- "secp256k1 0.27.0",
+ "secp256k1 0.29.1",
  "serde",
  "serde_json",
  "sha2",
@@ -3205,6 +3211,8 @@ name = "csv-adapter-solana"
 version = "0.3.0"
 dependencies = [
  "async-trait",
+ "base64 0.22.1",
+ "bincode",
  "bs58",
  "csv-adapter-core",
  "csv-adapter-store",
@@ -3256,10 +3264,9 @@ dependencies = [
 name = "csv-cli"
 version = "0.3.0"
 dependencies = [
- "alloy-primitives 0.8.26",
  "anyhow",
  "bip32",
- "bitcoin 0.30.3",
+ "bitcoin 0.32.8",
  "bitcoin_hashes 0.12.0",
  "blake2",
  "bs58",
@@ -9153,6 +9160,7 @@ dependencies = [
  "bitcoin_hashes 0.14.1",
  "rand 0.8.6",
  "secp256k1-sys 0.10.1",
+ "serde",
 ]
 
 [[package]]

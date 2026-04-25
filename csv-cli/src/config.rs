@@ -2,8 +2,47 @@
 
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::{Mutex, OnceLock};
 
 use serde::{Deserialize, Serialize};
+
+/// CSV Wallet exported JSON format (from csv-wallet)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct CsvWalletData {
+    accounts: Vec<CsvAccount>,
+    selected_account_id: Option<String>,
+}
+
+/// CSV Wallet account entry
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct CsvAccount {
+    id: String,
+    chain: String,
+    name: String,
+    private_key: String,
+    address: String,
+}
+
+impl CsvWalletData {
+    /// Load from csv-wallet JSON file
+    fn load_from_file(path: &str) -> anyhow::Result<Self> {
+        let content = std::fs::read_to_string(path)?;
+        let data: CsvWalletData = serde_json::from_str(&content)?;
+        Ok(data)
+    }
+
+    /// Find account by chain name (case-insensitive)
+    fn find_account(&self, chain: &str) -> Option<&CsvAccount> {
+        self.accounts.iter().find(|a| a.chain.eq_ignore_ascii_case(chain))
+    }
+}
+
+/// Global cache for csv-wallet configs loaded at runtime
+static CSV_WALLET_CACHE: OnceLock<Mutex<HashMap<Chain, WalletConfig>>> = OnceLock::new();
+
+fn get_csv_wallet_cache() -> &'static Mutex<HashMap<Chain, WalletConfig>> {
+    CSV_WALLET_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
 
 /// Network environment
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, clap::ValueEnum)]
@@ -281,8 +320,27 @@ impl Config {
     }
 
     /// Get wallet configuration
+    /// First checks config.toml, then falls back to ~/.csv/wallet/csv-wallet.json
     pub fn wallet(&self, chain: &Chain) -> Option<&WalletConfig> {
-        self.wallets.get(chain)
+        // First check config.toml wallets
+        if let Some(wallet) = self.wallets.get(chain) {
+            return Some(wallet);
+        }
+
+        // Fall back to csv-wallet exported JSON
+        let csv_wallet_path = expand_path("~/.csv/wallet/csv-wallet.json");
+        if let Ok(csv_wallet) = CsvWalletData::load_from_file(&csv_wallet_path) {
+            if let Some(account) = csv_wallet.find_account(&chain.to_string()) {
+                // Create a WalletConfig from the CSV account
+                // We need to store it somewhere - use thread_local as a simple cache
+                // or just return a converted version
+                // Since we can't easily return a reference to a locally created value,
+                // we'll use a static cache
+                return get_cached_wallet_config(chain, account);
+            }
+        }
+
+        None
     }
 
     /// Get faucet configuration
@@ -299,6 +357,26 @@ impl Config {
     pub fn set_wallet(&mut self, chain: Chain, config: WalletConfig) {
         self.wallets.insert(chain, config);
     }
+}
+
+/// Get cached wallet config from csv-wallet data (internal helper)
+fn get_cached_wallet_config(chain: &Chain, account: &CsvAccount) -> Option<&'static WalletConfig> {
+    let cache = get_csv_wallet_cache();
+    let mut cache = cache.lock().ok()?;
+
+    // Insert if not exists
+    cache.entry(chain.clone()).or_insert_with(|| WalletConfig {
+        private_key: Some(account.private_key.clone()),
+        xpub: None,
+        mnemonic: None,
+        mnemonic_passphrase: None,
+        derivation_path: None,
+    });
+
+    // We need to leak the reference to get 'static lifetime
+    // This is safe because the cache lives for the entire program
+    let config = cache.get(chain)?;
+    Some(Box::leak(Box::new(config.clone())))
 }
 
 /// Expand ~ to home directory

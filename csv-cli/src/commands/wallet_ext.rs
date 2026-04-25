@@ -1,0 +1,161 @@
+//! Extension commands for csv-wallet integration
+
+use anyhow::Result;
+use crate::config::{Chain, Config};
+use crate::state::State;
+use crate::output;
+
+// ===== csv-wallet JSON format structures =====
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+struct CsvWalletJson {
+    accounts: Vec<CsvWalletAccount>,
+    selected_account_id: Option<String>,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+struct CsvWalletAccount {
+    id: String,
+    chain: String,
+    name: String,
+    private_key: String,
+    address: String,
+}
+
+/// Import full wallet from csv-wallet JSON export
+pub fn cmd_import_csv_wallet(path: Option<String>, config: &Config, state: &mut State) -> Result<()> {
+    let path = path.unwrap_or_else(|| {
+        dirs::home_dir()
+            .map(|h| h.join(".csv/wallet/csv-wallet.json").to_string_lossy().to_string())
+            .unwrap_or_else(|| "~/.csv/wallet/csv-wallet.json".to_string())
+    });
+    
+    output::header("Importing Wallet from csv-wallet");
+    output::kv("Source", &path);
+    
+    let content = std::fs::read_to_string(&path)
+        .map_err(|e| anyhow::anyhow!("Failed to read {}: {}", path, e))?;
+    
+    let wallet: CsvWalletJson = serde_json::from_str(&content)
+        .map_err(|e| anyhow::anyhow!("Invalid JSON format: {}", e))?;
+    
+    output::info(&format!("Found {} accounts", wallet.accounts.len()));
+    
+    let mut imported = 0;
+    let mut updated = 0;
+    
+    for account in &wallet.accounts {
+        let chain = match account.chain.to_lowercase().as_str() {
+            "bitcoin" => Chain::Bitcoin,
+            "ethereum" => Chain::Ethereum,
+            "sui" => Chain::Sui,
+            "aptos" => Chain::Aptos,
+            "solana" => Chain::Solana,
+            _ => {
+                output::warning(&format!("Skipping unknown chain: {}", account.chain));
+                continue;
+            }
+        };
+        
+        // Check existing address first, then update
+        let existing = state.get_address(&chain).cloned();
+        let was_same = existing.as_ref() == Some(&account.address);
+        
+        // Update address in state
+        state.store_address(chain.clone(), account.address.clone());
+        
+        if was_same {
+            output::info(&format!("{}: {} (already set)", chain, &account.address[..16.min(account.address.len())]));
+        } else {
+            output::success(&format!("{}: {} -> {}", 
+                chain, 
+                existing.as_ref().map(|a| &a[..16.min(a.len())]).unwrap_or("none"),
+                &account.address[..16.min(account.address.len())]
+            ));
+            if existing.is_some() {
+                updated += 1;
+            } else {
+                imported += 1;
+            }
+        }
+    }
+    
+    output::success(&format!("Imported {} accounts, updated {}", imported, updated));
+    output::info("The private keys are now available for cross-chain transfers.");
+    output::info("Run 'csv wallet list' to verify addresses.");
+    
+    Ok(())
+}
+
+/// Export wallet to csv-wallet JSON format
+pub fn cmd_export_csv_wallet(output: Option<String>, config: &Config, state: &State) -> Result<()> {
+    let output_path = output.unwrap_or_else(|| {
+        dirs::home_dir()
+            .map(|h| h.join(".csv/wallet/csv-cli-export.json").to_string_lossy().to_string())
+            .unwrap_or_else(|| "~/.csv/wallet/csv-cli-export.json".to_string())
+    });
+    
+    output::header("Exporting Wallet to csv-wallet Format");
+    
+    let mut accounts = Vec::new();
+    
+    for chain in [Chain::Bitcoin, Chain::Ethereum, Chain::Sui, Chain::Aptos, Chain::Solana] {
+        if let Some(wallet) = config.wallet(&chain) {
+            if let Some(address) = state.get_address(&chain) {
+                if let Some(private_key) = &wallet.private_key {
+                    accounts.push(CsvWalletAccount {
+                        id: format!("{}-cli-{}", chain, &address[..8.min(address.len())]),
+                        chain: chain.to_string().to_lowercase(),
+                        name: format!("CSV CLI {} Account", chain),
+                        private_key: private_key.clone(),
+                        address: address.clone(),
+                    });
+                    output::success(&format!("Exported {} account", chain));
+                } else {
+                    output::warning(&format!("{}: no private key available", chain));
+                }
+            } else {
+                output::warning(&format!("{}: no address configured", chain));
+            }
+        }
+    }
+    
+    let wallet = CsvWalletJson {
+        accounts,
+        selected_account_id: None,
+    };
+    
+    let json = serde_json::to_string_pretty(&wallet)
+        .map_err(|e| anyhow::anyhow!("Failed to serialize: {}", e))?;
+    
+    std::fs::write(&output_path, json)
+        .map_err(|e| anyhow::anyhow!("Failed to write {}: {}", output_path, e))?;
+    
+    output::success(&format!("Exported {} accounts to {}", wallet.accounts.len(), output_path));
+    output::warning("WARNING: This file contains unencrypted private keys. Store it securely!");
+    
+    Ok(())
+}
+
+/// Sync with csv-wallet (bidirectional - import addresses from csv-wallet)
+pub fn cmd_sync_csv_wallet(path: Option<String>, config: &Config, state: &mut State) -> Result<()> {
+    let path = path.unwrap_or_else(|| {
+        dirs::home_dir()
+            .map(|h| h.join(".csv/wallet/csv-wallet.json").to_string_lossy().to_string())
+            .unwrap_or_else(|| "~/.csv/wallet/csv-wallet.json".to_string())
+    });
+    
+    output::header("Syncing with csv-wallet");
+    output::kv("Source", &path);
+    
+    // First import the addresses
+    cmd_import_csv_wallet(Some(path), config, state)?;
+    
+    output::info("");
+    output::info("To complete unification:");
+    output::info("1. Use 'csv wallet export-csv-wallet' to export CLI wallets");
+    output::info("2. Import that file into csv-wallet (if csv-wallet supports import)");
+    output::info("3. Both tools will now use the same addresses and keys");
+    
+    Ok(())
+}

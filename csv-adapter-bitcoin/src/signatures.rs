@@ -59,7 +59,7 @@ pub fn verify_bitcoin_signature(signature: &[u8], public_key: &[u8], message: &[
         AdapterError::SignatureVerificationFailed(format!("Invalid signature format: {}", e))
     })?;
 
-    let msg = secp256k1::Message::from_slice(message).map_err(|e| {
+    let msg = secp256k1::Message::from_digest_slice(message).map_err(|e| {
         AdapterError::SignatureVerificationFailed(format!("Invalid message hash: {}", e))
     })?;
 
@@ -104,7 +104,7 @@ mod tests {
         let secret_key = SecretKey::new(&mut OsRng);
         let public_key = secp256k1::PublicKey::from_secret_key(&secp, &secret_key);
         let message = [0xAB; 32];
-        let msg = secp256k1::Message::from_slice(&message).unwrap();
+        let msg = secp256k1::Message::from_digest_slice(&message).unwrap();
         let signature = secp.sign_ecdsa(&msg, &secret_key);
         let sig_bytes = signature.serialize_compact();
         let pubkey_bytes = public_key.serialize();

@@ -39,6 +39,7 @@ pub mod adapter;
 pub mod checkpoint;
 pub mod config;
 pub mod error;
+pub mod mint;
 pub mod proofs;
 pub mod rpc;
 pub mod seal;
@@ -52,6 +53,7 @@ pub use adapter::SuiAnchorLayer;
 pub use checkpoint::CheckpointVerifier;
 pub use config::{CheckpointConfig, SealContractConfig, SuiConfig, SuiNetwork, TransactionConfig};
 pub use error::SuiError;
+pub use mint::mint_right;
 pub use proofs::{
     CommitmentEventBuilder, EventProof, EventProofVerifier, StateProof, StateProofVerifier,
     TransactionProof,

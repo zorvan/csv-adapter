@@ -53,7 +53,7 @@ pub fn derive_output_key(
     let secp = Secp256k1::new();
     let tweaked = internal_key.tap_tweak(&secp, merkle_root);
     // tweaked is (TweakedPublicKey, Parity) — we need the inner XOnlyPublicKey
-    Ok(tweaked.0.to_inner())
+    Ok(tweaked.0.to_x_only_public_key())
 }
 
 /// Build a Taproot output from spend info

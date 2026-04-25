@@ -141,12 +141,12 @@ impl CommitmentTxBuilder {
         };
 
         let outputs = vec![TxOut {
-            value: commitment_value_sat,
+            value: Amount::from_sat(commitment_value_sat),
             script_pubkey: address.script_pubkey(),
         }];
 
         let unsigned_tx = bitcoin::Transaction {
-            version: 2,
+            version: bitcoin::transaction::Version(2),
             lock_time: LockTime::ZERO,
             input: vec![input],
             output: outputs,
@@ -159,7 +159,7 @@ impl CommitmentTxBuilder {
             .taproot_key_spend_signature_hash(
                 0,
                 &bitcoin::sighash::Prevouts::All(&[&bitcoin::TxOut {
-                    value: seal_utxo.amount_sat,
+                    value: Amount::from_sat(seal_utxo.amount_sat),
                     script_pubkey: seal_key.address.script_pubkey(),
                 }]),
                 bitcoin::sighash::TapSighashType::Default,
@@ -182,7 +182,7 @@ impl CommitmentTxBuilder {
         signed_tx.input[0].witness = witness;
 
         let raw_tx = tx_serialize(&signed_tx);
-        let txid = signed_tx.txid();
+        let txid = signed_tx.compute_txid();
 
         let script_pubkey = address.script_pubkey();
         Ok(CommitmentTxResult {

@@ -3,7 +3,7 @@
 //! Implements BIP-86 key derivation path: m/86'/0'/0'/0/{index}
 
 use bitcoin::{
-    bip32::{DerivationPath as BitcoinDerivationPath, ExtendedPrivKey, ExtendedPubKey},
+    bip32::{DerivationPath as BitcoinDerivationPath, Xpriv, Xpub},
     hashes::Hash as BitcoinHash,
     key::TapTweak,
     secp256k1::{self, Secp256k1, SecretKey, XOnlyPublicKey},
@@ -93,7 +93,7 @@ pub struct DerivedTaprootKey {
 
 /// Seal wallet - manages UTXOs, HD key derivation, and seal tracking
 pub struct SealWallet {
-    master_key: ExtendedPrivKey,
+    master_key: Xpriv,
     network: Network,
     utxos: Mutex<HashMap<OutPoint, WalletUtxo>>,
     used_seals: Mutex<HashSet<Vec<u8>>>,
@@ -122,7 +122,7 @@ impl SealWallet {
             _ => bitcoin::Network::Testnet,
         };
         let secp = Secp256k1::new();
-        let master_key = ExtendedPrivKey::new_master(btc_net, seed)
+        let master_key = Xpriv::new_master(btc_net, seed)
             .map_err(|e| WalletError::KeyDerivationFailed(e.to_string()))?;
         Ok(Self {
             master_key,
@@ -141,19 +141,12 @@ impl SealWallet {
     }
 
     pub fn from_xpub(xpub: &str, network: Network) -> Result<Self, WalletError> {
-        let extended_pub = ExtendedPubKey::from_str(xpub)
+        let extended_pub = Xpub::from_str(xpub)
             .map_err(|e| WalletError::InvalidKey(format!("Invalid xpub: {}", e)))?;
-        let btc_net = match network {
-            Network::Bitcoin => bitcoin::Network::Bitcoin,
-            Network::Testnet => bitcoin::Network::Testnet,
-            Network::Signet => bitcoin::Network::Signet,
-            Network::Regtest => bitcoin::Network::Regtest,
-            _ => bitcoin::Network::Testnet,
-        };
-        if extended_pub.network != btc_net {
+        if extended_pub.network != network.into() {
             return Err(WalletError::InvalidKey(format!(
                 "xpub network mismatch: expected {:?}, got {:?}",
-                btc_net, extended_pub.network
+                network, extended_pub.network
             )));
         }
         let mut seed = [0u8; 64];
@@ -174,7 +167,7 @@ impl SealWallet {
     /// Derive a Taproot key at a specific path
     pub fn derive_key(&self, path: &Bip86Path) -> Result<DerivedTaprootKey, WalletError> {
         let secret_key = self.derive_private_key(path)?;
-        let kp = secp256k1::KeyPair::from_secret_key(&self.secp, &secret_key);
+        let kp = secp256k1::Keypair::from_secret_key(&self.secp, &secret_key);
         let (xonly, _parity) = XOnlyPublicKey::from_keypair(&kp);
         // tap_tweak on XOnlyPublicKey returns (TweakedPublicKey, Parity)
         let (output_key, _) = xonly.tap_tweak(&self.secp, None);
@@ -194,14 +187,14 @@ impl SealWallet {
         sighash: &[u8; 32],
     ) -> Result<Vec<u8>, WalletError> {
         let secret_key = self.derive_private_key(path)?;
-        let kp = secp256k1::KeyPair::from_secret_key(&self.secp, &secret_key);
+        let kp = secp256k1::Keypair::from_secret_key(&self.secp, &secret_key);
         // TapTweak: kp -> secp256k1::TweakedKeypair
         let tweaked_kp = kp.tap_tweak(&self.secp, None);
-        let msg = secp256k1::Message::from_slice(sighash)
+        let msg = secp256k1::Message::from_digest_slice(sighash)
             .map_err(|e| WalletError::SigningFailed(e.to_string()))?;
         let sig = self
             .secp
-            .sign_schnorr_with_rng(&msg, &tweaked_kp.to_inner(), &mut OsRng);
+            .sign_schnorr_no_aux_rand(&msg, &tweaked_kp.to_keypair());
         Ok(sig.as_ref().to_vec())
     }
 
@@ -235,7 +228,7 @@ impl SealWallet {
             .master_key
             .derive_priv(&self.secp, &account_path)
             .map_err(|e| WalletError::KeyDerivationFailed(format!("{:?}", e)))?;
-        Ok(ExtendedPubKey::from_priv(&self.secp, &account_key).to_string())
+        Ok(Xpub::from_priv(&self.secp, &account_key).to_string())
     }
 
     pub fn add_utxo(&self, outpoint: OutPoint, amount_sat: u64, path: Bip86Path) {
@@ -322,7 +315,7 @@ impl SealWallet {
         msg: &[u8; 32],
     ) -> Result<secp256k1::ecdsa::Signature, WalletError> {
         let sk = self.derive_private_key(path)?;
-        let msg = secp256k1::Message::from_slice(msg.as_ref())
+        let msg = secp256k1::Message::from_digest_slice(msg.as_ref())
             .map_err(|e| WalletError::SigningFailed(e.to_string()))?;
         Ok(self.secp.sign_ecdsa(&msg, &sk))
     }

@@ -10,6 +10,7 @@
 pub mod adapter;
 pub mod config;
 pub mod error;
+pub mod mint;
 pub mod program;
 pub mod rpc;
 pub mod seal;
@@ -18,6 +19,7 @@ pub mod wallet;
 
 pub use adapter::SolanaAnchorLayer;
 pub use config::{Network, SolanaConfig};
+pub use mint::mint_right_from_hex_key;
 pub use rpc::SolanaRpc;
 pub use types::{SolanaAnchorRef, SolanaFinalityProof, SolanaInclusionProof, SolanaSealRef};
 pub use wallet::{ProgramWallet, WalletError};

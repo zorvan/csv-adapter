@@ -76,6 +76,24 @@ pub enum WalletAction {
         #[arg(value_name = "ADDRESS")]
         address: Option<String>,
     },
+    /// Import full wallet from csv-wallet JSON export
+    ImportCsvWallet {
+        /// Path to csv-wallet JSON file (default: ~/.csv/wallet/csv-wallet.json)
+        #[arg(short, long)]
+        path: Option<String>,
+    },
+    /// Export wallet to csv-wallet JSON format
+    ExportCsvWallet {
+        /// Output file path (default: ~/.csv/wallet/csv-wallet-export.json)
+        #[arg(short, long)]
+        output: Option<String>,
+    },
+    /// Sync with csv-wallet (import all accounts, update addresses)
+    Sync {
+        /// Path to csv-wallet JSON (default: ~/.csv/wallet/csv-wallet.json)
+        #[arg(short, long)]
+        path: Option<String>,
+    },
 }
 
 pub fn execute(action: WalletAction, config: &Config, state: &mut State) -> Result<()> {
@@ -92,6 +110,9 @@ pub fn execute(action: WalletAction, config: &Config, state: &mut State) -> Resu
         WalletAction::Import { chain, secret } => cmd_import(chain, secret, config, state),
         WalletAction::List => cmd_list(config, state),
         WalletAction::Address { chain, address } => cmd_address(chain, address, state),
+        WalletAction::ImportCsvWallet { path } => super::wallet_ext::cmd_import_csv_wallet(path, config, state),
+        WalletAction::ExportCsvWallet { output } => super::wallet_ext::cmd_export_csv_wallet(output, config, state),
+        WalletAction::Sync { path } => super::wallet_ext::cmd_sync_csv_wallet(path, config, state),
     }
 }
 
