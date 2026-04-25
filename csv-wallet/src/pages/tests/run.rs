@@ -59,7 +59,7 @@ pub fn RunTests() -> Element {
                 if *running.read() {
                     div { class: "space-y-2",
                         for (i, step_text) in test_steps.iter().enumerate() {
-                            div { key: "{i}", class: "flex items-center gap-2",
+                            div { key: "step-{i}", class: "flex items-center gap-2",
                                 if i < *current_step.read() {
                                     span { class: "text-green-400", "\u{2705}" }
                                     p { class: "text-sm text-green-400", "{step_text}" }
@@ -95,6 +95,7 @@ pub fn RunTests() -> Element {
                             for i in 0..5 {
                                 current_step.set(i);
                                 wallet_ctx.add_test_result(TestResult {
+                                    id: format!("test-{}-{}-{}", from, to, i),
                                     from_chain: *from,
                                     to_chain: *to,
                                     status: if i == 4 { TestStatus::Passed } else { TestStatus::Running },
@@ -104,6 +105,7 @@ pub fn RunTests() -> Element {
                         }
 
                         wallet_ctx.add_test_result(TestResult {
+                            id: format!("test-complete-{}", js_sys::Date::now()),
                             from_chain: pairs[0].0,
                             to_chain: pairs[0].1,
                             status: TestStatus::Passed,

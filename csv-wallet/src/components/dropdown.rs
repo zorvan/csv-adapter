@@ -52,7 +52,7 @@ pub fn Dropdown<T: PartialEq + Clone + std::fmt::Display + 'static>(
                 div { class: "absolute z-50 w-full mt-2 bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-60 overflow-y-auto",
                     for (idx, option) in options.into_iter().enumerate() {
                         DropdownOption {
-                            key: "{idx}",
+                            key: "dropdown-opt-{idx}",
                             option,
                             selected_str: selected_str.clone(),
                             on_change: on_change,

@@ -13,7 +13,7 @@ use csv_adapter_core::right::OwnershipProof;
 
 use crate::config::{Chain, Config};
 use crate::output;
-use crate::state::{State, TrackedTransfer, TransferStatus};
+use crate::state::{State, TrackedRight, TrackedTransfer, TransferStatus};
 
 /// RPC response for block height queries
 #[derive(Debug, serde::Deserialize)]
@@ -120,10 +120,15 @@ fn cmd_transfer(
     right_bytes.copy_from_slice(&bytes[..32]);
     let right_id_hash = Hash::new(right_bytes);
 
+    // Use current wallet address on destination chain if not specified
+    let dest_owner_str = dest_owner.or_else(|| state.get_address(&to).cloned());
+    
     // Create ownership proof for destination
-    let dest_owner_bytes = match dest_owner {
+    let dest_owner_bytes = match &dest_owner_str {
         Some(addr) => hex::decode(addr.trim_start_matches("0x")).unwrap_or_else(|_| vec![0xFF; 32]),
-        None => vec![0xFF; 32],
+        None => state.get_address(&to)
+            .and_then(|a| hex::decode(a.trim_start_matches("0x")).ok())
+            .unwrap_or_else(|| vec![0xFF; 32]),
     };
 
     let dest_owner_proof = OwnershipProof {
@@ -157,6 +162,67 @@ fn cmd_transfer(
     output::kv_hash("Right ID", &right_bytes);
     output::kv("From", &from_str);
     output::kv("To", &to_str);
+
+    // Gas estimation and payment check
+    output::header("⛽ Gas Estimation");
+    
+    // Estimate gas costs for destination chain mint
+    let estimated_gas = match to {
+        Chain::Sui => 5_000_000,
+        Chain::Aptos => 100_000,
+        Chain::Solana => 5000,
+        Chain::Ethereum => 200_000,
+        Chain::Bitcoin => 0,
+    };
+    
+    output::kv("Estimated destination gas", &format!("{} units", estimated_gas));
+    
+    // Check sender has dedicated gas account on destination chain
+    let gas_account = state.get_gas_account(&to);
+    if let Some(addr) = gas_account {
+        output::kv("Gas account", addr);
+        
+        // Fetch actual gas balance from chain RPC
+        output::progress(0, 0, "Fetching gas balance from chain...");
+        let gas_balance = fetch_gas_balance(&to, config, addr)
+            .unwrap_or_else(|e| {
+                output::warning(&format!("Failed to fetch gas balance: {}", e));
+                0
+            });
+            
+        output::kv("Gas balance", &format!("{} units", gas_balance));
+        
+        if gas_balance < estimated_gas {
+            return Err(anyhow::anyhow!("Insufficient destination gas balance. Required: {}, Available: {}", estimated_gas, gas_balance));
+        }
+        
+        output::success("✅ Sufficient gas balance confirmed");
+    } else {
+        output::warning("No gas account configured for destination chain");
+        output::info("Create a gas account with: csv wallet add-gas-account --chain <chain>");
+        return Err(anyhow::anyhow!("No gas account available for destination chain"));
+    }
+    
+    // User approval
+    println!();
+    output::info("⚠️  This transfer will use your destination chain gas account to pay minting fees.");
+    output::info("   Required gas amount will be deducted from your gas wallet.");
+    println!();
+    
+    // Ask for confirmation
+    use std::io::{self, Write};
+    print!("Proceed with transfer? [y/N] ");
+    io::stdout().flush()?;
+    
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+    
+    if !input.trim().eq_ignore_ascii_case("y") && !input.trim().eq_ignore_ascii_case("yes") {
+        output::info("Transfer cancelled by user");
+        return Ok(());
+    }
+    
+    println!();
 
     // Create chain-specific providers
     let source_chain_id = chain_to_chain_id(&from);
@@ -244,6 +310,33 @@ fn cmd_transfer(
     // Step 6: Record in registry
     output::progress(6, 6, "Step 6: Recording transfer...");
     state.record_seal_consumption(right_bytes.to_vec());
+    
+    // Mark original right as consumed on source chain
+    let _ = state.consume_right(&right_id_hash);
+
+    // Collect address info before moving values
+    let sender_address = state.get_address(&from).cloned();
+    let dest_address = dest_owner_str;
+    let dest_contract = state.get_contract(&to).map(|c| c.address.clone());
+
+    // Add new right to tracking if we own the destination address
+    if let Some(current_dest_addr) = state.get_address(&to) {
+        if let Some(transfer_dest_addr) = &dest_address {
+            if current_dest_addr == transfer_dest_addr {
+                // We own this right on destination chain, add to tracking
+                let new_right = TrackedRight {
+                    id: mint_result.destination_right.id.0,
+                    chain: to.clone(),
+                    seal_ref: mint_result.destination_seal.to_vec(),
+                    owner: dest_owner_bytes.clone(),
+                    commitment: mint_result.destination_right.commitment,
+                    nullifier: None,
+                    consumed: false,
+                };
+                state.add_right(new_right);
+            }
+        }
+    }
 
     // Create tracked transfer
     let timestamp = SystemTime::now()
@@ -256,11 +349,17 @@ fn cmd_transfer(
         source_chain: from,
         dest_chain: to,
         right_id: right_id_hash,
+        sender_address,
+        destination_address: dest_address,
         source_tx_hash: Some(transfer_proof.lock_event.source_tx_hash),
+        source_fee: None,
         dest_tx_hash: Some(mint_result.registry_entry.mint_tx_hash),
+        destination_fee: None,
+        destination_contract: dest_contract,
         proof: Some(serde_json::to_vec(&transfer_proof).unwrap_or_default()),
         status: TransferStatus::Completed,
         created_at: timestamp,
+        completed_at: Some(timestamp),
     };
     state.add_transfer(transfer);
 
@@ -293,7 +392,9 @@ fn create_lock_provider(chain: &Chain, chain_id: ChainId) -> Box<dyn LockProvide
         Chain::Aptos => Box::new(AptosLockProvider {
             _chain_id: chain_id,
         }),
-        Chain::Solana => todo!("Solana lock provider not yet implemented"),
+        Chain::Solana => Box::new(SolanaLockProvider {
+            _chain_id: chain_id,
+        }),
         Chain::Ethereum => Box::new(EthereumLockProvider {
             _chain_id: chain_id,
         }),
@@ -305,7 +406,7 @@ fn create_mint_provider(chain: &Chain, chain_id: ChainId) -> Result<Box<dyn Mint
         Chain::Bitcoin => Err("Bitcoin is UTXO-native and does not support minting Rights. Bitcoin can only be used as a source chain for cross-chain transfers.".to_string()),
         Chain::Sui => Ok(Box::new(SuiMintProvider { chain_id })),
         Chain::Aptos => Ok(Box::new(AptosMintProvider { chain_id })),
-        Chain::Solana => Err("Solana mint provider not yet implemented".to_string()),
+        Chain::Solana => Ok(Box::new(SolanaMintProvider { chain_id })),
         Chain::Ethereum => Ok(Box::new(EthereumMintProvider { chain_id })),
     }
 }
@@ -330,16 +431,42 @@ fn cmd_status(transfer_id: String, state: &State) -> Result<()> {
     output::header(&format!("Transfer: {}", transfer_id));
 
     if let Some(transfer) = state.get_transfer(&transfer_id_hash) {
-        output::kv("Source Chain", &transfer.source_chain.to_string());
-        output::kv("Destination Chain", &transfer.dest_chain.to_string());
-        output::kv_hash("Right ID", transfer.right_id.as_bytes());
-        output::kv("Status", &format!("{:?}", transfer.status));
+        output::header("📋 Cross-Chain Transfer Report");
 
+        output::kv("Transfer ID", &hex::encode(transfer.id.as_bytes()));
+        output::kv("Right ID", &hex::encode(transfer.right_id.as_bytes()));
+        output::kv("Status", &format!("{:?}", transfer.status));
+        output::kv("Created At", &chrono::DateTime::<chrono::Utc>::from_timestamp(transfer.created_at as i64, 0).map(|d| d.to_rfc3339()).unwrap_or_else(|| transfer.created_at.to_string()));
+        
+        if let Some(completed) = transfer.completed_at {
+            output::kv("Completed At", &chrono::DateTime::<chrono::Utc>::from_timestamp(completed as i64, 0).map(|d| d.to_rfc3339()).unwrap_or_else(|| completed.to_string()));
+        }
+
+        output::header("🔹 Source Chain");
+        output::kv("Chain", &transfer.source_chain.to_string());
+        if let Some(sender) = &transfer.sender_address {
+            output::kv("Sender Address", sender);
+        }
         if let Some(source_tx) = &transfer.source_tx_hash {
-            output::kv_hash("Source TX", source_tx.as_bytes());
+            output::kv_hash("Transaction ID", source_tx.as_bytes());
+        }
+        if let Some(fee) = transfer.source_fee {
+            output::kv("Transaction Fee", &fee.to_string());
+        }
+
+        output::header("🔸 Destination Chain");
+        output::kv("Chain", &transfer.dest_chain.to_string());
+        if let Some(dest_addr) = &transfer.destination_address {
+            output::kv("Destination Address", dest_addr);
         }
         if let Some(dest_tx) = &transfer.dest_tx_hash {
-            output::kv_hash("Destination TX", dest_tx.as_bytes());
+            output::kv_hash("Transaction ID", dest_tx.as_bytes());
+        }
+        if let Some(fee) = transfer.destination_fee {
+            output::kv("Transaction Fee", &fee.to_string());
+        }
+        if let Some(contract) = &transfer.destination_contract {
+            output::kv("Contract Address", contract);
         }
     } else {
         output::warning("Transfer not found");
@@ -607,4 +734,143 @@ fn get_chain_confirmations(chain: &Chain) -> u64 {
         Chain::Aptos => 1,     // Finality is ~1 block (HotStuff),
         Chain::Solana => 1,    // Finality is ~1 block (Proof of History)
     }
+}
+
+/// Fetch actual gas balance from chain RPC
+fn fetch_gas_balance(chain: &Chain, config: &Config, address: &str) -> anyhow::Result<u64> {
+    let chain_config = config
+        .chains
+        .get(chain)
+        .ok_or_else(|| anyhow::anyhow!("Chain not configured"))?;
+
+    let runtime = tokio::runtime::Runtime::new()?;
+    
+    runtime.block_on(async {
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(10))
+            .build()?;
+
+        match chain {
+            Chain::Bitcoin => {
+                // Fetch UTXO balance
+                let url = format!(
+                    "{}/api/address/{}/balance",
+                    chain_config.rpc_url.trim_end_matches('/'),
+                    address
+                );
+                let response = client.get(&url).send().await?;
+                let balance: u64 = response.text().await?.parse()?;
+                Ok(balance)
+            }
+            Chain::Ethereum => {
+                // JSON-RPC eth_getBalance
+                let body = serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "method": "eth_getBalance",
+                    "params": [address, "latest"],
+                    "id": 1
+                });
+
+                let response = client
+                    .post(&chain_config.rpc_url)
+                    .json(&body)
+                    .send()
+                    .await?;
+
+                let rpc_response: JsonRpcResponse<String> = response.json().await?;
+                
+                if let Some(error) = rpc_response.error {
+                    return Err(anyhow::anyhow!("RPC error: {}", error.message));
+                }
+
+                let hex_balance = rpc_response
+                    .result
+                    .ok_or_else(|| anyhow::anyhow!("No result in response"))?;
+
+                let balance = u64::from_str_radix(hex_balance.trim_start_matches("0x"), 16)?;
+                Ok(balance)
+            }
+            Chain::Sui => {
+                // Sui JSON-RPC sui_getBalance
+                let body = serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "method": "sui_getBalance",
+                    "params": [address],
+                    "id": 1
+                });
+
+                let response = client
+                    .post(&chain_config.rpc_url)
+                    .json(&body)
+                    .send()
+                    .await?;
+
+                let rpc_response: JsonRpcResponse<serde_json::Value> = response.json().await?;
+                
+                if let Some(error) = rpc_response.error {
+                    return Err(anyhow::anyhow!("RPC error: {}", error.message));
+                }
+
+                let result = rpc_response
+                    .result
+                    .ok_or_else(|| anyhow::anyhow!("No result in response"))?;
+
+                let balance = result["totalBalance"]
+                    .as_str()
+                    .ok_or_else(|| anyhow::anyhow!("No balance in response"))?
+                    .parse()?;
+
+                Ok(balance)
+            }
+            Chain::Aptos => {
+                // Aptos REST API get account balance
+                let url = format!(
+                    "{}/v1/accounts/{}/resource/0x1::coin::CoinStore<0x1::aptos_coin::AptosCoin>",
+                    chain_config.rpc_url.trim_end_matches('/'),
+                    address
+                );
+
+                let response = client.get(&url).send().await?;
+                let account_resource: serde_json::Value = response.json().await?;
+                
+                let balance = account_resource["data"]["coin"]["value"]
+                    .as_str()
+                    .ok_or_else(|| anyhow::anyhow!("No balance in response"))?
+                    .parse()?;
+
+                Ok(balance)
+            }
+            Chain::Solana => {
+                // Solana JSON-RPC getBalance
+                let body = serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "method": "getBalance",
+                    "params": [address],
+                    "id": 1
+                });
+
+                let response = client
+                    .post(&chain_config.rpc_url)
+                    .json(&body)
+                    .send()
+                    .await?;
+
+                let rpc_response: JsonRpcResponse<serde_json::Value> = response.json().await?;
+                
+                if let Some(error) = rpc_response.error {
+                    return Err(anyhow::anyhow!("RPC error: {}", error.message));
+                }
+
+                let result = rpc_response
+                    .result
+                    .ok_or_else(|| anyhow::anyhow!("No result in response"))?;
+
+                let balance = result["value"]
+                    .as_u64()
+                    .ok_or_else(|| anyhow::anyhow!("No balance in response"))?;
+
+                Ok(balance)
+            }
+        }
+    })
 }

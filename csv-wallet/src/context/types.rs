@@ -244,6 +244,7 @@ pub struct NftCollection {
 /// A test result.
 #[derive(Clone, Debug)]
 pub struct TestResult {
+    pub id: String,
     pub from_chain: Chain,
     pub to_chain: Chain,
     pub status: TestStatus,

@@ -63,7 +63,7 @@ struct Cli {
     verbose: bool,
 
     /// Configuration file path
-    #[arg(short, long, global = true, default_value = "~/.csv/config.toml")]
+    #[arg(short = 'C', long, global = true, default_value = "~/.csv/config.toml")]
     config: Option<String>,
 
     #[command(subcommand)]
@@ -163,7 +163,7 @@ fn main() -> anyhow::Result<()> {
     let result = match cli.command {
         Commands::Chain { action } => chain::execute(action, &config),
         Commands::Wallet { action } => wallet::execute(action, &config, &mut state),
-        Commands::Right { action } => rights::execute(action, &config, &state),
+        Commands::Right { action } => rights::execute(action, &config, &mut state),
         Commands::Proof { action } => proofs::execute(action, &config, &state),
         Commands::CrossChain { action } => cross_chain::execute(action, &config, &mut state),
         Commands::Contract { action } => contracts::execute(action, &config, &mut state),

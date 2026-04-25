@@ -75,14 +75,32 @@ pub async fn build_anchor_transaction(
     // Output 1: OP_RETURN with lock data
     // Value: 0 satoshis
     tx.extend_from_slice(&0u64.to_le_bytes());
-    // Script: OP_RETURN <data>
-    let script_len = 1 + lock_data.len(); // OP_RETURN + data
-    if script_len <= 80 { // Bitcoin allows up to 80 bytes in OP_RETURN
+    // Script: OP_RETURN <push> <data>
+    // Bitcoin allows up to 80 bytes total in OP_RETURN (including push opcode)
+    let data_len = lock_data.len();
+    if data_len <= 75 {
+        // Use direct push opcode (0x01-0x4b) for data up to 75 bytes
+        let script_len = 1 + 1 + data_len; // OP_RETURN + push opcode + data
         encode_varint(&mut tx, script_len as u64);
         tx.push(0x6a); // OP_RETURN
+        tx.push(data_len as u8); // Push opcode (data length)
         tx.extend_from_slice(lock_data);
+    } else if data_len <= 80 {
+        // Use OP_PUSHDATA1 (0x4c) for data 76-80 bytes
+        let script_len = 1 + 1 + 1 + data_len; // OP_RETURN + OP_PUSHDATA1 + length byte + data
+        encode_varint(&mut tx, script_len as u64);
+        tx.push(0x6a); // OP_RETURN
+        tx.push(0x4c); // OP_PUSHDATA1
+        tx.push(data_len as u8); // Length byte
+        tx.extend_from_slice(lock_data);
+    } else {
+        return Err(BlockchainError {
+            message: format!("Lock data too long: {} bytes (max 80)", data_len),
+            chain: Some(Chain::Bitcoin),
+            code: None,
+        });
     }
-    
+
     // Note: No change output - the entire UTXO value minus 0 goes to miner fee
     // This is acceptable for testnet where UTXO values are small
     web_sys::console::log_1(&format!("Building tx: consuming {} satoshi, all to miner fee", utxo.value).into());
@@ -216,12 +234,10 @@ pub fn sign_bitcoin_transaction(
     sender_address: &str,
 ) -> Result<Vec<u8>, BlockchainError> {
     use bitcoin::{
-        secp256k1::{Secp256k1, SecretKey, Keypair, Message, XOnlyPublicKey, PublicKey, Scalar},
+        secp256k1::{Secp256k1, SecretKey, Message, XOnlyPublicKey, PublicKey},
+        key::{Keypair, TapTweak},
         sighash::{SighashCache, EcdsaSighashType, TapSighashType},
         consensus::serialize,
-        key::TapTweak,
-        hashes::Hash,
-        taproot::TapTweakHash,
         Transaction, TxOut, ScriptBuf, Witness,
     };
     
@@ -307,34 +323,20 @@ pub fn sign_bitcoin_transaction(
     
     if is_taproot {
         // Taproot signing (BIP340 Schnorr)
-        // Get the internal keypair and x-only pubkey
+        // Get the internal keypair
         let keypair = Keypair::from_secret_key(&secp, &secret_key);
         let (xonly_pubkey, _parity) = XOnlyPublicKey::from_keypair(&keypair);
-        
-        // Compute the tweaked pubkey for key-path spending (no script tree = None)
-        let (_tweaked_pubkey, _parity) = xonly_pubkey.tap_tweak(&secp, None);
-        
-        // For key-path signing, we need the tweaked secret key
-        // The tweak is computed as: hash_tap_tweak(xonly_pubkey || merkle_root)
-        // For key-path only: merkle_root is None (empty hash)
-        // TapTweakHash::hash() computes the tagged hash
-        let tweak_hash = TapTweakHash::from_key_and_tweak(xonly_pubkey, None);
-        let tweak_scalar = Scalar::from_be_bytes(tweak_hash.to_byte_array())
-            .map_err(|e| BlockchainError {
-                message: format!("Invalid tweak scalar: {:?}", e),
-                chain: Some(Chain::Bitcoin),
-                code: None,
-            })?;
-        
-        // Add tweak to secret key: tweaked_key = key + tweak (mod n)
-        let tweaked_secret_key = secret_key.add_tweak(&tweak_scalar)
-            .map_err(|e| BlockchainError {
-                message: format!("Failed to tweak secret key: {:?}", e),
-                chain: Some(Chain::Bitcoin),
-                code: None,
-            })?;
-        let tweaked_keypair = Keypair::from_secret_key(&secp, &tweaked_secret_key);
-        
+
+        web_sys::console::log_1(&format!("Internal x-only pubkey: {}", hex::encode(xonly_pubkey.serialize())).into());
+        web_sys::console::log_1(&format!("Script pubkey from UTXO: {}", hex::encode(prev_output.script_pubkey.as_bytes())).into());
+
+        // Use the bitcoin crate's built-in tap_tweak for keypairs - this handles tweaking correctly
+        let tweaked_keypair = keypair.tap_tweak(&secp, None);
+        // Get the underlying keypair for signing and verification
+        let signing_keypair = tweaked_keypair.as_keypair();
+        let (tweaked_xonly, _) = XOnlyPublicKey::from_keypair(signing_keypair);
+        web_sys::console::log_1(&format!("Tweaked x-only pubkey: {}", hex::encode(tweaked_xonly.serialize())).into());
+
         // For P2TR key path spending, we sign with Schnorr using the tweaked key
         // Build the sighash for Taproot
         let mut sighash_cache = SighashCache::new(&mut tx);
@@ -349,16 +351,16 @@ pub fn sign_bitcoin_transaction(
                 chain: Some(Chain::Bitcoin),
                 code: None,
             })?;
-        
+
         let msg = Message::from_digest_slice(sighash.as_ref())
             .map_err(|e| BlockchainError {
                 message: format!("Message error: {}", e),
                 chain: Some(Chain::Bitcoin),
                 code: None,
             })?;
-        
+
         // Sign with Schnorr (BIP340) using the tweaked keypair
-        let signature = secp.sign_schnorr(&msg, &tweaked_keypair);
+        let signature = secp.sign_schnorr(&msg, signing_keypair);
         
         // The signature is 64 bytes for Schnorr (no sighash byte needed)
         let sig_bytes = signature.as_ref();

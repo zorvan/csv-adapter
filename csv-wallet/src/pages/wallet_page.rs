@@ -63,7 +63,7 @@ pub fn WalletPage() -> Element {
                 div { class: "flex gap-1 overflow-x-auto",
                     for tab in tabs {
                         button {
-                            key: "{tab}",
+                            key: "tab-{tab}",
                             onclick: move |_| active_tab.set(tab),
                             class: "px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap",
                             class: if active_tab() == tab { "bg-blue-600 text-white" } else { "text-gray-400 hover:text-gray-200 hover:bg-gray-800" },
@@ -108,7 +108,7 @@ fn AccountsTab() -> Element {
     rsx! {
         div { class: "space-y-6",
             for chain in supported_wallet_chains() {
-                ChainAccountsSection { key: "{chain}", chain }
+                ChainAccountsSection { key: "chain-{chain:?}", chain }
             }
         }
     }
@@ -129,7 +129,7 @@ fn ChainAccountsSection(chain: Chain) -> Element {
             children: rsx! {
                 div { class: "space-y-2",
                     for account in chain_accounts {
-                        ChainAccountRow { key: "{account.id}", account: account.clone(), wallet_ctx: wallet_ctx.clone() }
+                        ChainAccountRow { key: "account-{account.id}", account: account.clone(), wallet_ctx: wallet_ctx.clone() }
                     }
                 }
             }
@@ -234,7 +234,7 @@ fn AddAccountTab() -> Element {
                                     }
                                 },
                                 for cd in all_chain_displays() {
-                                    option { value: "{cd.0}", selected: cd.0 == selected_chain.read().0, "{cd.0}" }
+                                    option { key: "chain-opt-{cd.0}", value: "{cd.0}", selected: cd.0 == selected_chain.read().0, "{cd.0}" }
                                 }
                             }
                         }

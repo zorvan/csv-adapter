@@ -38,7 +38,7 @@ pub fn Rights() -> Element {
                 }
                 for chain in [Chain::Bitcoin, Chain::Ethereum, Chain::Sui, Chain::Aptos, Chain::Solana] {
                     button {
-                        key: "{chain}",
+                        key: "right-filter-{chain:?}",
                         onclick: move |_| filter_chain.set(Some(chain)),
                         class: if matches!(*filter_chain.read(), Some(c) if c == chain) { "{chain_badge_class(&chain)} cursor-pointer" } else { "{chain_badge_class(&chain)} opacity-50 cursor-pointer" },
                         "{chain_icon_emoji(&chain)} {chain_name(&chain)}"

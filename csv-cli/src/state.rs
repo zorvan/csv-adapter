@@ -38,16 +38,28 @@ pub struct TrackedTransfer {
     pub dest_chain: config::Chain,
     /// Right ID being transferred
     pub right_id: Hash,
+    /// Sender address on source chain
+    pub sender_address: Option<String>,
+    /// Destination owner address
+    pub destination_address: Option<String>,
     /// Source transaction hash
     pub source_tx_hash: Option<Hash>,
+    /// Source transaction fee
+    pub source_fee: Option<u64>,
     /// Destination transaction hash
     pub dest_tx_hash: Option<Hash>,
+    /// Destination transaction fee
+    pub destination_fee: Option<u64>,
+    /// Destination contract address
+    pub destination_contract: Option<String>,
     /// Inclusion proof (JSON bytes)
     pub proof: Option<Vec<u8>>,
     /// Transfer status
     pub status: TransferStatus,
     /// Created timestamp
     pub created_at: u64,
+    /// Completed timestamp
+    pub completed_at: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -81,6 +93,9 @@ pub struct State {
     pub contracts: HashMap<config::Chain, DeployedContract>,
     /// Known addresses per chain
     pub addresses: HashMap<config::Chain, String>,
+    /// Gas payment accounts per chain
+    #[serde(default)]
+    pub gas_accounts: HashMap<config::Chain, String>,
     /// Seal consumption registry (simplified)
     pub consumed_seals: Vec<Vec<u8>>,
 }
@@ -191,6 +206,17 @@ impl State {
     /// Get address for a chain
     pub fn get_address(&self, chain: &config::Chain) -> Option<&String> {
         self.addresses.get(chain)
+    }
+
+    /// Store a gas payment account for a chain
+    pub fn store_gas_account(&mut self, chain: config::Chain, address: String) {
+        self.gas_accounts.insert(chain, address);
+    }
+
+    /// Get gas payment account for a chain
+    /// Falls back to regular wallet address if no dedicated gas account exists
+    pub fn get_gas_account(&self, chain: &config::Chain) -> Option<&String> {
+        self.gas_accounts.get(chain).or_else(|| self.get_address(chain))
     }
 }
 

@@ -15,10 +15,10 @@ pub enum RightAction {
     /// Create a new Right
     Create {
         /// Chain name
-        #[arg(value_enum)]
+        #[arg(short, long, value_enum)]
         chain: Chain,
         /// Value (chain-specific: sats for Bitcoin, etc.)
-        #[arg(short, long)]
+        #[arg(short = 'V', long)]
         value: Option<u64>,
     },
     /// Show Right details
@@ -46,7 +46,7 @@ pub enum RightAction {
     },
 }
 
-pub fn execute(action: RightAction, config: &Config, state: &State) -> Result<()> {
+pub fn execute(action: RightAction, config: &Config, state: &mut State) -> Result<()> {
     match action {
         RightAction::Create { chain, value } => cmd_create(chain, value, config, state),
         RightAction::Show { right_id } => cmd_show(right_id, state),
@@ -56,7 +56,7 @@ pub fn execute(action: RightAction, config: &Config, state: &State) -> Result<()
     }
 }
 
-fn cmd_create(chain: Chain, value: Option<u64>, _config: &Config, _state: &State) -> Result<()> {
+fn cmd_create(chain: Chain, value: Option<u64>, _config: &Config, state: &mut State) -> Result<()> {
     output::header(&format!("Creating Right on {}", chain));
 
     // In production, this would call the chain adapter to create a seal
@@ -76,7 +76,7 @@ fn cmd_create(chain: Chain, value: Option<u64>, _config: &Config, _state: &State
 
     let right_id = Hash::new(right_id_bytes);
 
-    let _tracked = TrackedRight {
+    let tracked = TrackedRight {
         id: right_id,
         chain: chain.clone(),
         seal_ref: vec![], // Would come from adapter
@@ -85,6 +85,8 @@ fn cmd_create(chain: Chain, value: Option<u64>, _config: &Config, _state: &State
         nullifier: None,
         consumed: false,
     };
+
+    state.rights.push(tracked);
 
     output::kv("Chain", &chain.to_string());
     output::kv_hash("Right ID", right_id_bytes.as_slice());
@@ -96,8 +98,7 @@ fn cmd_create(chain: Chain, value: Option<u64>, _config: &Config, _state: &State
     );
     output::kv("Status", "Created");
 
-    // Note: state is &State, not &mut State — can't save here
-    // In production, this would save to state
+    // State is automatically saved after command execution
     println!();
     output::info("Right created. Use 'csv right show <right_id>' to view details");
 
@@ -156,15 +157,19 @@ fn cmd_list(chain: Option<Chain>, state: &State) -> Result<()> {
             }
         }
 
+        // Check if seal is consumed in registry even if flag not set
+        let seal_consumed = state.is_seal_consumed(right.id.as_bytes());
+        let status = if right.consumed || seal_consumed {
+            "Consumed".to_string()
+        } else {
+            "Active".to_string()
+        };
+
         rows.push(vec![
-            hex::encode(right.id.as_bytes())[..16].to_string(),
+            hex::encode(right.id.as_bytes()),
             right.chain.to_string(),
-            if right.consumed {
-                "Consumed".to_string()
-            } else {
-                "Active".to_string()
-            },
-            hex::encode(right.commitment.as_bytes())[..16].to_string(),
+            status,
+            hex::encode(right.commitment.as_bytes()),
         ]);
     }
 

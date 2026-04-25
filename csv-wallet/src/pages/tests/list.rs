@@ -71,7 +71,7 @@ pub fn Test() -> Element {
                             }
                             tbody { class: "divide-y divide-gray-800",
                                 for r in results {
-                                    tr { class: "hover:bg-gray-800/50 transition-colors",
+                                    tr { key: "{r.id}", class: "hover:bg-gray-800/50 transition-colors",
                                         td { class: "px-4 py-3", span { class: "{chain_badge_class(&r.from_chain)}", "{chain_icon_emoji(&r.from_chain)}" } }
                                         td { class: "px-4 py-3", span { class: "{chain_badge_class(&r.to_chain)}", "{chain_icon_emoji(&r.to_chain)}" } }
                                         td { class: "px-4 py-3",

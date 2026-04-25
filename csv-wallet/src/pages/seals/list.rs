@@ -33,12 +33,14 @@ pub fn Seals() -> Element {
             div { class: "flex items-center gap-2 flex-wrap",
                 span { class: "text-sm text-gray-400", "Filter:" }
                 button {
+                    key: "all",
                     onclick: move |_| filter_chain.set(None),
                     class: if filter_chain.read().is_none() { "{btn_primary_class()}" } else { "{btn_secondary_class()}" },
                     "All"
                 }
                 for chain in [Chain::Bitcoin, Chain::Ethereum, Chain::Sui, Chain::Aptos, Chain::Solana] {
                     button {
+                        key: "seal-filter-{chain:?}",
                         onclick: move |_| filter_chain.set(Some(chain)),
                         class: if matches!(*filter_chain.read(), Some(c) if c == chain) { "{chain_badge_class(&chain)} cursor-pointer" } else { "{chain_badge_class(&chain)} opacity-50 cursor-pointer" },
                         "{chain_icon_emoji(&chain)} {chain_name(&chain)}"
@@ -67,7 +69,7 @@ pub fn Seals() -> Element {
                             }
                             tbody { class: "divide-y divide-gray-800",
                                 for (i, seal) in filtered.iter().enumerate() {
-                                    tr { key: "{seal.seal_ref}", class: "hover:bg-gray-800/50 transition-colors",
+                                    tr { key: "seal-row-{i}", class: "hover:bg-gray-800/50 transition-colors",
                                         td { class: "px-4 py-3 text-gray-400", "{i + 1}" }
                                         td { class: "px-4 py-3 font-mono text-xs", "{truncate_address(&seal.seal_ref, 12)}" }
                                         td { class: "px-4 py-3", span { class: "{chain_badge_class(&seal.chain)}", "{chain_icon_emoji(&seal.chain)} {chain_name(&seal.chain)}" } }

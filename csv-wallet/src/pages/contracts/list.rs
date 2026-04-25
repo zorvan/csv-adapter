@@ -91,7 +91,7 @@ pub fn Contracts() -> Element {
                                 "Discovering..."
                             }
                         } else {
-                            "\u{1F50D} Discover from Chain"
+                            span { "\u{1F50D} Discover from Chain" }
                         }
                     }
                     Link { to: Route::AddContract {}, class: "{btn_secondary_class()}", "+ Add Existing" }
@@ -125,14 +125,14 @@ pub fn Contracts() -> Element {
                                 }
                             }
                             tbody { class: "divide-y divide-gray-800",
-                                {contracts.into_iter().map(|c| {
-                                    let c_clone = c.clone();
-                                    let contract_key = format!("{}-{}", c.chain, c.address);
+                                {contracts.clone().into_iter().enumerate().map(|(idx, c)| {
+                                    let c_for_click = c.clone();
+                                    let key = format!("{}-{}-{}", idx, c.chain, c.address);
                                     rsx! {
                                         tr {
-                                            key: "{contract_key}",
+                                            key: "{key}",
                                             class: "hover:bg-gray-800/50 transition-colors cursor-pointer",
-                                            onclick: move |_| selected_contract_modal_clone.set(Some(c_clone.clone())),
+                                            onclick: move |_| selected_contract_modal_clone.set(Some(c_for_click.clone())),
                                             td { class: "px-4 py-3", span { class: "{chain_badge_class(&c.chain)}", "{chain_icon_emoji(&c.chain)} {chain_name(&c.chain)}" } }
                                             td { class: "px-4 py-3 font-mono text-xs", "{truncate_address(&c.address, 8)}" }
                                             td { class: "px-4 py-3 font-mono text-xs", "{truncate_address(&c.tx_hash, 8)}" }

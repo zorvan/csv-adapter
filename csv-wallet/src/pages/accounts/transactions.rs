@@ -82,7 +82,8 @@ pub fn AccountTransactions(id: String) -> Element {
                 } else {
                     div { class: "space-y-3",
                         for tx in account_transactions {
-                            Link { 
+                            Link {
+                                key: "{tx.id}",
                                 to: Route::TransactionDetail { id: tx.id.clone() },
                                 class: "block p-4 bg-gray-800/50 rounded-lg hover:bg-gray-800 transition-colors",
                                 div { class: "flex items-center justify-between",

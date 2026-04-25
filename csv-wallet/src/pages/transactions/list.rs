@@ -36,7 +36,7 @@ pub fn Transactions() -> Element {
             } else {
                 div { class: "space-y-3",
                     for tx in relevant_transactions {
-                        TransactionCard { transaction: tx.clone() }
+                        TransactionCard { key: "{tx.id}", transaction: tx.clone() }
                     }
                 }
             }

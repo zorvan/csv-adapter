@@ -47,6 +47,45 @@ pub fn CrossChainTransfer() -> Element {
     let accounts = wallet_ctx.accounts_for_chain(*from_chain.read());
     let has_account = !accounts.is_empty();
 
+    // Get accounts for the destination chain (needed for gas payment)
+    let dest_accounts = wallet_ctx.accounts_for_chain(*to_chain.read());
+    let has_dest_account = !dest_accounts.is_empty();
+
+    // Track fetched destination balance
+    let mut dest_balance = use_signal(|| 0.0);
+    let mut dest_balance_loading = use_signal(|| false);
+
+    // Fetch destination balance when chain or account changes
+    use_effect({
+        let to_chain_val = *to_chain.read();
+        let dest_addr = dest_accounts.first().map(|a| a.address.clone());
+        move || {
+            if let Some(addr) = &dest_addr {
+                dest_balance_loading.set(true);
+                let addr = addr.clone();
+                spawn(async move {
+                    use crate::services::chain_api::ChainApi;
+                    let api = ChainApi::default();
+                    if let Ok(balance) = api.get_balance(to_chain_val, &addr).await {
+                        dest_balance.set(balance);
+                    }
+                    dest_balance_loading.set(false);
+                });
+            }
+        }
+    });
+
+    // Check if destination account has minimum balance for gas
+    // Sui: ~0.01 SUI, Aptos: ~0.01 APT, Ethereum: variable
+    let min_dest_balance = match *to_chain.read() {
+        Chain::Sui => 0.01,
+        Chain::Aptos => 0.01,
+        Chain::Ethereum => 0.001, // ~$2-3 for simple transfer
+        Chain::Solana => 0.001,   // ~0.001 SOL
+        _ => 0.0, // Bitcoin doesn't need pre-funded destination for minting
+    };
+    let dest_has_enough_balance = *dest_balance.read() >= min_dest_balance;
+
     // Get contracts for source and target chains
     let source_contracts = wallet_ctx.contracts_for_chain(*from_chain.read());
     let target_contracts = wallet_ctx.contracts_for_chain(*to_chain.read());
@@ -85,6 +124,31 @@ pub fn CrossChainTransfer() -> Element {
 
     // Execute real cross-chain transfer using native signing
     let execute_transfer = move |_| {
+        if !has_target_contract {
+            error.set(Some(format!("No contract deployed on {:?}. Deploy a contract first.", *to_chain.read())));
+            return;
+        }
+
+        if !has_dest_account {
+            error.set(Some(format!("No account available for destination chain {:?}. Please add an account first.", *to_chain.read())));
+            return;
+        }
+
+        if !dest_has_enough_balance {
+            let min_balance = match *to_chain.read() {
+                Chain::Sui => "0.01 SUI",
+                Chain::Aptos => "0.01 APT",
+                Chain::Ethereum => "0.001 ETH",
+                Chain::Solana => "0.001 SOL",
+                _ => "funds",
+            };
+            error.set(Some(format!(
+                "Destination account on {:?} needs at least {} for gas fees. Please fund your account first.",
+                *to_chain.read(), min_balance
+            )));
+            return;
+        }
+
         if !has_account {
             error.set(Some(format!("No account available for {:?}. Please add an account first.", *from_chain.read())));
             return;
@@ -232,7 +296,7 @@ pub fn CrossChainTransfer() -> Element {
                                 }
                             },
                             for (idx, account) in accounts.iter().enumerate() {
-                                option { key: "{account.id}", value: idx.to_string(), selected: idx == *selected_account_index.read(),
+                                option { key: "account-{idx}", value: idx.to_string(), selected: idx == *selected_account_index.read(),
                                     {format!("{} - {} (Balance: {:.4})",
                                         account.name,
                                         &account.address[..8.min(account.address.len())],
@@ -284,7 +348,7 @@ pub fn CrossChainTransfer() -> Element {
                                 }
                             } else {
                                 for (idx, contract) in source_contracts.iter().enumerate() {
-                                    p { key: "{idx}", class: "text-xs text-green-400 font-mono",
+                                    p { key: "source-contract-{idx}", class: "text-xs text-green-400 font-mono",
                                         {format!("✓ {}", &contract.address[..16.min(contract.address.len())])}
                                     }
                                 }
@@ -312,7 +376,7 @@ pub fn CrossChainTransfer() -> Element {
                                             }
                                         },
                                         for (idx, contract) in target_contracts.iter().enumerate() {
-                                            option { key: "{idx}", value: idx.to_string(), selected: idx == *selected_target_contract_index.read(),
+                                            option { key: "target-contract-{idx}", value: idx.to_string(), selected: idx == *selected_target_contract_index.read(),
                                                 {format!("{}...", &contract.address[..12.min(contract.address.len())])}
                                             }
                                         }
@@ -337,7 +401,7 @@ pub fn CrossChainTransfer() -> Element {
                                 }
                             },
                             for (idx, right) in rights_for_source.iter().enumerate() {
-                                option { key: "{idx}", value: idx.to_string(), selected: idx == *selected_right_index.read(),
+                                option { key: "right-{idx}", value: idx.to_string(), selected: idx == *selected_right_index.read(),
                                     {format!("{}... - Value: {} - {}",
                                         &right.id[..16.min(right.id.len())],
                                         right.value,
@@ -376,7 +440,7 @@ pub fn CrossChainTransfer() -> Element {
                 if *step.read() > 0 {
                     div { class: "space-y-2 mt-4",
                         for (i, step_text) in steps.iter().enumerate() {
-                            div { key: "{i}", class: "flex items-center gap-2",
+                            div { key: "step-{i}", class: "flex items-center gap-2",
                                 if i < *step.read() {
                                     span { class: "text-green-400", "\u{2705}" }
                                     p { class: "text-sm text-green-400", "{step_text}" }
@@ -410,7 +474,9 @@ pub fn CrossChainTransfer() -> Element {
                         || *step.read() >= 5
                         || !has_rights
                         || !has_account
-                        || !has_target_contract,
+                        || !has_target_contract
+                        || !has_dest_account
+                        || !dest_has_enough_balance,
                     class: "{btn_full_primary_class()}",
                     if *executing.read() {
                         "Executing..."
@@ -420,6 +486,10 @@ pub fn CrossChainTransfer() -> Element {
                         "No Rights Available"
                     } else if !has_target_contract {
                         "Deploy Target Contract First"
+                    } else if !has_dest_account {
+                        "Add Destination Account First"
+                    } else if !dest_has_enough_balance {
+                        "Fund Destination Account"
                     } else if *step.read() >= 5 {
                         "Transfer Complete"
                     } else {
@@ -440,6 +510,24 @@ pub fn CrossChainTransfer() -> Element {
                 if !has_target_contract {
                     p { class: "text-xs text-red-500 mt-2",
                         {format!("Note: Deploy a CSV contract on {:?} target chain first", *to_chain.read())}
+                    }
+                }
+                if !has_dest_account {
+                    p { class: "text-xs text-red-500 mt-2",
+                        {format!("Note: Add an account for {:?} destination chain to pay gas fees", *to_chain.read())}
+                    }
+                } else if !dest_has_enough_balance {
+                    p { class: "text-xs text-red-500 mt-2",
+                        {format!("Note: Destination account on {:?} needs gas funds (min: {})",
+                            *to_chain.read(),
+                            match *to_chain.read() {
+                                Chain::Sui => "0.01 SUI",
+                                Chain::Aptos => "0.01 APT",
+                                Chain::Ethereum => "0.001 ETH",
+                                Chain::Solana => "0.001 SOL",
+                                _ => "0.0",
+                            }
+                        )}
                     }
                 }
             }

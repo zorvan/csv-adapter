@@ -33,7 +33,7 @@ pub fn ContractStatus() -> Element {
                     }
                 } else {
                     for c in contracts {
-                        div { class: "bg-gray-800/50 rounded-lg p-4 border border-gray-700 space-y-2",
+                        div { key: "{c.address}", class: "bg-gray-800/50 rounded-lg p-4 border border-gray-700 space-y-2",
                             div { class: "flex justify-between",
                                 span { class: "text-sm text-gray-400", "Address" }
                                 p { class: "font-mono text-sm text-gray-200", "{truncate_address(&c.address, 10)}" }

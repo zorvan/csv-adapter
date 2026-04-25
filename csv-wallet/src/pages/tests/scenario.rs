@@ -31,7 +31,7 @@ pub fn RunScenario() -> Element {
                         value: "{selected_scenario.read()}",
                         onchange: move |evt| { selected_scenario.set(evt.value()); },
                         for (id, label) in scenarios {
-                            option { value: "{id}", "{label}" }
+                            option { key: "{id}", value: "{id}", "{label}" }
                         }
                     }
                 })}

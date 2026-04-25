@@ -39,7 +39,7 @@ pub fn TransferRight() -> Element {
                                 }
                             },
                             for (idx, right) in active_rights.iter().enumerate() {
-                                option { key: "{idx}", value: idx.to_string(), selected: idx == *selected_right_index.read(),
+                                option { key: "transfer-right-{idx}", value: idx.to_string(), selected: idx == *selected_right_index.read(),
                                     {format!("{} - {} - Value: {} - {}",
                                         &right.id[..12.min(right.id.len())],
                                         chain_name(&right.chain),

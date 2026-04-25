@@ -730,8 +730,9 @@ impl BlockchainService {
             &format!("Minting right {} on {:?} for {}", right_id, chain, owner).into(),
         );
 
-        // Build mint transaction data
-        let tx_data = self.build_mint_transaction_data(chain, right_id, owner, contract_address).await?;
+        // Build mint transaction data (pass private key for address derivation on Sui/Aptos)
+        let private_key = signer.private_key();
+        let tx_data = self.build_mint_transaction_data(chain, right_id, owner, contract_address, &private_key).await?;
 
         // Sign the transaction
         let signed_tx = signer.sign_transaction(&tx_data)?;
@@ -756,19 +757,64 @@ impl BlockchainService {
         right_id: &str,
         owner: &str,
         contract_address: &str,
+        private_key: &str,
     ) -> Result<UnsignedTransaction, BlockchainError> {
-        let signer_addr = signer_address_for_chain(chain, owner);
+        let signer_addr = signer_address_for_chain(chain, owner, Some(private_key));
         let nonce = self.get_nonce(chain, &signer_addr).await?;
         let gas_price = self.get_gas_price(chain).await.unwrap_or(1000000000);
 
-        // Build mint transaction data using transaction builder
+        // Build mint transaction data based on chain type
         let right_bytes = hex::decode(right_id.trim_start_matches("0x")).unwrap_or_default();
-        let owner_bytes = hex::decode(owner.trim_start_matches("0x")).unwrap_or_default();
-        
-        let data = crate::services::transaction_builder::build_abi_call(
-            "mint(bytes32,address)",
-            vec![right_bytes, owner_bytes]
-        );
+
+        let data = match chain {
+            Chain::Sui => {
+                // Sui uses proper BCS-encoded transactions with gas objects
+                use crate::services::sdk_tx::{fetch_sui_gas_objects, build_sui_transaction};
+
+                // For Sui, use the derived signer_addr as the owner (32-byte address format)
+                let owner_bytes = hex::decode(signer_addr.trim_start_matches("0x")).unwrap_or_default();
+
+                let gas_objects = fetch_sui_gas_objects(&signer_addr, &self.config.sui_rpc).await?;
+                if gas_objects.is_empty() {
+                    return Err(BlockchainError {
+                        message: format!("No SUI gas objects for {}", signer_addr),
+                        chain: Some(Chain::Sui),
+                        code: None,
+                    });
+                }
+                let (gas_id, _balance, gas_digest) = &gas_objects[0];
+
+                build_sui_transaction(
+                    &signer_addr,
+                    contract_address,
+                    "csv",
+                    "mint",
+                    vec![right_bytes, owner_bytes],
+                    gas_id,
+                    1, // version - will be updated by RPC
+                    gas_digest,
+                    10000000, // gas budget
+                )?
+            }
+            Chain::Aptos => {
+                // Aptos uses BCS-encoded transactions
+                let owner_bytes = hex::decode(signer_addr.trim_start_matches("0x")).unwrap_or_default();
+                crate::services::transaction_builder::build_aptos_transaction_data(
+                    &signer_addr,
+                    contract_address,
+                    "mint",
+                    vec![right_bytes, owner_bytes],
+                )?
+            }
+            _ => {
+                // Ethereum and other chains use ABI encoding
+                let owner_bytes = hex::decode(owner.trim_start_matches("0x")).unwrap_or_default();
+                crate::services::transaction_builder::build_abi_call(
+                    "mint(bytes32,address)",
+                    vec![right_bytes, owner_bytes]
+                )
+            }
+        };
 
         Ok(UnsignedTransaction {
             chain,
@@ -883,7 +929,8 @@ impl BlockchainService {
 }
 
 /// Helper function to get signer address format for a chain.
-fn signer_address_for_chain(chain: Chain, address: &str) -> String {
+/// For some chains, the address needs to be derived from the private key.
+fn signer_address_for_chain(chain: Chain, address: &str, private_key_hex: Option<&str>) -> String {
     match chain {
         Chain::Solana => {
             // Solana uses base58 addresses
@@ -892,6 +939,29 @@ fn signer_address_for_chain(chain: Chain, address: &str) -> String {
                 if let Ok(bytes) = hex::decode(address.trim_start_matches("0x")) {
                     if bytes.len() == 32 {
                         return bs58::encode(bytes).into_string();
+                    }
+                }
+            }
+            address.to_string()
+        }
+        Chain::Sui | Chain::Aptos => {
+            // Sui and Aptos use 32-byte addresses derived from the public key
+            // If we have a private key, derive the proper address
+            if let Some(pk_hex) = private_key_hex {
+                if let Ok(pk_bytes) = hex::decode(pk_hex.trim_start_matches("0x")) {
+                    if pk_bytes.len() >= 32 {
+                        use bitcoin::secp256k1::{Secp256k1, SecretKey, PublicKey};
+                        if let Ok(sk) = SecretKey::from_slice(&pk_bytes[..32]) {
+                            let secp = Secp256k1::new();
+                            let pk = PublicKey::from_secret_key(&secp, &sk);
+                            // Sui/Aptos address is the 32-byte public key (x-coordinate)
+                            let pk_bytes = pk.serialize();
+                            // Take the x-coordinate (32 bytes after the 0x02/0x03 prefix)
+                            if pk_bytes.len() == 33 {
+                                let addr = format!("0x{}", hex::encode(&pk_bytes[1..]));
+                                return addr;
+                            }
+                        }
                     }
                 }
             }
