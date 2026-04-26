@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { getChainColor, formatRightId } from "./utils";
+import { getChainColor } from "./utils";
 import { extensionConfiguration } from "./configuration";
 
 /**
@@ -243,7 +243,7 @@ export class WalletExplorerProvider
       const chainColor = getChainColor(right.chain);
       items.push(
         new WalletTreeItem(
-          formatRightId(right.id),
+          right.id,
           vscode.TreeItemCollapsibleState.None,
           WalletItemType.Right,
           {

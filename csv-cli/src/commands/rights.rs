@@ -127,7 +127,7 @@ fn cmd_show(right_id: String, state: &UnifiedStateManager) -> Result<()> {
 
     output::header(&format!("Right: {}", hex::encode(right_id.as_bytes())));
 
-    if let Some(tracked) = state.get_right(&right_id.to_string()) {
+    if let Some(tracked) = state.get_right(&right_id.to_hex()) {
         output::kv("Chain", &tracked.chain.to_string());
         output::kv_hash("Commitment", tracked.commitment.as_bytes());
         output::kv(
@@ -152,7 +152,7 @@ fn cmd_show(right_id: String, state: &UnifiedStateManager) -> Result<()> {
 fn cmd_list(chain: Option<Chain>, state: &UnifiedStateManager) -> Result<()> {
     output::header("Tracked Rights");
 
-    let headers = vec!["Right ID", "Chain", "Status", "Commitment"];
+    let headers = vec!["Right ID", "Chain", "Status"];
     let mut rows = Vec::new();
 
     for right in &state.storage.rights {
@@ -174,7 +174,6 @@ fn cmd_list(chain: Option<Chain>, state: &UnifiedStateManager) -> Result<()> {
             right.id.clone(),
             right.chain.to_string(),
             status,
-            right.commitment.clone(),
         ]);
     }
 

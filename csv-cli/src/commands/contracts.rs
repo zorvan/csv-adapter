@@ -32,6 +32,9 @@ pub enum ContractAction {
         /// Deployer private key (Ethereum: hex private key, Sui/Aptos: uses CLI wallet)
         #[arg(long)]
         deployer_key: Option<String>,
+        /// Account address to use for deployment (for chains with multiple accounts in unified state)
+        #[arg(short, long)]
+        account: Option<String>,
     },
     /// Show deployed contract info
     Status {
@@ -61,7 +64,8 @@ pub fn execute(action: ContractAction, config: &Config, state: &mut UnifiedState
             chain,
             network,
             deployer_key,
-        } => cmd_deploy(chain, network, deployer_key, config, state),
+            account,
+        } => cmd_deploy(chain, network, deployer_key, account, config, state),
         ContractAction::Status { chain } => cmd_status(chain, config, state),
         ContractAction::Verify { chain } => cmd_verify(chain, config, state),
         ContractAction::List => cmd_list(state),
@@ -73,6 +77,7 @@ fn cmd_deploy(
     chain: Chain,
     network: Option<String>,
     deployer_key: Option<String>,
+    account: Option<String>,
     config: &Config,
     state: &mut UnifiedStateManager,
 ) -> Result<()> {
@@ -96,7 +101,7 @@ fn cmd_deploy(
             deploy_sui(config, state)?;
         }
         Chain::Aptos => {
-            deploy_aptos(config, state)?;
+            deploy_aptos(config, state, account)?;
         }
         Chain::Solana => {
             deploy_solana(config, state)?;
@@ -313,7 +318,7 @@ fn deploy_sui(config: &Config, state: &mut UnifiedStateManager) -> Result<()> {
 }
 
 /// Deploy Aptos contracts via aptos CLI
-fn deploy_aptos(config: &Config, state: &mut UnifiedStateManager) -> Result<()> {
+fn deploy_aptos(config: &Config, state: &mut UnifiedStateManager, account: Option<String>) -> Result<()> {
     output::progress(1, 4, "Building Move package...");
 
     let aptos_path = std::env::var("APTOS_BIN").unwrap_or_else(|_| "aptos".to_string());
@@ -357,6 +362,46 @@ fn deploy_aptos(config: &Config, state: &mut UnifiedStateManager) -> Result<()> 
     output::progress(2, 4, &format!("Connecting to Aptos {}...", network));
     output::info(&format!("  RPC: {}", chain_config.rpc_url));
 
+    // Get Aptos account from unified state
+    // If --account is specified, find that specific account, otherwise use first available
+    let aptos_account = if let Some(ref account_addr) = account {
+        // Find the specified account
+        state.storage.wallet.accounts.iter()
+            .find(|a| a.chain == Chain::Aptos && a.address == *account_addr)
+            .or_else(|| {
+                // Try matching without 0x prefix
+                let addr_normalized = account_addr.strip_prefix("0x").unwrap_or(account_addr.as_str());
+                state.storage.wallet.accounts.iter()
+                    .find(|a| a.chain == Chain::Aptos && 
+                          (a.address == *account_addr || 
+                           a.address.strip_prefix("0x").unwrap_or(&a.address) == addr_normalized))
+            })
+    } else {
+        // Get first Aptos account
+        state.get_account(&Chain::Aptos)
+    };
+    
+    // List available accounts if multiple exist and none was specified
+    let aptos_accounts: Vec<_> = state.storage.wallet.accounts.iter()
+        .filter(|a| a.chain == Chain::Aptos)
+        .collect();
+    
+    if aptos_account.is_none() && !aptos_accounts.is_empty() {
+        output::warning("Multiple Aptos accounts found. Please specify one with --account <ADDRESS>");
+        output::info("Available accounts:");
+        for (idx, acc) in aptos_accounts.iter().enumerate() {
+            output::info(&format!("  [{}] {} ({})", idx + 1, acc.address, acc.name));
+        }
+        return Err(anyhow::anyhow!("Please specify account with --account <ADDRESS>"));
+    }
+    
+    if let Some(ref acc) = aptos_account {
+        output::info(&format!("  Using account from unified state: {}", acc.address));
+    } else {
+        output::warning("No Aptos account found in unified state. Using default CLI profile.");
+        output::info("Create an account with: csv wallet create --chain aptos");
+    }
+
     // Run deploy script
     output::progress(3, 4, "Publishing package...");
 
@@ -368,10 +413,19 @@ fn deploy_aptos(config: &Config, state: &mut UnifiedStateManager) -> Result<()> 
         ));
     }
 
-    let deploy_output = Command::new(&deploy_script)
-        .arg(aptos_network)
-        .arg(&aptos_path)
-        .output()?;
+    // Prepare command with environment variables for account override
+    let mut deploy_cmd = Command::new(&deploy_script);
+    deploy_cmd.arg(aptos_network).arg(&aptos_path);
+    
+    // Pass unified state account to deploy script if available
+    if let Some(account) = aptos_account {
+        deploy_cmd.env("CSV_APTOS_ADDRESS", &account.address);
+        if let Some(ref pk) = account.private_key {
+            deploy_cmd.env("CSV_APTOS_PRIVATE_KEY", pk);
+        }
+    }
+    
+    let deploy_output = deploy_cmd.output()?;
 
     if !deploy_output.status.success() {
         let stderr = String::from_utf8_lossy(&deploy_output.stderr);
