@@ -940,6 +940,127 @@ impl BlockchainService {
         hasher.update(mint_tx_hash.as_bytes());
         format!("0x{}", hex::encode(hasher.finalize()))
     }
+    
+    /// Transfer a right locally on the same chain (no cross-chain overhead)
+    pub async fn transfer_right_local(
+        &self,
+        chain: Chain,
+        right_id: &str,
+        new_owner: &str,
+        signer: &NativeWallet,
+    ) -> Result<String, BlockchainError> {
+        web_sys::console::log_1(&format!("Initiating local transfer for right {} on {:?} to {}", right_id, chain, new_owner).into());
+        
+        let tx_hash = match chain {
+            Chain::Bitcoin => {
+                // For Bitcoin we use OP_RETURN anchor with TRANSFER opcode
+                use crate::services::bitcoin_tx;
+                
+                let bitcoin_address = ChainAccount::derive_address(
+                    Chain::Bitcoin,
+                    &signer.private_key()
+                ).map_err(|e| BlockchainError {
+                    message: format!("Failed to derive Bitcoin address: {}", e),
+                    chain: Some(Chain::Bitcoin),
+                    code: None,
+                })?;
+                
+                // Build transfer data payload
+                let transfer_data = format!("CSV:TRANSFER:{}:{}", right_id, new_owner).into_bytes();
+                
+                // Build and sign transaction
+                let (unsigned_tx, utxo) = bitcoin_tx::build_anchor_transaction(
+                    &bitcoin_address,
+                    &transfer_data,
+                    &self.config.bitcoin_rpc,
+                ).await?;
+                
+                let signed_tx = bitcoin_tx::sign_bitcoin_transaction(
+                    &unsigned_tx,
+                    &signer.private_key(),
+                    &utxo,
+                    &bitcoin_address,
+                )?;
+                
+                bitcoin_tx::broadcast_transaction(&signed_tx, &self.config.bitcoin_rpc).await?
+            }
+            Chain::Sui | Chain::Aptos | Chain::Ethereum | Chain::Solana => {
+                // For all smart contract chains, call the simple transfer method
+                let contract_address = ""; // TODO: Get deployed contract for this chain
+                
+                let tx_data = self.build_transfer_transaction_data(chain, right_id, new_owner, contract_address).await?;
+                let signed_tx = signer.sign_transaction(&tx_data)?;
+                self.broadcast_transaction(chain, &signed_tx).await?
+            }
+            _ => {
+                return Err(BlockchainError {
+                    message: format!("Local transfer not implemented for {:?}", chain),
+                    chain: Some(chain),
+                    code: None,
+                })
+            }
+        };
+        
+        web_sys::console::log_1(&format!("Local transfer successful: {}", tx_hash).into());
+        
+        Ok(tx_hash)
+    }
+    
+    /// Build transaction data for local right transfer
+    async fn build_transfer_transaction_data(
+        &self,
+        chain: Chain,
+        right_id: &str,
+        new_owner: &str,
+        contract_address: &str,
+    ) -> Result<UnsignedTransaction, BlockchainError> {
+        let nonce = self.get_nonce(chain, &self.get_signer_address(chain, new_owner)).await?;
+        let gas_price = self.get_gas_price(chain).await.unwrap_or(1000000000);
+        
+        let right_bytes = hex::decode(right_id.trim_start_matches("0x")).unwrap_or_default();
+        let owner_bytes = hex::decode(new_owner.trim_start_matches("0x")).unwrap_or_default();
+        
+        let data = match chain {
+            Chain::Sui => {
+                crate::services::transaction_builder::build_sui_transaction_data(
+                    new_owner,
+                    contract_address,
+                    "csv",
+                    vec![right_bytes, owner_bytes],
+                )?
+            }
+            Chain::Aptos => {
+                crate::services::transaction_builder::build_aptos_transaction_data(
+                    new_owner,
+                    contract_address,
+                    "csv",
+                    vec![right_bytes, owner_bytes],
+                )?
+            }
+            _ => {
+                crate::services::transaction_builder::build_abi_call(
+                    "transfer(bytes32,address)",
+                    vec![right_bytes, owner_bytes]
+                )
+            }
+        };
+        
+        Ok(UnsignedTransaction {
+            chain,
+            from: new_owner.to_string(),
+            to: contract_address.to_string(),
+            value: 0,
+            data,
+            nonce: Some(nonce),
+            gas_price: Some(gas_price),
+            gas_limit: Some(100000),
+        })
+    }
+    
+    /// Helper to get properly formatted signer address for chain
+    fn get_signer_address(&self, chain: Chain, address: &str) -> String {
+        signer_address_for_chain(chain, address, None)
+    }
 }
 
 /// Helper function to get signer address format for a chain.

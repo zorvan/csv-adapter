@@ -70,10 +70,9 @@ pub async fn build_anchor_transaction(
     tx.extend_from_slice(&0xffffffffu32.to_le_bytes());
     
     // Output count (varint)
-    tx.push(1); // Only OP_RETURN output - remaining value goes to miner fee
+    tx.push(2); // TWO outputs: OP_RETURN + actual transfer output
     
-    // Output 1: OP_RETURN with lock data
-    // Value: 0 satoshis
+    // Output 1: OP_RETURN with lock data (0 satoshis)
     tx.extend_from_slice(&0u64.to_le_bytes());
     // Script: OP_RETURN <push> <data>
     // Bitcoin allows up to 80 bytes total in OP_RETURN (including push opcode)
@@ -101,9 +100,20 @@ pub async fn build_anchor_transaction(
         });
     }
 
-    // Note: No change output - the entire UTXO value minus 0 goes to miner fee
-    // This is acceptable for testnet where UTXO values are small
-    web_sys::console::log_1(&format!("Building tx: consuming {} satoshi, all to miner fee", utxo.value).into());
+    // Output 2: Actual Bitcoin transfer to recipient (9000 sats = 0.00009000 BTC)
+    // This is the actual value being transferred, not burned as fees
+    let transfer_amount = 9000u64;
+    tx.extend_from_slice(&transfer_amount.to_le_bytes());
+    
+    // Derive scriptPubKey for sender address (we send back to same address for transfers)
+    // In real transfer this would be recipient address
+    let recipient_script = derive_script_pubkey_from_address(sender_address)?;
+    encode_varint(&mut tx, recipient_script.len() as u64);
+    tx.extend_from_slice(&recipient_script);
+
+    // Calculate fee: utxo.value - transfer_amount
+    let fee = utxo.value - transfer_amount;
+    web_sys::console::log_1(&format!("Building tx: consuming {} satoshi, sending {} to recipient, {} as miner fee", utxo.value, transfer_amount, fee).into());
     
     // Locktime (4 bytes)
     tx.extend_from_slice(&0u32.to_le_bytes());

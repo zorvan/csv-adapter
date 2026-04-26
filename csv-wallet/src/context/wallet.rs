@@ -453,6 +453,21 @@ impl WalletContext {
         Some(explorer.address_url(address))
     }
 
+    /// Get signer for a specific chain
+    pub fn get_signer_for_chain(&self, chain: Chain) -> Option<crate::services::blockchain::NativeWallet> {
+        use crate::services::blockchain::wallet_connection;
+        self.accounts_for_chain(chain).first().cloned().map(|account| {
+            wallet_connection::native_wallet(account)
+        })
+    }
+
+    /// Refresh rights list from blockchain
+    pub async fn refresh_rights(&mut self) {
+        // This will be implemented properly with chain sync
+        // For now just reload persisted data
+        self.reload_from_storage();
+    }
+
     pub fn notification(&self) -> Option<Notification> {
         self.state.read().notification.clone()
     }

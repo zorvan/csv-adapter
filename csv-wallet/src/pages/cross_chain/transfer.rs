@@ -122,8 +122,12 @@ pub fn CrossChainTransfer() -> Element {
         "Complete transfer",
     ];
 
+    // Clone before moving into closure to avoid borrow after move
+    let rights_for_closure = rights_for_source.clone();
+    
     // Execute real cross-chain transfer using native signing
     let execute_transfer = move |_| {
+        let rights_for_source_closure = rights_for_closure.clone();
         if !_has_source_contract {
             error.set(Some(format!("No contract deployed on {:?}. Deploy a contract first.", *from_chain.read())));
             return;
@@ -282,7 +286,7 @@ pub fn CrossChainTransfer() -> Element {
                         let seal = SealRecord {
                             seal_ref: seal_ref.clone(),
                             chain: from,
-                            value: rights_for_source.get(*selected_right_index.read()).map(|r| r.value).unwrap_or(0),
+                            value: rights_for_source_closure.get(*selected_right_index.read()).map(|r| r.value).unwrap_or(0),
                             right_id: right.clone(),
                             status: SealStatus::Locked,
                             created_at: now,

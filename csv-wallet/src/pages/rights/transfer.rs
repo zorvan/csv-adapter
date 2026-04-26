@@ -18,6 +18,9 @@ pub fn TransferRight() -> Element {
     let mut selected_right_index = use_signal(|| 0usize);
     let mut to_address = use_signal(String::new);
     let mut result = use_signal(|| Option::<String>::None);
+    let mut loading = use_signal(|| false);
+    let blockchain = crate::services::blockchain::BlockchainService::new(Default::default());
+    let mut wallet_ctx = use_wallet_context();
 
     rsx! {
         div { class: "max-w-2xl space-y-6",
@@ -84,15 +87,36 @@ pub fn TransferRight() -> Element {
                 button {
                     onclick: move |_| {
                         if let Some(right) = active_rights_for_closure.get(*selected_right_index.read()) {
-                            result.set(Some(format!("Transfer initiated for Right {} on {}. For cross-chain transfers, use the Cross-Chain section.", 
-                                truncate_address(&right.id, 8),
-                                chain_name(&right.chain)
-                            )));
+                            let right_id = right.id.clone();
+                            let chain = right.chain;
+                            let to_addr = to_address.read().clone();
+                            let mut wallet_ctx = wallet_ctx.clone();
+                            let blockchain = crate::services::blockchain::BlockchainService::new(Default::default());
+                            let signer = wallet_ctx.get_signer_for_chain(chain).unwrap();
+                            
+                            spawn(async move {
+                                loading.set(true);
+                                result.set(None);
+                                
+                                match blockchain.transfer_right_local(chain, &right_id, &to_addr, &signer).await {
+                                    Ok(tx_hash) => {
+                                        result.set(Some(format!("✅ Transfer successful! Transaction: {}", truncate_address(&tx_hash, 12))));
+                                        wallet_ctx.refresh_rights().await;
+                                    },
+                                    Err(e) => {
+                                        result.set(Some(format!("❌ Transfer failed: {}", e)));
+                                    }
+                                }
+                                
+                                loading.set(false);
+                            });
                         }
                     },
-                    disabled: !has_active_rights,
-                    class: if !has_active_rights { "{btn_full_primary_class()} opacity-50 cursor-not-allowed" } else { "{btn_full_primary_class()}" },
-                    if !has_active_rights { "No Rights Available" } else { "Transfer" }
+                    disabled: !has_active_rights || *loading.read() || to_address.read().is_empty(),
+                    class: if !has_active_rights || *loading.read() { "{btn_full_primary_class()} opacity-50 cursor-not-allowed" } else { "{btn_full_primary_class()}" },
+                    if *loading.read() { "Processing Transfer..." } 
+                    else if !has_active_rights { "No Rights Available" } 
+                    else { "Transfer" }
                 }
             }
         }
