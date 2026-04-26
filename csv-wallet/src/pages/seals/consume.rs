@@ -3,9 +3,7 @@
 use crate::context::{use_wallet_context, SealRecord, SealStatus};
 use crate::pages::common::*;
 use crate::routes::Route;
-use csv_adapter_core::Chain;
 use dioxus::prelude::*;
-use std::rc::Rc;
 
 #[component]
 pub fn ConsumeSeal(seal_ref: Option<String>) -> Element {

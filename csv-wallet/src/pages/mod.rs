@@ -44,7 +44,7 @@ pub use accounts::{Dashboard, AccountTransactions};
 
 // Re-exports from rights module (already migrated)
 pub use rights::{
-    Rights, CreateRight, CreateRightForm, ShowRight, 
+    Rights, CreateRight, ShowRight, 
     TransferRight, ConsumeRight, RightJourney,
 };
 
@@ -80,23 +80,12 @@ pub use validate::{
 
 // Re-exports from transactions module
 pub use transactions::{
-    Transactions, TransactionCard, TransactionDetail,
+    Transactions, TransactionDetail,
 };
 
 // Re-exports from settings module
 pub use settings::Settings;
 
 // Common UI helpers - re-export everything from common module for convenience
-pub use common::{
-    chain_color, chain_badge_class, chain_icon_emoji, chain_name, 
-    format_timestamp, right_status_class, transfer_status_class,
-    card_class, card_header_class, input_class, input_mono_class,
-    btn_primary_class, btn_secondary_class, btn_full_primary_class,
-    table_class, label_class, select_class, empty_state, form_field,
-    truncate_address, chain_options, network_options,
-    chain_select, network_select,
-    test_status_class, seal_consumed_class, seal_consumed_text_class,
-    seal_status_class,
-};
 
 // Migration complete: old_pages.rs has been removed

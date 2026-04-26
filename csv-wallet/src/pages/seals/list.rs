@@ -9,7 +9,7 @@ use dioxus::prelude::*;
 // ===== Seals Pages =====
 #[component]
 pub fn Seals() -> Element {
-    let mut wallet_ctx = use_wallet_context();
+    let wallet_ctx = use_wallet_context();
     let seals = wallet_ctx.seals();
     let mut filter_chain = use_signal(|| Option::<Chain>::None);
     let mut selected_seal = use_signal(|| None::<SealRecord>);

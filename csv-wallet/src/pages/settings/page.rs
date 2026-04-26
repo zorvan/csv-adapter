@@ -1,8 +1,7 @@
 //! Settings page.
 
-use crate::context::{use_wallet_context, NotificationKind, Network};
+use crate::context::use_wallet_context;
 use crate::pages::common::*;
-use crate::routes::Route;
 use csv_adapter_core::PROTOCOL_VERSION;
 use dioxus::prelude::*;
 

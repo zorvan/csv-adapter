@@ -300,9 +300,4 @@ pub struct PersistedContract {
 }
 
 // Re-export unified types
-pub use csv_adapter_store::unified::{
-    Chain, ChainConfig, ContractRecord, FaucetConfig, GasAccount, Network, 
-    ProofRecord, RightRecord, RightStatus, SealRecord, TransactionRecord,
-    TransactionStatus, TransactionType, TransferRecord, TransferStatus, 
-    WalletAccount, WalletConfig, UnifiedStorage,
-};
+pub use csv_adapter_store::unified::UnifiedStorage;

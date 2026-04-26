@@ -25,7 +25,7 @@ struct CsvWalletAccount {
 }
 
 /// Import full wallet from csv-wallet JSON export
-pub fn cmd_import_csv_wallet(path: Option<String>, config: &Config, state: &mut UnifiedStateManager) -> Result<()> {
+pub fn cmd_import_csv_wallet(path: Option<String>, _config: &Config, state: &mut UnifiedStateManager) -> Result<()> {
     let path = path.unwrap_or_else(|| {
         dirs::home_dir()
             .map(|h| h.join(".csv/wallet/csv-wallet.json").to_string_lossy().to_string())
@@ -104,7 +104,7 @@ pub fn cmd_import_csv_wallet(path: Option<String>, config: &Config, state: &mut 
 }
 
 /// Export wallet to csv-wallet JSON format
-pub fn cmd_export_csv_wallet(output: Option<String>, config: &Config, state: &UnifiedStateManager) -> Result<()> {
+pub fn cmd_export_csv_wallet(output: Option<String>, _config: &Config, state: &UnifiedStateManager) -> Result<()> {
     let output_path = output.unwrap_or_else(|| {
         dirs::home_dir()
             .map(|h| h.join(".csv/wallet/csv-cli-export.json").to_string_lossy().to_string())

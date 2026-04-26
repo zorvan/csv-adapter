@@ -4,6 +4,13 @@
 #   network: testnet (default), devnet, mainnet
 #   sui-client-path: path to sui binary (default: sui)
 
+# To deploy with csv-cli wallet these steps are needed,
+#  to convert and import the private key from csv-cli into sui client:
+# sui keytool convert <csv-cli SUI PRIVATE KEY>
+# sui keytool import "<BECH32 PRIVATE KEY FROM ABOVE>" ed25519
+# sui client switch --address <csv-cli SUI ADDRESS>
+# csv contract deploy sui --account <csv-cli SUI ADDRESS>
+
 set -euo pipefail
 
 NETWORK="${1:-testnet}"

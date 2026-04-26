@@ -2,10 +2,9 @@
 
 use crate::context::state::AppState;
 use crate::context::types::*;
-use crate::storage::{self, LocalStorageManager, UnifiedStorageManager, UNIFIED_STORAGE_KEY, WALLET_MNEMONIC_KEY};
+use crate::storage::{self, LocalStorageManager, UNIFIED_STORAGE_KEY, WALLET_MNEMONIC_KEY};
 use crate::wallet_core::{ChainAccount, WalletData};
 use csv_adapter_core::Chain;
-use csv_adapter_store::unified::{WalletConfig, WalletAccount};
 use dioxus::prelude::*;
 
 /// Wallet context.
@@ -212,8 +211,7 @@ impl WalletContext {
         let s = self.state.read();
 
         // Convert local types to unified storage types
-        use csv_adapter_store::unified::{RightRecord, TransferRecord, 
-            SealRecord, ProofRecord, ContractRecord, ChainConfig, FaucetConfig, WalletConfig};
+        use csv_adapter_store::unified::{RightRecord, TransferRecord, ContractRecord, WalletConfig};
 
         let persisted = csv_adapter_store::unified::UnifiedStorage {
             version: 1,

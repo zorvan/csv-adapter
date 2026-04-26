@@ -19,8 +19,8 @@ pub fn TransferRight() -> Element {
     let mut to_address = use_signal(String::new);
     let mut result = use_signal(|| Option::<String>::None);
     let mut loading = use_signal(|| false);
-    let blockchain = crate::services::blockchain::BlockchainService::new(Default::default());
-    let mut wallet_ctx = use_wallet_context();
+    let _blockchain = crate::services::blockchain::BlockchainService::new(Default::default());
+    let wallet_ctx = use_wallet_context();
 
     rsx! {
         div { class: "max-w-2xl space-y-6",

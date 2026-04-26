@@ -1,6 +1,5 @@
 //! Run scenario page.
 
-use crate::context::TestResult;
 use crate::pages::common::*;
 use crate::routes::Route;
 use dioxus::prelude::*;

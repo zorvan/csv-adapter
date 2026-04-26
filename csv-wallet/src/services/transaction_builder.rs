@@ -880,7 +880,7 @@ async fn discover_solana_contracts(
                             if owner.contains("BPFLoader") {
                                 // It's a program - check if user is the upgrade authority
                                 // For ProgramData accounts, check the parsed data
-                                if let Some(data) = value.get("data").and_then(|d| d.as_array()) {
+                                if let Some(_data) = value.get("data").and_then(|d| d.as_array()) {
                                     // Try to find upgrade authority in parsed data
                                     let mut is_owned_by_user = false;
                                     

@@ -1,6 +1,6 @@
 //! Rights list page.
 
-use crate::context::{use_wallet_context, RightStatus, SealStatus, ProofStatus};
+use crate::context::{use_wallet_context, SealStatus, ProofStatus};
 use crate::pages::common::*;
 use crate::routes::Route;
 use csv_adapter_core::Chain;

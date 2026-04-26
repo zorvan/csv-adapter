@@ -18,10 +18,8 @@ pub mod service;
 
 // Re-exports from modules
 pub use types::{
-    BlockchainError, TransactionReceipt, TransactionStatus,
-    CrossChainStatus, CrossChainProof, ProofData,
+    BlockchainError,
     ContractDeployment, ContractType,
-    CrossChainTransferResult, ContractDeployments,
 };
 pub use wallet::{NativeWallet, BrowserWallet, WalletType};
 pub use wallet::wallet_connection;

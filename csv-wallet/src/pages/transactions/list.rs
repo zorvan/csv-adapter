@@ -3,7 +3,6 @@
 use crate::context::{use_wallet_context, TransactionRecord};
 use crate::pages::common::*;
 use crate::pages::transactions::TransactionCard;
-use crate::routes::Route;
 use dioxus::prelude::*;
 
 #[component]

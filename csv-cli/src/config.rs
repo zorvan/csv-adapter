@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 // Re-export unified types from csv-adapter-store
 pub use csv_adapter_store::unified::{
-    Chain, ChainConfig, FaucetConfig, Network, WalletAccount, WalletConfig,
+    Chain, ChainConfig, FaucetConfig, Network, WalletAccount,
 };
 
 /// CSV Wallet exported JSON format (legacy, for migration from csv-wallet < 0.4)
@@ -53,7 +53,7 @@ fn get_csv_wallet_cache() -> &'static Mutex<HashMap<Chain, LegacyWalletConfig>> 
 
 /// Legacy wallet config for backwards compatibility (maps to unified WalletAccount)
 #[derive(Debug, Clone)]
-struct LegacyWalletConfig {
+pub(crate) struct LegacyWalletConfig {
     pub private_key: Option<String>,
     pub xpub: Option<String>,
     pub mnemonic: Option<String>,
@@ -361,7 +361,7 @@ impl Config {
     }
     
     /// Set unified wallet account
-    pub fn set_wallet_account(&mut self, chain: Chain, account: WalletAccount) -> anyhow::Result<()> {
+    pub fn set_wallet_account(&mut self, _chain: Chain, account: WalletAccount) -> anyhow::Result<()> {
         // Also update unified storage
         let mut unified = crate::state::UnifiedStateManager::load()?;
         unified.storage.set_account(account);

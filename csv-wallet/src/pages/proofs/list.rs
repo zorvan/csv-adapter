@@ -7,7 +7,7 @@ use dioxus::prelude::*;
 
 #[component]
 pub fn Proofs() -> Element {
-    let mut wallet_ctx = use_wallet_context();
+    let wallet_ctx = use_wallet_context();
     let proofs = wallet_ctx.proofs();
     let mut selected_proof = use_signal(|| None::<ProofRecord>);
     let mut show_delete_confirm = use_signal(|| None::<ProofRecord>);

@@ -1,6 +1,6 @@
 //! Cross-chain transfer page.
 
-use crate::context::{use_wallet_context, RightStatus, TrackedRight, TrackedTransfer, TransferStatus, SealRecord, SealStatus, SealContent, ProofRecord, ProofStatus, ProofData};
+use crate::context::{use_wallet_context, RightStatus, TrackedTransfer, TransferStatus, SealRecord, SealStatus, SealContent, ProofRecord, ProofStatus, ProofData};
 use crate::pages::common::*;
 use crate::routes::Route;
 use csv_adapter_core::Chain;

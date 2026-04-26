@@ -1032,7 +1032,7 @@ fn send_ethereum_lock(
     right_id: Hash,
 ) -> Result<Hash> {
     use sha3::{Digest, Keccak256};
-    use secp256k1::{SecretKey, PublicKey, Message};
+    use secp256k1::{SecretKey, PublicKey};
     
     // Parse private key
     let cleaned_key = private_key.trim().trim_start_matches("0x").trim();

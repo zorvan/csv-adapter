@@ -9,7 +9,7 @@ use crate::services::blockchain::types::{
     CrossChainTransferResult, ProofData, TransactionReceipt, TransactionStatus,
 };
 use crate::services::blockchain::wallet::NativeWallet;
-use crate::services::native_signer::{NativeSigner, SignedTransaction, UnsignedTransaction};
+use crate::services::native_signer::{SignedTransaction, UnsignedTransaction};
 use crate::wallet_core::ChainAccount;
 use csv_adapter_core::Chain;
 

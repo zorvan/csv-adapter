@@ -1,6 +1,6 @@
 //! Add contract page.
 
-use crate::context::{generate_id, use_wallet_context, DeployedContract, NotificationKind};
+use crate::context::{generate_id, use_wallet_context, DeployedContract};
 use crate::pages::common::*;
 use crate::routes::Route;
 use csv_adapter_core::Chain;

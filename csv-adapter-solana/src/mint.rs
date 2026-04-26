@@ -120,7 +120,8 @@ pub fn mint_right_from_hex_key(
     // Serialize transaction
     let tx_bytes = bincode::serialize(&transaction)
         .map_err(|e| SolanaError::Serialization(format!("Failed to serialize: {}", e)))?;
-    let tx_base64 = base64::encode(&tx_bytes);
+    use base64::engine::{general_purpose, Engine as _};
+    let tx_base64 = general_purpose::STANDARD.encode(&tx_bytes);
     
     // Send via JSON-RPC
     let send_resp = client

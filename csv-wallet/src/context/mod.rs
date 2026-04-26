@@ -9,7 +9,6 @@ pub mod utils;
 pub use types::*;
 
 // Re-export AppState from state module
-pub use state::AppState;
 
 // Re-export WalletContext and related items from wallet module
 pub use wallet::{WalletContext, WalletProvider, use_wallet_context};

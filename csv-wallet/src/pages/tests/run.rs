@@ -1,6 +1,6 @@
 //! Run tests page.
 
-use crate::context::{use_wallet_context, TestResult, TestStatus, TrackedRight, TrackedTransfer};
+use crate::context::{use_wallet_context, TestResult, TestStatus};
 use crate::pages::common::*;
 use crate::routes::Route;
 use csv_adapter_core::Chain;

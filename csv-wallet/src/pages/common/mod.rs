@@ -1,7 +1,6 @@
 //! Common UI helpers and styling functions for pages.
 
-use crate::context::types::{RightStatus, SealRecord, SealStatus, TestStatus, TransferStatus};
-use crate::routes::Route;
+use crate::context::types::{RightStatus, SealStatus, TestStatus, TransferStatus};
 use csv_adapter_core::Chain;
 use dioxus::prelude::*;
 

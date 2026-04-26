@@ -6,7 +6,6 @@
 use crate::context::{use_wallet_context, TrackedRight, SealRecord, ProofRecord, SealStatus, ProofStatus, RightStatus};
 use crate::pages::common::*;
 use crate::routes::Route;
-use csv_adapter_core::Chain;
 use dioxus::prelude::*;
 
 /// Right Journey page - visualizes the complete right lifecycle

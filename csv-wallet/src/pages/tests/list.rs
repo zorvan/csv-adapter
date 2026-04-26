@@ -1,6 +1,6 @@
 //! Tests list page.
 
-use crate::context::{use_wallet_context, TestResult, TestStatus};
+use crate::context::{use_wallet_context, TestStatus};
 use crate::pages::common::*;
 use crate::routes::Route;
 use dioxus::prelude::*;

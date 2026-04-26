@@ -2,7 +2,7 @@
 
 use crate::context::types::{RightStatus, TransferStatus};
 use crate::context::use_wallet_context;
-use crate::hooks::{format_balance, use_balance, AccountBalance};
+use crate::hooks::{format_balance, AccountBalance};
 use crate::pages::common::*;
 use crate::routes::Route;
 pub use csv_adapter_core::Chain;

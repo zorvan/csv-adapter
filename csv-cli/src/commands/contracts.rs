@@ -138,7 +138,7 @@ fn cmd_deploy(
 }
 
 /// Deploy Ethereum contracts via Foundry
-fn deploy_ethereum(config: &Config, state: &mut UnifiedStateManager, deployer_key: Option<String>, account: Option<String>) -> Result<()> {
+fn deploy_ethereum(config: &Config, state: &mut UnifiedStateManager, deployer_key: Option<String>, _account: Option<String>) -> Result<()> {
     let chain_config = config.chain(&Chain::Ethereum)?;
 
     output::progress(1, 5, "Compiling Solidity contracts...");
@@ -671,7 +671,7 @@ fn deploy_solana(config: &Config, state: &mut UnifiedStateManager) -> Result<()>
     
     // Determine which wallet to use and display the correct address
     // Priority: 1) unified account with key, 2) legacy wallet, 3) unified without key (display only), 4) CLI default
-    let wallet = if let Some(ref account) = solana_account {
+    let _wallet = if let Some(ref account) = solana_account {
         if account.private_key.is_some() {
             // Unified account has its own key - use its address
             output::info(&format!("  Using unified wallet account: {}", account.address));

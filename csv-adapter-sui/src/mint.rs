@@ -17,8 +17,8 @@ pub fn mint_right(
     source_chain: u8,
     source_seal_ref: CsvHash,
 ) -> SuiResult<String> {
-    use ed25519_dalek::{SecretKey, SigningKey, Signer};
-    use sha2::{Digest, Sha256};
+    use ed25519_dalek::SigningKey;
+
     use serde_json::json;
     
     // Parse private key

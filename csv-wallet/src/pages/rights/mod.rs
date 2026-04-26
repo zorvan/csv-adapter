@@ -8,7 +8,7 @@ pub mod consume;
 pub mod journey;
 
 pub use list::Rights;
-pub use create::{CreateRight, CreateRightForm};
+pub use create::CreateRight;
 pub use show::ShowRight;
 pub use transfer::TransferRight;
 pub use consume::ConsumeRight;
