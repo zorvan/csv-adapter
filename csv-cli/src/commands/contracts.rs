@@ -524,12 +524,79 @@ fn deploy_solana(config: &Config, state: &mut UnifiedStateManager) -> Result<()>
         .args(["config", "set", "--url", &chain_config.rpc_url])
         .output();
 
-    // Get wallet address
-    let wallet_output = Command::new("solana")
-        .arg("address")
-        .output()?;
-    let wallet = String::from_utf8_lossy(&wallet_output.stdout).trim().to_string();
-    output::info(&format!("  Wallet: {}", wallet));
+    // Get Solana account from unified state (like Aptos does)
+    let solana_account = state.get_account(&Chain::Solana);
+    
+    // Also check legacy csv-wallet.json for private key (may have key unified storage doesn't)
+    let home_dir = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
+    let legacy_wallet_path = home_dir.join(".csv/wallet/csv-wallet.json");
+    let legacy_key = if solana_account.as_ref().map(|a| a.private_key.is_none()).unwrap_or(true) {
+        std::fs::read_to_string(&legacy_wallet_path)
+            .ok()
+            .and_then(|content| {
+                let json: serde_json::Value = serde_json::from_str(&content).ok()?;
+                json.get("accounts")?.as_array().and_then(|arr| {
+                    arr.iter()
+                        .find(|a| a.get("chain").and_then(|c| c.as_str()).map(|s| s.to_lowercase()) == Some("solana".to_string()))
+                        .and_then(|a| a.get("private_key").and_then(|k| k.as_str().map(|s| s.to_string())))
+                })
+            })
+    } else {
+        None
+    };
+    
+    // Determine which wallet to use and display the correct address
+    // Priority: 1) unified account with key, 2) legacy wallet, 3) unified without key (display only), 4) CLI default
+    let wallet = if let Some(ref account) = solana_account {
+        if account.private_key.is_some() {
+            // Unified account has its own key - use its address
+            output::info(&format!("  Using unified wallet account: {}", account.address));
+            account.address.clone()
+        } else if let Some(ref key) = legacy_key {
+            // Unified account has no key, but legacy wallet has key - use legacy
+            let priv_bytes = hex::decode(key.trim_start_matches("0x")).unwrap_or_default();
+            if priv_bytes.len() == 32 {
+                use ed25519_dalek::{SigningKey, VerifyingKey};
+                let priv_array: [u8; 32] = priv_bytes.as_slice().try_into().unwrap();
+                let signing_key = SigningKey::from_bytes(&priv_array);
+                let verifying_key: VerifyingKey = signing_key.verifying_key();
+                let address = bs58::encode(verifying_key.as_bytes()).into_string();
+                output::info(&format!("  Using legacy wallet account: {}", address));
+                output::info(&format!("  (Note: Unified storage has different address: {})", account.address));
+                address
+            } else {
+                account.address.clone()
+            }
+        } else {
+            // No key available - display unified address but warn
+            output::info(&format!("  Using unified wallet account: {}", account.address));
+            output::warning("  (No private key available in unified or legacy storage)");
+            account.address.clone()
+        }
+    } else if let Some(ref key) = legacy_key {
+        // No unified account, use legacy
+        let priv_bytes = hex::decode(key.trim_start_matches("0x")).unwrap_or_default();
+        if priv_bytes.len() == 32 {
+            use ed25519_dalek::{SigningKey, VerifyingKey};
+            let priv_array: [u8; 32] = priv_bytes.as_slice().try_into().unwrap();
+            let signing_key = SigningKey::from_bytes(&priv_array);
+            let verifying_key: VerifyingKey = signing_key.verifying_key();
+            let address = bs58::encode(verifying_key.as_bytes()).into_string();
+            output::info(&format!("  Using legacy wallet account: {}", address));
+            address
+        } else {
+            String::new()
+        }
+    } else {
+        // Fall back to CLI default wallet
+        let wallet_output = Command::new("solana")
+            .arg("address")
+            .output()?;
+        let cli_wallet = String::from_utf8_lossy(&wallet_output.stdout).trim().to_string();
+        output::warning(&format!("  No unified wallet found, using CLI default: {}", cli_wallet));
+        output::info("  Create a unified account with: csv wallet create --chain solana");
+        cli_wallet
+    };
 
     output::progress(3, 5, "Deploying CSV Seal program...");
 
@@ -542,10 +609,65 @@ fn deploy_solana(config: &Config, state: &mut UnifiedStateManager) -> Result<()>
         ));
     }
 
-    let deploy_output = Command::new(&deploy_script)
-        .arg(solana_network)
-        .arg(&anchor_path)
-        .output()?;
+    // Prepare deploy command with unified wallet if available
+    let mut deploy_cmd = Command::new(&deploy_script);
+    deploy_cmd.arg(solana_network).arg(&anchor_path);
+    deploy_cmd.stdin(std::process::Stdio::null());  // Prevent hanging on stdin
+    
+    // Pass unified state account to deploy script if available
+    let mut keypair_file: Option<std::path::PathBuf> = None;
+    let pk_to_use = solana_account
+        .as_ref()
+        .and_then(|a| a.private_key.clone())
+        .or(legacy_key);
+    
+    if let Some(ref pk) = pk_to_use {
+        // Create Solana keypair file (64 bytes: priv + pub)
+        let keypair_path = std::env::temp_dir().join("csv_solana_deploy_keypair.json");
+        let pk_clean = pk.trim_start_matches("0x");
+        let priv_bytes = hex::decode(pk_clean)
+            .map_err(|e| anyhow::anyhow!("Invalid private key hex: {}", e))?;
+        if priv_bytes.len() != 32 {
+            return Err(anyhow::anyhow!("Invalid Solana private key length: expected 32 bytes, got {}", priv_bytes.len()));
+        }
+        
+        // Derive public key from private key using ed25519
+        use ed25519_dalek::{SigningKey, VerifyingKey};
+        let priv_array: [u8; 32] = priv_bytes.as_slice().try_into().unwrap();
+        let signing_key = SigningKey::from_bytes(&priv_array);
+        let verifying_key: VerifyingKey = signing_key.verifying_key();
+        
+        // Create keypair: [32 bytes priv][32 bytes pub]
+        let mut keypair = Vec::with_capacity(64);
+        keypair.extend_from_slice(&priv_bytes);
+        keypair.extend_from_slice(verifying_key.as_bytes());
+        
+        // Write as JSON array (standard Solana keypair format)
+        let json_array: Vec<u8> = keypair.iter().map(|b| *b as u8).collect();
+        let json_content = serde_json::to_string(&json_array)?;
+        std::fs::write(&keypair_path, &json_content)?;
+        
+        // Verify the file was written correctly
+        let file_size = std::fs::metadata(&keypair_path)?.len();
+        if file_size < 100 {
+            return Err(anyhow::anyhow!("Keypair file too small: {} bytes", file_size));
+        }
+        
+        deploy_cmd.env("CSV_SOLANA_KEYPAIR", &keypair_path);
+        deploy_cmd.env("ANCHOR_WALLET", &keypair_path);  // Also set ANCHOR_WALLET for Anchor compatibility
+        keypair_file = Some(keypair_path);
+    }
+    
+    if let Some(account) = solana_account {
+        deploy_cmd.env("CSV_SOLANA_ADDRESS", &account.address);
+    }
+    
+    let deploy_output = deploy_cmd.output()?;
+    
+    // Clean up temp keypair file
+    if let Some(path) = keypair_file {
+        let _ = std::fs::remove_file(path);
+    }
 
     if !deploy_output.status.success() {
         let stderr = String::from_utf8_lossy(&deploy_output.stderr);
