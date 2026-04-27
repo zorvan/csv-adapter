@@ -8,6 +8,9 @@ pub use csv_adapter_store::unified::{
     TransferRecord, TransferStatus, UnifiedStorage, WalletAccount,
 };
 
+// Keystore migration module for encrypted key storage
+pub mod keystore_migration;
+
 /// Unified state manager for CLI
 pub struct UnifiedStateManager {
     pub storage: UnifiedStorage,

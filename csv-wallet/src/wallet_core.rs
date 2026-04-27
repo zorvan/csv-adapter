@@ -1,7 +1,7 @@
 //! Per-chain account management.
 //!
-//! Each account belongs to a specific chain and has its own private key.
-//! Multiple accounts per chain are supported.
+//! Each account belongs to a specific chain and uses secure keystore references.
+//! Private keys are never stored in memory longer than necessary for signing.
 
 use blake2::Blake2b;
 use csv_adapter_core::Chain;
@@ -14,7 +14,7 @@ use sha2::Digest;
 use sha3::Keccak256;
 use uuid::Uuid;
 
-/// A single blockchain account with its own private key and address.
+/// A single blockchain account with keystore-secured private key.
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 pub struct ChainAccount {
     /// Unique account ID
@@ -23,18 +23,64 @@ pub struct ChainAccount {
     pub chain: Chain,
     /// User-friendly account name
     pub name: String,
-    /// Hex-encoded private key (32 or 64 bytes depending on curve)
-    pub private_key: String,
+    /// Keystore reference (UUID) - points to encrypted key in browser storage
+    /// Never store the actual private key here!
+    pub keystore_ref: Option<String>,
     /// Derived address for display
     pub address: String,
     /// Balance in native token (BTC, ETH, SUI, APT, etc.)
     /// Not serialized - fetched dynamically from blockchain
     #[serde(default, skip_serializing)]
     pub balance: f64,
+    /// BIP-44 derivation path (if HD wallet)
+    pub derivation_path: Option<String>,
 }
 
 impl ChainAccount {
-    /// Derive address from private key for a specific chain.
+    /// Create a new account from an address (for watch-only accounts).
+    pub fn watch_only(chain: Chain, name: &str, address: &str) -> Self {
+        Self {
+            id: Uuid::new_v4().to_string(),
+            chain,
+            name: name.to_string(),
+            keystore_ref: None,
+            address: address.to_string(),
+            balance: 0.0,
+            derivation_path: None,
+        }
+    }
+
+    /// Check if this is a watch-only account (no keystore reference).
+    pub fn is_watch_only(&self) -> bool {
+        self.keystore_ref.is_none()
+    }
+
+    /// Create account from keystore reference (secure, no plaintext key).
+    pub fn from_keystore(
+        chain: Chain,
+        name: &str,
+        address: &str,
+        keystore_ref: &str,
+        derivation_path: Option<&str>,
+    ) -> Self {
+        Self {
+            id: Uuid::new_v4().to_string(),
+            chain,
+            name: name.to_string(),
+            keystore_ref: Some(keystore_ref.to_string()),
+            address: address.to_string(),
+            balance: 0.0,
+            derivation_path: derivation_path.map(|s| s.to_string()),
+        }
+    }
+
+impl ChainAccount {
+    /// Derive address from private key for a specific chain (utility function).
+    /// 
+    /// # Security Note
+    /// This function accepts a hex-encoded key but should only be used during
+    /// account creation. The resulting account will store a keystore reference,
+    /// not the plaintext key.
     pub fn derive_address(chain: Chain, hex_key: &str) -> Result<String, String> {
         let hex_clean = hex_key.strip_prefix("0x").unwrap_or(hex_key);
         let bytes = hex::decode(hex_clean).map_err(|e| format!("Invalid hex: {}", e))?;
@@ -47,33 +93,6 @@ impl ChainAccount {
             Chain::Solana => Self::derive_solana_address(&bytes),
             _ => Err(format!("Unsupported chain: {:?}", chain)),
         }
-    }
-
-    /// Create a new account from a private key.
-    pub fn from_private_key(chain: Chain, name: &str, hex_key: &str) -> Result<Self, String> {
-        let address = Self::derive_address(chain, hex_key)?;
-        Ok(Self {
-            id: Uuid::new_v4().to_string(),
-            chain,
-            name: name.to_string(),
-            private_key: hex_key.to_string(),
-            address,
-            balance: 0.0,
-        })
-    }
-
-    /// Refresh the address from the private key using current derivation.
-    /// This is useful when derivation method changes (e.g., SegWit v0 -> Taproot).
-    pub fn refresh_address(&mut self) -> Result<(), String> {
-        let new_address = Self::derive_address(self.chain, &self.private_key)?;
-        if new_address != self.address {
-            web_sys::console::log_1(&format!(
-                "Updated {} address: {} -> {}",
-                self.chain, self.address, new_address
-            ).into());
-            self.address = new_address;
-        }
-        Ok(())
     }
 
     // ===== Address derivation per chain =====

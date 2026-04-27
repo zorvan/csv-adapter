@@ -27,6 +27,7 @@ csv-adapter-sui = { version = "0.3.0", path = "../csv-adapter-sui", features = [
 csv-adapter-aptos = { version = "0.3.0", path = "../csv-adapter-aptos" }
 csv-adapter-solana = { version = "0.3.0", path = "../csv-adapter-solana" }
 csv-adapter-store = { version = "0.3.0", path = "../csv-adapter-store", features = ["clap"] }
+csv-adapter-keystore = { version = "0.3.0", path = "../csv-adapter-keystore" }
 
 clap = { version = "4", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
