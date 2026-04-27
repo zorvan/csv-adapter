@@ -36,8 +36,10 @@
 #![allow(dead_code)]
 
 pub mod adapter;
+pub mod chain_adapter_impl;
 pub mod checkpoint;
 pub mod config;
+pub mod deploy;
 pub mod error;
 pub mod mint;
 pub mod proofs;
@@ -50,6 +52,8 @@ pub mod types;
 pub mod real_rpc;
 
 pub use adapter::SuiAnchorLayer;
+pub use chain_adapter_impl::{create_sui_adapter, SuiRpcClient, SuiWallet};
+pub use deploy::{deploy_csv_seal_package, PackageDeployer, PackageDeployment};
 pub use checkpoint::CheckpointVerifier;
 pub use config::{CheckpointConfig, SealContractConfig, SuiConfig, SuiNetwork, TransactionConfig};
 pub use error::SuiError;

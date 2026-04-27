@@ -12,11 +12,20 @@ use std::sync::Mutex;
 
 pub mod unified;
 
+#[cfg(feature = "browser-storage")]
+pub mod browser_storage;
+
 pub use unified::{
     Chain, ChainConfig, ContractRecord, FaucetConfig, GasAccount, Network,
     ProofRecord, RightRecord, RightStatus, SealRecord as UnifiedSealRecord,
     TransactionRecord, TransactionStatus, TransactionType, TransferRecord, TransferStatus,
     UnifiedStorage, UnifiedStorageError, WalletAccount, WalletConfig,
+};
+
+#[cfg(feature = "browser-storage")]
+pub use browser_storage::{
+    asset_storage, seal_storage, wallet_storage, BrowserStorageError, BrowserUnifiedStorage,
+    LocalStorageManager, UNIFIED_STORAGE_KEY, WALLET_MNEMONIC_KEY,
 };
 
 /// SQLite-backed seal and anchor store

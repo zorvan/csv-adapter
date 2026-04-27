@@ -17,7 +17,7 @@ path = "src/main.rs"
 [dependencies]
 # Core CSV Adapter types
 csv-adapter-core = { path = "../csv-adapter-core" }
-csv-adapter-store = { path = "../csv-adapter-store", default-features = false }
+csv-adapter-store = { path = "../csv-adapter-store", default-features = false, features = ["browser-storage"] }
 csv-adapter-solana = { path = "../csv-adapter-solana", optional = true }
 
 # Dioxus 0.7

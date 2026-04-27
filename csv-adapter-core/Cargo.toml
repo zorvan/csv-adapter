@@ -32,15 +32,26 @@ secp256k1 = { version = "0.28", features = ["rand-std"] }
 ed25519-dalek = { version = "2.0", features = ["rand_core"] }
 bloomfilter = { version = "3.0", default-features = false }
 
+# Optional chain adapter dependencies
+# These enable the AdapterFactory to create real chain adapters
+csv-adapter-bitcoin = { version = "0.3.0", path = "../csv-adapter-bitcoin", optional = true }
+csv-adapter-solana = { version = "0.3.0", path = "../csv-adapter-solana", optional = true }
+csv-adapter-aptos = { version = "0.3.0", path = "../csv-adapter-aptos", optional = true }
+csv-adapter-sui = { version = "0.3.0", path = "../csv-adapter-sui", optional = true }
+csv-adapter-ethereum = { version = "0.3.0", path = "../csv-adapter-ethereum", optional = true }
+
 [features]
 default = ["std"]
 std = ["serde/std", "serde_json/std", "dep:toml", "sha2/std", "hex/std"]
 tapret = ["bitcoin"]
-# Chain features
-ethereum = []
-sui = []
-aptos = []
-solana = []
+# Chain features - enable real adapter implementations
+bitcoin = ["dep:csv-adapter-bitcoin"]
+solana = ["dep:csv-adapter-solana"]
+aptos = ["dep:csv-adapter-aptos"]
+sui = ["dep:csv-adapter-sui"]
+ethereum = ["dep:csv-adapter-ethereum"]
+# All chains
+full = ["bitcoin", "solana", "aptos", "sui", "ethereum"]
 # Experimental features that may change or be removed without notice.
 # Includes: MPC tree, deterministic VM, RGB compatibility.
 experimental = []

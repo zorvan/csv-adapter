@@ -2,18 +2,37 @@
 //!
 //! This module provides a factory pattern for creating chain adapters
 //! based on chain IDs, enabling dynamic chain support without hardcoding.
+//!
+//! # Features
+//!
+//! The factory supports chain-specific features that enable real adapter implementations:
+//! - `bitcoin` - Enables Bitcoin adapter via `csv-adapter-bitcoin`
+//! - `solana` - Enables Solana adapter via `csv-adapter-solana`
+//! - `aptos` - Enables Aptos adapter via `csv-adapter-aptos`
+//! - `sui` - Enables Sui adapter via `csv-adapter-sui`
+//! - `ethereum` - Enables Ethereum adapter via `csv-adapter-ethereum`
+//! - `full` - Enables all chain adapters
+//!
+//! When a feature is not enabled, the factory will return `None` for that chain.
 
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::OnceLock;
 
-use crate::adapters::{
-    ScalableAptosAdapter, ScalableBitcoinAdapter, ScalableEthereumAdapter, ScalableSolanaAdapter,
-    ScalableSuiAdapter,
-};
 use crate::chain_adapter::ChainAdapter;
 use crate::chain_config::ChainConfig;
 use crate::chain_plugin::ChainPluginRegistry;
+
+#[cfg(feature = "bitcoin")]
+use csv_adapter_bitcoin::BitcoinAnchorLayer;
+#[cfg(feature = "solana")]
+use csv_adapter_solana::SolanaAnchorLayer;
+#[cfg(feature = "aptos")]
+use csv_adapter_aptos::AptosAnchorLayer;
+#[cfg(feature = "sui")]
+use csv_adapter_sui::SuiAnchorLayer;
+#[cfg(feature = "ethereum")]
+use csv_adapter_ethereum::EthereumAnchorLayer;
 
 /// Factory function type for creating chain adapters
 type AdapterFactoryFn = Arc<dyn Fn(Option<ChainConfig>) -> Box<dyn ChainAdapter> + Send + Sync>;
@@ -32,6 +51,14 @@ impl AdapterFactory {
     }
 
     /// Create a new adapter factory with all built-in chains registered
+    ///
+    /// # Note
+    ///
+    /// Only chains with enabled features will be registered. To enable all chains,
+    /// use the `full` feature:
+    /// ```toml
+    /// csv-adapter-core = { version = "0.3", features = ["full"] }
+    /// ```
     pub fn new() -> Self {
         let mut factory = Self::empty();
 
@@ -44,19 +71,86 @@ impl AdapterFactory {
     /// Register all built-in chain adapters
     fn register_built_in_adapters(&mut self) {
         // Bitcoin
-        self.register("bitcoin", || Box::new(ScalableBitcoinAdapter::new()));
+        #[cfg(feature = "bitcoin")]
+        self.register_with_config("bitcoin", Arc::new(|config| {
+            if let Some(cfg) = config {
+                match csv_adapter_bitcoin::create_bitcoin_adapter(&cfg) {
+                    Ok(adapter) => Box::new(adapter),
+                    Err(_) => Box::new(BitcoinAnchorLayer::signet().unwrap_or_else(|_| {
+                        // Fallback: create a minimal adapter
+                        let config = csv_adapter_bitcoin::BitcoinConfig::default();
+                        let wallet = csv_adapter_bitcoin::SealWallet::generate_random(
+                            csv_adapter_bitcoin::bitcoin::Network::Signet
+                        );
+                        BitcoinAnchorLayer::with_wallet(config, wallet).unwrap()
+                    })),
+                }
+            } else {
+                Box::new(BitcoinAnchorLayer::signet().unwrap_or_else(|_| {
+                    let config = csv_adapter_bitcoin::BitcoinConfig::default();
+                    let wallet = csv_adapter_bitcoin::SealWallet::generate_random(
+                        csv_adapter_bitcoin::bitcoin::Network::Signet
+                    );
+                    BitcoinAnchorLayer::with_wallet(config, wallet).unwrap()
+                }))
+            }
+        }));
 
         // Ethereum
-        self.register("ethereum", || Box::new(ScalableEthereumAdapter::new()));
+        #[cfg(feature = "ethereum")]
+        self.register_with_config("ethereum", Arc::new(|config| {
+            if let Some(cfg) = config {
+                match csv_adapter_ethereum::create_ethereum_adapter(&cfg) {
+                    Ok(adapter) => Box::new(adapter),
+                    Err(_) => Box::new(EthereumAnchorLayer::with_mock().unwrap()),
+                }
+            } else {
+                Box::new(EthereumAnchorLayer::with_mock().unwrap())
+            }
+        }));
 
         // Solana
-        self.register("solana", || Box::new(ScalableSolanaAdapter::new()));
+        #[cfg(feature = "solana")]
+        self.register_with_config("solana", Arc::new(|config| {
+            if let Some(cfg) = config {
+                match csv_adapter_solana::create_solana_adapter(&cfg) {
+                    Ok(adapter) => Box::new(adapter),
+                    Err(_) => {
+                        let config = csv_adapter_solana::SolanaConfig::default();
+                        Box::new(SolanaAnchorLayer::new(config))
+                    }
+                }
+            } else {
+                let config = csv_adapter_solana::SolanaConfig::default();
+                Box::new(SolanaAnchorLayer::new(config))
+            }
+        }));
 
         // Sui
-        self.register("sui", || Box::new(ScalableSuiAdapter::new()));
+        #[cfg(feature = "sui")]
+        self.register_with_config("sui", Arc::new(|config| {
+            if let Some(cfg) = config {
+                match csv_adapter_sui::create_sui_adapter(&cfg) {
+                    Ok(adapter) => Box::new(adapter),
+                    Err(_) => Box::new(SuiAnchorLayer::with_mock().unwrap()),
+                }
+            } else {
+                Box::new(SuiAnchorLayer::with_mock().unwrap())
+            }
+        }));
 
         // Aptos
-        self.register("aptos", || Box::new(ScalableAptosAdapter::new()));
+        #[cfg(feature = "aptos")]
+        self.register_with_config("aptos", Arc::new(|config| {
+            if let Some(cfg) = config {
+                match csv_adapter_aptos::create_aptos_adapter(&cfg) {
+                    Ok(adapter) => Box::new(adapter),
+                    Err(_) => Box::new(AptosAnchorLayer::with_mock().unwrap()),
+                }
+            } else {
+                Box::new(AptosAnchorLayer::with_mock().unwrap())
+            }
+        }));
     }
 
     /// Register a custom adapter factory

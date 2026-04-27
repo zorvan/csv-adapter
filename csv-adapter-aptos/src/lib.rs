@@ -36,8 +36,10 @@
 #![allow(dead_code)]
 
 pub mod adapter;
+pub mod chain_adapter_impl;
 pub mod checkpoint;
 pub mod config;
+pub mod deploy;
 pub mod error;
 pub mod merkle;
 pub mod proofs;
@@ -50,6 +52,8 @@ pub mod types;
 pub mod real_rpc;
 
 pub use adapter::AptosAnchorLayer;
+pub use chain_adapter_impl::{create_aptos_adapter, AptosRpcClient, AptosWallet};
+pub use deploy::{deploy_csv_seal_module, ModuleDeployer, ModuleDeployment};
 pub use checkpoint::CheckpointVerifier;
 pub use config::{AptosConfig, AptosNetwork, CheckpointConfig};
 pub use error::AptosError;

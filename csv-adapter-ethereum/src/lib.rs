@@ -8,7 +8,9 @@
 #![allow(dead_code)]
 
 pub mod adapter;
+pub mod chain_adapter_impl;
 pub mod config;
+pub mod deploy;
 pub mod error;
 pub mod finality;
 pub mod mpt;
@@ -29,6 +31,10 @@ pub use real_rpc::{
 };
 
 pub use adapter::EthereumAnchorLayer;
+pub use chain_adapter_impl::{create_ethereum_adapter, EthereumRpcClient, EthereumWallet};
+pub use deploy::{
+    calculate_contract_address, deploy_csv_seal_contract, ContractDeployer, ContractDeployment,
+};
 pub use config::EthereumConfig;
 pub use finality::{FinalityChecker, FinalityConfig};
 pub use rpc::EthereumRpc;

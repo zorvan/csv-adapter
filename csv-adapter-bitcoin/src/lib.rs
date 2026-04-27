@@ -9,7 +9,9 @@
 
 pub mod adapter;
 pub mod bip341;
+pub mod chain_adapter_impl;
 pub mod config;
+pub mod deploy;
 pub mod error;
 pub mod proofs;
 pub mod proofs_new;
@@ -31,7 +33,13 @@ pub mod mempool_rpc;
 
 pub use adapter::BitcoinAnchorLayer;
 pub use bip341::{derive_output_key, generate_test_keypair, Bip341Error, TaprootOutput};
+pub use chain_adapter_impl::{
+    create_bitcoin_adapter, BitcoinRpcClient, BitcoinWallet,
+};
 pub use config::{BitcoinConfig, Network};
+pub use deploy::{
+    deploy_csv_seal_contract, ContractDeployer, ContractDeployment,
+};
 pub use rpc::BitcoinRpc;
 pub use spv::SpvVerifier;
 pub use tapret::{
