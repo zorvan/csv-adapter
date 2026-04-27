@@ -1,6 +1,6 @@
 # Blueprint
 
-Related docs: [Architecture](ARCHITECTURE.md), [Implementation Status](CROSS_CHAIN_IMPLEMENTATION.md), [Developer Guide](DEVELOPER_GUIDE.md), [Explorer and Wallet Indexing](EXPLORER_WALLET_INDEXING.md), [AluVM Note](ALUVM.md)
+Related docs: [Motivation](MOTIVATION.md), [Architecture](ARCHITECTURE.md), [Specification](SPECIFICATION.md), [Developer Guide](DEVELOPER_GUIDE.md)
 
 ## Purpose
 
@@ -11,6 +11,7 @@ This blueprint is the forward-looking document for CSV Adapter. It describes whe
 The codebase contains a comprehensive cross-chain rights platform with:
 
 **Core Infrastructure (COMPLETED)**:
+
 - Mature protocol center in `csv-adapter-core` with parallel verification
 - Chain adapter system with dyn compatibility fixed and enabled
 - Five chain adapters (Bitcoin, Ethereum, Sui, Aptos, **Solana - now fully implemented**)
@@ -19,18 +20,21 @@ The codebase contains a comprehensive cross-chain rights platform with:
 - TypeScript SDK and MCP server with AI agent optimization
 
 **Real-World Applications (COMPLETED)**:
+
 - Cross-chain subscriptions with 96-97% cost savings
 - Gaming assets portability across blockchains
 - Performance optimizations achieving 2-3x speed improvements
 - Structured error handling with actionable suggestions
 
 **Completed During This Pass**:
+
 - ~~Chain adapter dyn compatibility~~ (**FIXED** - modules enabled, types consolidated)
 - ~~Solana adapter skeleton~~ (**COMPLETED** - all AnchorLayer methods implemented)
 - ~~Explorer integration pipeline~~ (**FIXED** - workspace declared, RPC manager fixed, sync logic corrected)
 - ~~Real RPC integration~~ (**COMPLETED** - TODO stubs replaced with actual HTTP RPC calls)
 
 **Remaining Components**:
+
 - Zero-knowledge proofs for privacy (NOT STARTED - per user request, this is excluded)
 - Advanced privacy features (NOT STARTED)
 - Extended chain support (NOT STARTED)
@@ -105,6 +109,7 @@ Focus:
 - improve visibility into rights, transfers, proofs, and seal history
 
 **Status**: COMPLETED - Wallet integration complete, explorer indexing pipeline fixed:
+
 - Added `[workspace]` declaration to explorer `Cargo.toml`
 - Fixed RPC manager HTTP client builder with proper authentication
 - Fixed sync logic to prioritize database over config for resume
@@ -153,38 +158,43 @@ Focus:
 ## Remaining Tasks (Lower Priority)
 
 ### 1. Zero-Knowledge Proofs (NOT STARTED - Excluded per user request)
+
 - ~~Implement ZK proof compression for privacy-preserving transfers~~ (excluded)
 - ~~Add ZK-SNARKs integration for confidential transactions~~ (excluded)
 - ~~Develop ZK-proof verification in the proof bundle~~ (excluded)
 - ~~Create privacy-focused examples and documentation~~ (excluded)
 
 ### 2. Advanced Privacy Features (NOT STARTED)
+
 - Confidential transaction support
 - Private right ownership
 - Anonymous transfer capabilities
 - Privacy-preserving audit trails
 
 ### 3. Extended Chain Support (NOT STARTED)
+
 - Cosmos SDK integration
 - Polkadot/Substrate support
 - Additional EVM-compatible chains
 
-
 ## Completed Achievements
 
 ### Developer Experience (COMPLETED)
+
 - One-command wallet setup: `csv wallet init --fund`
 - 5-minute onboarding with comprehensive examples
 - AI agent optimization with self-describing errors
 - Performance optimizations (2-3x faster verification)
 
 ### Real-World Applications (COMPLETED)
+
 - Cross-chain subscriptions with 96-97% cost savings
 - Gaming assets portability across 5+ blockchains
 - Parallel proof verification for enterprise scale
 - Structured error handling with actionable suggestions
 
 ### Protocol Enhancements (COMPLETED)
+
 - Enhanced proof verification with parallel processing
 - Bloom filters for optimized seal registry lookups
 - Performance metrics collection and reporting
@@ -220,18 +230,21 @@ Track progress with a small set of signals:
 | RPC integration | **100%** | 100% | Real HTTP RPC calls implemented |
 
 **Key Achievements**:
+
 - 5-minute onboarding achieved with one-command wallet setup
 - 6 surfaces (CLI, SDK, MCP, Wallet, Explorer, Examples) sharing protocol
 - 2-3x performance improvements with parallel verification
 - 96-97% cost savings on cross-chain transfers
 
 **Completed This Pass**:
+
 - Chain adapter dyn compatibility - Fixed and enabled
 - Solana adapter - Fully implemented with all AnchorLayer methods
 - Explorer integration - Pipeline fixed with proper workspace config
 - Real RPC integration - HTTP RPC calls implemented for all chains
 
 **Remaining Gaps**:
+
 - Privacy features (0% coverage) - Excluded per user request
 - Extended chain support - Cosmos, Polkadot (future work)
 

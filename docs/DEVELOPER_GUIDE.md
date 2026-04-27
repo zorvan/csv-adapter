@@ -1,6 +1,6 @@
 # Developer Guide
 
-Related docs: [Documentation Hub](INDEX.md), [Architecture](ARCHITECTURE.md), [Cross-Chain Specification](CROSS_CHAIN_SPEC.md), [Implementation Status](CROSS_CHAIN_IMPLEMENTATION.md)
+Related docs: [Motivation](MOTIVATION.md), [Architecture](ARCHITECTURE.md), [Specification](SPECIFICATION.md), [Blueprint](BLUEPRINT.md)
 
 ## Purpose
 

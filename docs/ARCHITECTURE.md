@@ -1,6 +1,6 @@
 # Architecture
 
-Related docs: [Documentation Hub](INDEX.md), [Cross-Chain Specification](CROSS_CHAIN_SPEC.md), [Developer Guide](DEVELOPER_GUIDE.md), [Blueprint](BLUEPRINT.md)
+Related docs: [Motivation](MOTIVATION.md), [Specification](SPECIFICATION.md), [Developer Guide](DEVELOPER_GUIDE.md), [Blueprint](BLUEPRINT.md)
 
 ## System summary
 

@@ -9,7 +9,7 @@ name = "csv-explorer-indexer"
 path = "src/main.rs"
 
 [dependencies]
-csv-explorer-shared  = { path = "../shared" }
+csv-explorer-shared = { path = "../shared" }
 csv-explorer-storage = { path = "../storage" }
 csv-adapter-core.workspace = true
 tokio.workspace = true

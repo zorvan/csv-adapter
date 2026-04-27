@@ -1,10 +1,10 @@
 [package]
 name = "csv-adapter-core"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 description = "Chain-agnostic core traits and types for CSV (Client-Side Validation) adapters"
 license = "MIT OR Apache-2.0"
-authors = ["Amin Razavi, Qwen3"]
+authors = ["Amin Razavi"]
 repository = "https://github.com/zorvan/csv-adapter"
 homepage = "https://github.com/zorvan/csv-adapter"
 documentation = "https://docs.rs/csv-adapter-core"
@@ -34,11 +34,11 @@ bloomfilter = { version = "3.0", default-features = false }
 
 # Optional chain adapter dependencies
 # These enable the AdapterFactory to create real chain adapters
-csv-adapter-bitcoin = { version = "0.3.0", path = "../csv-adapter-bitcoin", optional = true }
-csv-adapter-solana = { version = "0.3.0", path = "../csv-adapter-solana", optional = true }
-csv-adapter-aptos = { version = "0.3.0", path = "../csv-adapter-aptos", optional = true }
-csv-adapter-sui = { version = "0.3.0", path = "../csv-adapter-sui", optional = true }
-csv-adapter-ethereum = { version = "0.3.0", path = "../csv-adapter-ethereum", optional = true }
+csv-adapter-bitcoin = { version = "0.4.0", path = "../csv-adapter-bitcoin", optional = true }
+csv-adapter-solana = { version = "0.4.0", path = "../csv-adapter-solana", optional = true }
+csv-adapter-aptos = { version = "0.4.0", path = "../csv-adapter-aptos", optional = true }
+csv-adapter-sui = { version = "0.4.0", path = "../csv-adapter-sui", optional = true }
+csv-adapter-ethereum = { version = "0.4.0", path = "../csv-adapter-ethereum", optional = true }
 
 [features]
 default = ["std"]

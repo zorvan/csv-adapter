@@ -1,51 +1,31 @@
 # CSV Adapter Documentation
 
-Welcome to the CSV (Client-Side Validation) Adapter documentation. This folder contains comprehensive documentation for the entire CSV ecosystem.
+## Start Here
 
-## 📚 Documentation Structure
+| If you are... | Read this |
+|---------------|-----------|
+| New to the project | [Motivation](MOTIVATION.md) - Why CSV exists |
+| Building or modifying code | [Developer Guide](DEVELOPER_GUIDE.md) - Setup and workflow |
+| Understanding the system | [Architecture](ARCHITECTURE.md) - System design |
+| Implementing protocol behavior | [Specification](SPECIFICATION.md) - Protocol details |
+| Planning roadmap work | [Blueprint](BLUEPRINT.md) - Future direction |
 
-### 🏗️ [Architecture](./architecture/ARCHITECTURE.md)
-Core system architecture and design patterns for the CSV protocol implementation.
+## Core Documents
 
-### 🔧 [Implementation Guides](./implementation/)
-- **[Getting Started](./implementation/DEVELOPER_GUIDE.md)** - Developer guide for contributors
-- **[Bitcoin Integration](./implementation/bitcoin/BITCOIN_ADDRESS_TYPES.md)** - Bitcoin-specific implementation details
-- **[Ethereum Integration](./implementation/ethereum/E2E_TESTNET_MANUAL.md)** - Ethereum integration guide
-- **[Aptos Integration](./implementation/aptos/ALUVM.md)** - Aptos chain integration
-- **[Sui Integration](./implementation/sui/)** - Sui chain integration
-- **[Solana Integration](./implementation/solana/)** - Solana chain integration (newly added)
+1. **[Motivation](MOTIVATION.md)** - The philosophy: why CSV exists, the bridge problem, and the verification model
 
-### 🌐 [Cross-Chain](./cross-chain/)
-- **[Overview](./cross-chain/CROSS_CHAIN_IMPLEMENTATION.md)** - Cross-chain transfer implementation
-- **[Specification](./cross-chain/CROSS_CHAIN_SPEC.md)** - Technical specifications
+2. **[Specification](SPECIFICATION.md)** - Protocol specification: objects, transfer flow, proof bundles, verification
 
-### 🔒 [Security & Validation](./security/)
-- **[Advanced Commitments](./security/ADVANCED_COMMITMENT_IMPLEMENTATION_GUIDE.md)** - Advanced commitment schemes
-- **[Explorer & Wallet](./security/EXPLORER_WALLET_INDEXING.md)** - Security considerations for indexing
+3. **[Architecture](ARCHITECTURE.md)** - System architecture: layers, data model, chain adapters, security model
 
-### 📊 [API Reference](./api/)
-- **[CSV API](./api/csv-api.yaml)** - Complete API specification
+4. **[Developer Guide](DEVELOPER_GUIDE.md)** - Practical guide: build, test, extend, repository structure
 
-### 🧪 [Testing](./testing/)
-- **[Test Reports](./testing/TESTNET_E2E_REPORT.md)** - Test results and validation
+5. **[Blueprint](BLUEPRINT.md)** - Future direction: strategic principles, roadmap, planned work
 
-### 📋 [Planning](./planning/)
-- **[Implementation Plan](./planning/PLAN.md)** - Detailed implementation roadmap
-- **[Blueprint](./planning/BLUEPRINT.md)** - Technical blueprint
+## API Reference
 
-## 🚀 Quick Start
-
-1. **For Developers**: Start with [Developer Guide](./implementation/DEVELOPER_GUIDE.md)
-2. **For Integration**: Choose your chain from [Implementation Guides](./implementation/)
-3. **For API**: See [CSV API Specification](./api/csv-api.yaml)
-4. **For Architecture**: Read [Core Architecture](./architecture/ARCHITECTURE.md)
-
-## 📖 Additional Resources
-
-- [Main Repository README](../README.md)
-- [CSV Protocol Specification](./planning/BLUEPRINT.md)
-- [Cross-Chain Details](./cross-chain/CROSS_CHAIN_SPEC.md)
+- **[CSV API](./api/csv-api.yaml)** - OpenAPI specification
 
 ---
 
-*Last updated: April 2026*
+*Documentation reorganized: April 2026*

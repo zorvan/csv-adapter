@@ -1,10 +1,10 @@
 [package]
 name = "csv-adapter-keystore"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 description = "Secure key storage for CSV Adapter with BIP-39/BIP-44 support"
 license = "MIT OR Apache-2.0"
-authors = ["Amin Razavi, Qwen3"]
+authors = ["Amin Razavi"]
 repository = "https://github.com/zorvan/csv-adapter"
 homepage = "https://github.com/zorvan/csv-adapter"
 documentation = "https://docs.rs/csv-adapter-keystore"
@@ -15,7 +15,7 @@ publish = true
 rust-version = "1.75"
 
 [dependencies]
-csv-adapter-core = { version = "0.3.0", path = "../csv-adapter-core" }
+csv-adapter-core = { version = "0.4.0", path = "../csv-adapter-core" }
 
 # BIP-39 mnemonic support
 bip39 = { version = "2.0", features = ["rand", "zeroize"] }
