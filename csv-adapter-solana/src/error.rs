@@ -69,6 +69,10 @@ pub enum SolanaError {
     /// Invalid input
     #[error("Invalid input: {0}")]
     InvalidInput(String),
+
+    /// Not implemented
+    #[error("Not implemented: {0}")]
+    NotImplemented(String),
 }
 
 /// Result type for Solana operations
@@ -141,6 +145,7 @@ impl HasErrorSuggestion for SolanaError {
             SolanaError::AnchorCreation(_) => error_codes::SOL_ANCHOR_CREATION_ERROR,
             SolanaError::ProofGeneration(_) => error_codes::SOL_PROOF_GENERATION_ERROR,
             SolanaError::InvalidInput(_) => error_codes::SOL_INVALID_INPUT,
+            SolanaError::NotImplemented(_) => error_codes::SOL_NOT_IMPLEMENTED,
         }
     }
 
@@ -238,6 +243,10 @@ impl HasErrorSuggestion for SolanaError {
             SolanaError::InvalidInput(_) => {
                 "Invalid input provided. Check all parameters are valid \
                  and within acceptable ranges.".to_string()
+            }
+            SolanaError::NotImplemented(_) => {
+                "This feature is not yet implemented. \
+                 Consider using an alternative approach or waiting for a future release.".to_string()
             }
         }
     }

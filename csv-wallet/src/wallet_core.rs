@@ -73,6 +73,7 @@ impl ChainAccount {
             derivation_path: derivation_path.map(|s| s.to_string()),
         }
     }
+}
 
 impl ChainAccount {
     /// Derive address from private key for a specific chain (utility function).

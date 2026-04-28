@@ -114,6 +114,9 @@ pub mod experimental {
 /// Re-export error types
 pub use errors::CsvError;
 
+/// Re-export client
+pub use client::CsvClient;
+
 /// Re-export deployment types
 pub use deploy::{ContractDeployment, DeploymentError, DeploymentManager, DeploymentResult};
 

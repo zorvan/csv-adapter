@@ -87,6 +87,7 @@ pub fn coin_type(chain: Chain) -> u32 {
         Chain::Sui => 784,   // SLIP-44: SUI
         Chain::Aptos => 637, // SLIP-44: APT
         Chain::Solana => 501, // SLIP-44: SOL
+        _ => 0, // Default to Bitcoin coin type for unknown chains
     }
 }
 
@@ -145,6 +146,10 @@ pub fn derive_key_from_path(
         Chain::Sui | Chain::Aptos | Chain::Solana => {
             derive_ed25519(seed, path)
         }
+        _ => {
+            // Default to Ed25519 for unknown chains
+            derive_ed25519(seed, path)
+        }
     }
 }
 
@@ -153,7 +158,7 @@ fn derive_secp256k1(
     seed: &[u8; 64],
     path: &DerivationPath,
 ) -> Result<SecretKey, Bip44Error> {
-    use secp256k1::{PublicKey, SecretKey as SecpSecretKey};
+    
 
     // Start with the master key from seed
     let mut data = Vec::with_capacity(64);

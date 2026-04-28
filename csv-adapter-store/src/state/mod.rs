@@ -40,15 +40,17 @@ pub mod storage;
 pub mod wallet;
 
 // Re-exports for backward compatibility
-pub use backend::{FileStorage, StorageBackend, StorageError};
+pub use backend::{StorageBackend, StorageError};
+#[cfg(all(not(target_arch = "wasm32"), feature = "file-storage"))]
+pub use backend::FileStorage;
 pub use core::{Chain, ChainConfig, Network};
 pub use domain::{
-    ContractRecord, FaucetConfig, GasAccount, ProofRecord, RightRecord, RightStatus,
+    ContractRecord, ProofRecord, RightRecord, RightStatus,
     SealRecord, TransactionRecord, TransactionStatus, TransactionType, TransferRecord,
     TransferStatus,
 };
 pub use storage::StateStorage;
-pub use wallet::{WalletAccount, WalletConfig};
+pub use wallet::{FaucetConfig, GasAccount, WalletAccount, WalletConfig};
 
 /// Version of the state format.
 pub const STATE_VERSION: u32 = 1;

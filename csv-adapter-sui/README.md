@@ -2,7 +2,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/csv-adapter-sui.svg)](https://crates.io/crates/csv-adapter-sui)
 [![Documentation](https://docs.rs/csv-adapter-sui/badge.svg)](https://docs.rs/csv-adapter-sui)
-[![License](https://img.shields.io/crates/l/csv-adapter-sui.svg)](https://github.com/zorvan/csv-adapter#license)
+[![License](https://img.shields.io/crates/l/csv-adapter-sui.svg)](https://github.com/client-side-validation/csv-adapter#license)
 
 Sui adapter for **CSV (Client-Side Validation)** with object-based seals.
 
@@ -111,4 +111,4 @@ at your option.
 
 ## Contributing
 
-We welcome contributions! Please see our [GitHub repository](https://github.com/zorvan/csv-adapter) for more information.
+We welcome contributions! Please see our [GitHub repository](https://github.com/client-side-validation/csv-adapter) for more information.

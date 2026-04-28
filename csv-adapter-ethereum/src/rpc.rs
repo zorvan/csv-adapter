@@ -50,6 +50,24 @@ pub trait EthereumRpc: Send + Sync {
         tx_bytes: Vec<u8>,
     ) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>>;
 
+    /// Get account balance
+    fn get_balance(
+        &self,
+        address: [u8; 20],
+    ) -> Result<u64, Box<dyn std::error::Error + Send + Sync>>;
+
+    /// Get transaction count (nonce) for an address
+    fn get_transaction_count(
+        &self,
+        address: [u8; 20],
+    ) -> Result<u64, Box<dyn std::error::Error + Send + Sync>>;
+
+    /// Get code at an address
+    fn get_code(
+        &self,
+        address: [u8; 20],
+    ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>>;
+
     /// Downcast to `Any` for feature-gated real implementations.
     /// Concrete types may override for explicit downcasting.
     fn as_any(&self) -> Option<&dyn std::any::Any> {
@@ -100,6 +118,10 @@ pub struct TransactionReceipt {
     pub logs: Vec<LogEntry>,
     /// Status (1 = success, 0 = failure)
     pub status: u64,
+    /// Gas used by the transaction
+    pub gas_used: u64,
+    /// Whether transaction was successful
+    pub success: bool,
 }
 
 /// LOG event entry
@@ -253,6 +275,27 @@ impl EthereumRpc for MockEthereumRpc {
     ) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>> {
         self.sent_transactions.lock().unwrap().push(tx_bytes);
         Ok([0xAB; 32])
+    }
+
+    fn get_balance(
+        &self,
+        _address: [u8; 20],
+    ) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
+        Ok(1000000000000000000u64) // Mock 1 ETH balance
+    }
+
+    fn get_transaction_count(
+        &self,
+        _address: [u8; 20],
+    ) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
+        Ok(0u64) // Mock nonce
+    }
+
+    fn get_code(
+        &self,
+        _address: [u8; 20],
+    ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+        Ok(vec![]) // Mock empty code (EOA)
     }
 
     fn as_any(&self) -> Option<&dyn std::any::Any> {

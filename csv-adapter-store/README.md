@@ -2,7 +2,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/csv-adapter-store.svg)](https://crates.io/crates/csv-adapter-store)
 [![Documentation](https://docs.rs/csv-adapter-store/badge.svg)](https://docs.rs/csv-adapter-store)
-[![License](https://img.shields.io/crates/l/csv-adapter-store.svg)](https://github.com/zorvan/csv-adapter#license)
+[![License](https://img.shields.io/crates/l/csv-adapter-store.svg)](https://github.com/client-side-validation/csv-adapter#license)
 
 SQLite persistence layer for **CSV Adapter** seal and anchor storage.
 
@@ -155,4 +155,4 @@ at your option.
 
 ## Contributing
 
-We welcome contributions! Please see our [GitHub repository](https://github.com/zorvan/csv-adapter) for more information.
+We welcome contributions! Please see our [GitHub repository](https://github.com/client-side-validation/csv-adapter) for more information.

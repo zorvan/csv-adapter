@@ -7,7 +7,19 @@ use crate::config::{Chain, Config};
 use crate::output;
 use crate::state::{ContractRecord, UnifiedStateManager};
 use anyhow::Result;
+use csv_adapter_core::Chain as CoreChain;
 use std::time::{SystemTime, UNIX_EPOCH};
+
+/// Convert store Chain to core Chain for adapter usage.
+fn to_core_chain(chain: Chain) -> CoreChain {
+    match chain {
+        Chain::Bitcoin => CoreChain::Bitcoin,
+        Chain::Ethereum => CoreChain::Ethereum,
+        Chain::Sui => CoreChain::Sui,
+        Chain::Aptos => CoreChain::Aptos,
+        Chain::Solana => CoreChain::Solana,
+    }
+}
 
 /// Deploy contracts to a chain.
 pub fn cmd_deploy(
@@ -53,7 +65,6 @@ fn deploy_ethereum_csv_client(
     _account: Option<String>,
 ) -> Result<()> {
     use csv_adapter::CsvClient;
-    use csv_adapter::Chain;
 
     let chain_config = config.chain(&Chain::Ethereum)?;
     let rpc_url = &chain_config.rpc_url;
@@ -78,7 +89,7 @@ fn deploy_ethereum_csv_client(
 
     // Build CSV client with Ethereum support
     let client = CsvClient::builder()
-        .with_chain(Chain::Ethereum)
+        .with_chain(to_core_chain(Chain::Ethereum))
         .build()
         .map_err(|e| anyhow::anyhow!("Failed to build CSV client: {}", e))?;
 
@@ -133,7 +144,6 @@ fn deploy_sui_csv_client(
     _account: Option<String>,
 ) -> Result<()> {
     use csv_adapter::CsvClient;
-    use csv_adapter::Chain;
 
     let chain_config = config.chain(&Chain::Sui)?;
     let rpc_url = &chain_config.rpc_url;
@@ -151,7 +161,7 @@ fn deploy_sui_csv_client(
     output::progress(2, 3, "Building CSV client with Sui chain...");
 
     let client = CsvClient::builder()
-        .with_chain(Chain::Sui)
+        .with_chain(to_core_chain(Chain::Sui))
         .build()
         .map_err(|e| anyhow::anyhow!("Failed to build CSV client: {}", e))?;
 
@@ -173,7 +183,6 @@ fn deploy_aptos_csv_client(
     _account: Option<String>,
 ) -> Result<()> {
     use csv_adapter::CsvClient;
-    use csv_adapter::Chain;
 
     let chain_config = config.chain(&Chain::Aptos)?;
     let rpc_url = &chain_config.rpc_url;
@@ -190,7 +199,7 @@ fn deploy_aptos_csv_client(
     output::progress(2, 3, "Building CSV client with Aptos chain...");
 
     let client = CsvClient::builder()
-        .with_chain(Chain::Aptos)
+        .with_chain(to_core_chain(Chain::Aptos))
         .build()
         .map_err(|e| anyhow::anyhow!("Failed to build CSV client: {}", e))?;
 
@@ -211,7 +220,6 @@ fn deploy_solana_csv_client(
     state: &mut UnifiedStateManager,
 ) -> Result<()> {
     use csv_adapter::CsvClient;
-    use csv_adapter::Chain;
 
     output::progress(1, 3, "Initializing CSV client for Solana...");
 
@@ -224,7 +232,7 @@ fn deploy_solana_csv_client(
     output::progress(2, 3, "Building CSV client with Solana chain...");
 
     let client = CsvClient::builder()
-        .with_chain(Chain::Solana)
+        .with_chain(to_core_chain(Chain::Solana))
         .build()
         .map_err(|e| anyhow::anyhow!("Failed to build CSV client: {}", e))?;
 

@@ -404,6 +404,13 @@ mod real_rpc_impl {
                 .map(parse_hex_bytes32)
                 .unwrap_or_default();
 
+            let gas_used = receipt["gasUsed"]
+                .as_str()
+                .and_then(|s| parse_hex_u64(s).ok())
+                .unwrap_or(0);
+
+            let success = status == 1;
+
             Ok(TransactionReceipt {
                 tx_hash,
                 block_number,
@@ -411,6 +418,8 @@ mod real_rpc_impl {
                 contract_address: contract_addr,
                 logs,
                 status,
+                gas_used,
+                success,
             })
         }
 
@@ -451,6 +460,44 @@ mod real_rpc_impl {
             let tx_hex = format!("0x{}", hex::encode(&tx_bytes));
             let hash_str = self.send_raw_tx_raw(&tx_hex)?;
             Ok(parse_hex_bytes32(&hash_str))
+        }
+
+        fn get_balance(
+            &self,
+            address: [u8; 20],
+        ) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
+            let addr_hex = format!("0x{}", hex::encode(address));
+            let result = self.rpc_call("eth_getBalance", json!([addr_hex, "latest"]))?;
+            let hex_str = result
+                .as_str()
+                .ok_or("Invalid balance response")?;
+            let balance = parse_hex_u64(hex_str)?;
+            Ok(balance)
+        }
+
+        fn get_transaction_count(
+            &self,
+            address: [u8; 20],
+        ) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
+            let addr_hex = format!("0x{}", hex::encode(address));
+            let result = self.rpc_call("eth_getTransactionCount", json!([addr_hex, "latest"]))?;
+            let hex_str = result
+                .as_str()
+                .ok_or("Invalid transaction count response")?;
+            let count = parse_hex_u64(hex_str)?;
+            Ok(count)
+        }
+
+        fn get_code(
+            &self,
+            address: [u8; 20],
+        ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+            let addr_hex = format!("0x{}", hex::encode(address));
+            let result = self.rpc_call("eth_getCode", json!([addr_hex, "latest"]))?;
+            let hex_str = result
+                .as_str()
+                .ok_or("Invalid code response")?;
+            Ok(parse_hex_bytes(hex_str))
         }
 
         fn as_any(&self) -> Option<&dyn std::any::Any> {

@@ -2,7 +2,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/csv-adapter-bitcoin.svg)](https://crates.io/crates/csv-adapter-bitcoin)
 [![Documentation](https://docs.rs/csv-adapter-bitcoin/badge.svg)](https://docs.rs/csv-adapter-bitcoin)
-[![License](https://img.shields.io/crates/l/csv-adapter-bitcoin.svg)](https://github.com/zorvan/csv-adapter#license)
+[![License](https://img.shields.io/crates/l/csv-adapter-bitcoin.svg)](https://github.com/client-side-validation/csv-adapter#license)
 
 Bitcoin adapter for **CSV (Client-Side Validation)** with UTXO seals and SPV proofs.
 
@@ -137,4 +137,4 @@ at your option.
 
 ## Contributing
 
-We welcome contributions! Please see our [GitHub repository](https://github.com/zorvan/csv-adapter) for more information.
+We welcome contributions! Please see our [GitHub repository](https://github.com/client-side-validation/csv-adapter) for more information.

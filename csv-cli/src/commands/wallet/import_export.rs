@@ -16,7 +16,7 @@ pub fn cmd_export(
 ) -> Result<()> {
     use crate::commands::wallet::types::ExportFormat;
 
-    let export_format = format.parse::<ExportFormat>()?;
+    let export_format = format.parse::<ExportFormat>().map_err(|e| anyhow::anyhow!(e))?;
 
     if let Some(address) = state.get_address(&chain) {
         output::header(&format!("Export {} Wallet", chain));
@@ -79,7 +79,7 @@ fn import_from_mnemonic(chain: Chain, mnemonic: &str, state: &mut UnifiedStateMa
     output::info(&format!("Mnemonic: {}...", &mnemonic[..20.min(mnemonic.len())]));
 
     // For now, just store a placeholder
-    state.store_address(chain, format!("imported_{}", chain.to_string().to_lowercase()));
+    state.store_address(chain.clone(), format!("imported_{}", chain.to_string().to_lowercase()));
 
     Ok(())
 }
@@ -114,7 +114,7 @@ fn derive_address_from_private_key(chain: &Chain, private_key: &str) -> Result<S
 pub fn cmd_address(chain: Chain, address: Option<String>, state: &mut UnifiedStateManager) -> Result<()> {
     if let Some(addr) = address {
         // Set address
-        state.store_address(chain, addr.clone());
+        state.store_address(chain.clone(), addr.clone());
         output::success(&format!("Set {} address to: {}", chain, addr));
     } else {
         // Display address

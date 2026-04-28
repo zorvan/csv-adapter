@@ -38,7 +38,8 @@ use crate::types::{SuiAnchorRef, SuiFinalityProof, SuiInclusionProof, SuiSealRef
 
 /// Sui implementation of the AnchorLayer trait
 pub struct SuiAnchorLayer {
-    config: SuiConfig,
+    /// Configuration for this Sui adapter instance
+    pub config: SuiConfig,
     /// Registry of used seals for replay prevention
     seal_registry: Mutex<SealRegistry>,
     domain_separator: [u8; 32],
@@ -48,7 +49,7 @@ pub struct SuiAnchorLayer {
     event_builder: CommitmentEventBuilder,
     /// Ed25519 signing key for transaction signing (RPC mode only)
     #[cfg(feature = "rpc")]
-    signing_key: Option<ed25519_dalek::SigningKey>,
+    pub signing_key: Option<ed25519_dalek::SigningKey>,
 }
 
 /// Format an object ID as hex for display.

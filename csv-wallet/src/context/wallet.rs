@@ -476,6 +476,32 @@ impl WalletContext {
         self.save_persisted();
     }
 
+    /// Import an account from a private key.
+    pub fn import_account_from_key(&mut self, chain: Chain, name: &str, private_key_hex: &str) -> Result<(), String> {
+        // Derive address from private key
+        let address = crate::wallet_core::ChainAccount::derive_address(chain, private_key_hex)
+            .map_err(|e| format!("Failed to derive address: {}", e))?;
+        
+        // Create keystore reference (simplified - in production this would encrypt and store)
+        let keystore_ref = format!("keystore_{}_{}", chain.id(), uuid::Uuid::new_v4());
+        
+        // Create account
+        let account = crate::wallet_core::ChainAccount::from_keystore(
+            chain,
+            name,
+            &address,
+            &keystore_ref,
+            None,
+        );
+        
+        // Add to wallet
+        self.add_account(account);
+        
+        // TODO: Actually store the encrypted private key in keystore
+        
+        Ok(())
+    }
+
     pub fn remove_account(&mut self, chain: Chain, address: &str) -> bool {
         // Find the account ID by chain and address
         let account_id = self.state.read().wallet.accounts.iter()

@@ -36,12 +36,13 @@ use crate::wallet::SealWallet;
 /// Bitcoin implementation of the AnchorLayer trait with HD wallet support
 pub struct BitcoinAnchorLayer {
     config: BitcoinConfig,
-    wallet: SealWallet,
+    /// HD wallet for seal management
+    pub wallet: SealWallet,
     tx_builder: CommitmentTxBuilder,
     seal_registry: Mutex<SealRegistry>,
     domain_separator: [u8; 32],
     /// RPC client for broadcasting transactions (optional)
-    rpc: Option<Box<dyn BitcoinRpc + Send + Sync>>,
+    pub rpc: Option<Box<dyn BitcoinRpc + Send + Sync>>,
     next_seal_index: Mutex<u32>,
 }
 

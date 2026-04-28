@@ -2,7 +2,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/csv-adapter-core.svg)](https://crates.io/crates/csv-adapter-core)
 [![Documentation](https://docs.rs/csv-adapter-core/badge.svg)](https://docs.rs/csv-adapter-core)
-[![License](https://img.shields.io/crates/l/csv-adapter-core.svg)](https://github.com/zorvan/csv-adapter#license)
+[![License](https://img.shields.io/crates/l/csv-adapter-core.svg)](https://github.com/client-side-validation/csv-adapter#license)
 
 Chain-agnostic core traits and types for **CSV (Client-Side Validation)** adapters.
 
@@ -262,4 +262,4 @@ at your option.
 
 ## Contributing
 
-We welcome contributions! Please see our [GitHub repository](https://github.com/zorvan/csv-adapter) for more information.
+We welcome contributions! Please see our [GitHub repository](https://github.com/client-side-validation/csv-adapter) for more information.

@@ -5,6 +5,7 @@
 
 use crate::config::EthereumConfig;
 use crate::error::{EthereumError, EthereumResult};
+use crate::rpc::EthereumRpc;
 
 // Alloy imports for real contract deployment
 #[cfg(feature = "rpc")]
@@ -178,9 +179,8 @@ pub async fn deploy_csv_lock(
     
     // Create provider
     let provider = ProviderBuilder::new()
-        .with_recommended_fillers()
         .wallet(wallet)
-        .on_http(rpc_url.parse().map_err(|e| {
+        .connect_http(rpc_url.parse().map_err(|e| {
             EthereumError::ConfigError(format!("Invalid RPC URL: {}", e))
         })?);
     
@@ -209,8 +209,8 @@ pub async fn deploy_csv_lock(
         .ok_or_else(|| EthereumError::DeploymentError("Contract address not found in receipt".to_string()))?;
     
     Ok(ContractDeployment {
-        contract_address: contract_address.into_array(),
-        transaction_hash: receipt.transaction_hash.into_array(),
+        contract_address: (*contract_address).into(),
+        transaction_hash: receipt.transaction_hash.0,
         block_number: receipt.block_number.unwrap_or(0),
         gas_used: receipt.gas_used,
         deployed_bytecode: bytecode.to_vec(),

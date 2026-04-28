@@ -21,13 +21,30 @@ impl NativeWallet {
         self.account.address.clone()
     }
 
-    pub fn private_key(&self) -> String {
-        self.account.private_key.clone()
+    /// Get the private key from keystore (if available).
+    pub fn private_key(&self) -> Result<String, BlockchainError> {
+        // Private key must be retrieved from keystore using keystore_ref
+        match &self.account.keystore_ref {
+            Some(_keystore_ref) => {
+                // TODO: Implement keystore retrieval
+                Err(BlockchainError {
+                    message: "Keystore key retrieval not yet implemented".to_string(),
+                    chain: Some(self.chain),
+                    code: None,
+                })
+            }
+            None => Err(BlockchainError {
+                message: "Watch-only account has no private key".to_string(),
+                chain: Some(self.chain),
+                code: None,
+            }),
+        }
     }
 
     /// Sign a transaction using the native signer.
     pub fn sign_transaction(&self, tx: &UnsignedTransaction) -> Result<SignedTransaction, BlockchainError> {
-        NativeSigner::sign_transaction(tx, &self.private_key())
+        let pk = self.private_key()?;
+        NativeSigner::sign_transaction(tx, &pk)
             .map_err(|e| BlockchainError {
                 message: e.to_string(),
                 chain: Some(self.chain),

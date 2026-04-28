@@ -23,6 +23,14 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 #[derive(Zeroize, ZeroizeOnDrop)]
 pub struct SecretKey([u8; 32]);
 
+impl std::fmt::Debug for SecretKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SecretKey")
+            .field("bytes", &"[REDACTED]")
+            .finish()
+    }
+}
+
 impl SecretKey {
     /// Create a new SecretKey from raw bytes.
     ///
@@ -76,12 +84,6 @@ impl SecretKey {
     }
 }
 
-impl Drop for SecretKey {
-    fn drop(&mut self) {
-        // ZeroizeOnDrop handles this, but we ensure it happens
-        self.0.zeroize();
-    }
-}
 
 /// A passphrase that is automatically zeroed when dropped.
 #[derive(Zeroize, ZeroizeOnDrop)]
@@ -104,11 +106,6 @@ impl Passphrase {
     }
 }
 
-impl Drop for Passphrase {
-    fn drop(&mut self) {
-        self.0.zeroize();
-    }
-}
 
 /// A 64-byte seed that is automatically zeroed when dropped.
 ///
@@ -128,11 +125,6 @@ impl Seed {
     }
 }
 
-impl Drop for Seed {
-    fn drop(&mut self) {
-        self.0.zeroize();
-    }
-}
 
 /// A 16-byte IV (Initialization Vector) for AES-GCM.
 #[derive(Zeroize, ZeroizeOnDrop)]

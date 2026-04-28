@@ -44,6 +44,9 @@ pub trait SolanaRpc: Send + Sync {
         &self,
         signature: &Signature,
     ) -> SolanaResult<ConfirmationStatus>;
+
+    /// Get minimum balance for rent exemption
+    async fn get_minimum_balance_for_rent_exemption(&self, data_len: usize) -> SolanaResult<u64>;
 }
 
 /// Real RPC client implementation
@@ -124,6 +127,12 @@ impl SolanaRpc for RealSolanaRpc {
         // Simplified implementation - would need actual RPC client
         Ok(ConfirmationStatus::Confirmed)
     }
+
+    async fn get_minimum_balance_for_rent_exemption(&self, _data_len: usize) -> SolanaResult<u64> {
+        // Simplified implementation - would need actual RPC client
+        // Returns a placeholder value (rent exemption for 1MB is roughly 6.9 SOL)
+        Ok(6_900_000_000)
+    }
 }
 
 /// Mock RPC client for testing
@@ -201,5 +210,10 @@ impl SolanaRpc for MockSolanaRpc {
         _signature: &Signature,
     ) -> SolanaResult<ConfirmationStatus> {
         Ok(ConfirmationStatus::Confirmed)
+    }
+
+    async fn get_minimum_balance_for_rent_exemption(&self, _data_len: usize) -> SolanaResult<u64> {
+        // Mock value - rent exemption for typical program size
+        Ok(6_900_000_000)
     }
 }

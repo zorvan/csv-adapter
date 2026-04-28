@@ -80,7 +80,7 @@ impl RpcClient for AptosRpcClient {
         let resource_type = "0x1::coin::CoinStore<0x1::aptos_coin::AptosCoin>";
         let resource = self
             .inner
-            .get_account_resource(addr, resource_type)
+            .get_resource(addr, resource_type, None)
             .map_err(|e| ChainError::RpcError(e.to_string()))?;
 
         // Extract balance from resource data
@@ -331,8 +331,8 @@ impl ChainAdapter for AptosAnchorLayer {
 
 /// Create a new Aptos adapter from chain configuration
 pub fn create_aptos_adapter(config: &ChainConfig) -> ChainResult<AptosAnchorLayer> {
-    // Parse network from config
-    let network = match config.network.as_str() {
+    // Parse network from config (use default_network field)
+    let network = match config.default_network.as_str() {
         "mainnet" => AptosNetwork::Mainnet,
         "testnet" => AptosNetwork::Testnet,
         "devnet" => AptosNetwork::Devnet,

@@ -255,16 +255,20 @@ impl ChainAdapter for SolanaAnchorLayer {
 /// Create a new Solana adapter from chain configuration
 pub fn create_solana_adapter(config: &ChainConfig) -> ChainResult<SolanaAnchorLayer> {
     // Parse network from config
-    let network = match config.network.as_str() {
+    let network = match config.default_network.as_str() {
         "mainnet" => Network::Mainnet,
         "devnet" => Network::Devnet,
         "testnet" => Network::Testnet,
         _ => Network::Devnet,
     };
 
+    let rpc_url = config.rpc_endpoints.first()
+        .cloned()
+        .unwrap_or_else(|| "https://api.devnet.solana.com".to_string());
+
     let sol_config = SolanaConfig {
         network,
-        rpc_url: config.rpc_url.clone().unwrap_or_else(|| "https://api.devnet.solana.com".to_string()),
+        rpc_url,
         ..Default::default()
     };
 
@@ -297,10 +301,23 @@ mod tests {
     async fn test_create_solana_adapter() {
         let config = ChainConfig {
             chain_id: "solana".to_string(),
-            network: "devnet".to_string(),
-            rpc_url: None,
-            confirmation_blocks: Some(32),
-            ..Default::default()
+            chain_name: "Solana".to_string(),
+            default_network: "devnet".to_string(),
+            rpc_endpoints: vec!["https://api.devnet.solana.com".to_string()],
+            program_id: None,
+            block_explorer_urls: vec![],
+            start_block: 0,
+            capabilities: csv_adapter_core::chain_config::ChainCapabilities {
+                supports_nfts: true,
+                supports_smart_contracts: true,
+                account_model: csv_adapter_core::chain_adapter::AccountModel::Account,
+                confirmation_blocks: 32,
+                max_batch_size: 100,
+                supported_networks: vec!["mainnet".to_string(), "devnet".to_string(), "testnet".to_string()],
+                supports_cross_chain: false,
+                custom_features: std::collections::HashMap::new(),
+            },
+            custom_settings: std::collections::HashMap::new(),
         };
 
         let adapter = create_solana_adapter(&config);

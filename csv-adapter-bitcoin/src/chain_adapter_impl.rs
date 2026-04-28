@@ -229,8 +229,8 @@ impl ChainAdapter for BitcoinAnchorLayer {
 /// Create a new Bitcoin adapter from chain configuration
 pub fn create_bitcoin_adapter(config: &ChainConfig) -> ChainResult<BitcoinAnchorLayer> {
     // Parse network from config
-    let network = match config.network.as_str() {
-        "mainnet" => Network::Bitcoin,
+    let network = match config.default_network.as_str() {
+        "mainnet" => Network::Mainnet,
         "testnet" => Network::Testnet,
         "signet" => Network::Signet,
         "regtest" => Network::Regtest,
@@ -239,7 +239,7 @@ pub fn create_bitcoin_adapter(config: &ChainConfig) -> ChainResult<BitcoinAnchor
 
     let btc_config = BitcoinConfig {
         network,
-        finality_depth: config.confirmation_blocks.unwrap_or(6) as u32,
+        finality_depth: config.capabilities.confirmation_blocks as u32,
         ..Default::default()
     };
 

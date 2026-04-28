@@ -37,13 +37,14 @@ pub struct AptosAnchorLayer {
     /// Registry of used seals for replay prevention
     seal_registry: Mutex<SealRegistry>,
     domain_separator: [u8; 32],
-    rpc: Box<dyn AptosRpc>,
+    /// RPC client for Aptos node communication (crate-visible for chain_adapter_impl)
+    pub(crate) rpc: Box<dyn AptosRpc>,
     checkpoint_verifier: CheckpointVerifier,
     /// Event builder for creating and parsing anchor events
     event_builder: CommitmentEventBuilder,
     /// Ed25519 signing key for transaction signing (RPC mode only)
     #[cfg(feature = "rpc")]
-    signing_key: Option<ed25519_dalek::SigningKey>,
+    pub signing_key: Option<ed25519_dalek::SigningKey>,
 }
 
 impl AptosAnchorLayer {

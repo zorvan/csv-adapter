@@ -3,7 +3,7 @@
 #![allow(missing_docs)]
 #![allow(dead_code)]
 
-use csv_adapter_core::{AnchorRecord, Hash, SealRecord, SealStore, StoreError};
+use csv_adapter_core::{AnchorRecord, Hash, SealStore, StoreError};
 
 #[cfg(feature = "sqlite")]
 use rusqlite::{params, Connection};
@@ -13,16 +13,22 @@ use std::sync::Mutex;
 /// Application state module (formerly unified).
 pub mod state;
 
+/// Unified storage types.
+pub mod unified;
+
 #[cfg(feature = "browser-storage")]
 pub mod browser_storage;
 
 // Re-exports from state module
 pub use state::{
-    Chain, ChainConfig, ContractRecord, FaucetConfig, FileStorage, GasAccount, Network,
+    Chain, ChainConfig, ContractRecord, FaucetConfig, GasAccount, Network,
     ProofRecord, RightRecord, RightStatus, SealRecord, StateStorage, StorageBackend, StorageError,
     TransactionRecord, TransactionStatus, TransactionType, TransferRecord, TransferStatus,
     WalletAccount, WalletConfig,
 };
+
+#[cfg(all(not(target_arch = "wasm32"), feature = "file-storage"))]
+pub use state::FileStorage;
 
 #[cfg(feature = "browser-storage")]
 pub use browser_storage::{
@@ -93,14 +99,14 @@ impl SqliteSealStore {
 
 #[cfg(feature = "sqlite")]
 impl SealStore for SqliteSealStore {
-    fn save_seal(&mut self, record: &SealRecord) -> Result<(), StoreError> {
+    fn save_seal(&mut self, record: &csv_adapter_core::SealRecord) -> Result<(), StoreError> {
         let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         conn.execute(
             "INSERT OR IGNORE INTO seals (chain, seal_id, consumed_at_height, commitment_hash, recorded_at)
              VALUES (?1, ?2, ?3, ?4, ?5)",
             params![
-                record.chain,
-                record.seal_id,
+                &record.chain,
+                &record.seal_id,
                 record.consumed_at_height as i64,
                 record.commitment_hash.as_bytes(),
                 record.recorded_at as i64,
@@ -121,7 +127,7 @@ impl SealStore for SqliteSealStore {
         Ok(count > 0)
     }
 
-    fn get_seals(&self, chain: &str) -> Result<Vec<SealRecord>, StoreError> {
+    fn get_seals(&self, chain: &str) -> Result<Vec<csv_adapter_core::SealRecord>, StoreError> {
         let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let mut stmt = conn.prepare(
             "SELECT seal_id, consumed_at_height, commitment_hash, recorded_at FROM seals WHERE chain = ?1"
@@ -135,7 +141,7 @@ impl SealStore for SqliteSealStore {
                 let recorded_at: i64 = row.get(3)?;
                 let mut hash_bytes = [0u8; 32];
                 hash_bytes.copy_from_slice(&commitment_hash);
-                Ok(SealRecord {
+                Ok(csv_adapter_core::SealRecord {
                     chain: chain.to_string(),
                     seal_id,
                     consumed_at_height: consumed_at_height as u64,

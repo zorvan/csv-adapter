@@ -5,8 +5,8 @@ edition = "2021"
 description = "Unified meta-crate for CSV (Client-Side Validation) adapters — single entry point for all CSV operations"
 license = "MIT OR Apache-2.0"
 authors = ["Amin Razavi"]
-repository = "https://github.com/zorvan/csv-adapter"
-homepage = "https://github.com/zorvan/csv-adapter"
+repository = "https://github.com/client-side-validation/csv-adapter"
+homepage = "https://github.com/client-side-validation/csv-adapter"
 documentation = "https://docs.rs/csv-adapter"
 readme = "README.md"
 keywords = ["blockchain", "cryptography", "csv-validation", "cross-chain", "smart-contracts"]
@@ -59,19 +59,19 @@ default = ["std", "tokio"]
 std = ["csv-adapter-core/std"]
 
 # Chain features
-bitcoin = ["dep:csv-adapter-bitcoin", "dep:bitcoin", "dep:bip32"]
-ethereum = ["dep:csv-adapter-ethereum"]
-sui = ["dep:csv-adapter-sui"]
-aptos = ["dep:csv-adapter-aptos"]
-solana = ["dep:csv-adapter-solana"]
-all-chains = ["bitcoin", "ethereum", "sui", "aptos", "solana"]
+# bitcoin = ["dep:csv-adapter-bitcoin", "dep:bitcoin", "dep:bip32"]  # Temporarily disabled due to cyclic dependency
+# ethereum = ["dep:csv-adapter-ethereum"]  # Temporarily disabled due to cyclic dependency
+# sui = ["dep:csv-adapter-sui"]  # Temporarily disabled due to cyclic dependency
+# aptos = ["dep:csv-adapter-aptos"]  # Temporarily disabled due to cyclic dependency
+# solana = ["dep:csv-adapter-solana"]  # Temporarily disabled due to cyclic dependency
+# all-chains = ["sui"] # , "ethereum", "bitcoin", "solana", "aptos"]
 
 # Deployment features (enable SDK-based contract deployment)
-deploy-ethereum = ["ethereum", "csv-adapter-ethereum/rpc"]
-deploy-sui = ["sui", "csv-adapter-sui/sui-sdk-deploy"]
-deploy-aptos = ["aptos", "csv-adapter-aptos/aptos-sdk"]
-deploy-solana = ["solana"]
-deploy-all = ["deploy-ethereum", "deploy-sui", "deploy-aptos", "deploy-solana"]
+# deploy-ethereum = ["ethereum", "csv-adapter-ethereum/rpc"]  # Temporarily disabled due to cyclic dependency
+# deploy-sui = ["sui", "csv-adapter-sui/sui-sdk-deploy"]  # Temporarily disabled due to core2 dependency issue
+# deploy-aptos = ["aptos", "csv-adapter-aptos/aptos-sdk"]  # Temporarily disabled due to cyclic dependency
+# deploy-solana = ["solana"]  # Temporarily disabled due to cyclic dependency
+# deploy-all = ["deploy-ethereum"] # , "deploy-solana", "deploy-sui", "deploy-aptos"]
 
 # Runtime features
 tokio = ["dep:tokio"]

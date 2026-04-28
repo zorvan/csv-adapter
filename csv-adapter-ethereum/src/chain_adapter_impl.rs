@@ -68,7 +68,7 @@ impl RpcClient for EthereumRpcClient {
 
     async fn get_latest_block(&self) -> ChainResult<u64> {
         self.inner
-            .get_block_number()
+            .block_number()
             .map_err(|e| ChainError::RpcError(format!("{:?}", e)))
     }
 
@@ -274,19 +274,18 @@ impl ChainAdapter for EthereumAnchorLayer {
 
 /// Create a new Ethereum adapter from chain configuration
 pub fn create_ethereum_adapter(config: &ChainConfig) -> ChainResult<EthereumAnchorLayer> {
-    // Parse network from config
-    let network = match config.network.as_str() {
+    // Parse network from config (use default_network field)
+    let network = match config.default_network.as_str() {
         "mainnet" => Network::Mainnet,
         "sepolia" => Network::Sepolia,
         "goerli" => Network::Goerli,
-        "holesky" => Network::Holesky,
-        "localhost" => Network::Localhost,
+        "dev" | "localhost" => Network::Dev,
         _ => Network::Sepolia,
     };
 
     let eth_config = EthereumConfig {
         network,
-        finality_depth: config.confirmation_blocks.unwrap_or(12) as u32,
+        finality_depth: 12, // Default finality depth
         ..Default::default()
     };
 

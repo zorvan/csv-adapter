@@ -61,7 +61,7 @@ impl ContractDeployer {
         let address = self
             .wallet
             .get_funding_address(0, 0)
-            .map_err(|e| BitcoinError::WalletError(format!("Failed to derive address: {}", e)))?;
+            .map_err(|e| BitcoinError::RpcError(format!("Failed to derive address: {}", e)))?;
 
         // Build a transaction that creates the Taproot output
         // This is a simplified version - real implementation would:

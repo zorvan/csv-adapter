@@ -3,12 +3,12 @@
 //! This module defines `StateStorage` (formerly `UnifiedStorage`),
 //! the central data structure for CSV application state.
 
-use super::backend::StorageError;
 use super::core::{Chain, ChainConfig, Network};
 use super::domain::{
-    ContractRecord, FaucetConfig, GasAccount, ProofRecord, RightRecord, SealRecord,
+    ContractRecord, ProofRecord, RightRecord, SealRecord,
     TransactionRecord, TransferRecord,
 };
+use super::wallet::{FaucetConfig, GasAccount};
 use super::wallet::{WalletAccount, WalletConfig};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

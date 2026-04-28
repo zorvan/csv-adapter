@@ -23,16 +23,18 @@ use crate::chain_adapter::ChainAdapter;
 use crate::chain_config::ChainConfig;
 use crate::chain_plugin::ChainPluginRegistry;
 
-#[cfg(feature = "bitcoin")]
-use csv_adapter_bitcoin::BitcoinAnchorLayer;
-#[cfg(feature = "solana")]
-use csv_adapter_solana::SolanaAnchorLayer;
-#[cfg(feature = "aptos")]
-use csv_adapter_aptos::AptosAnchorLayer;
-#[cfg(feature = "sui")]
-use csv_adapter_sui::SuiAnchorLayer;
-#[cfg(feature = "ethereum")]
-use csv_adapter_ethereum::EthereumAnchorLayer;
+// Adapter imports are commented out temporarily due to cyclic dependency issues
+// These will be re-enabled once the dependency cycle is resolved
+// #[cfg(feature = "bitcoin")]
+// use csv_adapter_bitcoin::BitcoinAnchorLayer;
+// #[cfg(feature = "solana")]
+// use csv_adapter_solana::SolanaAnchorLayer;
+// #[cfg(feature = "aptos")]
+// use csv_adapter_aptos::AptosAnchorLayer;
+// #[cfg(feature = "sui")]
+// use csv_adapter_sui::SuiAnchorLayer;
+// #[cfg(feature = "ethereum")]
+// use csv_adapter_ethereum::EthereumAnchorLayer;
 
 /// Factory function type for creating chain adapters
 type AdapterFactoryFn = Arc<dyn Fn(Option<ChainConfig>) -> Box<dyn ChainAdapter> + Send + Sync>;
@@ -70,87 +72,90 @@ impl AdapterFactory {
 
     /// Register all built-in chain adapters
     fn register_built_in_adapters(&mut self) {
+        // Chain adapter registration is commented out temporarily due to cyclic dependency issues
+        // These will be re-enabled once the dependency cycle is resolved
+        
         // Bitcoin
-        #[cfg(feature = "bitcoin")]
-        self.register_with_config("bitcoin", Arc::new(|config| {
-            if let Some(cfg) = config {
-                match csv_adapter_bitcoin::create_bitcoin_adapter(&cfg) {
-                    Ok(adapter) => Box::new(adapter),
-                    Err(_) => Box::new(BitcoinAnchorLayer::signet().unwrap_or_else(|_| {
-                        // Fallback: create a minimal adapter
-                        let config = csv_adapter_bitcoin::BitcoinConfig::default();
-                        let wallet = csv_adapter_bitcoin::SealWallet::generate_random(
-                            csv_adapter_bitcoin::bitcoin::Network::Signet
-                        );
-                        BitcoinAnchorLayer::with_wallet(config, wallet).unwrap()
-                    })),
-                }
-            } else {
-                Box::new(BitcoinAnchorLayer::signet().unwrap_or_else(|_| {
-                    let config = csv_adapter_bitcoin::BitcoinConfig::default();
-                    let wallet = csv_adapter_bitcoin::SealWallet::generate_random(
-                        csv_adapter_bitcoin::bitcoin::Network::Signet
-                    );
-                    BitcoinAnchorLayer::with_wallet(config, wallet).unwrap()
-                }))
-            }
-        }));
+        // #[cfg(feature = "bitcoin")]
+        // self.register_with_config("bitcoin", Arc::new(|config| {
+        //     if let Some(cfg) = config {
+        //         match csv_adapter_bitcoin::create_bitcoin_adapter(&cfg) {
+        //             Ok(adapter) => Box::new(adapter),
+        //             Err(_) => Box::new(BitcoinAnchorLayer::signet().unwrap_or_else(|_| {
+        //                 // Fallback: create a minimal adapter
+        //                 let config = csv_adapter_bitcoin::BitcoinConfig::default();
+        //                 let wallet = csv_adapter_bitcoin::SealWallet::generate_random(
+        //                     csv_adapter_bitcoin::bitcoin::Network::Signet
+        //                 );
+        //                 BitcoinAnchorLayer::with_wallet(config, wallet).unwrap()
+        //             })),
+        //         }
+        //     } else {
+        //         Box::new(BitcoinAnchorLayer::signet().unwrap_or_else(|_| {
+        //             let config = csv_adapter_bitcoin::BitcoinConfig::default();
+        //             let wallet = csv_adapter_bitcoin::SealWallet::generate_random(
+        //                 csv_adapter_bitcoin::bitcoin::Network::Signet
+        //             );
+        //             BitcoinAnchorLayer::with_wallet(config, wallet).unwrap()
+        //         }))
+        //     }
+        // }));
 
         // Ethereum
-        #[cfg(feature = "ethereum")]
-        self.register_with_config("ethereum", Arc::new(|config| {
-            if let Some(cfg) = config {
-                match csv_adapter_ethereum::create_ethereum_adapter(&cfg) {
-                    Ok(adapter) => Box::new(adapter),
-                    Err(_) => Box::new(EthereumAnchorLayer::with_mock().unwrap()),
-                }
-            } else {
-                Box::new(EthereumAnchorLayer::with_mock().unwrap())
-            }
-        }));
+        // #[cfg(feature = "ethereum")]
+        // self.register_with_config("ethereum", Arc::new(|config| {
+        //     if let Some(cfg) = config {
+        //         match csv_adapter_ethereum::create_ethereum_adapter(&cfg) {
+        //             Ok(adapter) => Box::new(adapter),
+        //             Err(_) => Box::new(EthereumAnchorLayer::with_mock().unwrap()),
+        //         }
+        //     } else {
+        //         Box::new(EthereumAnchorLayer::with_mock().unwrap())
+        //     }
+        // }));
 
         // Solana
-        #[cfg(feature = "solana")]
-        self.register_with_config("solana", Arc::new(|config| {
-            if let Some(cfg) = config {
-                match csv_adapter_solana::create_solana_adapter(&cfg) {
-                    Ok(adapter) => Box::new(adapter),
-                    Err(_) => {
-                        let config = csv_adapter_solana::SolanaConfig::default();
-                        Box::new(SolanaAnchorLayer::new(config))
-                    }
-                }
-            } else {
-                let config = csv_adapter_solana::SolanaConfig::default();
-                Box::new(SolanaAnchorLayer::new(config))
-            }
-        }));
+        // #[cfg(feature = "solana")]
+        // self.register_with_config("solana", Arc::new(|config| {
+        //     if let Some(cfg) = config {
+        //         match csv_adapter_solana::create_solana_adapter(&cfg) {
+        //             Ok(adapter) => Box::new(adapter),
+        //             Err(_) => {
+        //                 let config = csv_adapter_solana::SolanaConfig::default();
+        //                 Box::new(SolanaAnchorLayer::new(config))
+        //             }
+        //         }
+        //     } else {
+        //         let config = csv_adapter_solana::SolanaConfig::default();
+        //         Box::new(SolanaAnchorLayer::new(config))
+        //     }
+        // }));
 
         // Sui
-        #[cfg(feature = "sui")]
-        self.register_with_config("sui", Arc::new(|config| {
-            if let Some(cfg) = config {
-                match csv_adapter_sui::create_sui_adapter(&cfg) {
-                    Ok(adapter) => Box::new(adapter),
-                    Err(_) => Box::new(SuiAnchorLayer::with_mock().unwrap()),
-                }
-            } else {
-                Box::new(SuiAnchorLayer::with_mock().unwrap())
-            }
-        }));
+        // #[cfg(feature = "sui")]
+        // self.register_with_config("sui", Arc::new(|config| {
+        //     if let Some(cfg) = config {
+        //         match csv_adapter_sui::create_sui_adapter(&cfg) {
+        //             Ok(adapter) => Box::new(adapter),
+        //             Err(_) => Box::new(SuiAnchorLayer::with_mock().unwrap()),
+        //         }
+        //     } else {
+        //         Box::new(SuiAnchorLayer::with_mock().unwrap())
+        //     }
+        // }));
 
         // Aptos
-        #[cfg(feature = "aptos")]
-        self.register_with_config("aptos", Arc::new(|config| {
-            if let Some(cfg) = config {
-                match csv_adapter_aptos::create_aptos_adapter(&cfg) {
-                    Ok(adapter) => Box::new(adapter),
-                    Err(_) => Box::new(AptosAnchorLayer::with_mock().unwrap()),
-                }
-            } else {
-                Box::new(AptosAnchorLayer::with_mock().unwrap())
-            }
-        }));
+        // #[cfg(feature = "aptos")]
+        // self.register_with_config("aptos", Arc::new(|config| {
+        //     if let Some(cfg) = config {
+        //         match csv_adapter_aptos::create_aptos_adapter(&cfg) {
+        //             Ok(adapter) => Box::new(adapter),
+        //             Err(_) => Box::new(AptosAnchorLayer::with_mock().unwrap()),
+        //         }
+        //     } else {
+        //         Box::new(AptosAnchorLayer::with_mock().unwrap())
+        //     }
+        // }));
     }
 
     /// Register a custom adapter factory

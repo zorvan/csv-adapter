@@ -10,7 +10,7 @@ This blueprint is the forward-looking document for CSV Adapter. It describes whe
 
 The codebase contains a comprehensive cross-chain rights platform with:
 
-**Core Infrastructure (COMPLETED)**:
+**Core Infrastructure**:
 
 - Mature protocol center in `csv-adapter-core` with parallel verification
 - Chain adapter system with dyn compatibility fixed and enabled
@@ -19,7 +19,7 @@ The codebase contains a comprehensive cross-chain rights platform with:
 - CLI with one-command wallet setup and **real RPC integration**
 - TypeScript SDK and MCP server with AI agent optimization
 
-**Real-World Applications (COMPLETED)**:
+**Real-World Applications**:
 
 - Cross-chain subscriptions with 96-97% cost savings
 - Gaming assets portability across blockchains
@@ -78,7 +78,7 @@ Every important topic should have one obvious home. The repo should avoid multip
 
 ## Priority workstreams
 
-### Workstream A: protocol hardening (COMPLETED)
+### Workstream A: protocol hardening
 
 Focus:
 
@@ -89,7 +89,7 @@ Focus:
 
 **Status**: COMPLETED - Implemented comprehensive error handling, structured status reporting, and enhanced proof verification with parallel processing.
 
-### Workstream B: developer platform (COMPLETED)
+### Workstream B: developer platform
 
 Focus:
 
@@ -100,7 +100,7 @@ Focus:
 
 **Status**: COMPLETED - Implemented one-command wallet setup, 5-minute onboarding, comprehensive examples, and performance optimizations.
 
-### Workstream C: wallet and explorer coherence (COMPLETED)
+### Workstream C: wallet and explorer coherence
 
 Focus:
 
@@ -116,7 +116,7 @@ Focus:
 - Fixed `reindex_from` to properly pass `from_block` parameter
 - Cleaned up duplicate/diagnosis files
 
-### Workstream D: agent and automation support (COMPLETED)
+### Workstream D: agent and automation support
 
 Focus:
 
@@ -128,7 +128,7 @@ Focus:
 
 ## Near-term roadmap
 
-### Near term (COMPLETED)
+### Near term
 
 - keep architecture and protocol docs in lockstep with the code
 - strengthen implementation-status tracking without turning it into a changelog
@@ -137,7 +137,7 @@ Focus:
 
 **Status**: COMPLETED - All near-term goals achieved with comprehensive examples, one-command setup, and AI agent integration.
 
-### Medium term (**COMPLETED**)
+### Medium term 
 
 - deepen explorer and wallet integration
 - improve developer-facing diagnostics and observability
@@ -157,12 +157,12 @@ Focus:
 
 ## Remaining Tasks (Lower Priority)
 
-### 1. Zero-Knowledge Proofs (NOT STARTED - Excluded per user request)
+### 1. Zero-Knowledge Proofs (NOT STARTED)
 
-- ~~Implement ZK proof compression for privacy-preserving transfers~~ (excluded)
-- ~~Add ZK-SNARKs integration for confidential transactions~~ (excluded)
-- ~~Develop ZK-proof verification in the proof bundle~~ (excluded)
-- ~~Create privacy-focused examples and documentation~~ (excluded)
+- Implement ZK proof compression for privacy-preserving transfers
+- Add ZK-SNARKs integration for confidential transactions
+- Develop ZK-proof verification in the proof bundle
+- Create privacy-focused examples and documentation
 
 ### 2. Advanced Privacy Features (NOT STARTED)
 
@@ -177,23 +177,22 @@ Focus:
 - Polkadot/Substrate support
 - Additional EVM-compatible chains
 
-## Completed Achievements
 
-### Developer Experience (COMPLETED)
+### Developer Experience
 
 - One-command wallet setup: `csv wallet init --fund`
 - 5-minute onboarding with comprehensive examples
 - AI agent optimization with self-describing errors
 - Performance optimizations (2-3x faster verification)
 
-### Real-World Applications (COMPLETED)
+### Real-World Applications
 
 - Cross-chain subscriptions with 96-97% cost savings
 - Gaming assets portability across 5+ blockchains
 - Parallel proof verification for enterprise scale
 - Structured error handling with actionable suggestions
 
-### Protocol Enhancements (COMPLETED)
+### Protocol Enhancements
 
 - Enhanced proof verification with parallel processing
 - Bloom filters for optimized seal registry lookups

@@ -2,7 +2,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/csv-adapter-aptos.svg)](https://crates.io/crates/csv-adapter-aptos)
 [![Documentation](https://docs.rs/csv-adapter-aptos/badge.svg)](https://docs.rs/csv-adapter-aptos)
-[![License](https://img.shields.io/crates/l/csv-adapter-aptos.svg)](https://github.com/zorvan/csv-adapter#license)
+[![License](https://img.shields.io/crates/l/csv-adapter-aptos.svg)](https://github.com/client-side-validation/csv-adapter#license)
 
 Aptos adapter for **CSV (Client-Side Validation)** with resource-based seals.
 
@@ -112,4 +112,4 @@ at your option.
 
 ## Contributing
 
-We welcome contributions! Please see our [GitHub repository](https://github.com/zorvan/csv-adapter) for more information.
+We welcome contributions! Please see our [GitHub repository](https://github.com/client-side-validation/csv-adapter) for more information.

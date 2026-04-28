@@ -110,7 +110,7 @@ pub struct ProofInspectorProps {
 
 /// Interactive proof inspector component.
 pub fn ProofInspector(props: ProofInspectorProps) -> Element {
-    let active_tab = use_signal(|| Tab::Overview);
+    let mut active_tab = use_signal(|| Tab::Overview);
     let expanded_nodes = use_signal(|| std::collections::HashSet::<usize>::new());
     
     rsx! {
@@ -320,7 +320,7 @@ struct MerkleTreeViewProps {
     expanded_nodes: Signal<std::collections::HashSet<usize>>,
 }
 
-fn MerkleTreeView(props: MerkleTreeViewProps) -> Element {
+fn MerkleTreeView(mut props: MerkleTreeViewProps) -> Element {
     let total_levels = props.proof.merkle_path.len() + 1;
     
     rsx! {
@@ -388,7 +388,7 @@ fn MerkleTreeView(props: MerkleTreeViewProps) -> Element {
                                     }
                                     props.expanded_nodes.set(expanded);
                                 },
-                                if props.expanded_nodes().contains(&i) {
+                                if (props.expanded_nodes)().contains(&i) {
                                     "▼"
                                 } else {
                                     "▶"
@@ -396,7 +396,7 @@ fn MerkleTreeView(props: MerkleTreeViewProps) -> Element {
                             }
                         }
                         
-                        if props.expanded_nodes().contains(&i) {
+                        if (props.expanded_nodes)().contains(&i) {
                             div { class: "merkle-expanded",
                                 p { "Hash(parent) = Hash(Hash(child) ⊕ Hash(sibling))" }
                                 p { class: "hash-formula",

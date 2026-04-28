@@ -149,7 +149,7 @@ pub mod real_rpc {
             let block_txids: Vec<[u8; 32]> = block
                 .txdata
                 .iter()
-                .map(|tx| tx.txid().to_byte_array())
+                .map(|tx| tx.compute_txid().to_byte_array())
                 .collect();
 
             // Extract proof using the proof extraction function

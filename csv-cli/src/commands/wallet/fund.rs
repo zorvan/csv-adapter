@@ -14,7 +14,7 @@ pub fn cmd_fund(
     config: &Config,
     state: &mut UnifiedStateManager,
 ) -> Result<()> {
-    let address = address.or_else(|| state.get_address(&chain));
+    let address = address.or_else(|| state.get_address(&chain).map(|s| s.to_string()));
 
     if let Some(addr) = address {
         output::header(&format!("Funding {} Wallet", chain));
@@ -44,7 +44,6 @@ fn request_faucet_funds(chain: &Chain, address: &str, config: &Config) -> Result
         Chain::Sui => request_sui_faucet(address, &network),
         Chain::Aptos => request_aptos_faucet(address, &network),
         Chain::Solana => request_solana_faucet(address, &network),
-        _ => Err(anyhow::anyhow!("No faucet available for {:?}", chain)),
     }
 }
 

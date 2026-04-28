@@ -5,8 +5,8 @@ edition = "2021"
 description = "Ethereum adapter for CSV (Client-Side Validation) with storage slot seals and light-client proofs"
 license = "MIT OR Apache-2.0"
 authors = ["Amin Razavi"]
-repository = "https://github.com/zorvan/csv-adapter"
-homepage = "https://github.com/zorvan/csv-adapter"
+repository = "https://github.com/client-side-validation/csv-adapter"
+homepage = "https://github.com/client-side-validation/csv-adapter"
 documentation = "https://docs.rs/csv-adapter-ethereum"
 readme = "README.md"
 keywords = ["ethereum", "blockchain", "cryptography", "csv-validation", "nullifier"]
@@ -21,6 +21,8 @@ rustdoc-args = ["--cfg", "docsrs"]
 [dependencies]
 csv-adapter-core = { version = "0.4.0", path = "../csv-adapter-core" }
 csv-adapter-store = { version = "0.4.0", path = "../csv-adapter-store", optional = true }
+async-trait.workspace = true
+rand = "0.8"
 serde = { workspace = true, features = ["derive"] }
 thiserror = "1.0"
 hex = "0.4.3"

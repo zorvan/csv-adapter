@@ -74,6 +74,7 @@ pub fn cmd_import_csv_wallet(path: Option<String>, _config: &Config, state: &mut
             private_key: Some(account.private_key.clone()),
             xpub: None,
             derivation_path: None,
+            keystore_ref: None,
         };
         
         // Store account (preserves multiple accounts per chain)

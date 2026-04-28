@@ -150,7 +150,7 @@ fn ChainAccountRow(account: ChainAccount, mut wallet_ctx: WalletContext) -> Elem
                 p { class: "text-xs text-gray-500 mt-0.5", "{account.name}" }
                 if show_key() {
                     div { class: "mt-2 p-2 bg-gray-900 rounded",
-                        p { class: "text-xs text-yellow-400 font-mono break-all", "{account_clone.private_key}" }
+                        p { class: "text-xs text-yellow-400 font-mono break-all", "[Private key stored in keystore]" }
                     }
                 }
             }
@@ -293,14 +293,14 @@ fn AddAccountTab() -> Element {
                                 if n.is_empty() { format!("{:?}", chain) } else { n }
                             };
                             let pk = pk_input.read().clone();
-                            match ChainAccount::from_private_key(chain, &name, &pk) {
-                                Ok(account) => {
-                                    wallet_ctx.add_account(account);
+                            // Create account from private key via keystore
+                            match wallet_ctx.import_account_from_key(chain, &name, &pk) {
+                                Ok(_) => {
                                     message.set(Some(format!("Account added for {}!", chain)));
                                     pk_input.set(String::new());
                                     name_input.set(String::new());
                                 }
-                                Err(e) => error.set(Some(e)),
+                                Err(e) => error.set(Some(e.to_string())),
                             }
                         },
                         class: "w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium transition-all duration-200 text-white btn-ripple",

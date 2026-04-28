@@ -5,8 +5,8 @@ edition = "2021"
 description = "Sui adapter for CSV (Client-Side Validation) with object-based seals"
 license = "MIT OR Apache-2.0"
 authors = ["Amin Razavi"]
-repository = "https://github.com/zorvan/csv-adapter"
-homepage = "https://github.com/zorvan/csv-adapter"
+repository = "https://github.com/client-side-validation/csv-adapter"
+homepage = "https://github.com/client-side-validation/csv-adapter"
 documentation = "https://docs.rs/csv-adapter-sui"
 readme = "README.md"
 keywords = ["sui", "blockchain", "cryptography", "csv-validation", "objects"]
@@ -36,17 +36,20 @@ tokio = { version = "1", features = ["rt", "time"], optional = true }
 base64 = { version = "0.22", optional = true }
 
 # Sui SDK for contract deployment (optional)
-sui-sdk = { git = "https://github.com/MystenLabs/sui", tag = "testnet-v1.28.0", optional = true }
-sui-keys = { git = "https://github.com/MystenLabs/sui", tag = "testnet-v1.28.0", optional = true }
-shared-crypto = { git = "https://github.com/MystenLabs/sui", tag = "testnet-v1.28.0", optional = true }
+# Temporarily commented out due to core2 dependency issue
+# sui-sdk = { git = "https://github.com/MystenLabs/sui", tag = "testnet-v1.70.2", optional = true }
+# sui-keys = { git = "https://github.com/MystenLabs/sui", tag = "testnet-v1.70.2", optional = true }
+# shared-crypto = { git = "https://github.com/MystenLabs/sui", tag = "testnet-v1.70.2", optional = true }
 bcs = { version = "0.1", optional = true }
+async-trait.workspace = true
+rand = "0.8"
 
 [features]
 default = []
 # Enables real RPC client (real JSON-RPC calls over HTTP)
 rpc = ["reqwest", "tokio", "base64"]
-# Enables Sui SDK for contract deployment
-sui-sdk-deploy = ["sui-sdk", "sui-keys", "shared-crypto", "bcs", "tokio"]
+# Enables Sui SDK for contract deployment (temporarily disabled due to core2 dependency issue)
+# sui-sdk-deploy = ["sui-sdk", "sui-keys", "shared-crypto", "bcs", "tokio"]
 
 [dev-dependencies]
 rand = "0.8"

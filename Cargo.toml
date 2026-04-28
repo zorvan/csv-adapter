@@ -18,8 +18,8 @@ resolver = "2"
 [workspace.package]
 version = "0.4.0"
 authors = ["Amin Razavi, ALL FREE LLMs"]
-repository = "https://github.com/zorvan/csv-adapter"
-homepage = "https://github.com/zorvan/csv-adapter"
+repository = "https://github.com/client-side-validation/csv-adapter"
+homepage = "https://github.com/client-side-validation/csv-adapter"
 license = "MIT OR Apache-2.0"
 edition = "2021"
 rust-version = "1.75"
@@ -75,6 +75,7 @@ zeroize = { version = "1.7", features = ["derive"] }
 web-sys = { version = "0.3", features = ["Storage", "Window"] }
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
+gloo-timers = "0.2"
 dioxus = "0.5"
 dioxus-web = "0.5"
 dioxus-desktop = "0.5"
@@ -87,3 +88,6 @@ unused_mut = "deny"
 
 [workspace.lints.clippy]
 needless_borrows_for_generic_args = "allow"
+
+
+

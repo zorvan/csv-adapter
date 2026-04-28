@@ -13,7 +13,7 @@ use crate::components::seal_status::SealStatusBadge;
 use crate::components::hash_display::HashDisplay;
 
 /// Onboarding step definitions.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum OnboardingStep {
     Welcome,
     WhatIsSeal,
@@ -101,14 +101,14 @@ pub struct OnboardingFlowProps {
 
 /// Main onboarding flow component.
 pub fn OnboardingFlow(props: OnboardingFlowProps) -> Element {
-    let current_step = use_signal(|| OnboardingStep::Welcome);
+    let mut current_step = use_signal(|| OnboardingStep::Welcome);
     let completed_steps = use_signal(|| std::collections::HashSet::<OnboardingStep>::new());
     
     let (progress, total) = current_step().progress();
     let progress_percent = (progress * 100) / total;
     
-    let go_next = {
-        let current = current_step.clone();
+    let mut go_next = {
+        let mut current = current_step.clone();
         let mut completed = completed_steps.clone();
         move || {
             completed.write().insert(current());
@@ -118,8 +118,8 @@ pub fn OnboardingFlow(props: OnboardingFlowProps) -> Element {
         }
     };
     
-    let go_prev = {
-        let current = current_step.clone();
+    let mut go_prev = {
+        let mut current = current_step.clone();
         move || {
             if let Some(prev) = current().prev() {
                 current.set(prev);
@@ -641,7 +641,7 @@ pub struct OnboardingChecklistProps {
 /// Quick checklist for remaining onboarding tasks.
 pub fn OnboardingChecklist(props: OnboardingChecklistProps) -> Element {
     if !props.visible {
-        return None;
+        return rsx! {};
     }
     
     let items = vec![
@@ -651,9 +651,13 @@ pub fn OnboardingChecklist(props: OnboardingChecklistProps) -> Element {
         ("seal", "View seal lifecycle", "🏷️"),
     ];
     
-    let completed_count = props.completed.len();
+    use std::rc::Rc;
+    let completed = Rc::new(props.completed.clone());
+    let completed_count = completed.len();
     let total = items.len();
     let progress = (completed_count * 100) / total;
+    let on_action = props.on_action.clone();
+    let on_dismiss = props.on_dismiss.clone();
     
     rsx! {
         div { class: "onboarding-checklist",
@@ -661,7 +665,7 @@ pub fn OnboardingChecklist(props: OnboardingChecklistProps) -> Element {
                 h4 { "Getting Started" }
                 button {
                     class: "dismiss-btn",
-                    onclick: move |_| props.on_dismiss.call(()),
+                    onclick: move |_| on_dismiss.call(()),
                     "×"
                 }
             }
@@ -676,18 +680,22 @@ pub fn OnboardingChecklist(props: OnboardingChecklistProps) -> Element {
             
             div { class: "checklist-items",
                 for (id, label, icon) in items {
-                    let is_completed = props.completed.contains(&id.to_string());
                     div {
                         class: "checklist-item",
-                        class: if is_completed { "completed" },
-                        onclick: move |_| {
-                            if !is_completed {
-                                props.on_action.call(id.to_string());
+                        class: if completed.contains(&id.to_string()) { "completed" },
+                        onclick: {
+                            let completed = completed.clone();
+                            let on_action = on_action.clone();
+                            let id = id.to_string();
+                            move |_| {
+                                if !completed.contains(&id) {
+                                    on_action.call(id.clone());
+                                }
                             }
                         },
                         span { class: "item-icon", "{icon}" }
                         span { class: "item-label", "{label}" }
-                        if is_completed {
+                        if completed.contains(&id.to_string()) {
                             span { class: "item-check", "✓" }
                         } else {
                             span { class: "item-arrow", "→" }

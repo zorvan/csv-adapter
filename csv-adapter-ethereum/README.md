@@ -2,7 +2,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/csv-adapter-ethereum.svg)](https://crates.io/crates/csv-adapter-ethereum)
 [![Documentation](https://docs.rs/csv-adapter-ethereum/badge.svg)](https://docs.rs/csv-adapter-ethereum)
-[![License](https://img.shields.io/crates/l/csv-adapter-ethereum.svg)](https://github.com/zorvan/csv-adapter#license)
+[![License](https://img.shields.io/crates/l/csv-adapter-ethereum.svg)](https://github.com/client-side-validation/csv-adapter#license)
 
 Ethereum adapter for **CSV (Client-Side Validation)** with nullifier-based seals and MPT proofs.
 
@@ -115,4 +115,4 @@ at your option.
 
 ## Contributing
 
-We welcome contributions! Please see our [GitHub repository](https://github.com/zorvan/csv-adapter) for more information.
+We welcome contributions! Please see our [GitHub repository](https://github.com/client-side-validation/csv-adapter) for more information.

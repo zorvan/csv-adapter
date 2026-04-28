@@ -124,6 +124,7 @@ impl HasErrorSuggestion for EthereumError {
                 )
             }
             EthereumError::CoreError(e) => e.suggested_fix(),
+            _ => "See documentation for this error type.".to_string(),
         }
     }
 
@@ -190,6 +191,10 @@ impl From<EthereumError> for csv_adapter_core::AdapterError {
                     got, need
                 ))
             }
+            EthereumError::WalletError(msg) => csv_adapter_core::AdapterError::Generic(format!("Wallet error: {}", msg)),
+            EthereumError::ConfigError(msg) => csv_adapter_core::AdapterError::InvalidConfig(msg),
+            EthereumError::DeploymentError(msg) => csv_adapter_core::AdapterError::PublishFailed(msg),
+            EthereumError::NotImplemented(msg) => csv_adapter_core::AdapterError::Generic(format!("Not implemented: {}", msg)),
         }
     }
 }

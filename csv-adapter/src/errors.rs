@@ -226,6 +226,9 @@ impl HasErrorSuggestion for CsvError {
             Self::Generic(msg) => {
                 format!("CSV error: {}. Check logs for details or contact support.", msg)
             }
+            Self::DeploymentError(msg) => {
+                format!("Deployment error: {}. Check deployment configuration and contract code.", msg)
+            }
         }
     }
 

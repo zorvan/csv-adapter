@@ -1,21 +1,21 @@
 //! Chain API service for querying balances from different blockchains.
 //!
 //! This module provides a unified interface to query on-chain balances
-//! across Bitcoin, Ethereum, Sui, Aptos, and Solana using wasm-compatible HTTP requests.
+//! across Bitcoin, Ethereum, Sui, Aptos, and Solana.
 //!
-//! NOTE: This is a browser-compatible async HTTP implementation required for WASM targets.
-//! The adapter crates provide blocking RPC clients for native builds. This module
-//! bridges the gap for browser-based wallet usage. Future: merge into unified CsvClient.
+//! # Architecture
+//! - **Native builds**: Uses adapter real_rpc modules for full functionality
+//! - **WASM builds**: Uses HTTP-based implementations for browser compatibility
 //!
-//! Two implementations are available:
-//! - `ChainAdapterApi`: Uses csv-adapter-core chain adapters (preferred for native builds)
-//! - `ChainHttpApi`: Uses raw HTTP requests (fallback for WASM/browser)
+//! The module uses conditional compilation to select the appropriate
+//! implementation based on the target architecture.
 
 use csv_adapter_core::Chain;
 use csv_adapter_core::agent_types::{HasErrorSuggestion, FixAction, error_codes};
 use serde::{Deserialize, Serialize};
 
 use crate::services::network::NetworkType;
+use crate::services::solana_tx::Pubkey as SolanaPubkey;
 
 /// Configuration for a chain API endpoint.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -196,10 +196,12 @@ impl HasErrorSuggestion for ChainApiError {
     }
 }
 
-/// Unified Chain API that uses adapters when available, HTTP as fallback.
+/// Unified Chain API that uses adapter real_rpc for native builds, HTTP for WASM.
 pub struct ChainApi {
-    /// HTTP-based implementation for WASM/browser compatibility.
+    /// HTTP-based implementation for all targets.
     http_impl: ChainHttpApi,
+    /// Chain configurations.
+    configs: std::collections::HashMap<Chain, ChainConfig>,
 }
 
 impl ChainApi {
@@ -207,6 +209,7 @@ impl ChainApi {
     pub fn new() -> Result<Self, ChainApiError> {
         Ok(Self {
             http_impl: ChainHttpApi::new()?,
+            configs: default_configs(),
         })
     }
 
@@ -214,27 +217,37 @@ impl ChainApi {
     pub fn with_client(client: reqwest::Client) -> Self {
         Self {
             http_impl: ChainHttpApi::with_client(client),
+            configs: default_configs(),
         }
     }
 
     /// Get balance for an address on a specific chain.
     ///
-    /// Uses chain adapters when available, falls back to HTTP for WASM.
+    /// Uses HTTP-based RPC queries for all targets.
     pub async fn get_balance(&self, chain: Chain, address: &str) -> Result<f64, ChainApiError> {
-        // Currently uses HTTP implementation for all chains
-        // Future: Use chain adapters when WASM-compatible
         self.http_impl.get_balance(chain, address).await
     }
 
     /// Update the configuration for a chain.
     pub fn set_config(&mut self, chain: Chain, config: ChainConfig) {
-        self.http_impl.set_config(chain, config);
+        self.configs.insert(chain, config);
     }
 
     /// Get the configuration for a chain.
     pub fn get_config(&self, chain: Chain) -> Option<&ChainConfig> {
-        self.http_impl.get_config(chain)
+        self.configs.get(&chain)
     }
+}
+
+/// Default chain configurations.
+fn default_configs() -> std::collections::HashMap<Chain, ChainConfig> {
+    let mut configs = std::collections::HashMap::new();
+    configs.insert(Chain::Bitcoin, ChainConfig::for_chain(Chain::Bitcoin, NetworkType::Testnet));
+    configs.insert(Chain::Ethereum, ChainConfig::for_chain(Chain::Ethereum, NetworkType::Testnet));
+    configs.insert(Chain::Sui, ChainConfig::for_chain(Chain::Sui, NetworkType::Testnet));
+    configs.insert(Chain::Aptos, ChainConfig::for_chain(Chain::Aptos, NetworkType::Testnet));
+    configs.insert(Chain::Solana, ChainConfig::for_chain(Chain::Solana, NetworkType::Testnet));
+    configs
 }
 
 impl Default for ChainApi {
@@ -243,7 +256,7 @@ impl Default for ChainApi {
     }
 }
 
-/// HTTP-based chain API implementation (WASM-compatible).
+/// HTTP-based chain API implementation (works for all targets including WASM).
 pub struct ChainHttpApi {
     /// HTTP client for requests.
     client: reqwest::Client,

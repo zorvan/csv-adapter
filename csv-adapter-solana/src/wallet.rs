@@ -71,6 +71,12 @@ impl ProgramWallet {
         signature.verify(&pubkey_bytes, message)
     }
 
+    /// Verify data with signature bytes
+    pub fn verify(&self, message: &[u8], sig_bytes: &[u8; 64]) -> bool {
+        let signature = Signature::from(*sig_bytes);
+        self.verify_signature(message, &signature)
+    }
+
     /// Serialize keypair
     pub fn serialize_keypair(&self) -> SolanaResult<Vec<u8>> {
         Ok(self.keypair.to_bytes().to_vec())

@@ -256,6 +256,11 @@ impl Default for Config {
 
 #[allow(dead_code)]
 impl Config {
+    /// Get default network
+    pub fn network(&self) -> Network {
+        Network::Dev
+    }
+
     /// Load configuration from file or return defaults
     pub fn load(path: Option<&str>) -> anyhow::Result<Self> {
         let path = match path {
@@ -339,6 +344,7 @@ impl Config {
                 private_key: legacy.private_key.clone(),
                 xpub: legacy.xpub.clone(),
                 derivation_path: legacy.derivation_path.clone(),
+                keystore_ref: None,
             });
         }
         

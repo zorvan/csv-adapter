@@ -7,6 +7,7 @@ pub mod dropdown;
 pub mod hash_display;
 pub mod onboarding;
 pub mod header;
+pub mod proof_inspector;
 pub mod seal_status;
 pub mod seal_visualizer;
 pub mod sidebar;

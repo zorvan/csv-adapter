@@ -60,7 +60,7 @@ This lets the system preserve each chain's native single-use guarantee:
 ## Quick start
 
 ```bash
-git clone https://github.com/zorvan/csv-adapter.git
+git clone https://github.com/client-side-validation/csv-adapter.git
 cd csv-adapter
 cargo build --workspace
 cargo test --workspace

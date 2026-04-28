@@ -14,7 +14,7 @@ pub fn cmd_balance(
     _config: &Config,
     state: &mut UnifiedStateManager,
 ) -> Result<()> {
-    let address = address.or_else(|| state.get_address(&chain));
+    let address = address.or_else(|| state.get_address(&chain).map(|s| s.to_string()));
 
     if let Some(addr) = address {
         output::header(&format!("{} Balance", chain));
@@ -78,6 +78,5 @@ fn chain_symbol(chain: &Chain) -> &'static str {
         Chain::Sui => "SUI",
         Chain::Aptos => "APT",
         Chain::Solana => "SOL",
-        _ => "UNK",
     }
 }

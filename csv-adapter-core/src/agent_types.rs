@@ -189,6 +189,8 @@ pub mod error_codes {
     pub const SOL_PROOF_GENERATION_ERROR: &str = "SOL_015";
     /// Solana invalid input.
     pub const SOL_INVALID_INPUT: &str = "SOL_016";
+    /// Solana not implemented.
+    pub const SOL_NOT_IMPLEMENTED: &str = "SOL_017";
 
     // Wallet errors (WALLET_001 - WALLET_099)
     /// Wallet encryption failed.

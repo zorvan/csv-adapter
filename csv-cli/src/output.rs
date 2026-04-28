@@ -14,6 +14,10 @@ pub fn warning(msg: &str) {
     println!("{} {}", "⚠".yellow().bold(), msg);
 }
 
+pub fn danger(msg: &str) {
+    eprintln!("{} {}", "☠".red().bold(), msg);
+}
+
 pub fn info(msg: &str) {
     println!("{} {}", "ℹ".blue().bold(), msg);
 }

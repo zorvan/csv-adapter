@@ -34,8 +34,8 @@ pub struct EthereumAnchorLayer {
     domain_separator: [u8; 32],
     rpc: Box<dyn EthereumRpc>,
     finality_checker: FinalityChecker,
-    /// CSVSeal contract address for event verification
-    csv_seal_address: [u8; 20],
+    /// CSVSeal contract address for event verification (crate-visible for chain_adapter_impl)
+    pub(crate) csv_seal_address: [u8; 20],
 }
 
 impl EthereumAnchorLayer {

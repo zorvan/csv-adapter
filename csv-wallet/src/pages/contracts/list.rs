@@ -75,8 +75,8 @@ pub fn Contracts() -> Element {
                                     }
                                 }
 
-                                discovered_count.set(total_found);
-                                discovering.set(false);
+                                let _ = discovered_count.try_write().map(|mut s| *s = total_found);
+                                let _ = discovering.try_write().map(|mut s| *s = false);
                             });
                         },
                         disabled: *discovering.read() || accounts_empty,

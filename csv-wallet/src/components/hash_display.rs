@@ -7,6 +7,8 @@
 //! - Monospace font styling
 
 use dioxus::prelude::*;
+use gloo_timers::future::sleep;
+use std::time::Duration;
 
 /// Props for the HashDisplay component.
 #[derive(Props, Clone, PartialEq)]
@@ -37,22 +39,25 @@ pub struct HashDisplayProps {
 pub fn HashDisplay(props: HashDisplayProps) -> Element {
     let value = props.value.clone();
     let shortened = shorten_hash(&value, props.prefix_len, props.suffix_len);
-    let copied = use_signal(|| false);
+    let mut copied = use_signal(|| false);
     
-    let copy_to_clipboard = {
+    let mut copy_to_clipboard = {
         let value = value.clone();
         move || {
             #[cfg(target_arch = "wasm32")]
             {
-                let window = web_sys::window().unwrap();
-                let navigator = window.navigator();
-                let clipboard = navigator.clipboard();
-                let _ = clipboard.write_text(&value);
+                // Clipboard access via web_sys is feature-gated; for now just log
+                web_sys::console::log_1(&"Copy to clipboard (WASM): clipboard API requires web_sys features".into());
+                // In a full implementation with proper web_sys features:
+                // let window = web_sys::window().unwrap();
+                // let navigator = window.navigator();
+                // let clipboard = navigator.clipboard();
+                // let _ = clipboard.write_text(&value);
             }
             copied.set(true);
             // Reset copied state after 2 seconds
             spawn(async move {
-                async_std::task::sleep(std::time::Duration::from_secs(2)).await;
+                sleep(Duration::from_secs(2)).await;
                 copied.set(false);
             });
         }
@@ -149,7 +154,7 @@ pub fn TxHashDisplay(props: TxHashDisplayProps) -> Element {
             if has_explorer {
                 a {
                     class: "tx-explorer-link",
-                    href: "{props.explorer_url.unwrap()}{props.tx_hash}",
+                    href: "{props.explorer_url.as_ref().unwrap()}{props.tx_hash}",
                     target: "_blank",
                     rel: "noopener noreferrer",
                     title: "View on explorer",

@@ -17,10 +17,10 @@ info:
   version: 0.3.0
   contact:
     name: CSV Adapter Team
-    url: https://github.com/zorvan/csv-adapter
+    url: https://github.com/client-side-validation/csv-adapter
   license:
     name: MIT OR Apache-2.0
-    url: https://github.com/zorvan/csv-adapter/blob/main/LICENSE
+    url: https://github.com/client-side-validation/csv-adapter/blob/main/LICENSE
 
 servers:
   - url: http://localhost:3000/api/v1

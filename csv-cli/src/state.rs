@@ -178,6 +178,7 @@ impl UnifiedStateManager {
             private_key: None,
             xpub: None,
             derivation_path: None,
+            keystore_ref: None,
         });
     }
 
@@ -279,5 +280,19 @@ impl UnifiedStateManager {
         };
         self.storage.transactions.push(tx.clone());
         tx
+    }
+
+    /// Store an address with derivation path for a chain
+    pub fn store_address_with_derivation(&mut self, chain: Chain, address: String, derivation_path: Option<String>) {
+        self.storage.set_account(WalletAccount {
+            id: format!("{}-cli", chain),
+            chain: chain.clone(),
+            name: format!("{} CLI Account", chain),
+            address,
+            private_key: None,
+            xpub: None,
+            derivation_path,
+            keystore_ref: None,
+        });
     }
 }

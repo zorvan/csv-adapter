@@ -7,9 +7,7 @@ use csv_adapter_core::agent_types::{error_codes, FixAction, HasErrorSuggestion};
 use serde::{Deserialize, Serialize};
 
 use crate::state::{
-    Chain, ChainConfig, ContractRecord, Network, ProofRecord, RightRecord, RightStatus,
-    StateStorage, StorageError, TransactionRecord, TransactionStatus, TransactionType,
-    TransferRecord, TransferStatus, WalletAccount, WalletConfig,
+    StateStorage, StorageError,
 };
 
 /// Storage error for browser storage operations.
@@ -237,12 +235,9 @@ impl BrowserStateStorage {
     }
 }
 
-// Re-export state types for convenience
+// Re-export additional state types for convenience
 pub use crate::state::{
-    Chain, ChainConfig, ContractRecord, FaucetConfig, GasAccount, Network,
-    ProofRecord, RightRecord, RightStatus, StateStorage, StorageError, TransactionRecord,
-    TransactionStatus, TransactionType, TransferRecord, TransferStatus, WalletAccount,
-    WalletConfig,
+    FaucetConfig, GasAccount,
 };
 
 #[cfg(test)]

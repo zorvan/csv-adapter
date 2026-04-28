@@ -5,8 +5,8 @@ edition = "2021"
 description = "Solana adapter for CSV (Client-Side Validation) with account seals and program-based commitments"
 license = "MIT OR Apache-2.0"
 authors = ["Amin Razavi"]
-repository = "https://github.com/zorvan/csv-adapter"
-homepage = "https://github.com/zorvan/csv-adapter"
+repository = "https://github.com/client-side-validation/csv-adapter"
+homepage = "https://github.com/client-side-validation/csv-adapter"
 documentation = "https://docs.rs/csv-adapter-solana"
 readme = "README.md"
 keywords = ["solana", "blockchain", "cryptography", "csv-validation", "account"]
@@ -21,8 +21,9 @@ rustdoc-args = ["--cfg", "docsrs"]
 [dependencies]
 csv-adapter-core = { version = "0.4.0", path = "../csv-adapter-core" }
 csv-adapter-store = { version = "0.4.0", path = "../csv-adapter-store", optional = true }
-solana-sdk = "4.0.1"
-solana-rpc-client = "4.0.0-beta.7"
+solana-sdk = "2.2.0"
+solana-program = "2.2.0"
+solana-rpc-client = "2.2.0"
 async-trait = "0.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

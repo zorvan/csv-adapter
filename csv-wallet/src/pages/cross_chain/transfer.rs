@@ -46,6 +46,10 @@ pub fn CrossChainTransfer() -> Element {
     // Get accounts for the source chain
     let accounts = wallet_ctx.accounts_for_chain(*from_chain.read());
     let has_account = !accounts.is_empty();
+    
+    // Check if selected account is watch-only (can't sign)
+    let selected_account = accounts.get(*selected_account_index.read());
+    let is_watch_only = selected_account.map(|a| a.is_watch_only()).unwrap_or(false);
 
     // Get accounts for the destination chain (needed for gas payment)
     let dest_accounts = wallet_ctx.accounts_for_chain(*to_chain.read());
@@ -206,6 +210,17 @@ pub fn CrossChainTransfer() -> Element {
                     executing_signal.set(false);
                     return;
                 };
+
+                // Check if account can sign transactions
+                if account.is_watch_only() {
+                    error_signal.set(Some(format!(
+                        "Account '{}' is watch-only (no private key). \n\
+                        Please import the private key or use a browser wallet like MetaMask.",
+                        account.name
+                    )));
+                    executing_signal.set(false);
+                    return;
+                }
 
                 // Create native wallet from account
                 let signer = NativeWallet::new(from, account);
@@ -416,10 +431,11 @@ pub fn CrossChainTransfer() -> Element {
                             },
                             for (idx, account) in accounts.iter().enumerate() {
                                 option { key: "account-{idx}", value: idx.to_string(), selected: idx == *selected_account_index.read(),
-                                    {format!("{} - {} (Balance: {:.4})",
+                                    {format!("{} - {} (Balance: {:.4}){}",
                                         account.name,
                                         &account.address[..8.min(account.address.len())],
-                                        account.balance
+                                        account.balance,
+                                        if account.is_watch_only() { " [WATCH-ONLY]" } else { "" }
                                     )}
                                 }
                             }
@@ -593,6 +609,7 @@ pub fn CrossChainTransfer() -> Element {
                         || *step.read() >= 5
                         || !has_rights
                         || !has_account
+                        || is_watch_only
                         || !has_target_contract
                         || !has_dest_account
                         || !dest_has_enough_balance,
@@ -601,6 +618,8 @@ pub fn CrossChainTransfer() -> Element {
                         "Executing..."
                     } else if !has_account {
                         "Add Source Account First"
+                    } else if is_watch_only {
+                        "Watch-Only Account (Cannot Sign)"
                     } else if !has_rights {
                         "No Rights Available"
                     } else if !has_target_contract {
@@ -619,6 +638,10 @@ pub fn CrossChainTransfer() -> Element {
                 if !has_account {
                     p { class: "text-xs text-red-500 mt-2",
                         "Note: Add an account for the selected source chain"
+                    }
+                } else if is_watch_only {
+                    p { class: "text-xs text-red-500 mt-2",
+                        "Note: This account is watch-only. Import the private key to transfer."
                     }
                 }
                 if !has_rights {

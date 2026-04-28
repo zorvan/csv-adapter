@@ -3,11 +3,12 @@
 //! This module provides RPC-based deployment of Solana programs,
 //! replacing the need for CLI commands like `solana program deploy`.
 
-use solana_sdk::bpf_loader_upgradeable;
+use solana_program::bpf_loader_upgradeable;
+use solana_program::system_instruction;
 use solana_sdk::instruction::Instruction;
 use solana_sdk::message::Message;
 use solana_sdk::pubkey::Pubkey;
-use solana_sdk::signature::{Keypair, Signature};
+use solana_sdk::signature::{Keypair, Signature, Signer};
 use solana_sdk::signers::Signers;
 use solana_sdk::transaction::Transaction;
 
@@ -218,10 +219,9 @@ pub async fn deploy_csv_program(
     payer: &Keypair,
 ) -> SolanaResult<ProgramDeployment> {
     use solana_rpc_client::rpc_client::RpcClient;
+    use solana_program::{bpf_loader_upgradeable, system_instruction};
     use solana_sdk::{
-        bpf_loader_upgradeable,
         message::Message,
-        system_instruction,
         transaction::Transaction,
     };
     
@@ -263,13 +263,7 @@ pub async fn deploy_csv_program(
         &bpf_loader_upgradeable::id(),
     ));
     
-    // 2. Initialize buffer
-    instructions.push(bpf_loader_upgradeable::initialize_buffer(
-        &buffer_keypair.pubkey(),
-        &payer.pubkey(),
-    ));
-    
-    // 3. Write program data to buffer (in chunks if needed)
+    // 2. Write program data to buffer (in chunks if needed)
     let chunk_size = 900; // Max per instruction
     for (i, chunk) in program_data.chunks(chunk_size).enumerate() {
         instructions.push(bpf_loader_upgradeable::write(
@@ -280,15 +274,18 @@ pub async fn deploy_csv_program(
         ));
     }
     
-    // 4. Deploy with max data len
-    instructions.push(bpf_loader_upgradeable::deploy_with_max_program_len(
+    // 3. Deploy with max data len
+    // Note: buffer is implicitly initialized by the write instructions above
+    let deploy_instructions = bpf_loader_upgradeable::deploy_with_max_program_len(
         &payer.pubkey(),
         &program_keypair.pubkey(),
         &buffer_keypair.pubkey(),
         &payer.pubkey(),
         program_data_rent,
-        program_data_len as u64,
-    )?);
+        program_data_len,
+    )
+    .map_err(|e| SolanaError::InvalidInput(format!("Failed to create deploy instructions: {:?}", e)))?;
+    instructions.extend(deploy_instructions);
     
     // Build and sign transaction
     let message = Message::new(&instructions, Some(&payer.pubkey()));
@@ -312,38 +309,102 @@ pub async fn deploy_csv_program(
 /// Helper functions for building deployment instructions
 pub mod instructions {
     use super::*;
+    use solana_program::bpf_loader_upgradeable::{self, UpgradeableLoaderState};
+    use solana_program::instruction::{AccountMeta, Instruction};
+    use solana_program::system_instruction;
+    use solana_program::system_program;
 
     /// Create instruction to initialize buffer account
     pub fn create_buffer_account(
-        _from_pubkey: &Pubkey,
-        _buffer_pubkey: &Pubkey,
-        _lamports: u64,
-        _size: usize,
-    ) -> Instruction {
-        // Would use SystemProgram::CreateAccount
-        // followed by BPFLoaderUpgradeable::InitializeBuffer
-        unimplemented!()
+        from_pubkey: &Pubkey,
+        buffer_pubkey: &Pubkey,
+        lamports: u64,
+        size: usize,
+    ) -> Vec<Instruction> {
+        let mut instructions = vec![];
+        
+        // 1. Create account with SystemProgram
+        let buffer_size = UpgradeableLoaderState::size_of_buffer(size);
+        instructions.push(system_instruction::create_account(
+            from_pubkey,
+            buffer_pubkey,
+            lamports,
+            buffer_size as u64,
+            &bpf_loader_upgradeable::id(),
+        ));
+        
+        // 2. Initialize buffer with BPF loader
+        let init_data = bincode::serialize(&UpgradeableLoaderState::Buffer {
+            authority_address: Some(*from_pubkey),
+        }).unwrap_or_default();
+        
+        instructions.push(Instruction {
+            program_id: bpf_loader_upgradeable::id(),
+            accounts: vec![
+                AccountMeta::new(*buffer_pubkey, false),
+            ],
+            data: init_data,
+        });
+        
+        instructions
     }
 
     /// Create instruction to write data to buffer
     pub fn write_buffer(
-        _buffer_pubkey: &Pubkey,
-        _offset: u32,
-        _bytes: &[u8],
+        buffer_pubkey: &Pubkey,
+        authority: &Pubkey,
+        offset: u32,
+        bytes: &[u8],
     ) -> Instruction {
-        // Uses BPFLoaderUpgradeable::Write
-        unimplemented!()
+        bpf_loader_upgradeable::write(buffer_pubkey, authority, offset, bytes.to_vec())
     }
 
-    /// Create instruction to deploy program
+    /// Create instructions to deploy program from buffer
     pub fn deploy_program(
-        _payer: &Pubkey,
-        _program_keypair: &Keypair,
-        _buffer_pubkey: &Pubkey,
-        _upgrade_authority: &Pubkey,
+        payer: &Pubkey,
+        program_keypair: &Keypair,
+        buffer_pubkey: &Pubkey,
+        program_data_len: usize,
+        program_data_rent: u64,
+        upgrade_authority: &Pubkey,
     ) -> Vec<Instruction> {
-        // Uses BPFLoaderUpgradeable::DeployWithMaxDataLen
-        unimplemented!()
+        bpf_loader_upgradeable::deploy_with_max_program_len(
+            payer,
+            &program_keypair.pubkey(),
+            buffer_pubkey,
+            upgrade_authority,
+            program_data_rent,
+            program_data_len,
+        )
+        .unwrap_or_default()
+    }
+
+    /// Create instruction to set new upgrade authority
+    pub fn set_upgrade_authority(
+        program_pubkey: &Pubkey,
+        current_authority: &Pubkey,
+        new_authority: Option<&Pubkey>,
+    ) -> Instruction {
+        bpf_loader_upgradeable::set_buffer_authority(
+            program_pubkey,
+            current_authority,
+            new_authority.expect("new_authority must be provided"),
+        )
+    }
+
+    /// Create instruction to close program and reclaim rent
+    pub fn close_program(
+        program_pubkey: &Pubkey,
+        program_data_pubkey: &Pubkey,
+        authority: &Pubkey,
+        recipient: &Pubkey,
+    ) -> Instruction {
+        bpf_loader_upgradeable::close_any(
+            program_pubkey,
+            recipient,
+            Some(authority),
+            Some(program_data_pubkey),
+        )
     }
 }
 

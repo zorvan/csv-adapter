@@ -106,12 +106,44 @@ pub struct WalletAccount {
     pub name: String,
     /// Public address
     pub address: String,
-    /// Private key (hex encoded, encrypted at rest)
+    /// Private key (hex encoded, encrypted at rest) - DEPRECATED: Use keystore_ref instead
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub private_key: Option<String>,
+    /// Keystore reference (UUID pointing to encrypted key in keystore)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub keystore_ref: Option<String>,
     /// Extended public key for HD wallets
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub xpub: Option<String>,
     /// Derivation path (BIP-44/86)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub derivation_path: Option<String>,
+}
+
+impl WalletAccount {
+    /// Check if this account uses the new keystore-based storage.
+    pub fn uses_keystore(&self) -> bool {
+        self.keystore_ref.is_some()
+    }
+
+    /// Check if this account still has plaintext private key (needs migration).
+    pub fn needs_migration(&self) -> bool {
+        self.private_key.is_some() && self.keystore_ref.is_none()
+    }
+
+    /// Create a new keystore-based account.
+    pub fn with_keystore(id: String, chain: Chain, name: String, address: String, keystore_ref: String) -> Self {
+        Self {
+            id,
+            chain,
+            name,
+            address,
+            private_key: None,
+            keystore_ref: Some(keystore_ref),
+            xpub: None,
+            derivation_path: None,
+        }
+    }
 }
 
 /// Wallet configuration - can use mnemonic or individual private keys

@@ -92,7 +92,7 @@ pub struct SealVisualizerProps {
 /// Interactive seal lifecycle visualizer.
 pub fn SealVisualizer(props: SealVisualizerProps) -> Element {
     let selected_event = use_signal(|| None::<usize>);
-    let view_mode = use_signal(|| ViewMode::Timeline);
+    let mut view_mode = use_signal(|| ViewMode::Timeline);
     
     rsx! {
         div { class: "seal-visualizer {props.class}",
@@ -177,14 +177,14 @@ struct SealTimelineViewProps {
     selected_event: Signal<Option<usize>>,
 }
 
-fn SealTimelineView(props: SealTimelineViewProps) -> Element {
+fn SealTimelineView(mut props: SealTimelineViewProps) -> Element {
     rsx! {
         div { class: "seal-timeline-view",
             div { class: "seal-timeline-list",
                 for (i, event) in props.events.iter().enumerate().rev() {
                     div {
                         class: "seal-timeline-item",
-                        class: if props.selected_event() == Some(i) { "selected" },
+                        class: if (props.selected_event)() == Some(i) { "selected" },
                         onclick: move |_| props.selected_event.set(Some(i)),
                         
                         // Timeline connector
@@ -239,7 +239,7 @@ fn SealTimelineView(props: SealTimelineViewProps) -> Element {
             }
             
             // Event detail panel
-            if let Some(idx) = props.selected_event() {
+            if let Some(idx) = (props.selected_event)() {
                 if let Some(event) = props.events.get(idx) {
                     div { class: "seal-event-detail",
                         h4 { "Event Details" }

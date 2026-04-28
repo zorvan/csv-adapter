@@ -4,6 +4,7 @@
 //! and recovery. Supports 12, 15, 18, 21, and 24 word mnemonics.
 
 use crate::memory::Seed;
+use std::str::FromStr;
 use thiserror::Error;
 
 /// Error type for BIP-39 operations.
@@ -94,17 +95,17 @@ impl Mnemonic {
     /// assert_eq!(mnemonic.words().count(), 12);
     /// ```
     pub fn generate(mnemonic_type: MnemonicType) -> Self {
-        let count = match mnemonic_type {
-            MnemonicType::Words12 => bip39::Count::Words12,
-            MnemonicType::Words15 => bip39::Count::Words15,
-            MnemonicType::Words18 => bip39::Count::Words18,
-            MnemonicType::Words21 => bip39::Count::Words21,
-            MnemonicType::Words24 => bip39::Count::Words24,
+        let word_count = match mnemonic_type {
+            MnemonicType::Words12 => 12,
+            MnemonicType::Words15 => 15,
+            MnemonicType::Words18 => 18,
+            MnemonicType::Words21 => 21,
+            MnemonicType::Words24 => 24,
         };
 
-        let phrase = bip39::Mnemonic::generate(count)
-            .map(|m| m.to_string())
-            .unwrap_or_default();
+        let mnemonic = bip39::Mnemonic::generate_in(bip39::Language::English, word_count)
+            .expect("Failed to generate mnemonic");
+        let phrase = mnemonic.to_string();
 
         Self {
             phrase,
@@ -133,7 +134,7 @@ impl Mnemonic {
         };
 
         // Validate the mnemonic
-        bip39::Mnemonic::parse(&phrase)
+        bip39::Mnemonic::from_str(&phrase)
             .map_err(|e| Bip39Error::InvalidMnemonic(e.to_string()))?;
 
         Ok(Self {
@@ -170,7 +171,7 @@ impl Mnemonic {
     /// # Returns
     /// A 64-byte seed for HD wallet derivation.
     pub fn to_seed(&self, passphrase: Option<&str>) -> Seed {
-        let bip39_mnemonic = bip39::Mnemonic::parse(&self.phrase)
+        let bip39_mnemonic = bip39::Mnemonic::from_str(&self.phrase)
             .expect("Valid mnemonic should parse");
 
         let seed_bytes = bip39_mnemonic.to_seed(passphrase.unwrap_or(""));
@@ -179,7 +180,7 @@ impl Mnemonic {
 
     /// Validate that the mnemonic phrase is correct.
     pub fn validate(&self) -> Result<(), Bip39Error> {
-        bip39::Mnemonic::parse(&self.phrase)
+        bip39::Mnemonic::from_str(&self.phrase)
             .map_err(|e| Bip39Error::InvalidMnemonic(e.to_string()))?;
         Ok(())
     }

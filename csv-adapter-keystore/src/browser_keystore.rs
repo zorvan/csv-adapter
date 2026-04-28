@@ -11,11 +11,11 @@
 //! - No raw private keys in LocalStorage (only encrypted form)
 
 use crate::memory::{Passphrase, SecretKey};
-use crate::keystore::{KeystoreFile, KeystoreError};
 use aes_gcm::{
     aead::{Aead, KeyInit},
     Aes256Gcm, Nonce,
 };
+use base64::{Engine as _, engine::general_purpose};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use web_sys::Storage;
@@ -171,9 +171,9 @@ impl BrowserKeystore {
         let stored = StoredBrowserKey {
             id: id.to_string(),
             chain: chain.to_string(),
-            encrypted_data: base64::encode(&ciphertext),
-            nonce: base64::encode(&nonce_bytes),
-            salt: base64::encode(&salt),
+            encrypted_data: general_purpose::STANDARD.encode(&ciphertext),
+            nonce: general_purpose::STANDARD.encode(&nonce_bytes),
+            salt: general_purpose::STANDARD.encode(&salt),
             created_at: js_sys::Date::now() as u64,
         };
 
@@ -187,7 +187,7 @@ impl BrowserKeystore {
 
     /// Retrieve and decrypt a key from LocalStorage.
     pub fn retrieve_key(
-        &self,
+        &mut self,
         id: &str,
         passphrase: &Passphrase,
     ) -> Result<SecretKey, BrowserKeystoreError> {
@@ -211,16 +211,17 @@ impl BrowserKeystore {
         let stored: StoredBrowserKey = serde_json::from_str(&json)?;
 
         // Decrypt
-        let salt = base64::decode(&stored.salt)
+        let salt = general_purpose::STANDARD.decode(&stored.salt)
             .map_err(|e| BrowserKeystoreError::Crypto(e.to_string()))?;
         let derived_key = Self::derive_key(passphrase, &salt);
 
         let cipher = Aes256Gcm::new_from_slice(&derived_key)
             .map_err(|e| BrowserKeystoreError::Crypto(e.to_string()))?;
 
-        let nonce_bytes = base64::decode(&stored.nonce)
+        let nonce_bytes = general_purpose::STANDARD.decode(&stored.nonce)
             .map_err(|e| BrowserKeystoreError::Crypto(e.to_string()))?;
-        let ciphertext = base64::decode(&stored.encrypted_data)
+
+        let ciphertext = general_purpose::STANDARD.decode(&stored.encrypted_data)
             .map_err(|e| BrowserKeystoreError::Crypto(e.to_string()))?;
 
         let nonce = Nonce::from_slice(&nonce_bytes);
@@ -362,12 +363,12 @@ impl SessionToken {
     /// Serialize to cookie-safe string.
     pub fn to_cookie(&self) -> Result<String, serde_json::Error> {
         let json = serde_json::to_string(self)?;
-        Ok(base64::encode(json))
+        Ok(general_purpose::STANDARD.encode(json))
     }
 
     /// Deserialize from cookie string.
     pub fn from_cookie(cookie: &str) -> Result<Self, BrowserKeystoreError> {
-        let json = base64::decode(cookie)
+        let json = general_purpose::STANDARD.decode(cookie)
             .map_err(|e| BrowserKeystoreError::Crypto(e.to_string()))?;
         let token: SessionToken = serde_json::from_slice(&json)?;
         Ok(token)
