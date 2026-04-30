@@ -52,7 +52,7 @@ pub fn chain_name(chain: &Chain) -> &'static str {
 pub fn format_timestamp(timestamp: u64) -> String {
     let now = js_sys::Date::now() as u64 / 1000;
     let diff = now.saturating_sub(timestamp);
-    
+
     if diff < 60 {
         "Just now".to_string()
     } else if diff < 3600 {
@@ -174,7 +174,10 @@ pub fn network_options() -> Vec<(crate::context::Network, &'static str)> {
     ]
 }
 
-pub fn chain_select(mut onchange: impl FnMut(std::rc::Rc<FormData>) + 'static, value: Chain) -> Element {
+pub fn chain_select(
+    mut onchange: impl FnMut(std::rc::Rc<FormData>) + 'static,
+    value: Chain,
+) -> Element {
     rsx! {
         select {
             class: "{select_class()}",
@@ -187,7 +190,10 @@ pub fn chain_select(mut onchange: impl FnMut(std::rc::Rc<FormData>) + 'static, v
     }
 }
 
-pub fn network_select(mut onchange: impl FnMut(crate::context::Network) + 'static, value: crate::context::Network) -> Element {
+pub fn network_select(
+    mut onchange: impl FnMut(crate::context::Network) + 'static,
+    value: crate::context::Network,
+) -> Element {
     use crate::context::Network;
     rsx! {
         select {

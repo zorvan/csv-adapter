@@ -40,14 +40,13 @@ pub mod storage;
 pub mod wallet;
 
 // Re-exports for backward compatibility
-pub use backend::{StorageBackend, StorageError};
 #[cfg(all(not(target_arch = "wasm32"), feature = "file-storage"))]
 pub use backend::FileStorage;
+pub use backend::{StorageBackend, StorageError};
 pub use core::{Chain, ChainConfig, Network};
 pub use domain::{
-    ContractRecord, ProofRecord, RightRecord, RightStatus,
-    SealRecord, TransactionRecord, TransactionStatus, TransactionType, TransferRecord,
-    TransferStatus,
+    ContractRecord, ProofRecord, RightRecord, RightStatus, SealRecord, TransactionRecord,
+    TransactionStatus, TransactionType, TransferRecord, TransferStatus,
 };
 pub use storage::StateStorage;
 /// Backward compatibility alias

@@ -161,7 +161,12 @@ impl DeploymentManager {
     ) -> DeploymentResult<ContractDeployment> {
         use csv_adapter_ethereum::deploy::deploy_csv_lock as eth_deploy;
 
-        let result = eth_deploy(rpc_url, private_key_hex, csv_adapter_ethereum::CSVLOCK_BYTECODE).await?;
+        let result = eth_deploy(
+            rpc_url,
+            private_key_hex,
+            csv_adapter_ethereum::CSVLOCK_BYTECODE,
+        )
+        .await?;
 
         Ok(ContractDeployment {
             chain: Chain::Ethereum,
@@ -411,14 +416,10 @@ impl DeploymentManager {
     // Generic Deployment Helpers
     // =========================================================================
 
-  /// Verify a deployment on any chain.
+    /// Verify a deployment on any chain.
     ///
     /// This checks if the deployed contract/program exists on-chain.
-    pub async fn verify_deployment(
-        &self,
-        chain: Chain,
-        address: &[u8],
-    ) -> DeploymentResult<bool> {
+    pub async fn verify_deployment(&self, chain: Chain, address: &[u8]) -> DeploymentResult<bool> {
         match chain {
             Chain::Ethereum => {
                 // For Ethereum, check if code exists at address (contract)
@@ -429,9 +430,9 @@ impl DeploymentManager {
                 // For Solana, check if address is valid base58 decodable
                 #[cfg(feature = "solana")]
                 {
-                    let _decoded = bs58::decode(address)
-                        .into_vec()
-                        .map_err(|_| DeploymentError::Generic("Invalid Solana address".to_string()))?;
+                    let _decoded = bs58::decode(address).into_vec().map_err(|_| {
+                        DeploymentError::Generic("Invalid Solana address".to_string())
+                    })?;
                     Ok(true)
                 }
                 #[cfg(not(feature = "solana"))]
@@ -470,7 +471,7 @@ impl DeploymentManager {
             Chain::Ethereum => contract_size as u64 * 200, // Gas units
             Chain::Sui => 10_000_000,                      // MIST
             Chain::Aptos => contract_size as u64 * 100,    // Gas units
-            Chain::Solana => contract_size as u64 * 1000,    // Lamports
+            Chain::Solana => contract_size as u64 * 1000,  // Lamports
             _ => contract_size as u64 * 100,
         };
 

@@ -8,7 +8,7 @@ use csv_adapter_core::hash::Hash;
 
 use crate::config::{Chain, Config};
 use crate::output;
-use crate::state::{UnifiedStateManager, RightRecord, RightStatus};
+use crate::state::{RightRecord, RightStatus, UnifiedStateManager};
 
 #[derive(Subcommand)]
 pub enum RightAction {
@@ -46,7 +46,11 @@ pub enum RightAction {
     },
 }
 
-pub fn execute(action: RightAction, config: &Config, state: &mut UnifiedStateManager) -> Result<()> {
+pub fn execute(
+    action: RightAction,
+    config: &Config,
+    state: &mut UnifiedStateManager,
+) -> Result<()> {
     match action {
         RightAction::Create { chain, value } => cmd_create(chain, value, config, state),
         RightAction::Show { right_id } => cmd_show(right_id, state),
@@ -56,7 +60,12 @@ pub fn execute(action: RightAction, config: &Config, state: &mut UnifiedStateMan
     }
 }
 
-fn cmd_create(chain: Chain, value: Option<u64>, _config: &Config, state: &mut UnifiedStateManager) -> Result<()> {
+fn cmd_create(
+    chain: Chain,
+    value: Option<u64>,
+    _config: &Config,
+    state: &mut UnifiedStateManager,
+) -> Result<()> {
     output::header(&format!("Creating Right on {}", chain));
 
     // In production, this would call the chain adapter to create a seal
@@ -133,10 +142,10 @@ fn cmd_show(right_id: String, state: &UnifiedStateManager) -> Result<()> {
         output::kv(
             "Status",
             match tracked.status {
-            RightStatus::Consumed => "Consumed",
-            RightStatus::Transferred => "Transferred",
-            RightStatus::Active => "Active",
-        },
+                RightStatus::Consumed => "Consumed",
+                RightStatus::Transferred => "Transferred",
+                RightStatus::Active => "Active",
+            },
         );
         if let Some(nullifier) = &tracked.nullifier {
             output::kv_hash("Nullifier", nullifier.as_bytes());
@@ -170,11 +179,7 @@ fn cmd_list(chain: Option<Chain>, state: &UnifiedStateManager) -> Result<()> {
             "Active".to_string()
         };
 
-        rows.push(vec![
-            right.id.clone(),
-            right.chain.to_string(),
-            status,
-        ]);
+        rows.push(vec![right.id.clone(), right.chain.to_string(), status]);
     }
 
     if rows.is_empty() {

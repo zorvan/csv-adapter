@@ -55,9 +55,7 @@ impl FileStorage {
     /// Default storage path (~/.csv/state.json).
     pub fn default_path() -> String {
         if let Some(home) = dirs::home_dir() {
-            home.join(".csv/state.json")
-                .to_string_lossy()
-                .to_string()
+            home.join(".csv/state.json").to_string_lossy().to_string()
         } else {
             std::env::temp_dir()
                 .join("csv-state.json")
@@ -87,15 +85,13 @@ impl StorageBackend for FileStorage {
     fn save(&self, storage: &StateStorage) -> Result<(), StorageError> {
         let path = std::path::Path::new(&self.path);
         if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|e| StorageError::IoError(e.to_string()))?;
+            std::fs::create_dir_all(parent).map_err(|e| StorageError::IoError(e.to_string()))?;
         }
 
         let content = serde_json::to_string_pretty(storage)
             .map_err(|e| StorageError::SerializeError(e.to_string()))?;
 
-        std::fs::write(&self.path, content)
-            .map_err(|e| StorageError::IoError(e.to_string()))?;
+        std::fs::write(&self.path, content).map_err(|e| StorageError::IoError(e.to_string()))?;
 
         Ok(())
     }
@@ -104,4 +100,3 @@ impl StorageBackend for FileStorage {
         std::path::Path::new(&self.path).exists()
     }
 }
-

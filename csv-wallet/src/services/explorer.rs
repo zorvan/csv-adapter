@@ -35,13 +35,16 @@ impl ExplorerConfig {
             }),
             Chain::Aptos => Some(Self {
                 base_url: "https://explorer.aptoslabs.com/testnet".to_string(),
-                tx_url_template: "https://explorer.aptoslabs.com/txn/{}?network=testnet".to_string(),
-                address_url_template: "https://explorer.aptoslabs.com/account/{}?network=testnet".to_string(),
+                tx_url_template: "https://explorer.aptoslabs.com/txn/{}?network=testnet"
+                    .to_string(),
+                address_url_template: "https://explorer.aptoslabs.com/account/{}?network=testnet"
+                    .to_string(),
             }),
             Chain::Solana => Some(Self {
                 base_url: "https://explorer.solana.com".to_string(),
                 tx_url_template: "https://explorer.solana.com/tx/{}?cluster=devnet".to_string(),
-                address_url_template: "https://explorer.solana.com/address/{}?cluster=devnet".to_string(),
+                address_url_template: "https://explorer.solana.com/address/{}?cluster=devnet"
+                    .to_string(),
             }),
             _ => None,
         }

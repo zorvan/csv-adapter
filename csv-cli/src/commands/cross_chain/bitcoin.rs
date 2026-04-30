@@ -32,7 +32,12 @@ pub struct UtxoRef {
 }
 
 /// Publish a Bitcoin lock transaction
-pub fn publish_bitcoin_lock(address: &str, lock_data: &[u8], rpc_url: &str, private_key_hex: &str) -> Result<String> {
+pub fn publish_bitcoin_lock(
+    address: &str,
+    lock_data: &[u8],
+    rpc_url: &str,
+    private_key_hex: &str,
+) -> Result<String> {
     // Verify the private key matches the address before attempting to spend
     let derived_address = derive_bitcoin_address_from_key(private_key_hex)?;
     if derived_address != address {
@@ -43,7 +48,7 @@ pub fn publish_bitcoin_lock(address: &str, lock_data: &[u8], rpc_url: &str, priv
             address
         ));
     }
-    
+
     let utxos = fetch_bitcoin_utxos(address, rpc_url)?;
     let utxo = utxos
         .into_iter()
@@ -57,23 +62,23 @@ pub fn publish_bitcoin_lock(address: &str, lock_data: &[u8], rpc_url: &str, priv
 /// Derive Bitcoin address (P2TR) from a private key hex string
 fn derive_bitcoin_address_from_key(private_key_hex: &str) -> Result<String> {
     use bitcoin::{
-        secp256k1::{Secp256k1, SecretKey, Keypair, XOnlyPublicKey},
         key::TapTweak,
+        secp256k1::{Keypair, Secp256k1, SecretKey, XOnlyPublicKey},
         Address, Network,
     };
-    
+
     let cleaned = private_key_hex.trim().trim_start_matches("0x").trim();
     let key_bytes = hex::decode(cleaned)?;
     let key_32: [u8; 32] = key_bytes[..32.min(key_bytes.len())]
         .try_into()
         .map_err(|_| anyhow::anyhow!("Bitcoin private key too short"))?;
-    
+
     let secp = Secp256k1::new();
     let secret_key = SecretKey::from_slice(&key_32)?;
     let keypair = Keypair::from_secret_key(&secp, &secret_key);
     let (xonly, _parity) = XOnlyPublicKey::from_keypair(&keypair);
     let (tweaked_pubkey, _) = xonly.tap_tweak(&secp, None);
-    
+
     // Use testnet for signet (addresses start with tb1p)
     let address = Address::p2tr_tweaked(tweaked_pubkey, Network::Testnet);
     Ok(address.to_string())
@@ -121,7 +126,9 @@ fn build_bitcoin_op_return_tx(utxo: &UtxoRef, lock_data: &[u8]) -> Result<Vec<u8
     tx.extend_from_slice(&0u64.to_le_bytes());
     let data_len = lock_data.len();
     if data_len > 80 {
-        return Err(anyhow::anyhow!("Bitcoin OP_RETURN lock data too long (>80 bytes)"));
+        return Err(anyhow::anyhow!(
+            "Bitcoin OP_RETURN lock data too long (>80 bytes)"
+        ));
     }
     if data_len <= 75 {
         let script_len = 1 + 1 + data_len;
@@ -141,13 +148,18 @@ fn build_bitcoin_op_return_tx(utxo: &UtxoRef, lock_data: &[u8]) -> Result<Vec<u8
     Ok(tx)
 }
 
-fn sign_bitcoin_tx(unsigned_tx: &[u8], private_key_hex: &str, utxo: &UtxoRef, sender_address: &str) -> Result<Vec<u8>> {
+fn sign_bitcoin_tx(
+    unsigned_tx: &[u8],
+    private_key_hex: &str,
+    utxo: &UtxoRef,
+    sender_address: &str,
+) -> Result<Vec<u8>> {
     use bitcoin::{
         consensus::serialize,
         key::{Keypair, TapTweak},
         secp256k1::{Message, PublicKey, Secp256k1, SecretKey},
         sighash::{EcdsaSighashType, SighashCache, TapSighashType},
-        ScriptBuf, Transaction, TxOut, Witness, Amount,
+        Amount, ScriptBuf, Transaction, TxOut, Witness,
     };
     let cleaned = private_key_hex.trim().trim_start_matches("0x").trim();
     let key_bytes = hex::decode(cleaned)?;
@@ -203,14 +215,20 @@ fn sign_bitcoin_tx(unsigned_tx: &[u8], private_key_hex: &str, utxo: &UtxoRef, se
     } else {
         let public_key = PublicKey::from_secret_key(&secp, &secret_key);
         let cache = SighashCache::new(&tx);
-        let sighash = cache.legacy_signature_hash(0, &prev_output.script_pubkey, EcdsaSighashType::All as u32)?;
+        let sighash = cache.legacy_signature_hash(
+            0,
+            &prev_output.script_pubkey,
+            EcdsaSighashType::All as u32,
+        )?;
         let msg = Message::from_digest_slice(sighash.as_ref())?;
         let sig = secp.sign_ecdsa(&msg, &secret_key);
         let mut sig_with_type = sig.serialize_der().to_vec();
         sig_with_type.push(EcdsaSighashType::All as u8);
         tx.input[0].script_sig = ScriptBuf::builder()
             .push_slice(<&bitcoin::script::PushBytes>::try_from(sig_with_type.as_slice()).unwrap())
-            .push_slice(<&bitcoin::script::PushBytes>::try_from(public_key.serialize().as_slice()).unwrap())
+            .push_slice(
+                <&bitcoin::script::PushBytes>::try_from(public_key.serialize().as_slice()).unwrap(),
+            )
             .into_script();
     }
     Ok(serialize(&tx))
@@ -241,8 +259,11 @@ fn broadcast_bitcoin_tx(raw_tx: &[u8], rpc_url: &str) -> Result<String> {
     let status = resp.status();
     let body = resp.text()?;
     if !status.is_success() {
-        return Err(anyhow::anyhow!("Bitcoin broadcast failed ({}): {}", status, body));
+        return Err(anyhow::anyhow!(
+            "Bitcoin broadcast failed ({}): {}",
+            status,
+            body
+        ));
     }
     Ok(body.trim().to_string())
 }
-

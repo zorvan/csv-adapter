@@ -14,28 +14,25 @@
 //! - `estimator` - Gas/fee estimation per chain
 
 // Modular components
-pub mod types;
-pub mod wallet;
 pub mod config;
+pub mod estimator;
 pub mod service;
 pub mod signer;
 pub mod submitter;
-pub mod estimator;
+pub mod types;
+pub mod wallet;
 
 // Re-exports from modules
-pub use types::{
-    BlockchainError,
-    ContractDeployment, ContractType,
-};
-pub use wallet::{NativeWallet, BrowserWallet, WalletType};
-pub use wallet::wallet_connection;
 pub use config::BlockchainConfig;
+#[allow(unused_imports)]
+pub use estimator::{FeeEstimator, FeePriority};
 #[allow(unused_imports)]
 pub use signer::TransactionSigner;
 #[allow(unused_imports)]
 pub use submitter::TransactionSubmitter;
-#[allow(unused_imports)]
-pub use estimator::{FeeEstimator, FeePriority};
+pub use types::{BlockchainError, ContractDeployment, ContractType};
+pub use wallet::wallet_connection;
+pub use wallet::{BrowserWallet, NativeWallet, WalletType};
 
 // Re-export main service
 pub use service::BlockchainService;

@@ -77,7 +77,7 @@ impl ChainAccount {
 
 impl ChainAccount {
     /// Derive address from private key for a specific chain (utility function).
-    /// 
+    ///
     /// # Security Note
     /// This function accepts a hex-encoded key but should only be used during
     /// account creation. The resulting account will store a keystore reference,
@@ -109,13 +109,13 @@ impl ChainAccount {
 
         if key.len() == 32 {
             use bitcoin::{
-                secp256k1::{Secp256k1, Keypair, XOnlyPublicKey, SecretKey},
                 key::TapTweak,
+                secp256k1::{Keypair, Secp256k1, SecretKey, XOnlyPublicKey},
                 Address, Network,
             };
-            
-            let secret_key = SecretKey::from_slice(&key)
-                .map_err(|e| format!("Invalid secret key: {}", e))?;
+
+            let secret_key =
+                SecretKey::from_slice(&key).map_err(|e| format!("Invalid secret key: {}", e))?;
             let secp = Secp256k1::new();
             // Create keypair from secret key
             let keypair = Keypair::from_secret_key(&secp, &secret_key);
@@ -259,7 +259,9 @@ impl WalletData {
 
     /// Get the gas account address for a chain (first account for now).
     pub fn get_gas_account(&self, chain: &Chain) -> Option<String> {
-        self.accounts_for_chain(*chain).first().map(|a| a.address.clone())
+        self.accounts_for_chain(*chain)
+            .first()
+            .map(|a| a.address.clone())
     }
 
     /// Get accounts count for a chain.
@@ -294,7 +296,11 @@ impl WalletData {
 
     /// Refresh/update an account address.
     pub fn refresh_address(&mut self, chain: Chain, old_address: &str, new_address: String) {
-        if let Some(account) = self.accounts.iter_mut().find(|a| a.chain == chain && a.address == old_address) {
+        if let Some(account) = self
+            .accounts
+            .iter_mut()
+            .find(|a| a.chain == chain && a.address == old_address)
+        {
             account.address = new_address;
         }
     }

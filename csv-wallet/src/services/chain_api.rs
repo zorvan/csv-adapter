@@ -10,8 +10,8 @@
 //! The module uses conditional compilation to select the appropriate
 //! implementation based on the target architecture.
 
+use csv_adapter_core::agent_types::{error_codes, FixAction, HasErrorSuggestion};
 use csv_adapter_core::Chain;
-use csv_adapter_core::agent_types::{HasErrorSuggestion, FixAction, error_codes};
 use serde::{Deserialize, Serialize};
 
 use crate::services::network::NetworkType;
@@ -124,16 +124,16 @@ impl HasErrorSuggestion for ChainApiError {
 
     fn suggested_fix(&self) -> String {
         match self {
-            ChainApiError::HttpError(_) => {
-                "HTTP request to chain API failed. Check: \
+            ChainApiError::HttpError(_) => "HTTP request to chain API failed. Check: \
                  1) Your internet connection, 2) The API endpoint is accessible, \
                  3) You're not being blocked by CORS (browser) or firewalls. \
-                 Try a different RPC provider if the issue persists.".to_string()
-            }
+                 Try a different RPC provider if the issue persists."
+                .to_string(),
             ChainApiError::JsonError(_) => {
                 "Failed to parse API response. The API format may have changed \
                  or the response is malformed. Try: 1) A different API endpoint, \
-                 2) Updating to the latest SDK version.".to_string()
+                 2) Updating to the latest SDK version."
+                    .to_string()
             }
             ChainApiError::InvalidAddress(chain) => {
                 format!(
@@ -166,31 +166,24 @@ impl HasErrorSuggestion for ChainApiError {
 
     fn fix_action(&self) -> Option<FixAction> {
         match self {
-            ChainApiError::HttpError(_) | ChainApiError::ApiError(_) => {
-                Some(FixAction::Retry {
-                    parameter_changes: std::collections::HashMap::from([
-                        ("rpc_endpoint".to_string(), "try_alternative".to_string()),
-                    ]),
-                })
-            }
-            ChainApiError::JsonError(_) => {
-                Some(FixAction::CheckState {
-                    url: "https://docs.csv.dev/rpc-providers".to_string(),
-                    what: "Verify API endpoint is compatible".to_string(),
-                })
-            }
-            ChainApiError::InvalidAddress(_) => {
-                Some(FixAction::CheckState {
-                    url: "https://docs.csv.dev/addresses".to_string(),
-                    what: "Verify address format for target chain".to_string(),
-                })
-            }
-            ChainApiError::AdapterError(_) => {
-                Some(FixAction::CheckState {
-                    url: "https://docs.csv.dev/adapters".to_string(),
-                    what: "Verify chain adapter configuration".to_string(),
-                })
-            }
+            ChainApiError::HttpError(_) | ChainApiError::ApiError(_) => Some(FixAction::Retry {
+                parameter_changes: std::collections::HashMap::from([(
+                    "rpc_endpoint".to_string(),
+                    "try_alternative".to_string(),
+                )]),
+            }),
+            ChainApiError::JsonError(_) => Some(FixAction::CheckState {
+                url: "https://docs.csv.dev/rpc-providers".to_string(),
+                what: "Verify API endpoint is compatible".to_string(),
+            }),
+            ChainApiError::InvalidAddress(_) => Some(FixAction::CheckState {
+                url: "https://docs.csv.dev/addresses".to_string(),
+                what: "Verify address format for target chain".to_string(),
+            }),
+            ChainApiError::AdapterError(_) => Some(FixAction::CheckState {
+                url: "https://docs.csv.dev/adapters".to_string(),
+                what: "Verify chain adapter configuration".to_string(),
+            }),
         }
     }
 }
@@ -241,11 +234,26 @@ impl ChainApi {
 /// Default chain configurations.
 fn default_configs() -> std::collections::HashMap<Chain, ChainConfig> {
     let mut configs = std::collections::HashMap::new();
-    configs.insert(Chain::Bitcoin, ChainConfig::for_chain(Chain::Bitcoin, NetworkType::Testnet));
-    configs.insert(Chain::Ethereum, ChainConfig::for_chain(Chain::Ethereum, NetworkType::Testnet));
-    configs.insert(Chain::Sui, ChainConfig::for_chain(Chain::Sui, NetworkType::Testnet));
-    configs.insert(Chain::Aptos, ChainConfig::for_chain(Chain::Aptos, NetworkType::Testnet));
-    configs.insert(Chain::Solana, ChainConfig::for_chain(Chain::Solana, NetworkType::Testnet));
+    configs.insert(
+        Chain::Bitcoin,
+        ChainConfig::for_chain(Chain::Bitcoin, NetworkType::Testnet),
+    );
+    configs.insert(
+        Chain::Ethereum,
+        ChainConfig::for_chain(Chain::Ethereum, NetworkType::Testnet),
+    );
+    configs.insert(
+        Chain::Sui,
+        ChainConfig::for_chain(Chain::Sui, NetworkType::Testnet),
+    );
+    configs.insert(
+        Chain::Aptos,
+        ChainConfig::for_chain(Chain::Aptos, NetworkType::Testnet),
+    );
+    configs.insert(
+        Chain::Solana,
+        ChainConfig::for_chain(Chain::Solana, NetworkType::Testnet),
+    );
     configs
 }
 
@@ -341,7 +349,9 @@ impl ChainHttpApi {
         if !response.status().is_success() {
             let status = response.status();
             #[cfg(target_arch = "wasm32")]
-            web_sys::console::error_1(&format!("Bitcoin API error {} for address {}", status, address).into());
+            web_sys::console::error_1(
+                &format!("Bitcoin API error {} for address {}", status, address).into(),
+            );
             return Err(ChainApiError::ApiError(format!(
                 "Bitcoin API error: {} (Address format may not be supported by mempool.space)",
                 status
@@ -370,7 +380,13 @@ impl ChainHttpApi {
             let balance_btc = balance_sats / 100_000_000.0;
 
             #[cfg(target_arch = "wasm32")]
-            web_sys::console::log_1(&format!("Bitcoin balance: {} satoshis = {} BTC for {}", balance_sats, balance_btc, address).into());
+            web_sys::console::log_1(
+                &format!(
+                    "Bitcoin balance: {} satoshis = {} BTC for {}",
+                    balance_sats, balance_btc, address
+                )
+                .into(),
+            );
 
             return Ok(balance_btc);
         }
@@ -381,7 +397,8 @@ impl ChainHttpApi {
         }
 
         Err(ChainApiError::ApiError(
-            "Could not parse balance from response. Address may not exist or API format changed.".to_string()
+            "Could not parse balance from response. Address may not exist or API format changed."
+                .to_string(),
         ))
     }
 
@@ -570,7 +587,9 @@ mod tests {
         assert!(!btc_mainnet.api_url.contains("testnet"));
 
         let eth_testnet = ChainConfig::for_chain(Chain::Ethereum, NetworkType::Testnet);
-        assert!(eth_testnet.api_url.contains("sepolia") || eth_testnet.api_url.contains("publicnode"));
+        assert!(
+            eth_testnet.api_url.contains("sepolia") || eth_testnet.api_url.contains("publicnode")
+        );
     }
 
     #[test]

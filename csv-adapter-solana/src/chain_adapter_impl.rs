@@ -187,27 +187,31 @@ impl Wallet for SolanaWallet {
                 .into_vec()
                 .map_err(|e| ChainError::InvalidInput(format!("Invalid base58 key: {}", e)))?
         };
-        
+
         // Validate key length
         if key_bytes.len() != 32 {
-            return Err(ChainError::InvalidInput(
-                format!("Invalid key length: expected 32 bytes, got {}", key_bytes.len())
-            ));
+            return Err(ChainError::InvalidInput(format!(
+                "Invalid key length: expected 32 bytes, got {}",
+                key_bytes.len()
+            )));
         }
-        
+
         // Create keypair from bytes to validate
-        let key_array: [u8; 32] = key_bytes.try_into()
+        let key_array: [u8; 32] = key_bytes
+            .try_into()
             .map_err(|_| ChainError::InvalidInput("Failed to convert to key array".to_string()))?;
-        
+
         // Verify we can create a valid Solana keypair
         let _keypair = solana_sdk::signature::Keypair::try_from(&key_array[..])
             .map_err(|e| ChainError::InvalidInput(format!("Invalid Solana keypair: {}", e)))?;
-        
+
         // Key is valid - store it in the adapter's wallet
         // In a real implementation, this would update the internal wallet state
-        tracing::info!("Imported Solana keypair with public key: {}", 
-            _keypair.pubkey().to_string());
-        
+        tracing::info!(
+            "Imported Solana keypair with public key: {}",
+            _keypair.pubkey().to_string()
+        );
+
         Ok(())
     }
 }
@@ -289,7 +293,9 @@ pub fn create_solana_adapter(config: &ChainConfig) -> ChainResult<SolanaAnchorLa
         _ => Network::Devnet,
     };
 
-    let rpc_url = config.rpc_endpoints.first()
+    let rpc_url = config
+        .rpc_endpoints
+        .first()
         .cloned()
         .unwrap_or_else(|| "https://api.devnet.solana.com".to_string());
 
@@ -340,7 +346,11 @@ mod tests {
                 account_model: csv_adapter_core::chain_adapter::AccountModel::Account,
                 confirmation_blocks: 32,
                 max_batch_size: 100,
-                supported_networks: vec!["mainnet".to_string(), "devnet".to_string(), "testnet".to_string()],
+                supported_networks: vec![
+                    "mainnet".to_string(),
+                    "devnet".to_string(),
+                    "testnet".to_string(),
+                ],
                 supports_cross_chain: false,
                 custom_features: std::collections::HashMap::new(),
             },

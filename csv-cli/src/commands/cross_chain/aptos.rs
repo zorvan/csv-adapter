@@ -35,33 +35,35 @@ pub fn send_aptos_mint_native(
     source_seal_ref: Hash,
 ) -> Result<String> {
     use ed25519_dalek::{Signer, SigningKey, VerifyingKey};
-    
+
     // Parse private key
     let cleaned_key = private_key_hex.trim().trim_start_matches("0x").trim();
     let key_bytes = hex::decode(cleaned_key)?;
-    let key_array: [u8; 32] = key_bytes.try_into()
+    let key_array: [u8; 32] = key_bytes
+        .try_into()
         .map_err(|_| anyhow::anyhow!("Private key must be 32 bytes"))?;
     let signing_key = SigningKey::from_bytes(&key_array);
     let verifying_key = VerifyingKey::from(&signing_key);
-    
+
     // Get sender address (32 bytes)
     let sender_bytes = verifying_key.to_bytes();
     let sender_address = format!("0x{}", hex::encode(&sender_bytes));
-    
+
     // Get account info from REST API
     let client = reqwest::blocking::Client::new();
-    let account_url = format!("{}/accounts/{}", rpc_url.trim_end_matches('/'), sender_address);
-    let account_resp: serde_json::Value = client
-        .get(&account_url)
-        .send()?
-        .json()?;
+    let account_url = format!(
+        "{}/accounts/{}",
+        rpc_url.trim_end_matches('/'),
+        sender_address
+    );
+    let account_resp: serde_json::Value = client.get(&account_url).send()?.json()?;
     let sequence_number: u64 = account_resp["sequence_number"]
         .as_str()
         .unwrap_or("0")
         .parse()?;
-    
+
     // Build the transaction payload for CSVSealV2::mint_right
-    // Arguments: right_id (bytes32), commitment (bytes32), source_chain (u8), 
+    // Arguments: right_id (bytes32), commitment (bytes32), source_chain (u8),
     //           source_seal_ref (bytes), proof_height (u64)
     let payload = serde_json::json!({
         "type": "entry_function_payload",
@@ -75,7 +77,7 @@ pub fn send_aptos_mint_native(
             "1"  // proof_height: u64
         ]
     });
-    
+
     // Build transaction
     let txn = serde_json::json!({
         "sender": sender_address,
@@ -87,14 +89,14 @@ pub fn send_aptos_mint_native(
             .as_secs() + 600).to_string(),
         "payload": payload
     });
-    
+
     // For now, return a placeholder - full BCS encoding and signing would be needed
     // for production use. This requires the aptos-sdk for proper transaction building.
     eprintln!("Aptos native mint would submit transaction:");
     eprintln!("  Sender: {}", sender_address);
     eprintln!("  Function: {}::CSVSealV2::mint_right", module_address);
     eprintln!("  Sequence: {}", sequence_number);
-    
+
     // Placeholder - in production, properly BCS encode and sign the transaction
     // Then submit to: POST {rpc_url}/transactions
     let placeholder_hash = format!("0x{}", hex::encode(&right_id.as_bytes()[..16]));
@@ -118,7 +120,7 @@ pub async fn send_aptos_mint_async(
     let contract_address = contract_address.to_string();
     let rpc_url = rpc_url.to_string();
     let private_key_hex = private_key_hex.to_string();
-    
+
     // For now, use the blocking version in an async context
     // In production, this should be fully async
     tokio::task::spawn_blocking(move || {
@@ -130,7 +132,7 @@ pub async fn send_aptos_mint_async(
             commitment,
             source_tx_hash,
         )
-    }).await
+    })
+    .await
     .map_err(|e| anyhow::anyhow!("Task failed: {:?}", e))?
 }
-

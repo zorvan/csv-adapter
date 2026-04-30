@@ -25,7 +25,10 @@ pub fn cmd_balance(
         output::kv("Balance", &format!("{} {}", balance, chain_symbol(&chain)));
     } else {
         output::warning(&format!("No {} address found in wallet", chain));
-        output::info(&format!("Generate one with: csv wallet generate --chain {}", chain));
+        output::info(&format!(
+            "Generate one with: csv wallet generate --chain {}",
+            chain
+        ));
     }
 
     Ok(())
@@ -65,7 +68,7 @@ fn query_balance(chain: &Chain, address: &str) -> Result<f64> {
     // In a real implementation, this would query the chain's RPC
     // For now, return a placeholder
     output::info(&format!("Querying {} balance for {}...", chain, address));
-    
+
     // Placeholder: would actually query the chain
     Ok(0.0)
 }

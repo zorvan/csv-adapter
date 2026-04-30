@@ -6,7 +6,7 @@ use csv_adapter_core::hash::Hash;
 
 use crate::config::{Chain, Config};
 use crate::output;
-use crate::state::{UnifiedStateManager, TransferStatus};
+use crate::state::{TransferStatus, UnifiedStateManager};
 
 pub fn cmd_status(transfer_id: String, state: &UnifiedStateManager) -> Result<()> {
     let bytes = hex::decode(transfer_id.trim_start_matches("0x"))
@@ -23,10 +23,20 @@ pub fn cmd_status(transfer_id: String, state: &UnifiedStateManager) -> Result<()
         output::kv("Transfer ID", &hex::encode(transfer.id.as_bytes()));
         output::kv("Right ID", &hex::encode(transfer.right_id.as_bytes()));
         output::kv("Status", &format!("{:?}", transfer.status));
-        output::kv("Created At", &chrono::DateTime::<chrono::Utc>::from_timestamp(transfer.created_at as i64, 0).map(|d| d.to_rfc3339()).unwrap_or_else(|| transfer.created_at.to_string()));
-        
+        output::kv(
+            "Created At",
+            &chrono::DateTime::<chrono::Utc>::from_timestamp(transfer.created_at as i64, 0)
+                .map(|d| d.to_rfc3339())
+                .unwrap_or_else(|| transfer.created_at.to_string()),
+        );
+
         if let Some(completed) = transfer.completed_at {
-            output::kv("Completed At", &chrono::DateTime::<chrono::Utc>::from_timestamp(completed as i64, 0).map(|d| d.to_rfc3339()).unwrap_or_else(|| completed.to_string()));
+            output::kv(
+                "Completed At",
+                &chrono::DateTime::<chrono::Utc>::from_timestamp(completed as i64, 0)
+                    .map(|d| d.to_rfc3339())
+                    .unwrap_or_else(|| completed.to_string()),
+            );
         }
 
         output::header("🔹 Source Chain");
@@ -104,7 +114,11 @@ pub fn cmd_list(from: Option<Chain>, to: Option<Chain>, state: &UnifiedStateMana
     Ok(())
 }
 
-pub fn cmd_retry(transfer_id: String, _config: &Config, state: &mut UnifiedStateManager) -> Result<()> {
+pub fn cmd_retry(
+    transfer_id: String,
+    _config: &Config,
+    state: &mut UnifiedStateManager,
+) -> Result<()> {
     output::header("Retrying Transfer");
     output::kv("Transfer ID", &transfer_id);
 
@@ -149,4 +163,3 @@ pub fn cmd_retry(transfer_id: String, _config: &Config, state: &mut UnifiedState
 
     Ok(())
 }
-

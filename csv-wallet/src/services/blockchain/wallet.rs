@@ -29,22 +29,22 @@ impl NativeWallet {
         match &self.account.keystore_ref {
             Some(keystore_ref) => {
                 // Initialize browser keystore
-                let mut keystore = BrowserKeystore::new()
-                    .map_err(|e| BlockchainError {
-                        message: format!("Failed to initialize keystore: {}", e),
-                        chain: Some(self.chain),
-                        code: None,
-                    })?;
-                
+                let mut keystore = BrowserKeystore::new().map_err(|e| BlockchainError {
+                    message: format!("Failed to initialize keystore: {}", e),
+                    chain: Some(self.chain),
+                    code: None,
+                })?;
+
                 // Decrypt the key using the provided password
                 let passphrase = Passphrase::new(password);
-                let secret_key = keystore.retrieve_key(keystore_ref, &passphrase)
+                let secret_key = keystore
+                    .retrieve_key(keystore_ref, &passphrase)
                     .map_err(|e| BlockchainError {
                         message: format!("Failed to retrieve key from keystore: {}", e),
                         chain: Some(self.chain),
                         code: None,
                     })?;
-                
+
                 // Return as hex string
                 Ok(hex::encode(secret_key.as_bytes()))
             }
@@ -55,18 +55,17 @@ impl NativeWallet {
             }),
         }
     }
-    
+
     /// Get the private key from keystore using a cached session (no password needed if session is active).
     pub fn private_key_with_session(&self) -> Result<String, BlockchainError> {
         match &self.account.keystore_ref {
             Some(keystore_ref) => {
-                let mut keystore = BrowserKeystore::new()
-                    .map_err(|e| BlockchainError {
-                        message: format!("Failed to initialize keystore: {}", e),
-                        chain: Some(self.chain),
-                        code: None,
-                    })?;
-                
+                let mut keystore = BrowserKeystore::new().map_err(|e| BlockchainError {
+                    message: format!("Failed to initialize keystore: {}", e),
+                    chain: Some(self.chain),
+                    code: None,
+                })?;
+
                 // Check if we have an active session with cached keys
                 if !keystore.is_session_active() {
                     return Err(BlockchainError {
@@ -75,17 +74,18 @@ impl NativeWallet {
                         code: None,
                     });
                 }
-                
+
                 // Try to get from session cache with empty passphrase (session-based retrieval)
                 // Note: The BrowserKeystore retrieves from cache when session is active
                 let passphrase = Passphrase::new("");
-                let secret_key = keystore.retrieve_key(keystore_ref, &passphrase)
+                let secret_key = keystore
+                    .retrieve_key(keystore_ref, &passphrase)
                     .map_err(|e| BlockchainError {
                         message: format!("Failed to retrieve cached key: {}", e),
                         chain: Some(self.chain),
                         code: None,
                     })?;
-                
+
                 Ok(hex::encode(secret_key.as_bytes()))
             }
             None => Err(BlockchainError {
@@ -97,18 +97,21 @@ impl NativeWallet {
     }
 
     /// Sign a transaction using the native signer.
-    pub fn sign_transaction(&self, tx: &UnsignedTransaction, password: &str) -> Result<SignedTransaction, BlockchainError> {
+    pub fn sign_transaction(
+        &self,
+        tx: &UnsignedTransaction,
+        password: &str,
+    ) -> Result<SignedTransaction, BlockchainError> {
         web_sys::console::log_1(&format!("Signing transaction for {:?}", self.chain).into());
-        
+
         // Get the private key
         let private_key_hex = self.private_key(password)?;
-        let private_key_bytes = hex::decode(&private_key_hex)
-            .map_err(|e| BlockchainError {
-                message: format!("Invalid private key format: {}", e),
-                chain: Some(self.chain),
-                code: None,
-            })?;
-        
+        let private_key_bytes = hex::decode(&private_key_hex).map_err(|e| BlockchainError {
+            message: format!("Invalid private key format: {}", e),
+            chain: Some(self.chain),
+            code: None,
+        })?;
+
         // Sign based on chain type
         let signature_bytes = match self.chain {
             Chain::Bitcoin => self.sign_bitcoin_transaction(tx, &private_key_bytes)?,
@@ -124,84 +127,94 @@ impl NativeWallet {
                 });
             }
         };
-        
+
         // Generate transaction hash from signature
-        use sha2::{Sha256, Digest};
+        use sha2::{Digest, Sha256};
         let mut hasher = Sha256::new();
         hasher.update(&signature_bytes);
         let tx_hash = format!("0x{}", hex::encode(hasher.finalize()));
-        
+
         Ok(SignedTransaction {
             chain: self.chain,
             tx_hash,
             raw_bytes: signature_bytes,
         })
     }
-    
+
     /// Sign a Bitcoin transaction (secp256k1).
-    fn sign_bitcoin_transaction(&self, tx: &UnsignedTransaction, private_key: &[u8]) -> Result<Vec<u8>, BlockchainError> {
-        use secp256k1::{Secp256k1, Message, SecretKey};
-        
+    fn sign_bitcoin_transaction(
+        &self,
+        tx: &UnsignedTransaction,
+        private_key: &[u8],
+    ) -> Result<Vec<u8>, BlockchainError> {
+        use secp256k1::{Message, Secp256k1, SecretKey};
+
         // Create message from transaction data hash
-        use sha2::{Sha256, Digest};
+        use sha2::{Digest, Sha256};
         let mut hasher = Sha256::new();
         hasher.update(&tx.data);
         let message_hash = hasher.finalize();
-        
+
         let secp = Secp256k1::new();
-        let secret_key = SecretKey::from_slice(private_key)
-            .map_err(|e| BlockchainError {
-                message: format!("Invalid Bitcoin private key: {}", e),
-                chain: Some(Chain::Bitcoin),
-                code: None,
-            })?;
-        
+        let secret_key = SecretKey::from_slice(private_key).map_err(|e| BlockchainError {
+            message: format!("Invalid Bitcoin private key: {}", e),
+            chain: Some(Chain::Bitcoin),
+            code: None,
+        })?;
+
         let message = Message::from_digest(message_hash.into());
         let signature = secp.sign_ecdsa(&message, &secret_key);
-        
+
         // Serialize signature as DER
         let mut sig_bytes = Vec::new();
         sig_bytes.extend_from_slice(&signature.serialize_der());
         // Append sighash type (ALL = 0x01)
         sig_bytes.push(0x01);
-        
+
         Ok(sig_bytes)
     }
-    
+
     /// Sign an EVM transaction (Ethereum and compatible chains).
-    fn sign_evm_transaction(&self, tx: &UnsignedTransaction, private_key: &[u8]) -> Result<Vec<u8>, BlockchainError> {
-        use secp256k1::{Secp256k1, Message, SecretKey};
-        
+    fn sign_evm_transaction(
+        &self,
+        tx: &UnsignedTransaction,
+        private_key: &[u8],
+    ) -> Result<Vec<u8>, BlockchainError> {
+        use secp256k1::{Message, Secp256k1, SecretKey};
+
         // Hash the transaction data (RLP-encoded transaction)
-        use sha3::{Keccak256, Digest};
+        use sha3::{Digest, Keccak256};
         let mut hasher = Keccak256::new();
         hasher.update(&tx.data);
         let message_hash = hasher.finalize();
-        
+
         let secp = Secp256k1::new();
-        let secret_key = SecretKey::from_slice(private_key)
-            .map_err(|e| BlockchainError {
-                message: format!("Invalid EVM private key: {}", e),
-                chain: Some(self.chain),
-                code: None,
-            })?;
-        
+        let secret_key = SecretKey::from_slice(private_key).map_err(|e| BlockchainError {
+            message: format!("Invalid EVM private key: {}", e),
+            chain: Some(self.chain),
+            code: None,
+        })?;
+
         let message = Message::from_digest(message_hash.into());
         let signature = secp.sign_ecdsa_recoverable(&message, &secret_key);
-        
+
         // Serialize recoverable signature (65 bytes: r + s + v)
         let (recovery_id, raw_sig) = signature.serialize_compact();
         let mut sig_bytes = Vec::with_capacity(65);
         sig_bytes.extend_from_slice(&raw_sig);
         sig_bytes.push(recovery_id.to_i32() as u8 + 27); // Convert to Ethereum v value
-        
+
         Ok(sig_bytes)
     }
-    
+
     /// Sign a Sui transaction (Ed25519).
-    fn sign_sui_transaction(&self, tx: &UnsignedTransaction, private_key: &[u8]) -> Result<Vec<u8>, BlockchainError> {
-        use ed25519_dalek::{SigningKey, Signer};
-        
+    fn sign_sui_transaction(
+        &self,
+        tx: &UnsignedTransaction,
+        private_key: &[u8],
+    ) -> Result<Vec<u8>, BlockchainError> {
+        use ed25519_dalek::{Signer, SigningKey};
+
         if private_key.len() < 32 {
             return Err(BlockchainError {
                 message: format!("Invalid key length: {}", private_key.len()),
@@ -209,25 +222,33 @@ impl NativeWallet {
                 code: None,
             });
         }
-        
+
         let mut key_bytes = [0u8; 32];
         key_bytes.copy_from_slice(&private_key[..32]);
         let signing_key = SigningKey::from_bytes(&key_bytes);
-        
+
         // Sign the transaction data (BCS-encoded)
         let signature = signing_key.sign(&tx.data);
-        
+
         Ok(signature.to_bytes().to_vec())
     }
-    
+
     /// Sign an Aptos transaction (Ed25519, same as Sui).
-    fn sign_aptos_transaction(&self, tx: &UnsignedTransaction, private_key: &[u8]) -> Result<Vec<u8>, BlockchainError> {
+    fn sign_aptos_transaction(
+        &self,
+        tx: &UnsignedTransaction,
+        private_key: &[u8],
+    ) -> Result<Vec<u8>, BlockchainError> {
         // Aptos uses the same Ed25519 signing as Sui
         self.sign_sui_transaction(tx, private_key)
     }
-    
+
     /// Sign a Solana transaction (Ed25519).
-    fn sign_solana_transaction(&self, tx: &UnsignedTransaction, private_key: &[u8]) -> Result<Vec<u8>, BlockchainError> {
+    fn sign_solana_transaction(
+        &self,
+        tx: &UnsignedTransaction,
+        private_key: &[u8],
+    ) -> Result<Vec<u8>, BlockchainError> {
         // Solana also uses Ed25519, same signing mechanism
         self.sign_sui_transaction(tx, private_key)
     }

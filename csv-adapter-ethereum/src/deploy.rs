@@ -58,7 +58,7 @@ impl ContractDeployer {
     ///
     /// # Note
     /// This synchronous method provides deployment configuration and validation.
-    /// For actual deployment with transaction broadcasting, use `deploy_csv_lock()` 
+    /// For actual deployment with transaction broadcasting, use `deploy_csv_lock()`
     /// which uses Alloy for async RPC-based deployment with proper signing.
     pub fn deploy_contract(
         &self,
@@ -139,11 +139,7 @@ impl ContractDeployer {
     }
 
     /// Encode constructor arguments according to Solidity ABI
-    fn encode_constructor_args(
-        &self,
-        _abi: &[u8],
-        _args: &[u8],
-    ) -> EthereumResult<Vec<u8>> {
+    fn encode_constructor_args(&self, _abi: &[u8], _args: &[u8]) -> EthereumResult<Vec<u8>> {
         // Would parse ABI and encode arguments properly
         // For now, return empty
         Ok(vec![])
@@ -172,41 +168,48 @@ pub async fn deploy_csv_lock(
     let key_clean = private_key_hex.trim_start_matches("0x");
     let signer = PrivateKeySigner::from_str(key_clean)
         .map_err(|e| EthereumError::WalletError(format!("Invalid private key: {}", e)))?;
-    
+
     // Create wallet
     let wallet = EthereumWallet::from(signer.clone());
-    
+
     // Create provider
-    let provider = ProviderBuilder::new()
-        .wallet(wallet)
-        .connect_http(rpc_url.parse().map_err(|e| {
-            EthereumError::ConfigError(format!("Invalid RPC URL: {}", e))
-        })?);
-    
+    let provider = ProviderBuilder::new().wallet(wallet).connect_http(
+        rpc_url
+            .parse()
+            .map_err(|e| EthereumError::ConfigError(format!("Invalid RPC URL: {}", e)))?,
+    );
+
     // Get sender address and nonce
     let sender = signer.address();
-    let nonce = provider.get_transaction_count(sender).await
+    let nonce = provider
+        .get_transaction_count(sender)
+        .await
         .map_err(|e| EthereumError::RpcError(format!("Failed to get nonce: {}", e)))?;
-    
+
     // Build deployment transaction
     let tx = TransactionRequest::default()
         .from(sender)
         .nonce(nonce)
         .input(Bytes::from(bytecode.to_vec()).into())
         .gas_limit(3_000_000u64); // Estimate or use dynamic gas
-    
+
     // Send transaction and wait for receipt
-    let tx_hash = provider.send_transaction(tx).await
+    let tx_hash = provider
+        .send_transaction(tx)
+        .await
         .map_err(|e| EthereumError::RpcError(format!("Failed to send transaction: {}", e)))?;
-    
+
     // Wait for confirmation
-    let receipt = tx_hash.get_receipt().await
+    let receipt = tx_hash
+        .get_receipt()
+        .await
         .map_err(|e| EthereumError::RpcError(format!("Failed to get receipt: {}", e)))?;
-    
+
     // Get contract address from receipt
-    let contract_address = receipt.contract_address
-        .ok_or_else(|| EthereumError::DeploymentError("Contract address not found in receipt".to_string()))?;
-    
+    let contract_address = receipt.contract_address.ok_or_else(|| {
+        EthereumError::DeploymentError("Contract address not found in receipt".to_string())
+    })?;
+
     Ok(ContractDeployment {
         contract_address: (*contract_address).into(),
         transaction_hash: receipt.transaction_hash.0,

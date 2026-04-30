@@ -4,7 +4,6 @@ use crate::pages::common::*;
 use crate::routes::Route;
 use dioxus::prelude::*;
 
-
 #[component]
 pub fn RunScenario() -> Element {
     let mut selected_scenario = use_signal(|| String::from("double_spend"));

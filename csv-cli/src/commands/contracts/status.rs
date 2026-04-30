@@ -63,7 +63,14 @@ pub fn cmd_verify(chain: Chain, _config: &Config, state: &UnifiedStateManager) -
 pub fn cmd_list(state: &UnifiedStateManager) -> Result<()> {
     output::header("Deployed Contracts");
 
-    let headers = vec!["Chain", "Version", "Address", "TX / Source", "Explorer", "Deployed"];
+    let headers = vec![
+        "Chain",
+        "Version",
+        "Address",
+        "TX / Source",
+        "Explorer",
+        "Deployed",
+    ];
     let mut rows = Vec::new();
 
     for (idx, contract) in state.storage.contracts.iter().enumerate() {
@@ -139,7 +146,10 @@ pub fn cmd_fetch(
             let discovered = rt.block_on(discover_contracts(chain.clone(), &address, rpc_url))?;
 
             for contract in discovered {
-                output::info(&format!("  Found: {} - {}", contract.address, contract.description));
+                output::info(&format!(
+                    "  Found: {} - {}",
+                    contract.address, contract.description
+                ));
                 state.store_contract(ContractRecord {
                     chain: chain.clone(),
                     address: contract.address,
@@ -157,7 +167,10 @@ pub fn cmd_fetch(
     }
 
     if total_discovered > 0 {
-        output::success(&format!("Discovered and stored {} contract(s)", total_discovered));
+        output::success(&format!(
+            "Discovered and stored {} contract(s)",
+            total_discovered
+        ));
     } else {
         output::info("No new contracts discovered on chain.");
     }
@@ -180,10 +193,7 @@ async fn discover_contracts(
     }
 }
 
-async fn discover_sui_contracts(
-    address: &str,
-    rpc_url: &str,
-) -> Result<Vec<DiscoveredContract>> {
+async fn discover_sui_contracts(address: &str, rpc_url: &str) -> Result<Vec<DiscoveredContract>> {
     let client = reqwest::Client::new();
 
     let body = serde_json::json!({

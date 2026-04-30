@@ -41,14 +41,16 @@ pub fn HashDisplay(props: HashDisplayProps) -> Element {
     let value = props.value.clone();
     let shortened = shorten_hash(&value, props.prefix_len, props.suffix_len);
     let mut copied = use_signal(|| false);
-    
+
     let mut copy_to_clipboard = {
         let _value = value.clone();
         move || {
             #[cfg(target_arch = "wasm32")]
             {
                 // Clipboard access via web_sys is feature-gated; for now just log
-                web_sys::console::log_1(&"Copy to clipboard (WASM): clipboard API requires web_sys features".into());
+                web_sys::console::log_1(
+                    &"Copy to clipboard (WASM): clipboard API requires web_sys features".into(),
+                );
                 // In a full implementation with proper web_sys features:
                 // let window = web_sys::window().unwrap();
                 // let navigator = window.navigator();
@@ -63,26 +65,26 @@ pub fn HashDisplay(props: HashDisplayProps) -> Element {
             });
         }
     };
-    
+
     let tooltip_attr = if props.show_tooltip {
         value.clone()
     } else {
         String::new()
     };
-    
+
     rsx! {
         span {
             class: "hash-display {props.class}",
             title: if props.show_tooltip { tooltip_attr } else { String::new() },
-            
+
             // Optional label
             if let Some(label) = props.label {
                 span { class: "hash-label", "{label}: " }
             }
-            
+
             // Shortened hash
             span { class: "hash-value", "{shortened}" }
-            
+
             // Copy button
             if props.show_copy {
                 button {
@@ -117,11 +119,11 @@ pub fn shorten_hash(hash: &str, prefix_len: usize, suffix_len: usize) -> String 
     if hash.len() <= prefix_len + suffix_len + 3 {
         return hash.to_string();
     }
-    
+
     let prefix = &hash[..prefix_len.min(hash.len())];
     let suffix_start = hash.len().saturating_sub(suffix_len);
     let suffix = &hash[suffix_start..];
-    
+
     format!("{}...{}", prefix, suffix)
 }
 
@@ -143,7 +145,7 @@ pub struct TxHashDisplayProps {
 #[allow(non_snake_case)]
 pub fn TxHashDisplay(props: TxHashDisplayProps) -> Element {
     let has_explorer = props.explorer_url.is_some();
-    
+
     rsx! {
         span { class: "tx-hash-display {props.class}",
             HashDisplay {
@@ -152,7 +154,7 @@ pub fn TxHashDisplay(props: TxHashDisplayProps) -> Element {
                 suffix_len: 8,
                 show_copy: true,
             }
-            
+
             if has_explorer {
                 a {
                     class: "tx-explorer-link",
@@ -193,20 +195,23 @@ pub struct AddressDisplayProps {
 /// Display a wallet address with optional alias.
 #[allow(non_snake_case)]
 pub fn AddressDisplay(props: AddressDisplayProps) -> Element {
-    let display_value = props.alias.clone().unwrap_or_else(|| shorten_hash(&props.address, 6, 4));
-    
+    let display_value = props
+        .alias
+        .clone()
+        .unwrap_or_else(|| shorten_hash(&props.address, 6, 4));
+
     rsx! {
         span { class: "address-display {props.class}",
             if props.show_icon {
                 span { class: "address-icon", "👤" }
             }
-            
-            span { 
+
+            span {
                 class: if props.alias.is_some() { "address-alias" } else { "address-value" },
                 title: props.address.clone(),
                 "{display_value}"
             }
-            
+
             if props.alias.is_some() {
                 HashDisplay {
                     value: props.address.clone(),

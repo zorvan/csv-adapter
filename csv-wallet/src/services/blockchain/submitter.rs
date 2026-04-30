@@ -48,7 +48,7 @@ impl TransactionSubmitter {
         _rpc_url: &str,
     ) -> Result<TransactionReceipt, BlockchainError> {
         web_sys::console::log_1(&"Submitting to Bitcoin network...".into());
-        
+
         // Would use bitcoin RPC or mempool.space API
         Err(BlockchainError {
             message: "Bitcoin submission not fully implemented".to_string(),
@@ -64,7 +64,7 @@ impl TransactionSubmitter {
         _rpc_url: &str,
     ) -> Result<TransactionReceipt, BlockchainError> {
         web_sys::console::log_1(&"Submitting to Ethereum network...".into());
-        
+
         // Would use eth_sendRawTransaction
         Err(BlockchainError {
             message: "Ethereum submission not fully implemented".to_string(),
@@ -80,7 +80,7 @@ impl TransactionSubmitter {
         _rpc_url: &str,
     ) -> Result<TransactionReceipt, BlockchainError> {
         web_sys::console::log_1(&"Submitting to Sui network...".into());
-        
+
         // Would use sui_executeTransactionBlock
         Err(BlockchainError {
             message: "Sui submission not fully implemented".to_string(),
@@ -96,7 +96,7 @@ impl TransactionSubmitter {
         _rpc_url: &str,
     ) -> Result<TransactionReceipt, BlockchainError> {
         web_sys::console::log_1(&"Submitting to Aptos network...".into());
-        
+
         // Would use aptos transactions submit
         Err(BlockchainError {
             message: "Aptos submission not fully implemented".to_string(),
@@ -112,7 +112,7 @@ impl TransactionSubmitter {
         _rpc_url: &str,
     ) -> Result<TransactionReceipt, BlockchainError> {
         web_sys::console::log_1(&"Submitting to Solana network...".into());
-        
+
         // Would use sendTransaction RPC
         Err(BlockchainError {
             message: "Solana submission not fully implemented".to_string(),

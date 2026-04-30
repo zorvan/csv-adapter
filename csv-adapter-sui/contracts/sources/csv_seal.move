@@ -15,6 +15,11 @@ module csv_seal::csv_seal {
     use sui::event;
     use std::vector;
 
+    const ASSET_CLASS_UNSPECIFIED: u8 = 0;
+    const ASSET_CLASS_PROOF_RIGHT: u8 = 3;
+    const PROOF_SYSTEM_UNSPECIFIED: u8 = 0;
+    const E_INVALID_METADATA: u64 = 1006;
+
     /// A Right anchored to Sui as an object.
     /// The object's existence = the Right's validity.
     /// Deleting the object = consuming the Right (single-use enforced).
@@ -30,6 +35,16 @@ module csv_seal::csv_seal {
         nullifier: vector<u8>,
         /// State root (off-chain state commitment)
         state_root: vector<u8>,
+        /// Asset class: 0 unspecified, 1 fungible token, 2 NFT, 3 proof right
+        asset_class: u8,
+        /// Chain-native token/NFT/proof family id
+        asset_id: vector<u8>,
+        /// Hash of canonical metadata
+        metadata_hash: vector<u8>,
+        /// Proof system identifier
+        proof_system: u8,
+        /// Proof root or verification-key commitment
+        proof_root: vector<u8>,
     }
 
     /// Lock record for refund tracking
@@ -42,6 +57,12 @@ module csv_seal::csv_seal {
         owner: address,
         /// Destination chain ID
         destination_chain: u8,
+        /// Asset/proof metadata copied from the locked Right
+        asset_class: u8,
+        asset_id: vector<u8>,
+        metadata_hash: vector<u8>,
+        proof_system: u8,
+        proof_root: vector<u8>,
         /// Lock timestamp (Unix epoch seconds)
         locked_at: u64,
         /// Whether this lock has been refunded
@@ -63,6 +84,11 @@ module csv_seal::csv_seal {
         commitment: vector<u8>,
         owner: address,
         object_id: ID,
+        asset_class: u8,
+        asset_id: vector<u8>,
+        metadata_hash: vector<u8>,
+        proof_system: u8,
+        proof_root: vector<u8>,
     }
 
     struct RightConsumed has copy, drop {
@@ -78,6 +104,11 @@ module csv_seal::csv_seal {
         destination_owner: vector<u8>,
         source_tx_hash: vector<u8>,
         locked_at: u64,
+        asset_class: u8,
+        asset_id: vector<u8>,
+        metadata_hash: vector<u8>,
+        proof_system: u8,
+        proof_root: vector<u8>,
     }
 
     struct CrossChainMint has copy, drop {
@@ -86,6 +117,11 @@ module csv_seal::csv_seal {
         owner: address,
         source_chain: u8,
         source_seal_ref: vector<u8>,
+        asset_class: u8,
+        asset_id: vector<u8>,
+        metadata_hash: vector<u8>,
+        proof_system: u8,
+        proof_root: vector<u8>,
     }
 
     struct CrossChainRefund has copy, drop {
@@ -93,6 +129,15 @@ module csv_seal::csv_seal {
         commitment: vector<u8>,
         claimant: address,
         refunded_at: u64,
+    }
+
+    struct RightMetadataRecorded has copy, drop {
+        right_id: vector<u8>,
+        asset_class: u8,
+        asset_id: vector<u8>,
+        metadata_hash: vector<u8>,
+        proof_system: u8,
+        proof_root: vector<u8>,
     }
 
     /// Create a new LockRegistry (called once during deployment)
@@ -119,6 +164,11 @@ module csv_seal::csv_seal {
             owner: tx_context::sender(ctx),
             nullifier: vector::empty<u8>(),
             state_root,
+            asset_class: ASSET_CLASS_UNSPECIFIED,
+            asset_id: vector::empty<u8>(),
+            metadata_hash: vector::empty<u8>(),
+            proof_system: PROOF_SYSTEM_UNSPECIFIED,
+            proof_root: vector::empty<u8>(),
         };
 
         event::emit(RightCreated {
@@ -126,9 +176,43 @@ module csv_seal::csv_seal {
             commitment: right.commitment,
             owner: right.owner,
             object_id: object::uid_to_inner(&right.id),
+            asset_class: right.asset_class,
+            asset_id: right.asset_id,
+            metadata_hash: right.metadata_hash,
+            proof_system: right.proof_system,
+            proof_root: right.proof_root,
         });
 
         transfer::public_transfer(right, tx_context::sender(ctx));
+    }
+
+    /// Record token/NFT/proof metadata for an unconsumed Right.
+    public fun record_right_metadata(
+        right: &mut RightObject,
+        asset_class: u8,
+        asset_id: vector<u8>,
+        metadata_hash: vector<u8>,
+        proof_system: u8,
+        proof_root: vector<u8>,
+    ) {
+        assert!(asset_class <= ASSET_CLASS_PROOF_RIGHT, E_INVALID_METADATA);
+        assert!(asset_class == ASSET_CLASS_UNSPECIFIED || vector::length(&asset_id) > 0, E_INVALID_METADATA);
+        assert!(proof_system == PROOF_SYSTEM_UNSPECIFIED || vector::length(&proof_root) > 0, E_INVALID_METADATA);
+
+        right.asset_class = asset_class;
+        right.asset_id = asset_id;
+        right.metadata_hash = metadata_hash;
+        right.proof_system = proof_system;
+        right.proof_root = proof_root;
+
+        event::emit(RightMetadataRecorded {
+            right_id: right.right_id,
+            asset_class,
+            asset_id: right.asset_id,
+            metadata_hash: right.metadata_hash,
+            proof_system,
+            proof_root: right.proof_root,
+        });
     }
 
     /// Consume a Right (single-use enforcement via object deletion)
@@ -141,7 +225,19 @@ module csv_seal::csv_seal {
             consumer: tx_context::sender(ctx),
         });
 
-        let RightObject { id, right_id: _, commitment: _, owner: _, nullifier: _, state_root: _ } = right;
+        let RightObject {
+            id,
+            right_id: _,
+            commitment: _,
+            owner: _,
+            nullifier: _,
+            state_root: _,
+            asset_class: _,
+            asset_id: _,
+            metadata_hash: _,
+            proof_system: _,
+            proof_root: _,
+        } = right;
         object::delete(id);
     }
 
@@ -163,6 +259,11 @@ module csv_seal::csv_seal {
             commitment: right.commitment,
             owner: right.owner,
             destination_chain,
+            asset_class: right.asset_class,
+            asset_id: right.asset_id,
+            metadata_hash: right.metadata_hash,
+            proof_system: right.proof_system,
+            proof_root: right.proof_root,
             locked_at,
             refunded: false,
         };
@@ -177,10 +278,27 @@ module csv_seal::csv_seal {
             destination_owner,
             source_tx_hash: *tx_context::digest(ctx),
             locked_at,
+            asset_class: right.asset_class,
+            asset_id: right.asset_id,
+            metadata_hash: right.metadata_hash,
+            proof_system: right.proof_system,
+            proof_root: right.proof_root,
         });
 
         // Consume the Right (object deletion = single-use enforcement)
-        let RightObject { id, right_id: _, commitment: _, owner: _, nullifier: _, state_root: _ } = right;
+        let RightObject {
+            id,
+            right_id: _,
+            commitment: _,
+            owner: _,
+            nullifier: _,
+            state_root: _,
+            asset_class: _,
+            asset_id: _,
+            metadata_hash: _,
+            proof_system: _,
+            proof_root: _,
+        } = right;
         object::delete(id);
     }
 
@@ -201,6 +319,11 @@ module csv_seal::csv_seal {
             owner: tx_context::sender(ctx),
             nullifier: vector::empty<u8>(),
             state_root,
+            asset_class: ASSET_CLASS_UNSPECIFIED,
+            asset_id: vector::empty<u8>(),
+            metadata_hash: vector::empty<u8>(),
+            proof_system: PROOF_SYSTEM_UNSPECIFIED,
+            proof_root: vector::empty<u8>(),
         };
 
         event::emit(CrossChainMint {
@@ -209,6 +332,11 @@ module csv_seal::csv_seal {
             owner: right.owner,
             source_chain,
             source_seal_ref,
+            asset_class: right.asset_class,
+            asset_id: right.asset_id,
+            metadata_hash: right.metadata_hash,
+            proof_system: right.proof_system,
+            proof_root: right.proof_root,
         });
 
         transfer::public_transfer(right, tx_context::sender(ctx));
@@ -253,6 +381,11 @@ module csv_seal::csv_seal {
             owner: tx_context::sender(ctx),
             nullifier: vector::empty<u8>(),
             state_root,
+            asset_class: lock.asset_class,
+            asset_id: lock.asset_id,
+            metadata_hash: lock.metadata_hash,
+            proof_system: lock.proof_system,
+            proof_root: lock.proof_root,
         };
 
         event::emit(CrossChainRefund {

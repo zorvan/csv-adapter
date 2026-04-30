@@ -101,12 +101,27 @@ pub fn CreateRightForm() -> Element {
     }
 }
 
-fn notification_banner(kind: crate::context::NotificationKind, message: String, on_close: impl FnOnce() + 'static) -> Element {
+fn notification_banner(
+    kind: crate::context::NotificationKind,
+    message: String,
+    on_close: impl FnOnce() + 'static,
+) -> Element {
     let (bg_class, icon) = match kind {
-        crate::context::NotificationKind::Success => ("bg-green-900/30 border-green-700/50 text-green-300", "\u{2705}"),
-        crate::context::NotificationKind::Error => ("bg-red-900/30 border-red-700/50 text-red-300", "\u{274C}"),
-        crate::context::NotificationKind::Info => ("bg-blue-900/30 border-blue-700/50 text-blue-300", "\u{2139}"),
-        crate::context::NotificationKind::Warning => ("bg-yellow-900/30 border-yellow-700/50 text-yellow-300", "\u{26A0}"),
+        crate::context::NotificationKind::Success => (
+            "bg-green-900/30 border-green-700/50 text-green-300",
+            "\u{2705}",
+        ),
+        crate::context::NotificationKind::Error => {
+            ("bg-red-900/30 border-red-700/50 text-red-300", "\u{274C}")
+        }
+        crate::context::NotificationKind::Info => (
+            "bg-blue-900/30 border-blue-700/50 text-blue-300",
+            "\u{2139}",
+        ),
+        crate::context::NotificationKind::Warning => (
+            "bg-yellow-900/30 border-yellow-700/50 text-yellow-300",
+            "\u{26A0}",
+        ),
     };
 
     let on_close_cell = std::cell::RefCell::new(Some(on_close));

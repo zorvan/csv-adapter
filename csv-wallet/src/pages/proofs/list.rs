@@ -216,7 +216,11 @@ fn proof_status_class(status: &ProofStatus) -> &'static str {
 
 fn proof_data_summary(data: &crate::context::ProofData) -> Element {
     match data {
-        crate::context::ProofData::Merkle { root, path, leaf_index } => {
+        crate::context::ProofData::Merkle {
+            root,
+            path,
+            leaf_index,
+        } => {
             rsx! {
                 div { class: "space-y-1 text-xs",
                     p { span { class: "text-gray-500", "Root: " }, span { class: "font-mono", "{truncate_address(root, 16)}" } }
@@ -225,7 +229,11 @@ fn proof_data_summary(data: &crate::context::ProofData) -> Element {
                 }
             }
         }
-        crate::context::ProofData::Mpt { root, account_proof, storage_proof } => {
+        crate::context::ProofData::Mpt {
+            root,
+            account_proof,
+            storage_proof,
+        } => {
             rsx! {
                 div { class: "space-y-1 text-xs",
                     p { span { class: "text-gray-500", "Root: " }, span { class: "font-mono", "{truncate_address(root, 16)}" } }
@@ -234,7 +242,11 @@ fn proof_data_summary(data: &crate::context::ProofData) -> Element {
                 }
             }
         }
-        crate::context::ProofData::Checkpoint { sequence, digest, signatures } => {
+        crate::context::ProofData::Checkpoint {
+            sequence,
+            digest,
+            signatures,
+        } => {
             rsx! {
                 div { class: "space-y-1 text-xs",
                     p { span { class: "text-gray-500", "Sequence: " }, "#{sequence}" }
@@ -251,7 +263,11 @@ fn proof_data_summary(data: &crate::context::ProofData) -> Element {
                 }
             }
         }
-        crate::context::ProofData::Solana { slot, bank_hash, merkle_proof } => {
+        crate::context::ProofData::Solana {
+            slot,
+            bank_hash,
+            merkle_proof,
+        } => {
             rsx! {
                 div { class: "space-y-1 text-xs",
                     p { span { class: "text-gray-500", "Slot: " }, "#{slot}" }

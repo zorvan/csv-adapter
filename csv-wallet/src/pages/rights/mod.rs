@@ -1,15 +1,15 @@
 //! Rights management pages.
 
-pub mod list;
+pub mod consume;
 pub mod create;
+pub mod journey;
+pub mod list;
 pub mod show;
 pub mod transfer;
-pub mod consume;
-pub mod journey;
 
-pub use list::Rights;
+pub use consume::ConsumeRight;
 pub use create::CreateRight;
+pub use journey::RightJourney;
+pub use list::Rights;
 pub use show::ShowRight;
 pub use transfer::TransferRight;
-pub use consume::ConsumeRight;
-pub use journey::RightJourney;

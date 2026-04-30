@@ -3,7 +3,9 @@
 //! A Seal cryptographically protects a Right. When you create a seal,
 //! you're locking a Right's value for cross-chain transfer or secure storage.
 
-use crate::context::{generate_id, use_wallet_context, SealRecord, SealStatus, SealContent, RightStatus};
+use crate::context::{
+    generate_id, use_wallet_context, RightStatus, SealContent, SealRecord, SealStatus,
+};
 use crate::pages::common::*;
 use crate::routes::Route;
 use csv_adapter_core::Chain;
@@ -19,7 +21,8 @@ pub fn CreateSeal() -> Element {
     let mut error = use_signal(|| Option::<String>::None);
 
     // Get active rights for the selected chain
-    let rights_for_chain: Vec<_> = wallet_ctx.rights_for_chain(*selected_chain.read())
+    let rights_for_chain: Vec<_> = wallet_ctx
+        .rights_for_chain(*selected_chain.read())
         .into_iter()
         .filter(|r| r.status == RightStatus::Active)
         .collect();
@@ -43,7 +46,7 @@ pub fn CreateSeal() -> Element {
 
             div { class: "{card_class()} p-6 space-y-5",
                 {form_field("Chain", chain_select(move |v: Rc<FormData>| {
-                    if let Ok(c) = v.value().parse::<Chain>() { 
+                    if let Ok(c) = v.value().parse::<Chain>() {
                         selected_chain.set(c);
                         selected_right_index.set(0); // Reset selection when chain changes
                     }
@@ -88,12 +91,12 @@ pub fn CreateSeal() -> Element {
                             error.set(Some("No rights available to seal".to_string()));
                             return;
                         }
-                        
+
                         let right = rights_for_chain.get(*selected_right_index.read());
                         if let Some(right) = right {
                             let seal_ref = generate_id();
                             let now = js_sys::Date::now() as u64 / 1000;
-                            
+
                             let seal = SealRecord {
                                 seal_ref: seal_ref.clone(),
                                 chain: *selected_chain.read(),
@@ -110,10 +113,10 @@ pub fn CreateSeal() -> Element {
                                 proof_ref: None,
                             };
                             wallet_ctx.add_seal(seal);
-                            
+
                             result.set(Some(format!(
                                 "Seal created!\nReference: {}\nProtects Right: {}",
-                                seal_ref, 
+                                seal_ref,
                                 truncate_address(&right.id, 12)
                             )));
                             error.set(None);
@@ -129,4 +132,3 @@ pub fn CreateSeal() -> Element {
         }
     }
 }
-

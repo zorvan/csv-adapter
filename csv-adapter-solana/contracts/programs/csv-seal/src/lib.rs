@@ -32,6 +32,10 @@ declare_id!("HdxSFwzk2v6JMm3w55MW1EuMeNcM9gTC4ETFMKqYyy6m");
 pub mod csv_seal {
     use super::*;
 
+    const ASSET_CLASS_UNSPECIFIED: u8 = 0;
+    const ASSET_CLASS_PROOF_RIGHT: u8 = 3;
+    const PROOF_SYSTEM_UNSPECIFIED: u8 = 0;
+
     /// Initialize the LockRegistry (called once during deployment)
     pub fn initialize_registry(ctx: Context<InitializeRegistry>) -> Result<()> {
         let registry = &mut ctx.accounts.registry;
@@ -63,6 +67,11 @@ pub mod csv_seal {
         right.commitment = commitment;
         right.state_root = state_root;
         right.nullifier = [0u8; 32];
+        right.asset_class = ASSET_CLASS_UNSPECIFIED;
+        right.asset_id = [0u8; 32];
+        right.metadata_hash = [0u8; 32];
+        right.proof_system = PROOF_SYSTEM_UNSPECIFIED;
+        right.proof_root = [0u8; 32];
         right.consumed = false;
         right.locked = false;
         right.created_at = Clock::get()?.unix_timestamp;
@@ -73,6 +82,11 @@ pub mod csv_seal {
             commitment,
             owner,
             account: right.key(),
+            asset_class: right.asset_class,
+            asset_id: right.asset_id,
+            metadata_hash: right.metadata_hash,
+            proof_system: right.proof_system,
+            proof_root: right.proof_root,
         });
 
         Ok(())
@@ -121,6 +135,11 @@ pub mod csv_seal {
             owner,
             destination_chain,
             destination_owner,
+            asset_class: right.asset_class,
+            asset_id: right.asset_id,
+            metadata_hash: right.metadata_hash,
+            proof_system: right.proof_system,
+            proof_root: right.proof_root,
             locked_at,
             refunded: false,
         };
@@ -143,6 +162,20 @@ pub mod csv_seal {
             destination_owner,
             source_tx_hash,
             locked_at,
+            asset_class: right.asset_class,
+            asset_id: right.asset_id,
+            metadata_hash: right.metadata_hash,
+            proof_system: right.proof_system,
+            proof_root: right.proof_root,
+        });
+
+        emit!(RightMetadataRecorded {
+            right_id: right.right_id,
+            asset_class: right.asset_class,
+            asset_id: right.asset_id,
+            metadata_hash: right.metadata_hash,
+            proof_system: right.proof_system,
+            proof_root: right.proof_root,
         });
 
         emit!(RightConsumed {
@@ -173,6 +206,11 @@ pub mod csv_seal {
         right.commitment = commitment;
         right.state_root = state_root;
         right.nullifier = [0u8; 32];
+        right.asset_class = ASSET_CLASS_UNSPECIFIED;
+        right.asset_id = [0u8; 32];
+        right.metadata_hash = [0u8; 32];
+        right.proof_system = PROOF_SYSTEM_UNSPECIFIED;
+        right.proof_root = [0u8; 32];
         right.consumed = false;
         right.locked = false;
         right.created_at = Clock::get()?.unix_timestamp;
@@ -185,6 +223,11 @@ pub mod csv_seal {
             source_chain,
             source_seal_ref,
             account: right.key(),
+            asset_class: right.asset_class,
+            asset_id: right.asset_id,
+            metadata_hash: right.metadata_hash,
+            proof_system: right.proof_system,
+            proof_root: right.proof_root,
         });
 
         Ok(())
@@ -230,6 +273,11 @@ pub mod csv_seal {
         right.commitment = lock.commitment;
         right.state_root = state_root;
         right.nullifier = [0u8; 32];
+        right.asset_class = lock.asset_class;
+        right.asset_id = lock.asset_id;
+        right.metadata_hash = lock.metadata_hash;
+        right.proof_system = lock.proof_system;
+        right.proof_root = lock.proof_root;
         right.consumed = false;
         right.locked = false;
         right.created_at = now;
@@ -240,6 +288,46 @@ pub mod csv_seal {
             commitment: lock.commitment,
             claimant,
             refunded_at: now,
+        });
+
+        Ok(())
+    }
+
+    /// Attach token/NFT/proof metadata to an unconsumed Right.
+    pub fn record_right_metadata(
+        ctx: Context<RecordRightMetadata>,
+        asset_class: u8,
+        asset_id: [u8; 32],
+        metadata_hash: [u8; 32],
+        proof_system: u8,
+        proof_root: [u8; 32],
+    ) -> Result<()> {
+        require!(asset_class <= ASSET_CLASS_PROOF_RIGHT, CsvError::InvalidRightMetadata);
+        require!(
+            asset_class == ASSET_CLASS_UNSPECIFIED || asset_id != [0u8; 32],
+            CsvError::InvalidRightMetadata
+        );
+        require!(
+            proof_system == PROOF_SYSTEM_UNSPECIFIED || proof_root != [0u8; 32],
+            CsvError::InvalidRightMetadata
+        );
+
+        let right = &mut ctx.accounts.right_account;
+        require!(!right.consumed, CsvError::AlreadyConsumed);
+
+        right.asset_class = asset_class;
+        right.asset_id = asset_id;
+        right.metadata_hash = metadata_hash;
+        right.proof_system = proof_system;
+        right.proof_root = proof_root;
+
+        emit!(RightMetadataRecorded {
+            right_id: right.right_id,
+            asset_class,
+            asset_id,
+            metadata_hash,
+            proof_system,
+            proof_root,
         });
 
         Ok(())
@@ -450,5 +538,20 @@ pub struct RegisterNullifier<'info> {
     )]
     pub right_account: Account<'info, RightAccount>,
     
+    pub authority: Signer<'info>,
+}
+
+/// Record metadata accounts
+#[derive(Accounts)]
+#[instruction(asset_class: u8, asset_id: [u8; 32], metadata_hash: [u8; 32], proof_system: u8, proof_root: [u8; 32])]
+pub struct RecordRightMetadata<'info> {
+    #[account(
+        mut,
+        seeds = [b"right", right_account.owner.as_ref(), &right_account.right_id],
+        bump = right_account.bump,
+        constraint = right_account.owner == authority.key() @ CsvError::NotAuthorized
+    )]
+    pub right_account: Account<'info, RightAccount>,
+
     pub authority: Signer<'info>,
 }

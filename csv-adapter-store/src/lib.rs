@@ -19,8 +19,8 @@ pub mod browser_storage;
 
 // Re-exports from state module
 pub use state::{
-    Chain, ChainConfig, ContractRecord, FaucetConfig, GasAccount, Network,
-    ProofRecord, RightRecord, RightStatus, SealRecord, StateStorage, StorageBackend, StorageError,
+    Chain, ChainConfig, ContractRecord, FaucetConfig, GasAccount, Network, ProofRecord,
+    RightRecord, RightStatus, SealRecord, StateStorage, StorageBackend, StorageError,
     TransactionRecord, TransactionStatus, TransactionType, TransferRecord, TransferStatus,
     WalletAccount, WalletConfig,
 };

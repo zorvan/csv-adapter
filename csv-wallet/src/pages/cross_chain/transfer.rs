@@ -1,6 +1,9 @@
 //! Cross-chain transfer page.
 
-use crate::context::{use_wallet_context, RightStatus, TrackedTransfer, TransferStatus, SealRecord, SealStatus, SealContent, ProofRecord, ProofStatus, ProofData};
+use crate::context::{
+    use_wallet_context, ProofData, ProofRecord, ProofStatus, RightStatus, SealContent, SealRecord,
+    SealStatus, TrackedTransfer, TransferStatus,
+};
 use crate::pages::common::*;
 use crate::routes::Route;
 use csv_adapter_core::Chain;
@@ -23,22 +26,24 @@ pub fn CrossChainTransfer() -> Element {
 
     // Get rights for the source chain (filtered to active only)
     let from_chain_val = *from_chain.read();
-    let rights_for_source: Vec<_> = wallet_ctx.rights_for_chain(from_chain_val)
+    let rights_for_source: Vec<_> = wallet_ctx
+        .rights_for_chain(from_chain_val)
         .into_iter()
         .filter(|r| r.status == RightStatus::Active)
         .collect();
     let has_rights = !rights_for_source.is_empty();
-    
+
     // Reset right selection when chain changes
     use_effect(move || {
         selected_right_index.set(0);
     });
-    
+
     // Clone for use in memo
     let rights_for_memo = rights_for_source.clone();
     // Get the selected right ID
     let right_id = use_memo(move || {
-        rights_for_memo.get(*selected_right_index.read())
+        rights_for_memo
+            .get(*selected_right_index.read())
             .map(|r| r.id.clone())
             .unwrap_or_default()
     });
@@ -46,7 +51,7 @@ pub fn CrossChainTransfer() -> Element {
     // Get accounts for the source chain
     let accounts = wallet_ctx.accounts_for_chain(*from_chain.read());
     let has_account = !accounts.is_empty();
-    
+
     // Check if selected account is watch-only (can't sign)
     let selected_account = accounts.get(*selected_account_index.read());
     let is_watch_only = selected_account.map(|a| a.is_watch_only()).unwrap_or(false);
@@ -86,16 +91,17 @@ pub fn CrossChainTransfer() -> Element {
         Chain::Aptos => 0.01,
         Chain::Ethereum => 0.001, // ~$2-3 for simple transfer
         Chain::Solana => 0.001,   // ~0.001 SOL
-        _ => 0.0, // Bitcoin doesn't need pre-funded destination for minting
+        _ => 0.0,                 // Bitcoin doesn't need pre-funded destination for minting
     };
     let dest_has_enough_balance = *dest_balance.read() >= min_dest_balance;
 
     // Get contracts for source and target chains
     let source_contracts = wallet_ctx.contracts_for_chain(*from_chain.read());
     let target_contracts = wallet_ctx.contracts_for_chain(*to_chain.read());
-    let _has_source_contract = !source_contracts.is_empty() || matches!(*from_chain.read(), Chain::Bitcoin);
+    let _has_source_contract =
+        !source_contracts.is_empty() || matches!(*from_chain.read(), Chain::Bitcoin);
     let has_target_contract = !target_contracts.is_empty();
-    
+
     // Reset target contract selection when target chain changes
     use_effect(move || {
         selected_target_contract_index.set(0);
@@ -108,9 +114,10 @@ pub fn CrossChainTransfer() -> Element {
         move || {
             if let Some(ref contract) = selected {
                 // Find the contract in target contracts list
-                if let Some(index) = target_contracts.iter().position(|c| {
-                    c.chain == contract.chain && c.address == contract.address
-                }) {
+                if let Some(index) = target_contracts
+                    .iter()
+                    .position(|c| c.chain == contract.chain && c.address == contract.address)
+                {
                     selected_target_contract_index.set(index);
                 }
             }
@@ -128,22 +135,31 @@ pub fn CrossChainTransfer() -> Element {
 
     // Clone before moving into closure to avoid borrow after move
     let rights_for_closure = rights_for_source.clone();
-    
+
     // Execute real cross-chain transfer using native signing
     let execute_transfer = move |_| {
         let rights_for_source_closure = rights_for_closure.clone();
         if !_has_source_contract {
-            error.set(Some(format!("No contract deployed on {:?}. Deploy a contract first.", *from_chain.read())));
+            error.set(Some(format!(
+                "No contract deployed on {:?}. Deploy a contract first.",
+                *from_chain.read()
+            )));
             return;
         }
 
         if !has_target_contract {
-            error.set(Some(format!("No contract deployed on {:?}. Deploy a contract first.", *to_chain.read())));
+            error.set(Some(format!(
+                "No contract deployed on {:?}. Deploy a contract first.",
+                *to_chain.read()
+            )));
             return;
         }
 
         if !has_dest_account {
-            error.set(Some(format!("No account available for destination chain {:?}. Please add an account first.", *to_chain.read())));
+            error.set(Some(format!(
+                "No account available for destination chain {:?}. Please add an account first.",
+                *to_chain.read()
+            )));
             return;
         }
 
@@ -163,12 +179,18 @@ pub fn CrossChainTransfer() -> Element {
         }
 
         if !has_account {
-            error.set(Some(format!("No account available for {:?}. Please add an account first.", *from_chain.read())));
+            error.set(Some(format!(
+                "No account available for {:?}. Please add an account first.",
+                *from_chain.read()
+            )));
             return;
         }
 
         if !has_rights {
-            error.set(Some(format!("No active rights available for {:?}. Create a right first.", *from_chain.read())));
+            error.set(Some(format!(
+                "No active rights available for {:?}. Create a right first.",
+                *from_chain.read()
+            )));
             return;
         }
 
@@ -177,10 +199,10 @@ pub fn CrossChainTransfer() -> Element {
         // - Ethereum: Native ABI encoding
         // - Sui: BCS encoding via sdk_tx
         // - Aptos: BCS encoding via sdk_tx (planned)
-        
+
         let from = *from_chain.read();
         let to = *to_chain.read();
-        
+
         executing.set(true);
         error.set(None);
         step.set(1);
@@ -199,7 +221,9 @@ pub fn CrossChainTransfer() -> Element {
             let mut wallet_ctx = wallet_ctx.clone();
 
             async move {
-                use crate::services::blockchain::{BlockchainConfig, BlockchainService, NativeWallet};
+                use crate::services::blockchain::{
+                    BlockchainConfig, BlockchainService, NativeWallet,
+                };
                 use crate::wallet_core::ChainAccount;
 
                 // Get the selected account
@@ -244,13 +268,16 @@ pub fn CrossChainTransfer() -> Element {
                 let source_contracts = wallet_ctx.contracts_for_chain(from);
                 if !source_contracts.is_empty() {
                     if let Some(contract) = source_contracts.first() {
-                        contracts.insert(from, crate::services::blockchain::ContractDeployment {
-                            chain: from,
-                            contract_address: contract.address.clone(),
-                            tx_hash: contract.tx_hash.clone(),
-                            deployed_at: contract.deployed_at,
-                            contract_type: crate::services::blockchain::ContractType::Lock,
-                        });
+                        contracts.insert(
+                            from,
+                            crate::services::blockchain::ContractDeployment {
+                                chain: from,
+                                contract_address: contract.address.clone(),
+                                tx_hash: contract.tx_hash.clone(),
+                                deployed_at: contract.deployed_at,
+                                contract_type: crate::services::blockchain::ContractType::Lock,
+                            },
+                        );
                     }
                 }
 
@@ -259,35 +286,36 @@ pub fn CrossChainTransfer() -> Element {
                 if !target_contracts.is_empty() {
                     let selected_idx = target_contract_idx.min(target_contracts.len() - 1);
                     if let Some(contract) = target_contracts.get(selected_idx) {
-                        contracts.insert(to, crate::services::blockchain::ContractDeployment {
-                            chain: to,
-                            contract_address: contract.address.clone(),
-                            tx_hash: contract.tx_hash.clone(),
-                            deployed_at: contract.deployed_at,
-                            contract_type: crate::services::blockchain::ContractType::Lock,
-                        });
+                        contracts.insert(
+                            to,
+                            crate::services::blockchain::ContractDeployment {
+                                chain: to,
+                                contract_address: contract.address.clone(),
+                                tx_hash: contract.tx_hash.clone(),
+                                deployed_at: contract.deployed_at,
+                                contract_type: crate::services::blockchain::ContractType::Lock,
+                            },
+                        );
                     }
                 }
 
-                match service.execute_cross_chain_transfer(
-                    from,
-                    to,
-                    &right,
-                    &dest_addr,
-                    &contracts,
-                    &signer,
-                ).await {
+                match service
+                    .execute_cross_chain_transfer(from, to, &right, &dest_addr, &contracts, &signer)
+                    .await
+                {
                     Ok(transfer_result) => {
                         step_signal.set(6); // Set beyond last step to show all completed
                         let transfer_id = transfer_result.transfer_id.clone();
                         let now = js_sys::Date::now() as u64 / 1000;
 
                         // Get contract addresses from the contracts map
-                        let source_contract = contracts.get(&from).map(|c| c.contract_address.clone());
+                        let source_contract =
+                            contracts.get(&from).map(|c| c.contract_address.clone());
                         let dest_contract = contracts.get(&to).map(|c| c.contract_address.clone());
 
                         // Format fees with appropriate chain units
-                        let source_fee_str = transfer_result.source_fee.map(|fee| format_fee(fee, from));
+                        let source_fee_str =
+                            transfer_result.source_fee.map(|fee| format_fee(fee, from));
                         let dest_fee_str = transfer_result.dest_fee.map(|fee| format_fee(fee, to));
 
                         // Create linked Seal record
@@ -301,7 +329,10 @@ pub fn CrossChainTransfer() -> Element {
                         let seal = SealRecord {
                             seal_ref: seal_ref.clone(),
                             chain: from,
-                            value: rights_for_source_closure.get(*selected_right_index.read()).map(|r| r.value).unwrap_or(0),
+                            value: rights_for_source_closure
+                                .get(*selected_right_index.read())
+                                .map(|r| r.value)
+                                .unwrap_or(0),
                             right_id: right.clone(),
                             status: SealStatus::Locked,
                             created_at: now,
@@ -325,7 +356,10 @@ pub fn CrossChainTransfer() -> Element {
                             Chain::Sui => ProofData::Checkpoint {
                                 sequence: now,
                                 digest: transfer_result.lock_tx_hash.clone(),
-                                signatures: vec!["validator_1".to_string(), "validator_2".to_string()],
+                                signatures: vec![
+                                    "validator_1".to_string(),
+                                    "validator_2".to_string(),
+                                ],
                             },
                             Chain::Aptos => ProofData::Ledger {
                                 version: now,
@@ -342,7 +376,7 @@ pub fn CrossChainTransfer() -> Element {
                                 leaf_index: 0,
                             },
                         };
-                        
+
                         let proof_type = match from {
                             Chain::Bitcoin => "merkle",
                             Chain::Ethereum => "mpt",
@@ -351,7 +385,7 @@ pub fn CrossChainTransfer() -> Element {
                             Chain::Solana => "solana",
                             _ => "merkle",
                         };
-                        
+
                         let proof = ProofRecord {
                             chain: from,
                             right_id: right.clone(),
@@ -365,9 +399,12 @@ pub fn CrossChainTransfer() -> Element {
                             verification_tx_hash: Some(transfer_result.mint_tx_hash.clone()),
                         };
                         wallet_ctx.add_proof(proof);
-                        
+
                         // Link proof to seal
-                        wallet_ctx.link_proof_to_seal(&seal_ref, &format!("proof_{}", &transfer_id[..16]));
+                        wallet_ctx.link_proof_to_seal(
+                            &seal_ref,
+                            &format!("proof_{}", &transfer_id[..16]),
+                        );
 
                         // Record the transfer with full details
                         wallet_ctx.add_transfer(TrackedTransfer {
@@ -524,8 +561,8 @@ pub fn CrossChainTransfer() -> Element {
 
                 {form_field("Available Rights", rsx! {
                     if rights_for_source.is_empty() {
-                        p { class: "text-sm text-red-400", 
-                            {format!("No active rights available for {:?}. Create a right on this chain first.", from_chain_val)} 
+                        p { class: "text-sm text-red-400",
+                            {format!("No active rights available for {:?}. Create a right on this chain first.", from_chain_val)}
                         }
                     } else {
                         select {
@@ -547,7 +584,7 @@ pub fn CrossChainTransfer() -> Element {
                         }
                     }
                 })}
-                
+
                 // Show selected right details
                 if let Some(right) = rights_for_source.get(*selected_right_index.read()) {
                     div { class: "bg-gray-800/50 rounded-lg p-3 border border-gray-700",

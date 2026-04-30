@@ -62,7 +62,10 @@ pub fn cmd_init(
     }
 
     if account > 0 {
-        output::info(&format!("Bitcoin account index: {} (BIP-86 path: m/86'/coin_type'/{}'/0/0)", account, account));
+        output::info(&format!(
+            "Bitcoin account index: {} (BIP-86 path: m/86'/coin_type'/{}'/0/0)",
+            account, account
+        ));
     }
 
     if fund {
@@ -217,7 +220,10 @@ fn generate_sui_from_mnemonic(_mnemonic: &str, state: &mut UnifiedStateManager) 
     Ok(address)
 }
 
-fn generate_aptos_from_mnemonic(_mnemonic: &str, state: &mut UnifiedStateManager) -> Result<String> {
+fn generate_aptos_from_mnemonic(
+    _mnemonic: &str,
+    state: &mut UnifiedStateManager,
+) -> Result<String> {
     use ed25519_dalek::SigningKey;
     use rand::RngCore;
     use sha3::{Digest, Sha3_256};
@@ -241,7 +247,10 @@ fn generate_aptos_from_mnemonic(_mnemonic: &str, state: &mut UnifiedStateManager
     Ok(address)
 }
 
-fn generate_solana_from_mnemonic(_mnemonic: &str, state: &mut UnifiedStateManager) -> Result<String> {
+fn generate_solana_from_mnemonic(
+    _mnemonic: &str,
+    state: &mut UnifiedStateManager,
+) -> Result<String> {
     use ed25519_dalek::SigningKey;
     use rand::RngCore;
 

@@ -4,8 +4,23 @@ pragma solidity ^0.8.20;
 /// @title CSVLock — Cross-Chain Right Lock on Ethereum
 /// @notice Registers nullifiers, emits lock events, and supports time-locked refunds
 contract CSVLock {
+    uint8 public constant ASSET_CLASS_UNSPECIFIED = 0;
+    uint8 public constant ASSET_CLASS_FUNGIBLE_TOKEN = 1;
+    uint8 public constant ASSET_CLASS_NON_FUNGIBLE_TOKEN = 2;
+    uint8 public constant ASSET_CLASS_PROOF_RIGHT = 3;
+    uint8 public constant PROOF_SYSTEM_UNSPECIFIED = 0;
+
     /// @notice Tracks consumed nullifiers (seal single-use)
     mapping(bytes32 => bool) public usedSeals;
+
+    /// @notice Cross-chain metadata shared by all CSV contracts.
+    struct RightMetadata {
+        uint8 assetClass;
+        bytes32 assetId;
+        bytes32 metadataHash;
+        uint8 proofSystem;
+        bytes32 proofRoot;
+    }
 
     /// @notice Lock record for refund support
     struct LockRecord {
@@ -13,6 +28,7 @@ contract CSVLock {
         uint256 timestamp;
         uint8 destinationChain;
         bytes32 destinationOwnerRoot; // Hash of destination owner for verification
+        RightMetadata metadata;
         bool refunded;
     }
 
@@ -32,7 +48,12 @@ contract CSVLock {
         address indexed owner,
         uint8 destinationChain,
         bytes destinationOwner,
-        bytes32 sourceTxHash
+        bytes32 sourceTxHash,
+        uint8 assetClass,
+        bytes32 assetId,
+        bytes32 metadataHash,
+        uint8 proofSystem,
+        bytes32 proofRoot
     );
 
     /// @notice Emitted when a Right is consumed (nullifier registered)
@@ -48,6 +69,14 @@ contract CSVLock {
 
     /// @notice Emitted when mint contract address is set
     event MintContractSet(address indexed mintContract);
+    event RightMetadataRecorded(
+        bytes32 indexed rightId,
+        uint8 assetClass,
+        bytes32 indexed assetId,
+        bytes32 metadataHash,
+        uint8 proofSystem,
+        bytes32 indexed proofRoot
+    );
 
     error RightAlreadyConsumed();
     error RightAlreadyLocked();
@@ -55,6 +84,7 @@ contract CSVLock {
     error RightAlreadyMinted();
     error RefundAlreadyClaimed();
     error InvalidMintContract();
+    error InvalidRightMetadata();
 
     /// @notice Set the mint contract address (for refund verification)
     /// @param _mintContract Address of the CSVMint contract
@@ -75,6 +105,51 @@ contract CSVLock {
         uint8 destinationChain,
         bytes calldata destinationOwner
     ) external {
+        _lockRight(
+            rightId,
+            commitment,
+            destinationChain,
+            destinationOwner,
+            RightMetadata({
+                assetClass: ASSET_CLASS_UNSPECIFIED,
+                assetId: bytes32(0),
+                metadataHash: bytes32(0),
+                proofSystem: PROOF_SYSTEM_UNSPECIFIED,
+                proofRoot: bytes32(0)
+            })
+        );
+    }
+
+    /// @notice Lock a Right with asset/proof metadata for token, NFT, or advanced proof flows.
+    function lockRightWithMetadata(
+        bytes32 rightId,
+        bytes32 commitment,
+        uint8 destinationChain,
+        bytes calldata destinationOwner,
+        uint8 assetClass,
+        bytes32 assetId,
+        bytes32 metadataHash,
+        uint8 proofSystem,
+        bytes32 proofRoot
+    ) external {
+        RightMetadata memory metadata = RightMetadata({
+            assetClass: assetClass,
+            assetId: assetId,
+            metadataHash: metadataHash,
+            proofSystem: proofSystem,
+            proofRoot: proofRoot
+        });
+        _validateMetadata(metadata);
+        _lockRight(rightId, commitment, destinationChain, destinationOwner, metadata);
+    }
+
+    function _lockRight(
+        bytes32 rightId,
+        bytes32 commitment,
+        uint8 destinationChain,
+        bytes calldata destinationOwner,
+        RightMetadata memory metadata
+    ) internal {
         if (usedSeals[rightId]) {
             revert RightAlreadyConsumed();
         }
@@ -90,6 +165,7 @@ contract CSVLock {
             timestamp: block.timestamp,
             destinationChain: destinationChain,
             destinationOwnerRoot: keccak256(destinationOwner),
+            metadata: metadata,
             refunded: false
         });
 
@@ -99,10 +175,33 @@ contract CSVLock {
             msg.sender,
             destinationChain,
             destinationOwner,
-            blockhash(block.number - 1)
+            blockhash(block.number - 1),
+            metadata.assetClass,
+            metadata.assetId,
+            metadata.metadataHash,
+            metadata.proofSystem,
+            metadata.proofRoot
         );
 
+        emit RightMetadataRecorded(
+            rightId,
+            metadata.assetClass,
+            metadata.assetId,
+            metadata.metadataHash,
+            metadata.proofSystem,
+            metadata.proofRoot
+        );
         emit SealUsed(rightId, commitment);
+    }
+
+    function _validateMetadata(RightMetadata memory metadata) internal pure {
+        if (metadata.assetClass > ASSET_CLASS_PROOF_RIGHT) revert InvalidRightMetadata();
+        if (metadata.assetClass != ASSET_CLASS_UNSPECIFIED && metadata.assetId == bytes32(0)) {
+            revert InvalidRightMetadata();
+        }
+        if (metadata.proofSystem != PROOF_SYSTEM_UNSPECIFIED && metadata.proofRoot == bytes32(0)) {
+            revert InvalidRightMetadata();
+        }
     }
 
     /// @notice Register a nullifier (consume seal without cross-chain transfer)
@@ -188,6 +287,24 @@ contract CSVLock {
     ) {
         LockRecord storage lock = locks[rightId];
         return (lock.commitment, lock.timestamp, lock.destinationChain, lock.refunded);
+    }
+
+    /// @notice Get metadata attached to a locked Right.
+    function getRightMetadata(bytes32 rightId) external view returns (
+        uint8 assetClass,
+        bytes32 assetId,
+        bytes32 metadataHash,
+        uint8 proofSystem,
+        bytes32 proofRoot
+    ) {
+        RightMetadata storage metadata = locks[rightId].metadata;
+        return (
+            metadata.assetClass,
+            metadata.assetId,
+            metadata.metadataHash,
+            metadata.proofSystem,
+            metadata.proofRoot
+        );
     }
 
     /// @notice Check if a refund can be claimed for a Right

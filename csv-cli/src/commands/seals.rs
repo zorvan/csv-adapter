@@ -5,7 +5,7 @@ use clap::Subcommand;
 
 use crate::config::{Chain, Config};
 use crate::output;
-use crate::state::{UnifiedStateManager, SealRecord};
+use crate::state::{SealRecord, UnifiedStateManager};
 
 #[derive(Subcommand)]
 pub enum SealAction {
@@ -51,7 +51,12 @@ pub fn execute(action: SealAction, config: &Config, state: &mut UnifiedStateMana
     }
 }
 
-fn cmd_create(chain: Chain, value: Option<u64>, _config: &Config, state: &mut UnifiedStateManager) -> Result<()> {
+fn cmd_create(
+    chain: Chain,
+    value: Option<u64>,
+    _config: &Config,
+    state: &mut UnifiedStateManager,
+) -> Result<()> {
     output::header(&format!("Creating Seal on {}", chain));
 
     let seal_bytes: Vec<u8> = match chain {
@@ -92,7 +97,12 @@ fn cmd_create(chain: Chain, value: Option<u64>, _config: &Config, state: &mut Un
     Ok(())
 }
 
-fn cmd_consume(chain: Chain, seal_ref: String, _config: &Config, state: &mut UnifiedStateManager) -> Result<()> {
+fn cmd_consume(
+    chain: Chain,
+    seal_ref: String,
+    _config: &Config,
+    state: &mut UnifiedStateManager,
+) -> Result<()> {
     output::header(&format!("Consuming Seal on {}", chain));
 
     let seal_bytes = hex::decode(seal_ref.trim_start_matches("0x"))
@@ -112,7 +122,12 @@ fn cmd_consume(chain: Chain, seal_ref: String, _config: &Config, state: &mut Uni
     Ok(())
 }
 
-fn cmd_verify(chain: Chain, seal_ref: String, _config: &Config, state: &UnifiedStateManager) -> Result<()> {
+fn cmd_verify(
+    chain: Chain,
+    seal_ref: String,
+    _config: &Config,
+    state: &UnifiedStateManager,
+) -> Result<()> {
     output::header(&format!("Verifying Seal on {}", chain));
 
     let seal_bytes = hex::decode(seal_ref.trim_start_matches("0x"))
@@ -134,7 +149,8 @@ fn cmd_verify(chain: Chain, seal_ref: String, _config: &Config, state: &UnifiedS
 fn cmd_list(chain: Option<Chain>, state: &UnifiedStateManager) -> Result<()> {
     output::header("Consumed Seals");
 
-    let consumed_seals: Vec<&SealRecord> = state.storage.seals.iter().filter(|s| s.consumed).collect();
+    let consumed_seals: Vec<&SealRecord> =
+        state.storage.seals.iter().filter(|s| s.consumed).collect();
 
     if consumed_seals.is_empty() {
         output::info("No seals consumed");

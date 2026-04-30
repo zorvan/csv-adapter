@@ -7,10 +7,10 @@
 //! - Security best practices
 //! - Interactive tutorial
 
-use dioxus::prelude::*;
 use crate::components::design_tokens::SealState;
-use crate::components::seal_status::SealStatusBadge;
 use crate::components::hash_display::HashDisplay;
+use crate::components::seal_status::SealStatusBadge;
+use dioxus::prelude::*;
 
 /// Onboarding step definitions.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -34,7 +34,7 @@ impl OnboardingStep {
             OnboardingStep::Complete => "You're Ready!",
         }
     }
-    
+
     fn description(&self) -> &'static str {
         match self {
             OnboardingStep::Welcome => "CSV (Cross-Seal Validation) enables secure cross-chain asset transfers using cryptographic seals.",
@@ -45,7 +45,7 @@ impl OnboardingStep {
             OnboardingStep::Complete => "You now understand the basics. Start exploring the CSV ecosystem!",
         }
     }
-    
+
     fn progress(&self) -> (usize, usize) {
         match self {
             OnboardingStep::Welcome => (0, 5),
@@ -56,7 +56,7 @@ impl OnboardingStep {
             OnboardingStep::Complete => (5, 5),
         }
     }
-    
+
     fn next(&self) -> Option<OnboardingStep> {
         match self {
             OnboardingStep::Welcome => Some(OnboardingStep::WhatIsSeal),
@@ -67,7 +67,7 @@ impl OnboardingStep {
             OnboardingStep::Complete => None,
         }
     }
-    
+
     fn prev(&self) -> Option<OnboardingStep> {
         match self {
             OnboardingStep::Welcome => None,
@@ -104,10 +104,10 @@ pub struct OnboardingFlowProps {
 pub fn OnboardingFlow(props: OnboardingFlowProps) -> Element {
     let mut current_step = use_signal(|| OnboardingStep::Welcome);
     let completed_steps = use_signal(|| std::collections::HashSet::<OnboardingStep>::new());
-    
+
     let (progress, total) = current_step().progress();
     let progress_percent = (progress * 100) / total;
-    
+
     let mut go_next = {
         let mut current = current_step.clone();
         let mut completed = completed_steps.clone();
@@ -118,7 +118,7 @@ pub fn OnboardingFlow(props: OnboardingFlowProps) -> Element {
             }
         }
     };
-    
+
     let mut go_prev = {
         let mut current = current_step.clone();
         move || {
@@ -127,31 +127,31 @@ pub fn OnboardingFlow(props: OnboardingFlowProps) -> Element {
             }
         }
     };
-    
+
     let complete = {
         let on_complete = props.on_complete.clone();
         move || {
             on_complete.call(());
         }
     };
-    
+
     rsx! {
         div { class: "onboarding-flow {props.class}",
             // Progress bar
             div { class: "onboarding-progress",
-                div { 
+                div {
                     class: "onboarding-progress-bar",
                     style: format!("width: {}%", progress_percent),
                 }
             }
-            
+
             // Header with skip button
             div { class: "onboarding-header",
                 div { class: "onboarding-brand",
                     span { class: "brand-icon", "🔒" }
                     span { class: "brand-name", "CSV Wallet" }
                 }
-                
+
                 if props.allow_skip && current_step() != OnboardingStep::Complete {
                     button {
                         class: "onboarding-skip",
@@ -160,7 +160,7 @@ pub fn OnboardingFlow(props: OnboardingFlowProps) -> Element {
                     }
                 }
             }
-            
+
             // Step content
             div { class: "onboarding-content",
                 match current_step() {
@@ -188,7 +188,7 @@ pub fn OnboardingFlow(props: OnboardingFlowProps) -> Element {
                     },
                 }
             }
-            
+
             // Navigation
             div { class: "onboarding-nav",
                 if current_step().prev().is_some() {
@@ -200,7 +200,7 @@ pub fn OnboardingFlow(props: OnboardingFlowProps) -> Element {
                 } else {
                     div {} // Spacer
                 }
-                
+
                 // Step indicators
                 div { class: "onboarding-dots",
                     for step in [
@@ -217,7 +217,7 @@ pub fn OnboardingFlow(props: OnboardingFlowProps) -> Element {
                             class: if completed_steps().contains(&step) { "completed" },
                             onclick: move |_| {
                                 // Allow clicking dots to jump to completed steps
-                                if completed_steps().contains(&step) || 
+                                if completed_steps().contains(&step) ||
                                    current_step().prev() == Some(step) {
                                     current_step.set(step);
                                 }
@@ -225,7 +225,7 @@ pub fn OnboardingFlow(props: OnboardingFlowProps) -> Element {
                         }
                     }
                 }
-                
+
                 if let Some(_next) = current_step().next() {
                     button {
                         class: "onboarding-btn next",
@@ -240,7 +240,7 @@ pub fn OnboardingFlow(props: OnboardingFlowProps) -> Element {
                     }
                 }
             }
-            
+
             // Step counter
             div { class: "onboarding-counter",
                 "Step {progress + 1} of {total + 1}"
@@ -260,14 +260,14 @@ fn WelcomeStep(props: WelcomeStepProps) -> Element {
     rsx! {
         div { class: "onboarding-step welcome",
             div { class: "welcome-icon", "🔐" }
-            
+
             h2 { class: "step-title", "Welcome to CSV Wallet" }
-            
+
             p { class: "step-description",
                 "CSV (Cross-Seal Validation) is a revolutionary protocol for secure, "
                 "verifiable cross-chain asset transfers using cryptographic seals."
             }
-            
+
             div { class: "feature-highlights",
                 div { class: "feature-item",
                     span { class: "feature-icon", "🔗" }
@@ -285,7 +285,7 @@ fn WelcomeStep(props: WelcomeStepProps) -> Element {
                     p { "Optimized for speed without compromising security" }
                 }
             }
-            
+
             button {
                 class: "onboarding-btn primary",
                 onclick: move |_| props.on_next.call(()),
@@ -306,13 +306,13 @@ fn WhatIsSealStep(_props: WhatIsSealStepProps) -> Element {
     rsx! {
         div { class: "onboarding-step seal-intro",
             h2 { class: "step-title", "What is a Seal?" }
-            
+
             p { class: "step-description",
                 "A seal is a unique digital fingerprint that represents ownership "
                 "of an asset on a specific blockchain. Think of it like a tamper-proof "
                 "sticker that can only be used once."
             }
-            
+
             // Visual seal example
             div { class: "seal-demo",
                 div { class: "seal-card",
@@ -352,7 +352,7 @@ fn WhatIsSealStep(_props: WhatIsSealStepProps) -> Element {
                     }
                 }
             }
-            
+
             // Seal lifecycle
             div { class: "seal-lifecycle-intro",
                 h4 { "Seal Lifecycle" }
@@ -373,7 +373,7 @@ fn WhatIsSealStep(_props: WhatIsSealStepProps) -> Element {
                     }
                 }
             }
-            
+
             p { class: "step-note",
                 "Once a seal is consumed, it cannot be used again. "
                 "This prevents double-spending across chains."
@@ -395,12 +395,12 @@ fn WalletSetupStep(props: WalletSetupStepProps) -> Element {
     rsx! {
         div { class: "onboarding-step wallet-setup",
             h2 { class: "step-title", "Set Up Your Wallet" }
-            
+
             p { class: "step-description",
                 "To start using CSV, you'll need a wallet. "
                 "This will generate your cryptographic keys for signing transactions."
             }
-            
+
             div { class: "wallet-options",
                 div { class: "wallet-option",
                     span { class: "option-icon", "🆕" }
@@ -417,7 +417,7 @@ fn WalletSetupStep(props: WalletSetupStepProps) -> Element {
                         "Create Wallet"
                     }
                 }
-                
+
                 div { class: "wallet-option",
                     span { class: "option-icon", "📥" }
                     h4 { "Import Existing" }
@@ -434,7 +434,7 @@ fn WalletSetupStep(props: WalletSetupStepProps) -> Element {
                     }
                 }
             }
-            
+
             div { class: "wallet-note",
                 p { "🔐 Your keys are stored securely and never leave your device." }
             }
@@ -453,12 +453,12 @@ fn CreateRightStep(props: CreateRightStepProps) -> Element {
     rsx! {
         div { class: "onboarding-step create-right",
             h2 { class: "step-title", "Create Your First Right" }
-            
+
             p { class: "step-description",
                 "A Right represents ownership of an asset. "
                 "When you create a right, a seal is automatically generated to protect it."
             }
-            
+
             // Right creation flow
             div { class: "right-flow",
                 div { class: "flow-step",
@@ -479,7 +479,7 @@ fn CreateRightStep(props: CreateRightStepProps) -> Element {
                     p { "Right is recorded on blockchain" }
                 }
             }
-            
+
             div { class: "right-example",
                 h4 { "Example Right" }
                 div { class: "example-card",
@@ -504,7 +504,7 @@ fn CreateRightStep(props: CreateRightStepProps) -> Element {
                     }
                 }
             }
-            
+
             button {
                 class: "onboarding-btn",
                 onclick: move |_| props.on_next.call(()),
@@ -525,11 +525,11 @@ fn SecurityTipsStep(props: SecurityTipsStepProps) -> Element {
     rsx! {
         div { class: "onboarding-step security-tips",
             h2 { class: "step-title", "Security Tips" }
-            
+
             p { class: "step-description",
                 "Follow these best practices to keep your seals and assets safe."
             }
-            
+
             div { class: "tips-list",
                 div { class: "tip-item",
                     span { class: "tip-icon", "🔐" }
@@ -538,7 +538,7 @@ fn SecurityTipsStep(props: SecurityTipsStepProps) -> Element {
                         p { "Write down your mnemonic phrase and store it in a secure, offline location." }
                     }
                 }
-                
+
                 div { class: "tip-item",
                     span { class: "tip-icon", "🚫" }
                     div { class: "tip-content",
@@ -546,7 +546,7 @@ fn SecurityTipsStep(props: SecurityTipsStepProps) -> Element {
                         p { "Your private keys grant full access to your assets. Never share them with anyone." }
                     }
                 }
-                
+
                 div { class: "tip-item",
                     span { class: "tip-icon", "✓" }
                     div { class: "tip-content",
@@ -554,7 +554,7 @@ fn SecurityTipsStep(props: SecurityTipsStepProps) -> Element {
                         p { "Always double-check transaction details before signing." }
                     }
                 }
-                
+
                 div { class: "tip-item",
                     span { class: "tip-icon", "📊" }
                     div { class: "tip-content",
@@ -563,11 +563,11 @@ fn SecurityTipsStep(props: SecurityTipsStepProps) -> Element {
                     }
                 }
             }
-            
+
             div { class: "security-note",
                 p { "💡 CSV seals are cryptographically secure, but your keys are your responsibility." }
             }
-            
+
             button {
                 class: "onboarding-btn",
                 onclick: move |_| props.on_next.call(()),
@@ -588,14 +588,14 @@ fn CompleteStep(props: CompleteStepProps) -> Element {
     rsx! {
         div { class: "onboarding-step complete",
             div { class: "complete-icon", "🎉" }
-            
+
             h2 { class: "step-title", "You're Ready!" }
-            
+
             p { class: "step-description",
                 "You've learned the fundamentals of CSV. "
                 "Start by creating your first right or exploring the dashboard."
             }
-            
+
             div { class: "next-actions",
                 div { class: "action-card",
                     span { class: "action-icon", "➕" }
@@ -613,13 +613,13 @@ fn CompleteStep(props: CompleteStepProps) -> Element {
                     p { "View your seals and rights" }
                 }
             }
-            
+
             button {
                 class: "onboarding-btn primary finish",
                 onclick: move |_| props.on_finish.call(()),
                 "Get Started 🚀"
             }
-            
+
             p { class: "help-link",
                 "Need help? Visit the "
                 a { href: "#", "documentation" }
@@ -651,14 +651,14 @@ pub fn OnboardingChecklist(props: OnboardingChecklistProps) -> Element {
     if !props.visible {
         return rsx! {};
     }
-    
+
     let items = vec![
         ("wallet", "Set up your wallet", "🔐"),
         ("right", "Create your first right", "📝"),
         ("transfer", "Try a cross-chain transfer", "🔗"),
         ("seal", "View seal lifecycle", "🏷️"),
     ];
-    
+
     use std::rc::Rc;
     let completed = Rc::new(props.completed.clone());
     let completed_count = completed.len();
@@ -666,7 +666,7 @@ pub fn OnboardingChecklist(props: OnboardingChecklistProps) -> Element {
     let progress = (completed_count * 100) / total;
     let on_action = props.on_action.clone();
     let on_dismiss = props.on_dismiss.clone();
-    
+
     rsx! {
         div { class: "onboarding-checklist",
             div { class: "checklist-header",
@@ -677,15 +677,15 @@ pub fn OnboardingChecklist(props: OnboardingChecklistProps) -> Element {
                     "×"
                 }
             }
-            
+
             div { class: "checklist-progress",
-                div { 
+                div {
                     class: "progress-bar",
                     style: format!("width: {}%", progress),
                 }
                 span { class: "progress-text", "{completed_count}/{total}" }
             }
-            
+
             div { class: "checklist-items",
                 for (id, label, icon) in items {
                     div {

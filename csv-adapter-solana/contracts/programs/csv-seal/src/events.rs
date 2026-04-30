@@ -22,6 +22,16 @@ pub struct RightCreated {
     pub owner: Pubkey,
     /// Account address (PDA)
     pub account: Pubkey,
+    /// Asset class: 0 unspecified, 1 fungible token, 2 NFT, 3 proof right
+    pub asset_class: u8,
+    /// Chain-native token mint, NFT collection/item id, or proof family id
+    pub asset_id: [u8; 32],
+    /// Hash of canonical metadata
+    pub metadata_hash: [u8; 32],
+    /// Proof system identifier
+    pub proof_system: u8,
+    /// Proof root or verification-key commitment
+    pub proof_root: [u8; 32],
 }
 
 /// Emitted when a Right is consumed
@@ -54,6 +64,16 @@ pub struct CrossChainLock {
     pub source_tx_hash: [u8; 32],
     /// Lock timestamp (Unix epoch seconds)
     pub locked_at: i64,
+    /// Asset class
+    pub asset_class: u8,
+    /// Chain-native asset id
+    pub asset_id: [u8; 32],
+    /// Canonical metadata hash
+    pub metadata_hash: [u8; 32],
+    /// Proof system identifier
+    pub proof_system: u8,
+    /// Proof root or verification-key commitment
+    pub proof_root: [u8; 32],
 }
 
 /// Emitted when a Right is minted from a cross-chain transfer
@@ -71,6 +91,16 @@ pub struct CrossChainMint {
     pub source_seal_ref: [u8; 32],
     /// Account address of the new right
     pub account: Pubkey,
+    /// Asset class
+    pub asset_class: u8,
+    /// Chain-native asset id
+    pub asset_id: [u8; 32],
+    /// Canonical metadata hash
+    pub metadata_hash: [u8; 32],
+    /// Proof system identifier
+    pub proof_system: u8,
+    /// Proof root or verification-key commitment
+    pub proof_root: [u8; 32],
 }
 
 /// Emitted when a locked Right is refunded
@@ -104,4 +134,21 @@ pub struct NullifierRegistered {
     pub nullifier: [u8; 32],
     /// The Right identifier
     pub right_id: [u8; 32],
+}
+
+/// Emitted whenever metadata/proof context is recorded for traceability.
+#[event]
+pub struct RightMetadataRecorded {
+    /// Unique Right identifier
+    pub right_id: [u8; 32],
+    /// Asset class
+    pub asset_class: u8,
+    /// Chain-native asset id
+    pub asset_id: [u8; 32],
+    /// Canonical metadata hash
+    pub metadata_hash: [u8; 32],
+    /// Proof system identifier
+    pub proof_system: u8,
+    /// Proof root or verification-key commitment
+    pub proof_root: [u8; 32],
 }

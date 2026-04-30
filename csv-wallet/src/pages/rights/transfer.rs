@@ -10,11 +10,14 @@ pub fn TransferRight() -> Element {
     let wallet_ctx = use_wallet_context();
     let rights = wallet_ctx.rights();
     // Filter only active rights
-    let active_rights: Vec<_> = rights.into_iter().filter(|r| r.status == RightStatus::Active).collect();
+    let active_rights: Vec<_> = rights
+        .into_iter()
+        .filter(|r| r.status == RightStatus::Active)
+        .collect();
     let has_active_rights = !active_rights.is_empty();
     // Clone for use in closure
     let active_rights_for_closure = active_rights.clone();
-    
+
     let mut selected_right_index = use_signal(|| 0usize);
     let mut to_address = use_signal(String::new);
     let mut result = use_signal(|| Option::<String>::None);
@@ -54,7 +57,7 @@ pub fn TransferRight() -> Element {
                         }
                     }
                 })}
-                
+
                 // Show selected right details
                 if let Some(right) = active_rights.get(*selected_right_index.read()) {
                     div { class: "bg-gray-800/50 rounded-lg p-3 border border-gray-700",
@@ -93,11 +96,11 @@ pub fn TransferRight() -> Element {
                             let mut wallet_ctx = wallet_ctx.clone();
                             let blockchain = crate::services::blockchain::BlockchainService::new(Default::default());
                             let signer = wallet_ctx.get_signer_for_chain(chain).unwrap();
-                            
+
                             spawn(async move {
                                 loading.set(true);
                                 result.set(None);
-                                
+
                                 match blockchain.transfer_right_local(chain, &right_id, &to_addr, &signer).await {
                                     Ok(tx_hash) => {
                                         result.set(Some(format!("✅ Transfer successful! Transaction: {}", truncate_address(&tx_hash, 12))));
@@ -107,15 +110,15 @@ pub fn TransferRight() -> Element {
                                         result.set(Some(format!("❌ Transfer failed: {}", e)));
                                     }
                                 }
-                                
+
                                 loading.set(false);
                             });
                         }
                     },
                     disabled: !has_active_rights || *loading.read() || to_address.read().is_empty(),
                     class: if !has_active_rights || *loading.read() { "{btn_full_primary_class()} opacity-50 cursor-not-allowed" } else { "{btn_full_primary_class()}" },
-                    if *loading.read() { "Processing Transfer..." } 
-                    else if !has_active_rights { "No Rights Available" } 
+                    if *loading.read() { "Processing Transfer..." }
+                    else if !has_active_rights { "No Rights Available" }
                     else { "Transfer" }
                 }
             }

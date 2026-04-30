@@ -66,7 +66,12 @@ fn cmd_consignment(file: String, _config: &Config, _state: &UnifiedStateManager)
     Ok(())
 }
 
-fn cmd_proof(proof_file: String, chain: Chain, _config: &Config, _state: &UnifiedStateManager) -> Result<()> {
+fn cmd_proof(
+    proof_file: String,
+    chain: Chain,
+    _config: &Config,
+    _state: &UnifiedStateManager,
+) -> Result<()> {
     output::header(&format!("Validating Proof on {}", chain));
 
     let content = std::fs::read_to_string(&proof_file)?;
@@ -117,7 +122,11 @@ fn cmd_seal(seal_ref: String, _config: &Config, state: &UnifiedStateManager) -> 
     Ok(())
 }
 
-fn cmd_commitment_chain(file: String, _config: &Config, _state: &UnifiedStateManager) -> Result<()> {
+fn cmd_commitment_chain(
+    file: String,
+    _config: &Config,
+    _state: &UnifiedStateManager,
+) -> Result<()> {
     output::header("Validating Commitment Chain");
 
     let content = std::fs::read_to_string(&file)?;

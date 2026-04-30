@@ -1,13 +1,13 @@
 //! Contract management pages.
 
-pub mod list;
-pub mod deploy;
 pub mod add;
-pub mod status;
+pub mod deploy;
+pub mod list;
 pub mod modal;
+pub mod status;
 
-pub use list::Contracts;
-pub use deploy::DeployContract;
 pub use add::AddContract;
-pub use status::ContractStatus;
+pub use deploy::DeployContract;
+pub use list::Contracts;
 pub use modal::ContractDetailModal;
+pub use status::ContractStatus;

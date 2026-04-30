@@ -8,6 +8,6 @@
 pub use csv_adapter_store::browser_storage::*;
 
 /// Backward-compatible type alias for storage error.
-/// 
+///
 /// Previously `StorageError`, now re-exported as `BrowserStorageError` from csv-adapter-store.
 pub type StorageError = BrowserStorageError;

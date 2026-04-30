@@ -36,11 +36,7 @@ pub struct ModuleDeployer {
 
 impl ModuleDeployer {
     /// Create new module deployer
-    pub fn new(
-        config: AptosConfig,
-        signing_key: SigningKey,
-        rpc: Box<dyn AptosRpc>,
-    ) -> Self {
+    pub fn new(config: AptosConfig, signing_key: SigningKey, rpc: Box<dyn AptosRpc>) -> Self {
         Self {
             config,
             signing_key,
@@ -70,7 +66,9 @@ impl ModuleDeployer {
         let sequence_number = self
             .rpc
             .get_account_sequence_number(sender_addr)
-            .map_err(|e| AptosError::SerializationError(format!("Failed to get sequence: {:?}", e)))?;
+            .map_err(|e| {
+                AptosError::SerializationError(format!("Failed to get sequence: {:?}", e))
+            })?;
 
         // Build the publish transaction
         // Entry function: 0x1::code::publish_package_txn
@@ -90,7 +88,7 @@ impl ModuleDeployer {
         Ok(ModuleDeployment {
             account_address: sender_addr,
             module_name: module_name.to_string(),
-            version: 1, // Would be actual version from response
+            version: 1,                            // Would be actual version from response
             transaction_hash: "0x...".to_string(), // Would be actual hash
             gas_used: self.config.transaction.max_gas,
             success: true,
@@ -129,9 +127,7 @@ impl ModuleDeployer {
 
     /// Verify a module is deployed
     pub fn verify_module(&self, address: [u8; 32], module_name: &str) -> AptosResult<bool> {
-        let module_resource = format!(
-            "0x1::code::PackageRegistry"
-        );
+        let module_resource = format!("0x1::code::PackageRegistry");
 
         match self.rpc.get_resource(address, &module_resource, None) {
             Ok(Some(_)) => {
@@ -188,10 +184,9 @@ impl ModuleDeployer {
         use ed25519_dalek::Signer;
 
         // Get chain ID and ledger info
-        let ledger = self
-            .rpc
-            .get_ledger_info()
-            .map_err(|e| AptosError::SerializationError(format!("Failed to get ledger: {:?}", e)))?;
+        let ledger = self.rpc.get_ledger_info().map_err(|e| {
+            AptosError::SerializationError(format!("Failed to get ledger: {:?}", e))
+        })?;
 
         // Calculate expiration
         let expiration_secs = (ledger.ledger_timestamp / 1_000_000) + 600;
@@ -251,10 +246,9 @@ pub async fn deploy_csv_seal_module(
     deployer.deploy_module(module_bytes, "csv_seal").await
 }
 
-
 /// Publish CSV module on Aptos using the Aptos SDK
 ///
-/// NOTE: aptos-sdk 0.4 has a different API structure. 
+/// NOTE: aptos-sdk 0.4 has a different API structure.
 /// For now, use `publish_csv_module_http` which provides full functionality.
 #[cfg(feature = "aptos-sdk")]
 pub async fn publish_csv_module(
@@ -265,9 +259,10 @@ pub async fn publish_csv_module(
 ) -> AptosResult<ModuleDeployment> {
     // SDK 0.4 API is incompatible with this signature
     // Redirect to HTTP implementation
-    Err(AptosError::RpcError(
-        format!("SDK deployment for '{}' not available. Use publish_csv_module_http instead.", module_name)
-    ))
+    Err(AptosError::RpcError(format!(
+        "SDK deployment for '{}' not available. Use publish_csv_module_http instead.",
+        module_name
+    )))
 }
 
 /// Publish CSV module using pure HTTP/REST (fallback when aptos-sdk feature is disabled)
@@ -282,12 +277,12 @@ pub async fn publish_csv_module_http(
 ) -> AptosResult<ModuleDeployment> {
     use ed25519_dalek::Signer;
     use std::time::{SystemTime, UNIX_EPOCH};
-    
+
     // Derive sender address from signing key
     let public_key = signing_key.verifying_key();
     let sender_bytes = public_key.to_bytes();
     let sender = format!("0x{}", hex::encode(&sender_bytes));
-    
+
     // Get account info
     let client = reqwest::Client::new();
     let account_url = format!("{}/v1/accounts/{}", rpc_url.trim_end_matches('/'), sender);
@@ -299,7 +294,7 @@ pub async fn publish_csv_module_http(
         .json()
         .await
         .map_err(|e| AptosError::RpcError(format!("JSON parse error: {}", e)))?;
-    
+
     let sequence_number: u64 = account_resp["sequence_number"]
         .as_str()
         .and_then(|s| s.parse().ok())
@@ -315,13 +310,14 @@ pub async fn publish_csv_module_http(
             format!("0x{}", hex::encode(&module_bytes))
         ]
     });
-    
+
     // Build the raw transaction
     let expiration_time = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
-        .as_secs() + 600;
-    
+        .as_secs()
+        + 600;
+
     let raw_txn = serde_json::json!({
         "sender": sender,
         "sequence_number": sequence_number.to_string(),
@@ -331,12 +327,12 @@ pub async fn publish_csv_module_http(
         "payload": payload,
         "chain_id": "2" // Testnet
     });
-    
+
     // Sign the transaction
     let txn_bytes = serde_json::to_vec(&raw_txn)
         .map_err(|e| AptosError::SerializationError(format!("Failed to serialize: {}", e)))?;
     let signature = signing_key.sign(&txn_bytes);
-    
+
     // Build signed transaction
     let signed_txn = serde_json::json!({
         "sender": sender,
@@ -351,7 +347,7 @@ pub async fn publish_csv_module_http(
             "signature": format!("0x{}", hex::encode(signature.to_bytes()))
         }
     });
-    
+
     // Submit the transaction
     let submit_url = format!("{}/v1/transactions", rpc_url.trim_end_matches('/'));
     let txn_resp: serde_json::Value = client
@@ -363,16 +359,18 @@ pub async fn publish_csv_module_http(
         .json()
         .await
         .map_err(|e| AptosError::RpcError(format!("JSON parse error: {}", e)))?;
-    
+
     let txn_hash = txn_resp["hash"].as_str().unwrap_or("").to_string();
     let success = txn_resp["success"].as_bool().unwrap_or(false);
-    let version = txn_resp["version"].as_str()
+    let version = txn_resp["version"]
+        .as_str()
         .and_then(|s| s.parse().ok())
         .unwrap_or(0);
-    let gas_used = txn_resp["gas_used"].as_str()
+    let gas_used = txn_resp["gas_used"]
+        .as_str()
         .and_then(|s| s.parse().ok())
         .unwrap_or(0);
-    
+
     Ok(ModuleDeployment {
         account_address: sender_bytes,
         module_name: module_name.to_string(),
@@ -382,7 +380,6 @@ pub async fn publish_csv_module_http(
         success,
     })
 }
-
 
 #[cfg(test)]
 mod tests {

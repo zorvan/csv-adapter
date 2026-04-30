@@ -45,7 +45,11 @@ impl RpcClient for SuiRpcClient {
 
         let _tx = self
             .inner
-            .get_transaction_block(digest_bytes.try_into().map_err(|_| ChainError::InvalidInput("Invalid digest length".to_string()))?)
+            .get_transaction_block(
+                digest_bytes
+                    .try_into()
+                    .map_err(|_| ChainError::InvalidInput("Invalid digest length".to_string()))?,
+            )
             .map_err(|e| ChainError::RpcError(format!("{:?}", e)))?;
 
         // SuiTransactionBlock doesn't implement Serialize, so we just return the digest
@@ -192,9 +196,9 @@ impl Wallet for SuiWallet {
             ));
         }
 
-        let _key: [u8; 32] = bytes.try_into().map_err(|_| {
-            ChainError::InvalidInput("Failed to convert to key array".to_string())
-        })?;
+        let _key: [u8; 32] = bytes
+            .try_into()
+            .map_err(|_| ChainError::InvalidInput("Failed to convert to key array".to_string()))?;
 
         Err(ChainError::NotImplemented(
             "Key import - use key derivation instead".to_string(),

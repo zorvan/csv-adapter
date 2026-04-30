@@ -56,10 +56,10 @@ pub use chain_adapter_impl::{create_aptos_adapter, AptosWallet};
 pub use deploy::deploy_csv_seal_module;
 pub use deploy::{ModuleDeployer, ModuleDeployment};
 
-#[cfg(feature = "aptos-sdk")]
-pub use deploy::publish_csv_module;
 pub use checkpoint::CheckpointVerifier;
 pub use config::{AptosConfig, AptosNetwork, CheckpointConfig};
+#[cfg(feature = "aptos-sdk")]
+pub use deploy::publish_csv_module;
 pub use error::AptosError;
 pub use proofs::{
     CommitmentEventBuilder, EventProof, EventProofVerifier, StateProof, StateProofVerifier,

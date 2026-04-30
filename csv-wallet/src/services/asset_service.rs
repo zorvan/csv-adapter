@@ -3,8 +3,8 @@
 //! Provides local storage and management of asset records using LocalStorage.
 
 use chrono::{DateTime, Utc};
+use csv_adapter_core::agent_types::{error_codes, FixAction, HasErrorSuggestion};
 use csv_adapter_core::Chain;
-use csv_adapter_core::agent_types::{HasErrorSuggestion, FixAction, error_codes};
 use serde::{Deserialize, Serialize};
 
 use crate::storage::{asset_storage, LocalStorageManager};
@@ -56,7 +56,8 @@ impl HasErrorSuggestion for AssetError {
         match self {
             AssetError::Storage(_) => {
                 "Browser storage error for assets. Check localStorage is enabled \
-                 and not full. Try clearing old assets or using a different browser.".to_string()
+                 and not full. Try clearing old assets or using a different browser."
+                    .to_string()
             }
             AssetError::NotFound(id) => {
                 format!(
@@ -67,7 +68,8 @@ impl HasErrorSuggestion for AssetError {
             }
             AssetError::InvalidData(_) => {
                 "Invalid asset data format. The stored asset may be corrupted \
-                 or from an incompatible version. Try removing and re-adding the asset.".to_string()
+                 or from an incompatible version. Try removing and re-adding the asset."
+                    .to_string()
             }
         }
     }
@@ -78,19 +80,16 @@ impl HasErrorSuggestion for AssetError {
 
     fn fix_action(&self) -> Option<FixAction> {
         match self {
-            AssetError::NotFound(_) => {
-                Some(FixAction::CheckState {
-                    url: "https://docs.csv.dev/wallet/assets".to_string(),
-                    what: "Verify asset exists in wallet".to_string(),
-                })
-            }
-            AssetError::InvalidData(_) => {
-                Some(FixAction::Retry {
-                    parameter_changes: std::collections::HashMap::from([
-                        ("reimport_asset".to_string(), "true".to_string()),
-                    ]),
-                })
-            }
+            AssetError::NotFound(_) => Some(FixAction::CheckState {
+                url: "https://docs.csv.dev/wallet/assets".to_string(),
+                what: "Verify asset exists in wallet".to_string(),
+            }),
+            AssetError::InvalidData(_) => Some(FixAction::Retry {
+                parameter_changes: std::collections::HashMap::from([(
+                    "reimport_asset".to_string(),
+                    "true".to_string(),
+                )]),
+            }),
             _ => None,
         }
     }

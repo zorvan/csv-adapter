@@ -28,9 +28,18 @@ fn main() {
 
     // Parse version components
     let parts: Vec<&str> = version.split('.').collect();
-    let major = parts.get(0).and_then(|s| s.parse::<u32>().ok()).unwrap_or(0);
-    let minor = parts.get(1).and_then(|s| s.parse::<u32>().ok()).unwrap_or(0);
-    let patch = parts.get(2).and_then(|s| s.parse::<u32>().ok()).unwrap_or(0);
+    let major = parts
+        .get(0)
+        .and_then(|s| s.parse::<u32>().ok())
+        .unwrap_or(0);
+    let minor = parts
+        .get(1)
+        .and_then(|s| s.parse::<u32>().ok())
+        .unwrap_or(0);
+    let patch = parts
+        .get(2)
+        .and_then(|s| s.parse::<u32>().ok())
+        .unwrap_or(0);
 
     // Generate version.rs
     let out_dir = env::var("OUT_DIR").unwrap();
@@ -77,10 +86,6 @@ fn parse_version_from_toml(content: &str) -> String {
     content
         .lines()
         .find(|line| line.trim().starts_with("version ="))
-        .and_then(|line| {
-            line.split('"')
-                .nth(1)
-                .map(|s| s.to_string())
-        })
+        .and_then(|line| line.split('"').nth(1).map(|s| s.to_string()))
         .unwrap_or_else(|| env::var("CARGO_PKG_VERSION").unwrap())
 }

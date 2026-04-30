@@ -76,27 +76,25 @@ impl ContractDeployer {
         // Build the Taproot output with the script
         // This creates the merkle tree root from the script
         let internal_key = derived_key.internal_xonly;
-        
+
         // Compute the Taproot output key that includes the script commitment
         // For single-script contracts, we need to compute the merkle root from the script
         let script_hash = bitcoin::taproot::TapNodeHash::from_script(
             &bitcoin::ScriptBuf::from(script.to_vec()),
-            bitcoin::taproot::LeafVersion::TapScript
+            bitcoin::taproot::LeafVersion::TapScript,
         );
-        
+
         // Use tap_tweak to get the tweaked public key for the P2TR address
         let secp = bitcoin::secp256k1::Secp256k1::new();
         let (tweaked_key, _parity) = internal_key.tap_tweak(&secp, Some(script_hash));
-        
-        let address = bitcoin::Address::p2tr_tweaked(
-            tweaked_key, 
-            self.config.network.to_bitcoin_network()
-        );
+
+        let address =
+            bitcoin::Address::p2tr_tweaked(tweaked_key, self.config.network.to_bitcoin_network());
 
         // Note: The actual transaction building and broadcasting is not yet implemented
         // as it requires UTXO selection, fee estimation, and proper transaction construction.
         // For now, we return the deployment configuration that would be used.
-        
+
         // Generate a placeholder txid (would come from actual broadcast in full impl)
         let txid = [0u8; 32];
 
@@ -125,7 +123,7 @@ impl ContractDeployer {
         // Taproot transactions are roughly vbytes
 
         let base_fee = 1000u64; // Base fee in satoshis
-        let fee_rate = 10u64;    // sat/vbyte (would come from network)
+        let fee_rate = 10u64; // sat/vbyte (would come from network)
 
         base_fee * fee_rate
     }
@@ -167,23 +165,23 @@ fn build_csv_seal_script() -> Vec<u8> {
     // - Takes a 32-byte commitment hash from witness
     // - Verifies it matches the expected commitment
     // - Verifies the signature
-    
+
     // This is a basic structure - actual implementation would need:
     // - Proper commitment verification logic
     // - Integration with the spending transaction validation
-    
+
     let mut script = Vec::new();
-    
+
     // OP_TRUE (0x51) for now - makes the output spendable with key path
     // For script path spending, we'd need a more complex script
     script.push(0x51); // OP_TRUE
-    
+
     // Future enhancement: Add actual commitment verification
     // script.push(0x82); // OP_SIZE
     // script.push(32u8); // Push 32
     // script.push(0x88); // OP_EQUALVERIFY
     // ... more validation
-    
+
     script
 }
 
@@ -198,21 +196,25 @@ mod tests {
         let script = build_csv_seal_script();
         // Script should start with OP_TRUE (0x51) for now
         assert!(!script.is_empty(), "Script should not be empty");
-        
+
         // Verify the deployment structure works
         let wallet = SealWallet::generate_random(Network::Signet);
         let config = BitcoinConfig::default();
-        let rpc = Box::new(crate::rpc::StubBitcoinRpc::new(100)) as Box<dyn BitcoinRpc + Send + Sync>;
+        let rpc =
+            Box::new(crate::rpc::StubBitcoinRpc::new(100)) as Box<dyn BitcoinRpc + Send + Sync>;
         let deployer = ContractDeployer::new(config, wallet, rpc);
 
         let script = build_csv_seal_script();
         let deployment = deployer.deploy_contract(&script, 10000);
-        
+
         // Should return a valid deployment structure
         assert!(deployment.is_ok(), "Deployment should succeed");
         let deploy = deployment.unwrap();
         assert!(!deploy.address.is_empty(), "Address should not be empty");
-        assert!(!deploy.witness_program.is_empty(), "Witness program should not be empty");
+        assert!(
+            !deploy.witness_program.is_empty(),
+            "Witness program should not be empty"
+        );
     }
 
     #[test]
@@ -220,7 +222,8 @@ mod tests {
         // Fee should be reasonable
         let wallet = SealWallet::generate_random(Network::Signet);
         let config = BitcoinConfig::default();
-        let rpc = Box::new(crate::rpc::StubBitcoinRpc::new(100)) as Box<dyn BitcoinRpc + Send + Sync>;
+        let rpc =
+            Box::new(crate::rpc::StubBitcoinRpc::new(100)) as Box<dyn BitcoinRpc + Send + Sync>;
         let deployer = ContractDeployer::new(config, wallet, rpc);
 
         let fee = deployer.estimate_fee(100);

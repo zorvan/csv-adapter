@@ -4,30 +4,33 @@ use anyhow::Result;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use csv_adapter_core::cross_chain::{
-    ChainId, CrossChainFinalityProof, CrossChainSealRegistry, CrossChainTransferProof,
-    LockProvider, MintProvider, TransferVerifier, InclusionProof, CrossChainLockEvent,
-    CrossChainRegistryEntry, CrossChainTransferResult,
+    ChainId, CrossChainFinalityProof, CrossChainLockEvent, CrossChainRegistryEntry,
+    CrossChainSealRegistry, CrossChainTransferProof, CrossChainTransferResult, InclusionProof,
+    LockProvider, MintProvider, TransferVerifier,
 };
 use csv_adapter_store::state::RightRecord;
 
+use super::aptos::{send_aptos_mint_async, send_aptos_mint_via_cli};
 use super::bitcoin::publish_bitcoin_lock;
 use super::ethereum::send_ethereum_mint_via_cast;
-use super::aptos::{send_aptos_mint_via_cli, send_aptos_mint_async};
-use super::utils::{get_private_key, hash_from_hex_32, get_chain_height, get_chain_confirmations, build_demo_merkle_proof};
+use super::utils::{
+    build_demo_merkle_proof, get_chain_confirmations, get_chain_height, get_private_key,
+    hash_from_hex_32,
+};
 use csv_adapter_core::hash::Hash;
 use csv_adapter_core::right::OwnershipProof;
 use csv_adapter_core::seal::SealRef;
 
 use crate::config::{Chain, Config};
 use crate::output;
-use crate::state::{UnifiedStateManager, TransferRecord, TransferStatus};
+use crate::state::{TransferRecord, TransferStatus, UnifiedStateManager};
 
 use super::super::cross_chain_impl::*;
-use super::utils::*;
 use super::ethereum::{
-    EthTransaction, get_ethereum_nonce, get_ethereum_gas_price, 
-    get_ethereum_balance, sign_ethereum_transaction, send_raw_ethereum_transaction
+    get_ethereum_balance, get_ethereum_gas_price, get_ethereum_nonce,
+    send_raw_ethereum_transaction, sign_ethereum_transaction, EthTransaction,
 };
+use super::utils::*;
 
 /// Make a seal reference from bytes
 fn make_seal_ref(data: &[u8]) -> SealRef {
@@ -117,11 +120,12 @@ pub(crate) fn cmd_transfer(
 
     // Use current wallet address on destination chain if not specified
     let dest_owner_str = dest_owner.or_else(|| state.get_address(&to).map(|s| s.to_string()));
-    
+
     // Create ownership proof for destination
     let dest_owner_bytes = match &dest_owner_str {
         Some(addr) => hex::decode(addr.trim_start_matches("0x")).unwrap_or_else(|_| vec![0xFF; 32]),
-        None => state.get_address(&to)
+        None => state
+            .get_address(&to)
             .and_then(|a| hex::decode(a.trim_start_matches("0x")).ok())
             .unwrap_or_else(|| vec![0xFF; 32]),
     };
@@ -166,7 +170,7 @@ pub(crate) fn cmd_transfer(
 
     // Gas estimation and payment check
     output::header("⛽ Gas Estimation");
-    
+
     // Estimate gas costs for destination chain mint
     let estimated_gas = match to {
         Chain::Sui => 5_000_000,
@@ -175,99 +179,131 @@ pub(crate) fn cmd_transfer(
         Chain::Ethereum => 200_000,
         Chain::Bitcoin => 0,
     };
-    
-    output::kv("Estimated destination gas", &format!("{} units", estimated_gas));
-    
+
+    output::kv(
+        "Estimated destination gas",
+        &format!("{} units", estimated_gas),
+    );
+
     // Check for contracts on source chain (optional for most chains except those that require contracts)
     let source_contracts = state.get_contracts(&from);
     if !source_contracts.is_empty() {
-        output::info(&format!("✓ Source chain ({}) has {} contract(s)", from, source_contracts.len()));
+        output::info(&format!(
+            "✓ Source chain ({}) has {} contract(s)",
+            from,
+            source_contracts.len()
+        ));
     }
-    
+
     // Check for contracts on destination chain
     let dest_contracts = state.get_contracts(&to);
     if dest_contracts.is_empty() {
-        output::warning(&format!("No contracts deployed on destination chain ({})", to));
+        output::warning(&format!(
+            "No contracts deployed on destination chain ({})",
+            to
+        ));
         output::info("Deploy a contract first with: csv contract deploy --chain <chain>");
-        return Err(anyhow::anyhow!("No contracts available on destination chain"));
+        return Err(anyhow::anyhow!(
+            "No contracts available on destination chain"
+        ));
     }
-    
-    output::info(&format!("✓ Destination chain ({}) has {} contract(s)", to, dest_contracts.len()));
-    
+
+    output::info(&format!(
+        "✓ Destination chain ({}) has {} contract(s)",
+        to,
+        dest_contracts.len()
+    ));
+
     // Let user select a contract if multiple are available
     let selected_contract = if dest_contracts.len() > 1 {
         output::header("Select Destination Contract");
         for (idx, contract) in dest_contracts.iter().enumerate() {
-            println!("  [{}] {} (deployed: {})", 
-                idx + 1, 
+            println!(
+                "  [{}] {} (deployed: {})",
+                idx + 1,
                 &contract.address[..12.min(contract.address.len())],
                 format_timestamp(contract.deployed_at)
             );
         }
-        
+
         print!("\nSelect contract number [1-{}]: ", dest_contracts.len());
         use std::io::{self, Write};
         io::stdout().flush()?;
-        
+
         let mut input = String::new();
         io::stdin().read_line(&mut input)?;
-        let choice: usize = input.trim().parse()
+        let choice: usize = input
+            .trim()
+            .parse()
             .ok()
-            .and_then(|n: usize| if n > 0 && n <= dest_contracts.len() { Some(n - 1) } else { None })
+            .and_then(|n: usize| {
+                if n > 0 && n <= dest_contracts.len() {
+                    Some(n - 1)
+                } else {
+                    None
+                }
+            })
             .ok_or_else(|| anyhow::anyhow!("Invalid contract selection"))?;
-        
+
         dest_contracts[choice]
     } else {
         dest_contracts[0]
     };
-    
+
     output::kv("Selected contract", &selected_contract.address);
-    
+
     // Check sender has dedicated gas account on destination chain
     let gas_account = state.get_gas_account(&to);
     if let Some(addr) = gas_account {
         output::kv("Gas account", addr);
-        
+
         // Fetch actual gas balance from chain RPC
         output::progress(0, 0, "Fetching gas balance from chain...");
-        let gas_balance = fetch_gas_balance(&to, config, addr)
-            .unwrap_or_else(|e| {
-                output::warning(&format!("Failed to fetch gas balance: {}", e));
-                0
-            });
-            
+        let gas_balance = fetch_gas_balance(&to, config, addr).unwrap_or_else(|e| {
+            output::warning(&format!("Failed to fetch gas balance: {}", e));
+            0
+        });
+
         output::kv("Gas balance", &format!("{} units", gas_balance));
-        
+
         if gas_balance < estimated_gas {
-            return Err(anyhow::anyhow!("Insufficient destination gas balance. Required: {}, Available: {}", estimated_gas, gas_balance));
+            return Err(anyhow::anyhow!(
+                "Insufficient destination gas balance. Required: {}, Available: {}",
+                estimated_gas,
+                gas_balance
+            ));
         }
-        
+
         output::success("✅ Sufficient gas balance confirmed");
     } else {
         output::warning("No gas account configured for destination chain");
         output::info("Create a gas account with: csv wallet add-gas-account --chain <chain>");
-        return Err(anyhow::anyhow!("No gas account available for destination chain"));
+        return Err(anyhow::anyhow!(
+            "No gas account available for destination chain"
+        ));
     }
 
     // User approval
     println!();
-    output::info("⚠️  This transfer will use your destination chain gas account to pay minting fees.");
+    output::info(
+        "⚠️  This transfer will use your destination chain gas account to pay minting fees.",
+    );
     output::info("   Required gas amount will be deducted from your gas wallet.");
     println!();
-    
+
     // Ask for confirmation
     use std::io::{self, Write};
     print!("Proceed with transfer? [y/N] ");
     io::stdout().flush()?;
-    
+
     let mut input = String::new();
     io::stdin().read_line(&mut input)?;
-    
+
     if !input.trim().eq_ignore_ascii_case("y") && !input.trim().eq_ignore_ascii_case("yes") {
         output::info("Transfer cancelled by user");
         return Ok(());
     }
-    
+
     println!();
 
     if !simulation && from == Chain::Bitcoin {
@@ -448,7 +484,7 @@ Use --simulation for demo output, or wire real lock/mint providers first."
     // Step 6: Record in registry
     output::progress(6, 6, "Step 6: Recording transfer...");
     state.record_seal_consumption(hex::encode(&right_bytes));
-    
+
     // Mark original right as consumed on source chain
     let _ = state.consume_right(&hex::encode(right_id_hash.as_bytes()));
 
@@ -486,12 +522,18 @@ Use --simulation for demo output, or wire real lock/mint providers first."
         right_id: hex::encode(right_id_hash.as_bytes()),
         sender_address,
         destination_address: dest_address,
-        source_tx_hash: Some(hex::encode(transfer_proof.lock_event.source_tx_hash.as_bytes())),
+        source_tx_hash: Some(hex::encode(
+            transfer_proof.lock_event.source_tx_hash.as_bytes(),
+        )),
         source_fee: None,
-        dest_tx_hash: Some(hex::encode(mint_result.registry_entry.mint_tx_hash.as_bytes())),
+        dest_tx_hash: Some(hex::encode(
+            mint_result.registry_entry.mint_tx_hash.as_bytes(),
+        )),
         dest_fee: None,
         destination_contract: dest_contract,
-        proof: Some(hex::encode(serde_json::to_vec(&transfer_proof).unwrap_or_default())),
+        proof: Some(hex::encode(
+            serde_json::to_vec(&transfer_proof).unwrap_or_default(),
+        )),
         status: TransferStatus::Completed,
         created_at: timestamp,
         completed_at: Some(timestamp),
@@ -504,13 +546,19 @@ Use --simulation for demo output, or wire real lock/mint providers first."
         from_str, to_str
     ));
     output::kv_hash("Transfer ID", &transfer_id_bytes);
-    
+
     output::header("🔹 Source Chain Transaction");
-    output::kv_hash("Transaction Hash", transfer_proof.lock_event.source_tx_hash.as_bytes());
+    output::kv_hash(
+        "Transaction Hash",
+        transfer_proof.lock_event.source_tx_hash.as_bytes(),
+    );
     output::kv("Block Height", &source_height.to_string());
-    
+
     output::header("🔸 Destination Chain Transaction");
-    output::kv_hash("Transaction Hash", mint_result.registry_entry.mint_tx_hash.as_bytes());
+    output::kv_hash(
+        "Transaction Hash",
+        mint_result.registry_entry.mint_tx_hash.as_bytes(),
+    );
     output::kv(
         "Destination Right ID",
         &hex::encode(mint_result.destination_right.id.0.as_bytes()),
@@ -556,7 +604,8 @@ async fn run_real_bitcoin_to_aptos(
         .map(|s| s.to_string())
         .ok_or_else(|| anyhow::anyhow!("Missing bitcoin wallet address in state"))?;
     let lock_data = format!("CSV:LOCK:{}", hex::encode(right_id_hash.as_bytes())).into_bytes();
-    let source_txid_hex = publish_bitcoin_lock(&btc_address, &lock_data, &btc_cfg.rpc_url, &btc_key)?;
+    let source_txid_hex =
+        publish_bitcoin_lock(&btc_address, &lock_data, &btc_cfg.rpc_url, &btc_key)?;
     let source_tx_hash = hash_from_hex_32(&source_txid_hex)?;
     let source_height = get_chain_height(&Chain::Bitcoin, config);
 
@@ -573,7 +622,7 @@ async fn run_real_bitcoin_to_aptos(
         .unwrap_or(right_id_hash);
     let state_root = Hash::new([0u8; 32]);
     let proof = build_demo_merkle_proof(right_id_hash, commitment, 0u8);
-    
+
     // Use Aptos native transfer
     let dest_tx_hex = send_aptos_mint_async(
         &destination_contract,
@@ -586,7 +635,8 @@ async fn run_real_bitcoin_to_aptos(
         source_tx_hash,
         &proof,
         Hash::new([0u8; 32]),
-    ).await?;
+    )
+    .await?;
     let dest_tx_hash = hash_from_hex_32(&dest_tx_hex)?;
 
     output::progress(6, 6, "Step 6: Recording transfer...");
@@ -628,7 +678,10 @@ async fn run_real_bitcoin_to_aptos(
     if let Some(addr) = dest_owner_str {
         output::kv("Recipient Address", &addr);
     } else if !dest_owner_bytes.is_empty() {
-        output::kv("Recipient Address", &format!("0x{}", hex::encode(dest_owner_bytes)));
+        output::kv(
+            "Recipient Address",
+            &format!("0x{}", hex::encode(dest_owner_bytes)),
+        );
     }
     output::info("✅ Both transactions were submitted in real mode");
     output::info("🔍 Use transaction hashes above in explorers");
@@ -655,7 +708,8 @@ async fn run_real_bitcoin_to_ethereum(
         .map(|s| s.to_string())
         .ok_or_else(|| anyhow::anyhow!("Missing bitcoin wallet address in state"))?;
     let lock_data = format!("CSV:LOCK:{}", hex::encode(right_id_hash.as_bytes())).into_bytes();
-    let source_txid_hex = publish_bitcoin_lock(&btc_address, &lock_data, &btc_cfg.rpc_url, &btc_key)?;
+    let source_txid_hex =
+        publish_bitcoin_lock(&btc_address, &lock_data, &btc_cfg.rpc_url, &btc_key)?;
     let source_tx_hash = hash_from_hex_32(&source_txid_hex)?;
     let source_height = get_chain_height(&Chain::Bitcoin, config);
 
@@ -725,7 +779,10 @@ async fn run_real_bitcoin_to_ethereum(
     if let Some(addr) = dest_owner_str {
         output::kv("Recipient Address", &addr);
     } else if !dest_owner_bytes.is_empty() {
-        output::kv("Recipient Address", &format!("0x{}", hex::encode(dest_owner_bytes)));
+        output::kv(
+            "Recipient Address",
+            &format!("0x{}", hex::encode(dest_owner_bytes)),
+        );
     }
     output::info("✅ Both transactions were submitted in real mode");
     output::info("🔍 Use transaction hashes above in explorers");
@@ -752,14 +809,10 @@ fn run_real_ethereum_to_sui(
         .get_address(&Chain::Ethereum)
         .map(|s| s.to_string())
         .ok_or_else(|| anyhow::anyhow!("Missing ethereum wallet address in state"))?;
-    
+
     // Lock the right on Ethereum by calling the lock function
-    let source_tx_hash = send_ethereum_lock(
-        &eth_address,
-        &eth_cfg.rpc_url,
-        &eth_key,
-        right_id_hash,
-    )?;
+    let source_tx_hash =
+        send_ethereum_lock(&eth_address, &eth_cfg.rpc_url, &eth_key, right_id_hash)?;
     let source_height = get_chain_height(&Chain::Ethereum, config);
 
     output::progress(2, 6, "Step 2: Building transfer proof...");
@@ -782,7 +835,8 @@ fn run_real_ethereum_to_sui(
         commitment,
         1u8, // source_chain = 1 for Ethereum
         source_tx_hash,
-    ).map_err(|e| anyhow::anyhow!("Sui mint failed: {:?}", e))?;
+    )
+    .map_err(|e| anyhow::anyhow!("Sui mint failed: {:?}", e))?;
     // Convert Sui digest to Hash
     let dest_tx_hash = hash_from_hex_32(&sui_tx_digest)?;
 
@@ -848,14 +902,10 @@ fn run_real_ethereum_to_aptos(
         .get_address(&Chain::Ethereum)
         .map(|s| s.to_string())
         .ok_or_else(|| anyhow::anyhow!("Missing ethereum wallet address in state"))?;
-    
+
     // Lock the right on Ethereum
-    let source_tx_hash = send_ethereum_lock(
-        &eth_address,
-        &eth_cfg.rpc_url,
-        &eth_key,
-        right_id_hash,
-    )?;
+    let source_tx_hash =
+        send_ethereum_lock(&eth_address, &eth_cfg.rpc_url, &eth_key, right_id_hash)?;
     let source_height = get_chain_height(&Chain::Ethereum, config);
 
     output::progress(2, 6, "Step 2: Building transfer proof...");
@@ -940,14 +990,10 @@ fn run_real_ethereum_to_solana(
         .get_address(&Chain::Ethereum)
         .map(|s| s.to_string())
         .ok_or_else(|| anyhow::anyhow!("Missing ethereum wallet address in state"))?;
-    
+
     // Lock the right on Ethereum
-    let source_tx_hash = send_ethereum_lock(
-        &eth_address,
-        &eth_cfg.rpc_url,
-        &eth_key,
-        right_id_hash,
-    )?;
+    let source_tx_hash =
+        send_ethereum_lock(&eth_address, &eth_cfg.rpc_url, &eth_key, right_id_hash)?;
     let source_height = get_chain_height(&Chain::Ethereum, config);
 
     output::progress(2, 6, "Step 2: Building transfer proof...");
@@ -972,7 +1018,8 @@ fn run_real_ethereum_to_solana(
         state_root,
         1u8, // source_chain = 1 for Ethereum
         source_tx_hash,
-    ).map_err(|e| anyhow::anyhow!("Solana mint failed: {:?}", e))?;
+    )
+    .map_err(|e| anyhow::anyhow!("Solana mint failed: {:?}", e))?;
     // Convert Solana signature to Hash by hashing it
     use sha2::{Digest, Sha256};
     let sig_hash = Sha256::digest(sol_tx_sig.as_bytes());
@@ -1031,15 +1078,22 @@ fn send_ethereum_lock(
     private_key: &str,
     right_id: Hash,
 ) -> Result<Hash> {
+    use secp256k1::{PublicKey, SecretKey};
     use sha3::{Digest, Keccak256};
-    use secp256k1::{SecretKey, PublicKey};
-    
+
     // Parse private key
     let cleaned_key = private_key.trim().trim_start_matches("0x").trim();
     let key_bytes = hex::decode(cleaned_key)?;
-    eprintln!("DEBUG: Private key hex length: {} chars, decoded bytes: {} bytes", cleaned_key.len(), key_bytes.len());
-    eprintln!("DEBUG: First 8 chars of key: {}...", &cleaned_key[..8.min(cleaned_key.len())]);
-    
+    eprintln!(
+        "DEBUG: Private key hex length: {} chars, decoded bytes: {} bytes",
+        cleaned_key.len(),
+        key_bytes.len()
+    );
+    eprintln!(
+        "DEBUG: First 8 chars of key: {}...",
+        &cleaned_key[..8.min(cleaned_key.len())]
+    );
+
     // csv-wallet takes first 32 bytes if key is 64 bytes - emulate that behavior
     let key_32 = if key_bytes.len() == 64 {
         eprintln!("DEBUG: Key is 64 bytes, taking first 32 bytes (csv-wallet compatible)");
@@ -1047,11 +1101,14 @@ fn send_ethereum_lock(
     } else if key_bytes.len() == 32 {
         &key_bytes[..]
     } else {
-        return Err(anyhow::anyhow!("Invalid key length: {} bytes (expected 32 or 64)", key_bytes.len()));
+        return Err(anyhow::anyhow!(
+            "Invalid key length: {} bytes (expected 32 or 64)",
+            key_bytes.len()
+        ));
     };
-    
+
     let secret_key = SecretKey::from_slice(key_32)?;
-    
+
     // Derive public key and address
     let secp = secp256k1::Secp256k1::new();
     let public_key = PublicKey::from_secret_key(&secp, &secret_key);
@@ -1060,7 +1117,7 @@ fn send_ethereum_lock(
     let sender_address = format!("0x{}", hex::encode(&hash[12..]));
     eprintln!("DEBUG: Derived sender address: {}", sender_address);
     eprintln!("DEBUG: Expected owner address: {}", owner_address);
-    
+
     // Verify the derived address matches the expected address
     let expected = owner_address.to_lowercase();
     let derived = sender_address.to_lowercase();
@@ -1075,22 +1132,30 @@ fn send_ethereum_lock(
             cleaned_key.len()
         ));
     }
-    
+
     // Get nonce and gas price
     let nonce = get_ethereum_nonce(&sender_address, rpc_url)?;
     let gas_price = get_ethereum_gas_price(rpc_url)?;
     let balance = get_ethereum_balance(&sender_address, rpc_url)?;
     eprintln!("DEBUG: RPC URL: {}", rpc_url);
-    eprintln!("DEBUG: Balance: {} wei ({} ETH)", balance, balance as f64 / 1e18);
+    eprintln!(
+        "DEBUG: Balance: {} wei ({} ETH)",
+        balance,
+        balance as f64 / 1e18
+    );
     eprintln!("DEBUG: Gas price: {} wei, Gas limit: 50000", gas_price);
-    eprintln!("DEBUG: Total cost: {} wei ({} ETH)", gas_price * 50000, (gas_price * 50000) as f64 / 1e18);
-    
+    eprintln!(
+        "DEBUG: Total cost: {} wei ({} ETH)",
+        gas_price * 50000,
+        (gas_price * 50000) as f64 / 1e18
+    );
+
     // For now, create a simple lock transaction by sending a small amount to self
     // with the right_id in the data field as a marker
     // In production, this should call the actual CSV contract lock function
     let mut data = vec![0x00]; // Simple marker
     data.extend_from_slice(right_id.as_bytes());
-    
+
     let tx = EthTransaction {
         nonce,
         gas_price,
@@ -1100,11 +1165,10 @@ fn send_ethereum_lock(
         data,
         chain_id: 11155111, // Sepolia
     };
-    
+
     let signed_tx = sign_ethereum_transaction(&tx, &secret_key)?;
     let tx_hash = send_raw_ethereum_transaction(&signed_tx, rpc_url)?;
-    
+
     // Parse the transaction hash response
     hash_from_hex_32(&tx_hash)
 }
-

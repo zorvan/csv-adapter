@@ -1,5 +1,5 @@
 //! Page components - modular structure.
-//! 
+//!
 //! Organized into feature modules:
 //! - `accounts` - Dashboard and account management
 //! - `rights` - Rights management (list, create, show, transfer, consume)
@@ -25,63 +25,48 @@ pub mod wallet_page;
 
 // Feature modules (re-exporting from old_pages during migration)
 pub mod accounts;
-pub mod rights;
-pub mod proofs;
-pub mod cross_chain;
 pub mod contracts;
+pub mod cross_chain;
+pub mod proofs;
+pub mod rights;
 pub mod seals;
-pub mod tests;
-pub mod validate;
-pub mod transactions;
 pub mod settings;
+pub mod tests;
+pub mod transactions;
+pub mod validate;
 
 // Re-exports from nft_page and wallet_page (standalone files)
 pub use nft_page::{NftCollections, NftDetail, NftGallery};
 pub use wallet_page::WalletPage;
 
 // Re-exports from accounts module
-pub use accounts::{Dashboard, AccountTransactions};
+pub use accounts::{AccountTransactions, Dashboard};
 
 // Re-exports from rights module (already migrated)
-pub use rights::{
-    Rights, CreateRight, ShowRight, 
-    TransferRight, ConsumeRight, RightJourney,
-};
+pub use rights::{ConsumeRight, CreateRight, RightJourney, Rights, ShowRight, TransferRight};
 
 // Re-exports from proofs module
-pub use proofs::{
-    Proofs, GenerateProof, VerifyProof, VerifyCrossChainProof,
-};
+pub use proofs::{GenerateProof, Proofs, VerifyCrossChainProof, VerifyProof};
 
 // Re-exports from cross_chain module
-pub use cross_chain::{
-    CrossChain, CrossChainTransfer, CrossChainStatus, CrossChainRetry,
-};
+pub use cross_chain::{CrossChain, CrossChainRetry, CrossChainStatus, CrossChainTransfer};
 
 // Re-exports from contracts module
-pub use contracts::{
-    Contracts, DeployContract, AddContract, ContractStatus,
-};
+pub use contracts::{AddContract, ContractStatus, Contracts, DeployContract};
 
 // Re-exports from seals module
-pub use seals::{
-    Seals, CreateSeal, ConsumeSeal, VerifySeal,
-};
+pub use seals::{ConsumeSeal, CreateSeal, Seals, VerifySeal};
 
 // Re-exports from tests module
-pub use tests::{
-    Test, RunTests, RunScenario,
-};
+pub use tests::{RunScenario, RunTests, Test};
 
 // Re-exports from validate module
 pub use validate::{
-    Validate, ValidateConsignment, ValidateProof, ValidateSeal, ValidateCommitmentChain,
+    Validate, ValidateCommitmentChain, ValidateConsignment, ValidateProof, ValidateSeal,
 };
 
 // Re-exports from transactions module
-pub use transactions::{
-    Transactions, TransactionDetail,
-};
+pub use transactions::{TransactionDetail, Transactions};
 
 // Re-exports from settings module
 pub use settings::Settings;

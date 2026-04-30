@@ -1,7 +1,7 @@
 //! Ethereum adapter error types
 
+use csv_adapter_core::agent_types::{error_codes, FixAction, HasErrorSuggestion};
 use thiserror::Error;
-use csv_adapter_core::agent_types::{HasErrorSuggestion, FixAction, error_codes};
 
 /// Ethereum adapter specific errors
 #[derive(Error, Debug)]
@@ -72,7 +72,9 @@ impl HasErrorSuggestion for EthereumError {
             EthereumError::SlotUsed(_) => error_codes::ETH_SLOT_USED,
             EthereumError::InvalidReceiptProof(_) => error_codes::ETH_INVALID_RECEIPT_PROOF,
             EthereumError::ReorgDetected { .. } => error_codes::ETH_REORG_DETECTED,
-            EthereumError::InsufficientConfirmations { .. } => error_codes::ETH_INSUFFICIENT_CONFIRMATIONS,
+            EthereumError::InsufficientConfirmations { .. } => {
+                error_codes::ETH_INSUFFICIENT_CONFIRMATIONS
+            }
             EthereumError::WalletError(_) => error_codes::ETH_WALLET_ERROR,
             EthereumError::ConfigError(_) => error_codes::ETH_CONFIG_ERROR,
             EthereumError::DeploymentError(_) => error_codes::ETH_DEPLOYMENT_ERROR,
@@ -87,13 +89,12 @@ impl HasErrorSuggestion for EthereumError {
 
     fn suggested_fix(&self) -> String {
         match self {
-            EthereumError::RpcError(_) => {
-                "Ethereum RPC call failed. Check: \
+            EthereumError::RpcError(_) => "Ethereum RPC call failed. Check: \
                  1) Your internet connection, \
                  2) The RPC endpoint is accessible (try https://ethereum-rpc.publicnode.com), \
                  3) Rate limits haven't been exceeded. \
-                 Ensure you're using the correct network (mainnet/sepolia).".to_string()
-            }
+                 Ensure you're using the correct network (mainnet/sepolia)."
+                .to_string(),
             EthereumError::SlotUsed(slot) => {
                 format!(
                     "The storage slot {} is already used. Each seal requires a unique slot. \
@@ -106,7 +107,8 @@ impl HasErrorSuggestion for EthereumError {
                  1) The transaction is not in the claimed block, \
                  2) The receipt root hash is incorrect, or \
                  3) The proof structure is malformed. \
-                 Regenerate the proof from a confirmed transaction.".to_string()
+                 Regenerate the proof from a confirmed transaction."
+                    .to_string()
             }
             EthereumError::ReorgDetected { block, depth } => {
                 format!(
@@ -120,7 +122,10 @@ impl HasErrorSuggestion for EthereumError {
                 format!(
                     "Insufficient confirmations: got {}, need {}. \
                      Wait for {} more block confirmations (approximately {} seconds).",
-                    got, need, need - got, (need - got) * 12
+                    got,
+                    need,
+                    need - got,
+                    (need - got) * 12
                 )
             }
             EthereumError::CoreError(e) => e.suggested_fix(),
@@ -137,33 +142,31 @@ impl HasErrorSuggestion for EthereumError {
 
     fn fix_action(&self) -> Option<FixAction> {
         match self {
-            EthereumError::RpcError(_) => {
-                Some(FixAction::Retry {
-                    parameter_changes: std::collections::HashMap::from([
-                        ("rpc_endpoint".to_string(), "https://ethereum-rpc.publicnode.com".to_string()),
-                        ("network".to_string(), "mainnet".to_string()),
-                    ]),
-                })
-            }
+            EthereumError::RpcError(_) => Some(FixAction::Retry {
+                parameter_changes: std::collections::HashMap::from([
+                    (
+                        "rpc_endpoint".to_string(),
+                        "https://ethereum-rpc.publicnode.com".to_string(),
+                    ),
+                    ("network".to_string(), "mainnet".to_string()),
+                ]),
+            }),
             EthereumError::InsufficientConfirmations { need, .. } => {
                 Some(FixAction::WaitForConfirmations {
                     confirmations: *need as u32,
                     estimated_seconds: (*need as u64) * 12,
                 })
             }
-            EthereumError::ReorgDetected { .. } => {
-                Some(FixAction::CheckState {
-                    url: "https://etherscan.io".to_string(),
-                    what: "Check current Ethereum chain tip".to_string(),
-                })
-            }
-            EthereumError::SlotUsed(_) => {
-                Some(FixAction::Retry {
-                    parameter_changes: std::collections::HashMap::from([
-                        ("increment_slot".to_string(), "true".to_string()),
-                    ]),
-                })
-            }
+            EthereumError::ReorgDetected { .. } => Some(FixAction::CheckState {
+                url: "https://etherscan.io".to_string(),
+                what: "Check current Ethereum chain tip".to_string(),
+            }),
+            EthereumError::SlotUsed(_) => Some(FixAction::Retry {
+                parameter_changes: std::collections::HashMap::from([(
+                    "increment_slot".to_string(),
+                    "true".to_string(),
+                )]),
+            }),
             EthereumError::CoreError(e) => e.fix_action(),
             _ => None,
         }
@@ -191,10 +194,16 @@ impl From<EthereumError> for csv_adapter_core::AdapterError {
                     got, need
                 ))
             }
-            EthereumError::WalletError(msg) => csv_adapter_core::AdapterError::Generic(format!("Wallet error: {}", msg)),
+            EthereumError::WalletError(msg) => {
+                csv_adapter_core::AdapterError::Generic(format!("Wallet error: {}", msg))
+            }
             EthereumError::ConfigError(msg) => csv_adapter_core::AdapterError::InvalidConfig(msg),
-            EthereumError::DeploymentError(msg) => csv_adapter_core::AdapterError::PublishFailed(msg),
-            EthereumError::NotImplemented(msg) => csv_adapter_core::AdapterError::Generic(format!("Not implemented: {}", msg)),
+            EthereumError::DeploymentError(msg) => {
+                csv_adapter_core::AdapterError::PublishFailed(msg)
+            }
+            EthereumError::NotImplemented(msg) => {
+                csv_adapter_core::AdapterError::Generic(format!("Not implemented: {}", msg))
+            }
         }
     }
 }

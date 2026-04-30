@@ -59,4 +59,8 @@ pub enum CsvError {
     /// Invalid state root
     #[msg("Invalid state root")]
     InvalidStateRoot,
+
+    /// Invalid asset/proof metadata
+    #[msg("Invalid right metadata")]
+    InvalidRightMetadata,
 }

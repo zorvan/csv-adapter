@@ -12,7 +12,7 @@ pub fn TransactionDetail(id: String) -> Element {
 
     if let Some(tx) = transaction {
         let explorer_url = wallet_ctx.get_explorer_url(tx.chain, &tx.tx_hash);
-        
+
         let status_class = match tx.status {
             crate::context::TransactionStatus::Confirmed => "text-green-400 bg-green-500/20",
             crate::context::TransactionStatus::Pending => "text-yellow-400 bg-yellow-500/20",

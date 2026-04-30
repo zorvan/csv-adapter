@@ -19,7 +19,10 @@ pub fn Transactions() -> Element {
         .into_iter()
         .filter(|tx| {
             account_addresses.contains(&tx.from_address)
-                || tx.to_address.as_ref().map_or(false, |addr| account_addresses.contains(addr))
+                || tx
+                    .to_address
+                    .as_ref()
+                    .map_or(false, |addr| account_addresses.contains(addr))
         })
         .collect();
 

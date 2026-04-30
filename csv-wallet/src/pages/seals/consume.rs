@@ -11,15 +11,22 @@ pub fn ConsumeSeal(seal_ref: Option<String>) -> Element {
     let seals = wallet_ctx.seals();
 
     // Get available (unconsumed) seals
-    let available_seals: Vec<_> = seals.iter().filter(|s| s.status != SealStatus::Consumed && s.status != SealStatus::Transferred).cloned().collect();
+    let available_seals: Vec<_> = seals
+        .iter()
+        .filter(|s| s.status != SealStatus::Consumed && s.status != SealStatus::Transferred)
+        .cloned()
+        .collect();
 
     // Initialize selected seal from URL parameter or first available
-    let initial_seal_ref = seal_ref.clone().or_else(|| available_seals.first().map(|s| s.seal_ref.clone()));
+    let initial_seal_ref = seal_ref
+        .clone()
+        .or_else(|| available_seals.first().map(|s| s.seal_ref.clone()));
     let mut selected_seal_ref = use_signal(|| initial_seal_ref.unwrap_or_default());
 
     // Get the currently selected seal by computing it from the signal
     let selected_seal_ref_read = selected_seal_ref.read();
-    let selected_seal: Option<SealRecord> = seals.iter()
+    let selected_seal: Option<SealRecord> = seals
+        .iter()
         .find(|s| s.seal_ref == *selected_seal_ref_read)
         .cloned();
 
@@ -118,4 +125,3 @@ pub fn ConsumeSeal(seal_ref: Option<String>) -> Element {
         }
     }
 }
-

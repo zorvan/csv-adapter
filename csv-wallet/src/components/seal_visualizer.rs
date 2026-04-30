@@ -6,12 +6,12 @@
 //! - Transaction details at each step
 //! - Cross-chain transfer tracking
 
-use dioxus::prelude::*;
 use crate::components::{
     design_tokens::SealState,
     hash_display::{HashDisplay, TxHashDisplay},
     seal_status::{SealStatusBadge, Size},
 };
+use dioxus::prelude::*;
 
 /// Seal event for the timeline.
 #[derive(Clone, PartialEq)]
@@ -59,7 +59,7 @@ impl TransferStatus {
             TransferStatus::Failed => "Failed",
         }
     }
-    
+
     fn seal_state(&self) -> SealState {
         match self {
             TransferStatus::Pending => SealState::Pending,
@@ -93,7 +93,7 @@ pub struct SealVisualizerProps {
 pub fn SealVisualizer(props: SealVisualizerProps) -> Element {
     let selected_event = use_signal(|| None::<usize>);
     let mut view_mode = use_signal(|| ViewMode::Timeline);
-    
+
     rsx! {
         div { class: "seal-visualizer {props.class}",
             // Header
@@ -107,7 +107,7 @@ pub fn SealVisualizer(props: SealVisualizerProps) -> Element {
                         show_copy: true,
                     }
                 }
-                
+
                 // View mode toggle
                 div { class: "seal-viz-modes",
                     button {
@@ -129,7 +129,7 @@ pub fn SealVisualizer(props: SealVisualizerProps) -> Element {
                     }
                 }
             }
-            
+
             // Current status
             div { class: "seal-viz-status",
                 SealStatusBadge {
@@ -138,7 +138,7 @@ pub fn SealVisualizer(props: SealVisualizerProps) -> Element {
                     show_label: true,
                 }
             }
-            
+
             // Content based on view mode
             match *view_mode.read() {
                 ViewMode::Timeline => rsx! {
@@ -186,16 +186,16 @@ fn SealTimelineView(mut props: SealTimelineViewProps) -> Element {
                         class: "seal-timeline-item",
                         class: if (props.selected_event)() == Some(i) { "selected" },
                         onclick: move |_| props.selected_event.set(Some(i)),
-                        
+
                         // Timeline connector
                         div { class: "seal-timeline-connector" }
-                        
+
                         // Event dot
                         div {
                             class: "seal-timeline-dot",
                             style: format!("background-color: {}", event.state.dot_color()),
                         }
-                        
+
                         // Event content
                         div { class: "seal-timeline-content",
                             div { class: "seal-timeline-header",
@@ -210,9 +210,9 @@ fn SealTimelineView(mut props: SealTimelineViewProps) -> Element {
                                     "{format_time(event.timestamp)}"
                                 }
                             }
-                            
+
                             p { class: "seal-timeline-desc", "{event.description}" }
-                            
+
                             if let Some(ref tx) = event.tx_hash {
                                 div { class: "seal-timeline-tx",
                                     span { class: "label", "Transaction: " }
@@ -223,7 +223,7 @@ fn SealTimelineView(mut props: SealTimelineViewProps) -> Element {
                                     }
                                 }
                             }
-                            
+
                             if let Some(height) = event.block_height {
                                 div { class: "seal-timeline-block",
                                     span { class: "label", "Block: " }
@@ -237,7 +237,7 @@ fn SealTimelineView(mut props: SealTimelineViewProps) -> Element {
                     }
                 }
             }
-            
+
             // Event detail panel
             if let Some(idx) = (props.selected_event)() {
                 if let Some(event) = props.events.get(idx) {
@@ -288,11 +288,12 @@ fn SealDiagramView(props: SealDiagramViewProps) -> Element {
         (SealState::Locked, "Locked", 2),
         (SealState::Consumed, "Consumed", 3),
     ];
-    
-    let current_idx = states.iter()
+
+    let current_idx = states
+        .iter()
         .position(|(s, _, _)| *s == props.current_state)
         .unwrap_or(0);
-    
+
     rsx! {
         div { class: "seal-diagram-view",
             div { class: "seal-state-flow",
@@ -302,7 +303,7 @@ fn SealDiagramView(props: SealDiagramViewProps) -> Element {
                         class: if i == current_idx { "current" },
                         class: if i < current_idx { "completed" },
                         class: if i > current_idx { "future" },
-                        
+
                         div {
                             class: "seal-node-circle",
                             style: format!("border-color: {}", state.dot_color()),
@@ -314,7 +315,7 @@ fn SealDiagramView(props: SealDiagramViewProps) -> Element {
                             }
                         }
                         span { class: "seal-node-label", "{label}" }
-                        
+
                         // Connection line (except for last)
                         if i < states.len() - 1 {
                             div {
@@ -325,7 +326,7 @@ fn SealDiagramView(props: SealDiagramViewProps) -> Element {
                     }
                 }
             }
-            
+
             // State descriptions
             div { class: "seal-state-descriptions",
                 div { class: "state-desc-item",
@@ -359,7 +360,7 @@ fn TransferView(props: TransferViewProps) -> Element {
     rsx! {
         div { class: "seal-transfer-view",
             h4 { class: "transfer-title", "Cross-Chain Transfer" }
-            
+
             div { class: "transfer-flow",
                 // Source chain
                 div { class: "transfer-chain source",
@@ -372,7 +373,7 @@ fn TransferView(props: TransferViewProps) -> Element {
                         }
                     }
                 }
-                
+
                 // Transfer progress
                 div { class: "transfer-progress",
                     div { class: "progress-line" }
@@ -381,7 +382,7 @@ fn TransferView(props: TransferViewProps) -> Element {
                         style: format!("color: {}", props.transfer.status.seal_state().dot_color()),
                         "{props.transfer.status.label()}"
                     }
-                    
+
                     // Progress steps
                     div { class: "progress-steps",
                         for step in transfer_steps(&props.transfer) {
@@ -395,7 +396,7 @@ fn TransferView(props: TransferViewProps) -> Element {
                         }
                     }
                 }
-                
+
                 // Destination chain
                 div { class: "transfer-chain dest",
                     div { class: "chain-badge", "{props.transfer.to_chain}" }
@@ -412,7 +413,7 @@ fn TransferView(props: TransferViewProps) -> Element {
                     }
                 }
             }
-            
+
             // Transfer metadata
             div { class: "transfer-meta",
                 div { class: "meta-item",
@@ -444,17 +445,38 @@ fn transfer_steps(transfer: &TransferSegment) -> Vec<TransferStep> {
         TransferStatus::DestPending,
         TransferStatus::Completed,
     ];
-    
-    let current_idx = status_order.iter()
+
+    let current_idx = status_order
+        .iter()
         .position(|s| *s == transfer.status)
         .unwrap_or(0);
-    
+
     vec![
-        TransferStep { label: "Initiate", completed: current_idx > 0, current: current_idx == 0 },
-        TransferStep { label: "Confirm", completed: current_idx > 1, current: current_idx == 1 },
-        TransferStep { label: "Generate Proof", completed: current_idx > 2, current: current_idx == 2 },
-        TransferStep { label: "Verify", completed: current_idx > 3, current: current_idx == 3 },
-        TransferStep { label: "Complete", completed: current_idx > 4, current: current_idx == 4 },
+        TransferStep {
+            label: "Initiate",
+            completed: current_idx > 0,
+            current: current_idx == 0,
+        },
+        TransferStep {
+            label: "Confirm",
+            completed: current_idx > 1,
+            current: current_idx == 1,
+        },
+        TransferStep {
+            label: "Generate Proof",
+            completed: current_idx > 2,
+            current: current_idx == 2,
+        },
+        TransferStep {
+            label: "Verify",
+            completed: current_idx > 3,
+            current: current_idx == 3,
+        },
+        TransferStep {
+            label: "Complete",
+            completed: current_idx > 4,
+            current: current_idx == 4,
+        },
     ]
 }
 
@@ -463,9 +485,9 @@ fn format_time(timestamp: u64) -> String {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
-    
+
     let diff = now.saturating_sub(timestamp);
-    
+
     if diff < 60 {
         format!("{}s ago", diff)
     } else if diff < 3600 {

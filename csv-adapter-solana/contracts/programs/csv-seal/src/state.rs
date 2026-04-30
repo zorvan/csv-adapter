@@ -16,6 +16,16 @@ pub struct RightAccount {
     pub state_root: [u8; 32],
     /// Nullifier for this right (for L3 chains that use nullifiers)
     pub nullifier: [u8; 32],
+    /// Asset class: 0 unspecified, 1 fungible token, 2 NFT, 3 proof right
+    pub asset_class: u8,
+    /// Chain-native token mint, NFT collection/item id, or proof family id
+    pub asset_id: [u8; 32],
+    /// Hash of canonical metadata for token/NFT/proof payloads
+    pub metadata_hash: [u8; 32],
+    /// Proof system: 0 unspecified, chain/app-specific values above zero
+    pub proof_system: u8,
+    /// Root/verification key commitment for advanced proof systems
+    pub proof_root: [u8; 32],
     /// Whether this right has been consumed
     pub consumed: bool,
     /// Whether this right is locked for cross-chain transfer
@@ -29,8 +39,8 @@ pub struct RightAccount {
 impl RightAccount {
     /// Account size for space calculation
     /// 8 (discriminator) + 32 (owner) + 32 (right_id) + 32 (commitment) + 
-    /// 32 (state_root) + 32 (nullifier) + 1 (consumed) + 1 (locked) + 8 (created_at) + 1 (bump)
-    pub const SIZE: usize = 32 + 32 + 32 + 32 + 32 + 1 + 1 + 8 + 1;
+    /// 32 (state_root) + 32 (nullifier) + metadata/proof fields + flags + timestamp + bump
+    pub const SIZE: usize = 32 + 32 + 32 + 32 + 32 + 1 + 32 + 32 + 1 + 32 + 1 + 1 + 8 + 1;
 }
 
 /// LockRecord stores information about a locked right for refund purposes
@@ -46,6 +56,16 @@ pub struct LockRecord {
     pub destination_chain: u8,
     /// Destination owner (hashed)
     pub destination_owner: [u8; 32],
+    /// Asset class for the locked right
+    pub asset_class: u8,
+    /// Chain-native asset id
+    pub asset_id: [u8; 32],
+    /// Canonical metadata hash
+    pub metadata_hash: [u8; 32],
+    /// Proof system identifier
+    pub proof_system: u8,
+    /// Proof root or verification-key commitment
+    pub proof_root: [u8; 32],
     /// Lock timestamp (Unix epoch seconds)
     pub locked_at: i64,
     /// Whether this lock has been refunded
@@ -54,7 +74,7 @@ pub struct LockRecord {
 
 impl LockRecord {
     /// Size of LockRecord for space calculation
-    pub const SIZE: usize = 32 + 32 + 32 + 1 + 32 + 8 + 1;
+    pub const SIZE: usize = 32 + 32 + 32 + 1 + 32 + 1 + 32 + 32 + 1 + 32 + 8 + 1;
 }
 
 /// LockRegistry tracks all locks for refund support

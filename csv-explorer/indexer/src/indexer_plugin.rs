@@ -11,9 +11,7 @@ use crate::rpc_manager::RpcManager;
 use csv_explorer_shared::ChainConfig;
 
 /// Factory function type for creating chain indexers
-type IndexerFactoryFn = Arc<
-    dyn Fn(ChainConfig, RpcManager) -> Box<dyn ChainIndexer> + Send + Sync,
->;
+type IndexerFactoryFn = Arc<dyn Fn(ChainConfig, RpcManager) -> Box<dyn ChainIndexer> + Send + Sync>;
 
 /// Registry for chain indexer plugins
 ///
@@ -143,7 +141,8 @@ impl IndexerPluginRegistry {
             if !config.enabled {
                 continue;
             }
-            if let Some(indexer) = self.create_indexer(chain_id, config.clone(), rpc_manager.clone())
+            if let Some(indexer) =
+                self.create_indexer(chain_id, config.clone(), rpc_manager.clone())
             {
                 indexers.push(indexer);
             } else {
@@ -307,8 +306,8 @@ mod tests {
     use async_trait::async_trait;
     use csv_explorer_shared::{
         CommitmentScheme, ContractStatus, ContractType, CsvContract, EnhancedRightRecord,
-        EnhancedSealRecord, EnhancedTransferRecord, FinalityProofType, InclusionProofType,
-        Network, PriorityLevel, RightRecord, SealRecord, TransferRecord,
+        EnhancedSealRecord, EnhancedTransferRecord, FinalityProofType, InclusionProofType, Network,
+        PriorityLevel, RightRecord, SealRecord, TransferRecord,
     };
 
     struct MockIndexer;
@@ -342,7 +341,10 @@ mod tests {
         async fn index_contracts(&self, _block: u64) -> ChainResult<Vec<CsvContract>> {
             Ok(vec![])
         }
-        async fn index_enhanced_rights(&self, _block: u64) -> ChainResult<Vec<EnhancedRightRecord>> {
+        async fn index_enhanced_rights(
+            &self,
+            _block: u64,
+        ) -> ChainResult<Vec<EnhancedRightRecord>> {
             Ok(vec![])
         }
         async fn index_enhanced_seals(&self, _block: u64) -> ChainResult<Vec<EnhancedSealRecord>> {
@@ -395,9 +397,9 @@ mod tests {
     #[test]
     fn test_registry_register_and_create() {
         let mut registry = IndexerPluginRegistry::new();
-        
+
         registry.register("mock", |_config, _rpc| Box::new(MockIndexer));
-        
+
         assert!(registry.is_registered("mock"));
         assert_eq!(registry.indexer_count(), 1);
     }
@@ -405,7 +407,7 @@ mod tests {
     #[test]
     fn test_registry_unregister() {
         let mut registry = IndexerPluginRegistry::new();
-        
+
         registry.register("mock", |_config, _rpc| Box::new(MockIndexer));
         assert!(registry.unregister("mock"));
         assert!(!registry.is_registered("mock"));

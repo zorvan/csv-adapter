@@ -171,8 +171,8 @@ impl Mnemonic {
     /// # Returns
     /// A 64-byte seed for HD wallet derivation.
     pub fn to_seed(&self, passphrase: Option<&str>) -> Seed {
-        let bip39_mnemonic = bip39::Mnemonic::from_str(&self.phrase)
-            .expect("Valid mnemonic should parse");
+        let bip39_mnemonic =
+            bip39::Mnemonic::from_str(&self.phrase).expect("Valid mnemonic should parse");
 
         let seed_bytes = bip39_mnemonic.to_seed(passphrase.unwrap_or(""));
         Seed::new(seed_bytes)
@@ -211,7 +211,7 @@ mod tests {
     fn test_generate_mnemonic() {
         let mnemonic = Mnemonic::generate(MnemonicType::Words12);
         assert_eq!(mnemonic.word_count(), 12);
-        
+
         let mnemonic = Mnemonic::generate(MnemonicType::Words24);
         assert_eq!(mnemonic.word_count(), 24);
     }

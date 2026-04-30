@@ -65,7 +65,10 @@ impl ProgramDeployer {
     }
 
     /// Deploy an upgradeable program (uses BPF Loader Upgradeable)
-    async fn deploy_upgradeable_program(&self, program_data: &[u8]) -> SolanaResult<ProgramDeployment> {
+    async fn deploy_upgradeable_program(
+        &self,
+        program_data: &[u8],
+    ) -> SolanaResult<ProgramDeployment> {
         // Generate program keypair
         let program_keypair = Keypair::new();
         let program_id = program_keypair.pubkey();
@@ -96,11 +99,7 @@ impl ProgramDeployer {
         // 4. Wait for confirmation
 
         let signature = Signature::new_unique(); // Placeholder
-        let slot = self
-            .rpc
-            .get_latest_slot()
-            .await
-            .unwrap_or(0);
+        let slot = self.rpc.get_latest_slot().await.unwrap_or(0);
 
         Ok(ProgramDeployment {
             program_id,
@@ -169,10 +168,7 @@ impl ProgramDeployer {
     }
 
     /// Close a program and reclaim rent
-    pub async fn close_program(
-        &self,
-        _program_id: Pubkey,
-    ) -> SolanaResult<Signature> {
+    pub async fn close_program(&self, _program_id: Pubkey) -> SolanaResult<Signature> {
         // Only works for upgradeable programs
         // Sends instructions to:
         // 1. Close program data account
@@ -214,10 +210,7 @@ pub async fn deploy_csv_program(
     payer: &Keypair,
 ) -> SolanaResult<ProgramDeployment> {
     use solana_rpc_client::rpc_client::RpcClient;
-    use solana_sdk::{
-        message::Message,
-        transaction::Transaction,
-    };
+    use solana_sdk::{message::Message, transaction::Transaction};
 
     // Create RPC client
     let rpc_client = RpcClient::new(rpc_url.to_string());
@@ -246,9 +239,10 @@ pub async fn deploy_csv_program(
     let write_ix = solana_sdk::instruction::Instruction::new_with_bincode(
         solana_sdk::bpf_loader::id(),
         &program_data.to_vec(),
-        vec![
-            solana_sdk::instruction::AccountMeta::new(program_keypair.pubkey(), false),
-        ],
+        vec![solana_sdk::instruction::AccountMeta::new(
+            program_keypair.pubkey(),
+            false,
+        )],
     );
 
     let instructions = vec![create_ix, write_ix];

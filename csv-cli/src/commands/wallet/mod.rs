@@ -27,7 +27,7 @@ pub mod types;
 
 pub use types::WalletAction;
 
-use crate::config::{Config};
+use crate::config::Config;
 use crate::state::UnifiedStateManager;
 use anyhow::Result;
 

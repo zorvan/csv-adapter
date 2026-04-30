@@ -46,9 +46,9 @@ impl DerivationPath {
     /// Create a new derivation path with hardened purpose and coin type.
     pub fn new_bip44(coin_type: u32, account: u32, change: u32, address_index: u32) -> Self {
         Self {
-            purpose: 44 | 0x8000_0000, // hardened
+            purpose: 44 | 0x8000_0000,          // hardened
             coin_type: coin_type | 0x8000_0000, // hardened
-            account: account | 0x8000_0000, // hardened
+            account: account | 0x8000_0000,     // hardened
             change,
             address_index,
         }
@@ -57,7 +57,7 @@ impl DerivationPath {
     /// Create a BIP-86 derivation path (Bitcoin Taproot).
     pub fn new_bip86(account: u32, address_index: u32) -> Self {
         Self {
-            purpose: 86 | 0x8000_0000, // BIP-86 hardened
+            purpose: 86 | 0x8000_0000,  // BIP-86 hardened
             coin_type: 0 | 0x8000_0000, // Bitcoin hardened
             account: account | 0x8000_0000,
             change: 0,
@@ -70,7 +70,11 @@ impl DerivationPath {
         format!(
             "m/{}'/{}{}'/{}'/{}/{}",
             self.purpose & 0x7FFF_FFFF,
-            if self.coin_type >= 0x8000_0000 { "" } else { "not" },
+            if self.coin_type >= 0x8000_0000 {
+                ""
+            } else {
+                "not"
+            },
             self.coin_type & 0x7FFF_FFFF,
             self.account & 0x7FFF_FFFF,
             self.change,
@@ -84,10 +88,10 @@ pub fn coin_type(chain: Chain) -> u32 {
     match chain {
         Chain::Bitcoin => 0,   // SLIP-44: BTC
         Chain::Ethereum => 60, // SLIP-44: ETH
-        Chain::Sui => 784,   // SLIP-44: SUI
-        Chain::Aptos => 637, // SLIP-44: APT
-        Chain::Solana => 501, // SLIP-44: SOL
-        _ => 0, // Default to Bitcoin coin type for unknown chains
+        Chain::Sui => 784,     // SLIP-44: SUI
+        Chain::Aptos => 637,   // SLIP-44: APT
+        Chain::Solana => 501,  // SLIP-44: SOL
+        _ => 0,                // Default to Bitcoin coin type for unknown chains
     }
 }
 
@@ -140,12 +144,8 @@ pub fn derive_key_from_path(
     chain: Chain,
 ) -> Result<SecretKey, Bip44Error> {
     match chain {
-        Chain::Bitcoin | Chain::Ethereum => {
-            derive_secp256k1(seed, path)
-        }
-        Chain::Sui | Chain::Aptos | Chain::Solana => {
-            derive_ed25519(seed, path)
-        }
+        Chain::Bitcoin | Chain::Ethereum => derive_secp256k1(seed, path),
+        Chain::Sui | Chain::Aptos | Chain::Solana => derive_ed25519(seed, path),
         _ => {
             // Default to Ed25519 for unknown chains
             derive_ed25519(seed, path)
@@ -154,19 +154,14 @@ pub fn derive_key_from_path(
 }
 
 /// Derive a secp256k1 key (Bitcoin, Ethereum).
-fn derive_secp256k1(
-    seed: &[u8; 64],
-    path: &DerivationPath,
-) -> Result<SecretKey, Bip44Error> {
-    
-
+fn derive_secp256k1(seed: &[u8; 64], path: &DerivationPath) -> Result<SecretKey, Bip44Error> {
     // Start with the master key from seed
     let mut data = Vec::with_capacity(64);
     data.extend_from_slice(&seed[..32]);
-    
+
     // Simple derivation - in production would use proper BIP-32
     // For now, derive directly from seed + path components
-    use sha2::{Sha256, Digest};
+    use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
     hasher.update(seed);
     hasher.update(&path.purpose.to_le_bytes());
@@ -174,23 +169,20 @@ fn derive_secp256k1(
     hasher.update(&path.account.to_le_bytes());
     hasher.update(&path.change.to_le_bytes());
     hasher.update(&path.address_index.to_le_bytes());
-    
+
     let result = hasher.finalize();
     let mut key_bytes = [0u8; 32];
     key_bytes.copy_from_slice(&result[..32]);
-    
+
     // Ensure valid secp256k1 scalar (not zero, less than curve order)
     // In production, use proper BIP-32 derivation
-    
+
     Ok(SecretKey::new(key_bytes))
 }
 
 /// Derive an Ed25519 key (Sui, Aptos, Solana).
-fn derive_ed25519(
-    seed: &[u8; 64],
-    path: &DerivationPath,
-) -> Result<SecretKey, Bip44Error> {
-    use sha2::{Sha256, Digest};
+fn derive_ed25519(seed: &[u8; 64], path: &DerivationPath) -> Result<SecretKey, Bip44Error> {
+    use sha2::{Digest, Sha256};
 
     // Ed25519 uses SLIP-10 derivation
     // HMAC-SHA512 with key "ed25519 seed"
@@ -200,16 +192,16 @@ fn derive_ed25519(
     hasher.update(&path.purpose.to_le_bytes());
     hasher.update(&path.coin_type.to_le_bytes());
     hasher.update(&path.account.to_le_bytes());
-    
+
     let result = hasher.finalize();
     let mut key_bytes = [0u8; 32];
     key_bytes.copy_from_slice(&result[..32]);
-    
+
     // Ed25519 requires clamping bits
     key_bytes[0] &= 248;
     key_bytes[31] &= 127;
     key_bytes[31] |= 64;
-    
+
     Ok(SecretKey::new(key_bytes))
 }
 
@@ -221,12 +213,12 @@ pub fn generate_addresses(
     count: usize,
 ) -> Result<Vec<SecretKey>, Bip44Error> {
     let mut keys = Vec::with_capacity(count);
-    
+
     for i in 0..count {
         let key = derive_key(seed, chain, account, i as u32)?;
         keys.push(key);
     }
-    
+
     Ok(keys)
 }
 
@@ -236,13 +228,19 @@ pub fn derive_all_chain_keys(
     account: u32,
 ) -> std::collections::HashMap<Chain, SecretKey> {
     let mut keys = std::collections::HashMap::new();
-    
-    for chain in [Chain::Bitcoin, Chain::Ethereum, Chain::Sui, Chain::Aptos, Chain::Solana] {
+
+    for chain in [
+        Chain::Bitcoin,
+        Chain::Ethereum,
+        Chain::Sui,
+        Chain::Aptos,
+        Chain::Solana,
+    ] {
         if let Ok(key) = derive_key(seed, chain, account, 0) {
             keys.insert(chain, key);
         }
     }
-    
+
     keys
 }
 
@@ -258,7 +256,7 @@ pub fn derive_address_from_key(key_bytes: &[u8], chain: Chain) -> Result<String,
     if key_bytes.len() != 32 {
         return Err(Bip44Error::InvalidSeedLength(key_bytes.len()));
     }
-    
+
     match chain {
         Chain::Bitcoin => derive_bitcoin_address_from_key(key_bytes),
         Chain::Ethereum => derive_ethereum_address_from_key(key_bytes),
@@ -270,83 +268,83 @@ pub fn derive_address_from_key(key_bytes: &[u8], chain: Chain) -> Result<String,
 }
 
 fn derive_bitcoin_address_from_key(key_bytes: &[u8]) -> Result<String, Bip44Error> {
-    use secp256k1::{Secp256k1, SecretKey, Keypair, XOnlyPublicKey};
     use bitcoin::key::TapTweak;
     use bitcoin::Address;
-    
+    use secp256k1::{Keypair, Secp256k1, SecretKey, XOnlyPublicKey};
+
     let secret_key = SecretKey::from_slice(key_bytes)
         .map_err(|e| Bip44Error::DerivationFailed(format!("Invalid secp256k1 key: {}", e)))?;
-    
+
     let secp = Secp256k1::new();
     let keypair = Keypair::from_secret_key(&secp, &secret_key);
     let (xonly_pubkey, _parity) = XOnlyPublicKey::from_keypair(&keypair);
     let (tweaked_pubkey, _parity) = xonly_pubkey.tap_tweak(&secp, None);
-    
+
     let address = Address::p2tr_tweaked(tweaked_pubkey, bitcoin::Network::Testnet);
     Ok(address.to_string())
 }
 
 fn derive_ethereum_address_from_key(key_bytes: &[u8]) -> Result<String, Bip44Error> {
     use secp256k1::{Secp256k1, SecretKey};
-    use sha3::{Keccak256, Digest};
-    
+    use sha3::{Digest, Keccak256};
+
     let secret_key = SecretKey::from_slice(key_bytes)
         .map_err(|e| Bip44Error::DerivationFailed(format!("Invalid secp256k1 key: {}", e)))?;
-    
+
     let secp = Secp256k1::new();
     let public_key = secret_key.public_key(&secp);
     let pubkey_bytes = public_key.serialize_uncompressed();
-    
+
     let mut hasher = Keccak256::new();
     hasher.update(&pubkey_bytes[1..]); // Skip the 0x04 prefix
     let hash = hasher.finalize();
-    
+
     // Ethereum address is the last 20 bytes
     Ok(format!("0x{}", hex::encode(&hash[12..])))
 }
 
 fn derive_sui_address_from_key(key_bytes: &[u8]) -> Result<String, Bip44Error> {
-    use ed25519_dalek::{SigningKey, VerifyingKey};
     use blake2::{Blake2b, Digest};
-    
+    use ed25519_dalek::{SigningKey, VerifyingKey};
+
     let mut key_array = [0u8; 32];
     key_array.copy_from_slice(key_bytes);
     let signing_key = SigningKey::from_bytes(&key_array);
     let verifying_key: VerifyingKey = signing_key.verifying_key();
-    
+
     let mut hasher = Blake2b::new();
     hasher.update([0x00]); // Sui address prefix
     hasher.update(verifying_key.as_bytes());
     let hash: [u8; 32] = hasher.finalize().into();
-    
+
     Ok(format!("0x{}", hex::encode(&hash[..])))
 }
 
 fn derive_aptos_address_from_key(key_bytes: &[u8]) -> Result<String, Bip44Error> {
     use ed25519_dalek::{SigningKey, VerifyingKey};
-    use sha3::{Sha3_256, Digest};
-    
+    use sha3::{Digest, Sha3_256};
+
     let mut key_array = [0u8; 32];
     key_array.copy_from_slice(key_bytes);
     let signing_key = SigningKey::from_bytes(&key_array);
     let verifying_key: VerifyingKey = signing_key.verifying_key();
-    
+
     let mut hasher = Sha3_256::new();
     hasher.update(verifying_key.as_bytes());
     hasher.update([0x00]); // Aptos address suffix
     let hash: [u8; 32] = hasher.finalize().into();
-    
+
     Ok(format!("0x{}", hex::encode(&hash[..])))
 }
 
 fn derive_solana_address_from_key(key_bytes: &[u8]) -> Result<String, Bip44Error> {
     use ed25519_dalek::{SigningKey, VerifyingKey};
-    
+
     let mut key_array = [0u8; 32];
     key_array.copy_from_slice(key_bytes);
     let signing_key = SigningKey::from_bytes(&key_array);
     let verifying_key: VerifyingKey = signing_key.verifying_key();
-    
+
     // Solana address is the base58-encoded public key
     Ok(bs58::encode(verifying_key.as_bytes()).into_string())
 }
@@ -383,7 +381,7 @@ mod tests {
     fn test_derivation_path_for_chains() {
         let eth_path = derivation_path(Chain::Ethereum, 0, 0);
         assert_eq!(eth_path.coin_type & 0x7FFF_FFFF, 60);
-        
+
         let btc_path = derivation_path(Chain::Bitcoin, 0, 0);
         assert_eq!(btc_path.purpose & 0x7FFF_FFFF, 86); // BIP-86
     }

@@ -1,11 +1,11 @@
 //! Seal management pages.
 
-pub mod list;
-pub mod create;
 pub mod consume;
+pub mod create;
+pub mod list;
 pub mod verify;
 
-pub use list::Seals;
-pub use create::CreateSeal;
 pub use consume::ConsumeSeal;
+pub use create::CreateSeal;
+pub use list::Seals;
 pub use verify::VerifySeal;

@@ -1,6 +1,6 @@
 //! Show right details page.
 
-use crate::context::{use_wallet_context};
+use crate::context::use_wallet_context;
 use crate::pages::common::*;
 use crate::routes::Route;
 use dioxus::prelude::*;

@@ -35,14 +35,16 @@ fn sig_right_created() -> String {
     keccak256_selector("RightCreated(bytes32,bytes32,address)")
 }
 
-/// keccak256("CrossChainLock(bytes32,bytes32,address,uint8,bytes,bytes32)")
+/// keccak256("CrossChainLock(bytes32,bytes32,address,uint8,bytes,bytes32,uint8,bytes32,bytes32,uint8,bytes32)")
 fn sig_cross_chain_lock() -> String {
-    keccak256_selector("CrossChainLock(bytes32,bytes32,address,uint8,bytes,bytes32)")
+    keccak256_selector("CrossChainLock(bytes32,bytes32,address,uint8,bytes,bytes32,uint8,bytes32,bytes32,uint8,bytes32)")
 }
 
-/// keccak256("RightMinted(bytes32,bytes32,address)")
+/// keccak256("RightMinted(bytes32,bytes32,address,uint8,bytes,uint8,bytes32,bytes32,uint8,bytes32)")
 fn sig_right_minted() -> String {
-    keccak256_selector("RightMinted(bytes32,bytes32,address)")
+    keccak256_selector(
+        "RightMinted(bytes32,bytes32,address,uint8,bytes,uint8,bytes32,bytes32,uint8,bytes32)",
+    )
 }
 
 fn keccak256_selector(signature: &str) -> String {

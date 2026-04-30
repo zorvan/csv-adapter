@@ -142,7 +142,7 @@ fn ChainAccountRow(account: ChainAccount, mut wallet_ctx: WalletContext) -> Elem
     let mut show_key = use_signal(|| false);
     let _account_clone = account.clone();
     let is_bitcoin = account.chain == Chain::Bitcoin;
-    
+
     rsx! {
         div { class: "flex items-center justify-between bg-gray-800/50 rounded-lg p-3",
             div { class: "flex-1 min-w-0",
@@ -486,8 +486,8 @@ fn trigger_download(filename: &str, content: &str) {
 /// Generate a random 32-byte private key for any chain.
 /// All supported chains (Bitcoin/Ethereum secp256k1, Sui/Aptos/Solana ed25519) use 32-byte keys.
 fn generate_key_for_chain(_chain: Chain) -> String {
-    use rand::RngCore;
     use rand::rngs::OsRng;
+    use rand::RngCore;
 
     let mut key = [0u8; 32];
     OsRng.fill_bytes(&mut key);

@@ -7,8 +7,8 @@
 //! - Chain signatures display
 //! - Raw proof data viewer
 
+use crate::components::hash_display::{shorten_hash, HashDisplay};
 use dioxus::prelude::*;
-use crate::components::hash_display::{HashDisplay, shorten_hash};
 
 /// Cross-chain proof data structure.
 #[derive(Clone, PartialEq)]
@@ -59,7 +59,7 @@ impl ProofStatus {
             ProofStatus::Expired => "Expired",
         }
     }
-    
+
     fn color(&self) -> &'static str {
         match self {
             ProofStatus::Pending => "var(--color-warning-500)",
@@ -68,7 +68,7 @@ impl ProofStatus {
             ProofStatus::Expired => "var(--color-gray-500)",
         }
     }
-    
+
     fn icon(&self) -> &'static str {
         match self {
             ProofStatus::Pending => "⏳",
@@ -113,22 +113,22 @@ pub struct ProofInspectorProps {
 pub fn ProofInspector(props: ProofInspectorProps) -> Element {
     let mut active_tab = use_signal(|| Tab::Overview);
     let expanded_nodes = use_signal(|| std::collections::HashSet::<usize>::new());
-    
+
     rsx! {
         div { class: "proof-inspector {props.class}",
             // Header with status
             div { class: "proof-header",
                 div { class: "proof-title-section",
                     h3 { class: "proof-title", "Cross-Chain Proof" }
-                    span { 
+                    span {
                         class: "proof-status-badge",
-                        style: format!("color: {}; border-color: {}", 
-                            props.proof.status.color(), 
+                        style: format!("color: {}; border-color: {}",
+                            props.proof.status.color(),
                             props.proof.status.color()),
                         "{props.proof.status.icon()} {props.proof.status.label()}"
                     }
                 }
-                
+
                 div { class: "proof-meta",
                     div { class: "meta-item",
                         span { class: "meta-label", "Proof ID: " }
@@ -145,7 +145,7 @@ pub fn ProofInspector(props: ProofInspectorProps) -> Element {
                     }
                 }
             }
-            
+
             // Tab navigation
             div { class: "proof-tabs",
                 for tab in [Tab::Overview, Tab::MerkleTree, Tab::Signatures, Tab::Raw] {
@@ -156,30 +156,30 @@ pub fn ProofInspector(props: ProofInspectorProps) -> Element {
                     }
                 }
             }
-            
+
             // Tab content
             div { class: "proof-content",
                 match *active_tab.read() {
                     Tab::Overview => rsx! {
-                        ProofOverview { 
+                        ProofOverview {
                             proof: props.proof.clone(),
                             on_verify: props.on_verify.clone(),
                             allow_verify: props.allow_verify,
                         }
                     },
                     Tab::MerkleTree => rsx! {
-                        MerkleTreeView { 
+                        MerkleTreeView {
                             proof: props.proof.clone(),
                             expanded_nodes: expanded_nodes,
                         }
                     },
                     Tab::Signatures => rsx! {
-                        SignaturesView { 
+                        SignaturesView {
                             signatures: props.proof.signatures.clone(),
                         }
                     },
                     Tab::Raw => rsx! {
-                        RawDataView { 
+                        RawDataView {
                             raw_data: props.proof.raw_data.clone(),
                         }
                     },
@@ -236,9 +236,9 @@ fn ProofOverview(props: ProofOverviewProps) -> Element {
                     }
                     div { class: "chain-block", "Block #{props.proof.source_block_height}" }
                 }
-                
+
                 div { class: "flow-arrow", "→" }
-                
+
                 div { class: "chain-box target",
                     div { class: "chain-label", "Target" }
                     div { class: "chain-name", "{props.proof.target_chain}" }
@@ -257,7 +257,7 @@ fn ProofOverview(props: ProofOverviewProps) -> Element {
                     }
                 }
             }
-            
+
             // Key proof data
             div { class: "proof-data-grid",
                 div { class: "data-card",
@@ -270,7 +270,7 @@ fn ProofOverview(props: ProofOverviewProps) -> Element {
                         class: "monospace".to_string(),
                     }
                 }
-                
+
                 div { class: "data-card",
                     h5 { "Merkle Root" }
                     HashDisplay {
@@ -281,22 +281,22 @@ fn ProofOverview(props: ProofOverviewProps) -> Element {
                         class: "monospace".to_string(),
                     }
                 }
-                
+
                 div { class: "data-card",
                     h5 { "Path Depth" }
                     div { class: "path-stat", "{props.proof.merkle_path.len()} levels" }
                     div { class: "path-desc", "Merkle path from leaf to root" }
                 }
-                
+
                 div { class: "data-card",
                     h5 { "Signatures" }
-                    div { class: "sig-stat", 
+                    div { class: "sig-stat",
                         "{props.proof.signatures.iter().filter(|s| s.is_valid).count()} / {props.proof.signatures.len()} valid"
                     }
                     div { class: "sig-desc", "Validator attestations" }
                 }
             }
-            
+
             // Verify button
             if props.allow_verify && props.proof.status == ProofStatus::Pending {
                 div { class: "proof-actions",
@@ -325,16 +325,16 @@ struct MerkleTreeViewProps {
 #[allow(non_snake_case)]
 fn MerkleTreeView(mut props: MerkleTreeViewProps) -> Element {
     let _total_levels = props.proof.merkle_path.len() + 1;
-    
+
     rsx! {
         div { class: "merkle-tree-view",
             h4 { "Merkle Path Visualization" }
-            
+
             p { class: "merkle-desc",
-                "The Merkle path proves that the leaf (seal commitment) is included in the anchor root. 
+                "The Merkle path proves that the leaf (seal commitment) is included in the anchor root.
                 Each level combines the current hash with a sibling hash to produce the parent hash."
             }
-            
+
             // Tree structure (drawn bottom-up)
             div { class: "merkle-tree",
                 // Leaf node at bottom
@@ -349,13 +349,13 @@ fn MerkleTreeView(mut props: MerkleTreeViewProps) -> Element {
                         }
                     }
                 }
-                
+
                 // Path levels
                 for (i, sibling_hash) in props.proof.merkle_path.iter().enumerate() {
                     div { class: "merkle-level",
                         // Connector
                         div { class: "merkle-connector" }
-                        
+
                         // Sibling node
                         div { class: "merkle-sibling",
                             span { class: "sibling-label", "Sibling {i + 1}" }
@@ -366,13 +366,13 @@ fn MerkleTreeView(mut props: MerkleTreeViewProps) -> Element {
                                 show_copy: true,
                             }
                         }
-                        
+
                         // Hash operation
                         div { class: "merkle-op", "⊕" }
-                        
+
                         // Result node
                         div { class: "merkle-node",
-                            span { class: "node-label", 
+                            span { class: "node-label",
                                 if i == props.proof.merkle_path.len() - 1 {
                                     "Root"
                                 } else {
@@ -398,7 +398,7 @@ fn MerkleTreeView(mut props: MerkleTreeViewProps) -> Element {
                                 }
                             }
                         }
-                        
+
                         if (props.expanded_nodes)().contains(&i) {
                             div { class: "merkle-expanded",
                                 p { "Hash(parent) = Hash(Hash(child) ⊕ Hash(sibling))" }
@@ -409,7 +409,7 @@ fn MerkleTreeView(mut props: MerkleTreeViewProps) -> Element {
                         }
                     }
                 }
-                
+
                 // Root at top
                 div { class: "merkle-level root",
                     div { class: "merkle-connector root" }
@@ -425,7 +425,7 @@ fn MerkleTreeView(mut props: MerkleTreeViewProps) -> Element {
                     }
                 }
             }
-            
+
             // Verification equation
             div { class: "merkle-verification",
                 h5 { "Verification Formula" }
@@ -447,14 +447,14 @@ struct SignaturesViewProps {
 fn SignaturesView(props: SignaturesViewProps) -> Element {
     let valid_count = props.signatures.iter().filter(|s| s.is_valid).count();
     let threshold = (props.signatures.len() as f32 * 0.66).ceil() as usize;
-    
+
     rsx! {
         div { class: "signatures-view",
             h4 { "Validator Signatures" }
-            
+
             div { class: "sig-summary",
                 div { class: "sig-progress",
-                    div { 
+                    div {
                         class: "sig-progress-bar",
                         style: format!("width: {}%", (valid_count * 100) / props.signatures.len()),
                     }
@@ -463,20 +463,20 @@ fn SignaturesView(props: SignaturesViewProps) -> Element {
                     "{valid_count} / {props.signatures.len()} valid (threshold: {threshold})"
                 }
             }
-            
+
             div { class: "signatures-list",
                 for sig in props.signatures.iter() {
                     div {
                         class: "signature-item",
                         class: if sig.is_valid { "valid" } else { "invalid" },
-                        
+
                         div { class: "sig-header",
                             span { class: "sig-status",
                                 if sig.is_valid { "✓ Valid" } else { "✗ Invalid" }
                             }
                             span { class: "sig-time", "{format_time(sig.timestamp)}" }
                         }
-                        
+
                         div { class: "sig-validator",
                             span { class: "sig-label", "Validator: " }
                             HashDisplay {
@@ -486,7 +486,7 @@ fn SignaturesView(props: SignaturesViewProps) -> Element {
                                 show_copy: false,
                             }
                         }
-                        
+
                         div { class: "sig-data",
                             span { class: "sig-label", "Signature: " }
                             span { class: "sig-value monospace",
@@ -508,28 +508,30 @@ struct RawDataViewProps {
 
 #[allow(non_snake_case)]
 fn RawDataView(props: RawDataViewProps) -> Element {
-    let hex_string = props.raw_data
+    let hex_string = props
+        .raw_data
         .chunks(16)
         .map(|chunk| {
-            chunk.iter()
+            chunk
+                .iter()
                 .map(|b| format!("{:02x}", b))
                 .collect::<Vec<_>>()
                 .join(" ")
         })
         .collect::<Vec<_>>()
         .join("\n");
-    
+
     let base64_string = base64::encode(&props.raw_data);
-    
+
     rsx! {
         div { class: "raw-data-view",
             h4 { "Raw Proof Data" }
-            
+
             div { class: "raw-stats",
                 div { class: "stat", "Size: {props.raw_data.len()} bytes" }
                 div { class: "stat", "Format: BCS (Binary Canonical Serialization)" }
             }
-            
+
             div { class: "raw-formats",
                 div { class: "format-section",
                     h5 { "Hexadecimal" }
@@ -542,7 +544,7 @@ fn RawDataView(props: RawDataViewProps) -> Element {
                         "Copy Hex"
                     }
                 }
-                
+
                 div { class: "format-section",
                     h5 { "Base64" }
                     pre { class: "raw-base64", "{base64_string}" }
@@ -555,7 +557,7 @@ fn RawDataView(props: RawDataViewProps) -> Element {
                     }
                 }
             }
-            
+
             div { class: "raw-note",
                 p { "This is the raw proof data that can be submitted to the target chain's verification contract." }
             }
@@ -568,9 +570,9 @@ fn format_time(timestamp: u64) -> String {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
-    
+
     let diff = now.saturating_sub(timestamp);
-    
+
     if diff < 60 {
         format!("{}s ago", diff)
     } else if diff < 3600 {
@@ -585,34 +587,34 @@ fn format_time(timestamp: u64) -> String {
 // Simple base64 encoder for raw data display
 mod base64 {
     const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    
+
     pub fn encode(data: &[u8]) -> String {
         let mut result = String::new();
         let chunks = data.chunks(3);
-        
+
         for chunk in chunks {
             let b1 = chunk[0];
             let b2 = chunk.get(1).copied().unwrap_or(0);
             let b3 = chunk.get(2).copied().unwrap_or(0);
-            
+
             let n = (b1 as u32) << 16 | (b2 as u32) << 8 | b3 as u32;
-            
+
             result.push(ALPHABET[(n >> 18) as usize] as char);
             result.push(ALPHABET[((n >> 12) & 0x3f) as usize] as char);
-            
+
             if chunk.len() > 1 {
                 result.push(ALPHABET[((n >> 6) & 0x3f) as usize] as char);
             } else {
                 result.push('=');
             }
-            
+
             if chunk.len() > 2 {
                 result.push(ALPHABET[(n & 0x3f) as usize] as char);
             } else {
                 result.push('=');
             }
         }
-        
+
         result
     }
 }

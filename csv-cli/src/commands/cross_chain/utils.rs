@@ -1,8 +1,8 @@
 //! Cross-chain utility functions
 
 use anyhow::Result;
-use std::time::{SystemTime, UNIX_EPOCH, Duration};
 use chrono;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use csv_adapter_core::hash::Hash;
 
@@ -207,7 +207,7 @@ pub fn fetch_gas_balance(chain: &Chain, config: &Config, address: &str) -> anyho
         .ok_or_else(|| anyhow::anyhow!("Chain not configured"))?;
 
     let runtime = tokio::runtime::Runtime::new()?;
-    
+
     runtime.block_on(async {
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(10))
@@ -241,7 +241,7 @@ pub fn fetch_gas_balance(chain: &Chain, config: &Config, address: &str) -> anyho
                     .await?;
 
                 let rpc_response: JsonRpcResponse<String> = response.json().await?;
-                
+
                 if let Some(error) = rpc_response.error {
                     return Err(anyhow::anyhow!("RPC error: {}", error.message));
                 }
@@ -269,7 +269,7 @@ pub fn fetch_gas_balance(chain: &Chain, config: &Config, address: &str) -> anyho
                     .await?;
 
                 let rpc_response: JsonRpcResponse<serde_json::Value> = response.json().await?;
-                
+
                 if let Some(error) = rpc_response.error {
                     return Err(anyhow::anyhow!("RPC error: {}", error.message));
                 }
@@ -295,7 +295,7 @@ pub fn fetch_gas_balance(chain: &Chain, config: &Config, address: &str) -> anyho
 
                 let response = client.get(&url).send().await?;
                 let account_resource: serde_json::Value = response.json().await?;
-                
+
                 let balance = account_resource["data"]["coin"]["value"]
                     .as_str()
                     .ok_or_else(|| anyhow::anyhow!("No balance in response"))?
@@ -319,7 +319,7 @@ pub fn fetch_gas_balance(chain: &Chain, config: &Config, address: &str) -> anyho
                     .await?;
 
                 let rpc_response: JsonRpcResponse<serde_json::Value> = response.json().await?;
-                
+
                 if let Some(error) = rpc_response.error {
                     return Err(anyhow::anyhow!("RPC error: {}", error.message));
                 }
@@ -339,25 +339,32 @@ pub fn fetch_gas_balance(chain: &Chain, config: &Config, address: &str) -> anyho
 }
 
 /// Get private key for a chain from config
-pub fn get_private_key(config: &crate::config::Config, _state: &crate::state::UnifiedStateManager, chain: Chain) -> Result<String> {
+pub fn get_private_key(
+    config: &crate::config::Config,
+    _state: &crate::state::UnifiedStateManager,
+    chain: Chain,
+) -> Result<String> {
     // First try to get from wallet configuration
     if let Some(wallet) = config.wallets.get(&chain) {
         if let Some(key) = &wallet.private_key {
             return Ok(key.clone());
         }
     }
-    
+
     // If no gas account configured, check chain defaults
     // Try to load from environment variable or secure keystore file
     let env_var_name = format!("{}_PRIVATE_KEY", chain.to_string().to_uppercase());
     if let Ok(key) = std::env::var(&env_var_name) {
         return Ok(key);
     }
-    
+
     // Try to load from keystore file if available
-    let keystore_path = dirs::home_dir()
-        .map(|h| h.join(".csv").join("keystore").join(format!("{}.json", chain.to_string().to_lowercase())));
-    
+    let keystore_path = dirs::home_dir().map(|h| {
+        h.join(".csv")
+            .join("keystore")
+            .join(format!("{}.json", chain.to_string().to_lowercase()))
+    });
+
     if let Some(path) = keystore_path {
         if path.exists() {
             // Try to load keystore - would need password in real implementation
@@ -370,7 +377,7 @@ pub fn get_private_key(config: &crate::config::Config, _state: &crate::state::Un
             ));
         }
     }
-    
+
     Err(anyhow::anyhow!(
         "No private key found for {:?}. Configure a gas account, set {}_PRIVATE_KEY environment variable, or create a keystore.",
         chain,
@@ -381,8 +388,7 @@ pub fn get_private_key(config: &crate::config::Config, _state: &crate::state::Un
 /// Parse a hex string into a 32-byte Hash
 pub fn hash_from_hex_32(hex_str: &str) -> Result<Hash> {
     let hex_clean = hex_str.trim_start_matches("0x");
-    let bytes = hex::decode(hex_clean)
-        .map_err(|e| anyhow::anyhow!("Invalid hex: {}", e))?;
+    let bytes = hex::decode(hex_clean).map_err(|e| anyhow::anyhow!("Invalid hex: {}", e))?;
     if bytes.len() != 32 {
         return Err(anyhow::anyhow!("Expected 32 bytes, got {}", bytes.len()));
     }
@@ -394,7 +400,7 @@ pub fn hash_from_hex_32(hex_str: &str) -> Result<Hash> {
 /// Format a Unix timestamp as a human-readable date
 pub fn format_timestamp(timestamp: u64) -> String {
     use std::time::{Duration, UNIX_EPOCH};
-    
+
     let datetime = UNIX_EPOCH + Duration::from_secs(timestamp);
     let datetime = chrono::DateTime::<chrono::Local>::from(datetime);
     datetime.format("%Y-%m-%d %H:%M:%S").to_string()
@@ -406,9 +412,8 @@ pub fn format_timestamp(timestamp: u64) -> String {
 #[allow(dead_code)]
 pub fn send_ethereum_mint_stub() {}
 
-
 /// Build a demo Merkle proof
-/// 
+///
 /// In a real implementation, this would:
 /// 1. Fetch the transaction receipt for the right_id
 /// 2. Get the block containing the transaction
@@ -417,30 +422,30 @@ pub fn send_ethereum_mint_stub() {}
 ///
 /// For now, this builds a placeholder proof with proper structure.
 pub fn build_demo_merkle_proof(right_id: Hash, commitment: Hash, depth: u8) -> Vec<u8> {
-    use sha2::{Sha256, Digest};
-    
+    use sha2::{Digest, Sha256};
+
     // Build a simple Merkle tree structure
     // The proof consists of:
     // - 4 bytes: depth
     // - 32 bytes: root hash
     // - 32 bytes: leaf hash (commitment)
     // - depth * 32 bytes: sibling hashes
-    
+
     let mut proof = Vec::new();
-    
+
     // Add depth
     proof.extend_from_slice(&depth.to_le_bytes());
-    
+
     // Compute root as hash of right_id + commitment
     let mut hasher = Sha256::new();
     hasher.update(right_id.as_bytes());
     hasher.update(commitment.as_bytes());
     let root = hasher.finalize();
     proof.extend_from_slice(&root);
-    
+
     // Add leaf (commitment)
     proof.extend_from_slice(commitment.as_bytes());
-    
+
     // Generate placeholder sibling hashes
     // In a real implementation, these would be actual sibling nodes
     for i in 0..depth {
@@ -449,6 +454,6 @@ pub fn build_demo_merkle_proof(right_id: Hash, commitment: Hash, depth: u8) -> V
         let sibling = sibling_hasher.finalize();
         proof.extend_from_slice(&sibling);
     }
-    
+
     proof
 }

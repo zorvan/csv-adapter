@@ -3,7 +3,9 @@
 //! This page visualizes the flow: Right → Seal → Proof → Destination Right
 //! helping users understand the relationship between these concepts.
 
-use crate::context::{use_wallet_context, TrackedRight, SealRecord, ProofRecord, SealStatus, ProofStatus, RightStatus};
+use crate::context::{
+    use_wallet_context, ProofRecord, ProofStatus, RightStatus, SealRecord, SealStatus, TrackedRight,
+};
 use crate::pages::common::*;
 use crate::routes::Route;
 use dioxus::prelude::*;
@@ -15,7 +17,7 @@ pub fn RightJourney(id: String) -> Element {
     let right = wallet_ctx.get_right(&id);
     let seal = wallet_ctx.seal_for_right(&id);
     let proofs = wallet_ctx.proofs_for_right(&id);
-    
+
     // Find destination right if this was transferred
     let dest_right = if let Some(ref r) = right {
         if r.status == RightStatus::Transferred {
@@ -37,7 +39,7 @@ pub fn RightJourney(id: String) -> Element {
                 Link { to: Route::Rights {}, class: "{btn_secondary_class()}", "\u{2190} Back" }
                 h1 { class: "text-xl font-bold", "Right Journey" }
             }
-            
+
             if right.is_none() {
                 div { class: "{card_class()} p-6",
                     p { class: "text-gray-400", "Right not found." }
@@ -45,7 +47,7 @@ pub fn RightJourney(id: String) -> Element {
             } else {
                 // Flow visualization
                 {flow_visualization(&right, &seal, &proofs, &dest_right)}
-                
+
                 // Detailed sections
                 if let Some(ref r) = right {
                     {right_details_section(r)}
@@ -75,30 +77,42 @@ fn flow_visualization(
     let seal_active = seal.is_some();
     let proof_active = !proofs.is_empty();
     let dest_active = dest_right.is_some();
-    
+
     // Determine status colors
-    let right_color = if right_active { "bg-blue-500" } else { "bg-gray-600" };
-    let seal_color = if seal_active { 
+    let right_color = if right_active {
+        "bg-blue-500"
+    } else {
+        "bg-gray-600"
+    };
+    let seal_color = if seal_active {
         match seal.as_ref().unwrap().status {
             SealStatus::Active => "bg-yellow-500",
             SealStatus::Locked => "bg-orange-500",
             SealStatus::Consumed => "bg-gray-600",
             SealStatus::Transferred => "bg-green-500",
         }
-    } else { "bg-gray-600" };
+    } else {
+        "bg-gray-600"
+    };
     let proof_color = if proof_active {
         if proofs.iter().any(|p| p.status == ProofStatus::Verified) {
             "bg-green-500"
         } else {
             "bg-yellow-500"
         }
-    } else { "bg-gray-600" };
-    let dest_color = if dest_active { "bg-green-500" } else { "bg-gray-600" };
-    
+    } else {
+        "bg-gray-600"
+    };
+    let dest_color = if dest_active {
+        "bg-green-500"
+    } else {
+        "bg-gray-600"
+    };
+
     rsx! {
         div { class: "{card_class()} p-6",
             h2 { class: "text-lg font-semibold mb-6", "Lifecycle Flow" }
-            
+
             div { class: "flex flex-col md:flex-row items-center justify-between gap-4",
                 // Step 1: Right
                 div { class: "flex flex-col items-center gap-2",
@@ -110,7 +124,7 @@ fn flow_visualization(
                         span { class: "text-xs text-gray-400", "{truncate_address(&r.id, 6)}" }
                     }
                 }
-                
+
                 // Arrow
                 div { class: "flex flex-col items-center",
                     span { class: "text-2xl text-gray-500", "\u{2192}" }
@@ -118,7 +132,7 @@ fn flow_visualization(
                         span { class: "text-xs text-blue-400", "Lock" }
                     }
                 }
-                
+
                 // Step 2: Seal
                 div { class: "flex flex-col items-center gap-2",
                     div { class: "w-16 h-16 rounded-full {seal_color} flex items-center justify-center text-2xl",
@@ -131,7 +145,7 @@ fn flow_visualization(
                         span { class: "text-xs text-gray-500", "Not created" }
                     }
                 }
-                
+
                 // Arrow
                 div { class: "flex flex-col items-center",
                     span { class: "text-2xl text-gray-500", "\u{2192}" }
@@ -139,7 +153,7 @@ fn flow_visualization(
                         span { class: "text-xs text-blue-400", "Prove" }
                     }
                 }
-                
+
                 // Step 3: Proof
                 div { class: "flex flex-col items-center gap-2",
                     div { class: "w-16 h-16 rounded-full {proof_color} flex items-center justify-center text-2xl",
@@ -157,7 +171,7 @@ fn flow_visualization(
                         span { class: "text-xs text-gray-500", "Not generated" }
                     }
                 }
-                
+
                 // Arrow
                 div { class: "flex flex-col items-center",
                     span { class: "text-2xl text-gray-500", "\u{2192}" }
@@ -165,7 +179,7 @@ fn flow_visualization(
                         span { class: "text-xs text-blue-400", "Mint" }
                     }
                 }
-                
+
                 // Step 4: Destination Right
                 div { class: "flex flex-col items-center gap-2",
                     div { class: "w-16 h-16 rounded-full {dest_color} flex items-center justify-center text-2xl",
@@ -179,7 +193,7 @@ fn flow_visualization(
                     }
                 }
             }
-            
+
             // Status summary
             div { class: "mt-6 p-4 bg-gray-800/50 rounded-lg",
                 p { class: "text-sm text-gray-300",
@@ -209,7 +223,9 @@ fn flow_status_text(
                     "Cross-chain transfer complete!".to_string()
                 }
             }
-            RightStatus::Transferred => "This Right has been transferred to another chain.".to_string(),
+            RightStatus::Transferred => {
+                "This Right has been transferred to another chain.".to_string()
+            }
             RightStatus::Consumed => "This Right has been consumed.".to_string(),
         }
     } else {
@@ -264,7 +280,7 @@ fn seal_details_section(seal: &SealRecord) -> Element {
         SealStatus::Consumed => "text-gray-400 bg-gray-500/20",
         SealStatus::Transferred => "text-green-400 bg-green-500/20",
     };
-    
+
     rsx! {
         div { class: "{card_class()}",
             div { class: "{card_header_class()}",
@@ -293,7 +309,7 @@ fn seal_details_section(seal: &SealRecord) -> Element {
                         p { class: "text-sm font-mono", "{seal.value}" }
                     }
                 }
-                
+
                 if let Some(ref content) = seal.content {
                     div { class: "border-t border-gray-700 pt-4",
                         p { class: "text-xs text-gray-500 mb-2", "Cryptographic Content" }
@@ -321,7 +337,7 @@ fn seal_details_section(seal: &SealRecord) -> Element {
                         }
                     }
                 }
-                
+
                 if let Some(ref proof_ref) = seal.proof_ref {
                     div { class: "border-t border-gray-700 pt-4",
                         p { class: "text-xs text-gray-500", "Linked Proof" }
@@ -357,7 +373,7 @@ fn proof_card(proof: &ProofRecord) -> Element {
                     "{proof.status}"
                 }
             }
-            
+
             div { class: "grid grid-cols-2 gap-3 text-sm",
                 div {
                     p { class: "text-xs text-gray-500", "Source Chain" }
@@ -378,14 +394,14 @@ fn proof_card(proof: &ProofRecord) -> Element {
                     p { class: "font-mono", "{format_timestamp(proof.generated_at)}" }
                 }
             }
-            
+
             if let Some(ref data) = proof.data {
                 div { class: "mt-3 pt-3 border-t border-gray-700",
                     p { class: "text-xs text-gray-500 mb-2", "Cryptographic Data" }
                     {proof_data_display(data)}
                 }
             }
-            
+
             if let Some(ref tx) = proof.verification_tx_hash {
                 div { class: "mt-3 pt-3 border-t border-gray-700",
                     p { class: "text-xs text-gray-500", "Verification TX" }
@@ -398,7 +414,11 @@ fn proof_card(proof: &ProofRecord) -> Element {
 
 fn proof_data_display(data: &crate::context::ProofData) -> Element {
     match data {
-        crate::context::ProofData::Merkle { root, path, leaf_index } => {
+        crate::context::ProofData::Merkle {
+            root,
+            path,
+            leaf_index,
+        } => {
             rsx! {
                 div { class: "space-y-1 text-xs",
                     p { span { class: "text-gray-500", "Root: " }, span { class: "font-mono", "{truncate_address(root, 16)}" } }
@@ -407,7 +427,11 @@ fn proof_data_display(data: &crate::context::ProofData) -> Element {
                 }
             }
         }
-        crate::context::ProofData::Mpt { root, account_proof, storage_proof } => {
+        crate::context::ProofData::Mpt {
+            root,
+            account_proof,
+            storage_proof,
+        } => {
             rsx! {
                 div { class: "space-y-1 text-xs",
                     p { span { class: "text-gray-500", "State Root: " }, span { class: "font-mono", "{truncate_address(root, 16)}" } }
@@ -416,7 +440,11 @@ fn proof_data_display(data: &crate::context::ProofData) -> Element {
                 }
             }
         }
-        crate::context::ProofData::Checkpoint { sequence, digest, signatures } => {
+        crate::context::ProofData::Checkpoint {
+            sequence,
+            digest,
+            signatures,
+        } => {
             rsx! {
                 div { class: "space-y-1 text-xs",
                     p { span { class: "text-gray-500", "Sequence: " }, "{sequence}" }
@@ -433,7 +461,11 @@ fn proof_data_display(data: &crate::context::ProofData) -> Element {
                 }
             }
         }
-        crate::context::ProofData::Solana { slot, bank_hash, merkle_proof } => {
+        crate::context::ProofData::Solana {
+            slot,
+            bank_hash,
+            merkle_proof,
+        } => {
             rsx! {
                 div { class: "space-y-1 text-xs",
                     p { span { class: "text-gray-500", "Slot: " }, "{slot}" }
@@ -453,7 +485,7 @@ fn destination_section(right: &TrackedRight) -> Element {
                 h2 { class: "font-semibold text-green-400", "\u{2705} Destination Right" }
             }
             div { class: "p-4 space-y-4",
-                p { class: "text-sm text-gray-300", 
+                p { class: "text-sm text-gray-300",
                     "The Right has been successfully minted on the destination chain."
                 }
                 div { class: "grid grid-cols-2 gap-4",

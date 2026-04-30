@@ -16,7 +16,8 @@ pub fn CrossChainStatus() -> Element {
 
     // Get the currently selected transfer by computing it from the signal
     let selected_transfer_id_read = selected_transfer_id.read();
-    let selected_transfer: Option<TrackedTransfer> = transfers.iter()
+    let selected_transfer: Option<TrackedTransfer> = transfers
+        .iter()
         .find(|t| t.id == *selected_transfer_id_read)
         .cloned();
 

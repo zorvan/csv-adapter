@@ -6,8 +6,8 @@
 //! - State transition indicators
 //! - Countdown/timer for time-sensitive states
 
-use dioxus::prelude::*;
 use crate::components::design_tokens::SealState;
+use dioxus::prelude::*;
 
 /// Props for the SealStatusBadge component.
 #[derive(Props, Clone, PartialEq)]
@@ -71,11 +71,11 @@ pub fn SealStatusBadge(props: SealStatusBadgeProps) -> Element {
         SealState::Locked => "seal-locked",
         SealState::Error => "seal-error",
     };
-    
+
     let should_pulse = props.pulse.unwrap_or(props.state == SealState::Pending);
     let pulse_class = if should_pulse { "seal-pulse" } else { "" };
     let size_class = props.size.class();
-    
+
     let confirmation_text = props.confirmation_info.as_ref().map(|info| {
         if let Some(eta) = info.eta_seconds {
             format!("{} / {} conf (~{}s)", info.current, info.required, eta)
@@ -83,19 +83,19 @@ pub fn SealStatusBadge(props: SealStatusBadgeProps) -> Element {
             format!("{} / {} conf", info.current, info.required)
         }
     });
-    
+
     rsx! {
         div {
             class: "seal-status-badge {state_class} {pulse_class} {size_class} {props.class}",
-            
+
             // Status dot
             span { class: "seal-status-dot" }
-            
+
             // State label
             if props.show_label {
                 span { class: "seal-status-label", "{props.state.label()}" }
             }
-            
+
             // Confirmation progress (for pending)
             if let Some(text) = confirmation_text {
                 if props.state == SealState::Pending {
@@ -139,15 +139,16 @@ pub fn SealLifecycle(props: SealLifecycleProps) -> Element {
         SealState::Locked,
         SealState::Consumed,
     ];
-    
-    let current_index = all_states.iter()
+
+    let current_index = all_states
+        .iter()
         .position(|s| *s == props.current_state)
         .unwrap_or(0);
-    
+
     rsx! {
         div { class: "seal-lifecycle {props.class}",
             h4 { class: "seal-lifecycle-title", "Seal Lifecycle" }
-            
+
             div { class: "seal-timeline",
                 for (i, state) in all_states.iter().enumerate() {
                     div {
@@ -155,16 +156,16 @@ pub fn SealLifecycle(props: SealLifecycleProps) -> Element {
                         class: if i < current_index { "completed" },
                         class: if i == current_index { "current" },
                         class: if i > current_index { "future" },
-                        
+
                         // Step indicator
                         div { class: "seal-step-dot" }
-                        
+
                         // Step label
                         span { class: "seal-step-label", "{state.label()}" }
-                        
+
                         // Timestamp if available
                         if let Some(transition) = props.transitions.iter().find(|t| t.state == *state) {
-                            span { 
+                            span {
                                 class: "seal-step-time",
                                 "{format_timestamp(transition.timestamp)}"
                             }
@@ -172,7 +173,7 @@ pub fn SealLifecycle(props: SealLifecycleProps) -> Element {
                     }
                 }
             }
-            
+
             // Current state details
             div { class: "seal-current-state",
                 SealStatusBadge {
@@ -203,7 +204,7 @@ pub fn SealIndicator(props: SealIndicatorProps) -> Element {
     } else {
         "seal-indicator"
     };
-    
+
     rsx! {
         span {
             class: "{class} {seal_state_class(props.state)} {props.class}",
@@ -231,9 +232,9 @@ fn format_timestamp(timestamp: u64) -> String {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
-    
+
     let diff = now.saturating_sub(timestamp);
-    
+
     if diff < 60 {
         format!("{}s ago", diff)
     } else if diff < 3600 {

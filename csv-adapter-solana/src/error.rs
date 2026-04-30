@@ -1,7 +1,7 @@
 //! Error types for Solana adapter
 
+use csv_adapter_core::agent_types::{error_codes, FixAction, HasErrorSuggestion};
 use thiserror::Error;
-use csv_adapter_core::agent_types::{HasErrorSuggestion, FixAction, error_codes};
 
 /// Solana-specific errors
 #[derive(Debug, Error)]
@@ -119,9 +119,7 @@ impl SolanaError {
     pub fn is_transient(&self) -> bool {
         matches!(
             self,
-            SolanaError::Rpc(_)
-                | SolanaError::Network(_)
-                | SolanaError::Commitment(_)
+            SolanaError::Rpc(_) | SolanaError::Network(_) | SolanaError::Commitment(_)
         )
     }
 }
@@ -155,13 +153,12 @@ impl HasErrorSuggestion for SolanaError {
 
     fn suggested_fix(&self) -> String {
         match self {
-            SolanaError::Rpc(_) => {
-                "Solana RPC call failed. Check: \
+            SolanaError::Rpc(_) => "Solana RPC call failed. Check: \
                  1) Your internet connection, \
                  2) The RPC endpoint is accessible (try https://api.mainnet-beta.solana.com), \
                  3) Rate limits haven't been exceeded. \
-                 For devnet, use https://api.devnet.solana.com".to_string()
-            }
+                 For devnet, use https://api.devnet.solana.com"
+                .to_string(),
             SolanaError::Transaction(msg) => {
                 format!(
                     "Solana transaction failed: {}. Check: \
@@ -195,59 +192,64 @@ impl HasErrorSuggestion for SolanaError {
                     msg
                 )
             }
-            SolanaError::InsufficientFunds { required, available } => {
+            SolanaError::InsufficientFunds {
+                required,
+                available,
+            } => {
                 format!(
                     "Insufficient funds: need {} lamports, have {}. \
                      Fund your wallet with at least {} more lamports ({} SOL).",
-                    required, available,
+                    required,
+                    available,
                     required.saturating_sub(*available),
                     (required.saturating_sub(*available)) as f64 / 1e9
                 )
             }
             SolanaError::Network(_) => {
                 "Network communication failed. Check your internet connection \
-                 and verify the Solana network is accessible.".to_string()
+                 and verify the Solana network is accessible."
+                    .to_string()
             }
             SolanaError::Serialization(_) => {
                 "Data serialization failed. Ensure the data structure matches \
-                 the expected format for Solana programs.".to_string()
+                 the expected format for Solana programs."
+                    .to_string()
             }
             SolanaError::Deserialization(_) => {
                 "Data deserialization failed. The data format may have changed \
-                 or be incompatible with the expected structure.".to_string()
+                 or be incompatible with the expected structure."
+                    .to_string()
             }
-            SolanaError::Keypair(_) => {
-                "Keypair operation failed. Verify the private key format \
-                 and ensure it's a valid ed25519 key.".to_string()
-            }
-            SolanaError::Wallet(_) => {
-                "Wallet operation failed. Check wallet configuration \
-                 and ensure the wallet has the required permissions.".to_string()
-            }
-            SolanaError::Commitment(_) => {
-                "Commitment level error. Use 'confirmed' or 'finalized' \
-                 for reliable results. 'processed' may be too optimistic.".to_string()
-            }
-            SolanaError::SealCreation(_) => {
-                "Failed to create seal. Check the seal parameters \
-                 and ensure the account has sufficient space.".to_string()
-            }
+            SolanaError::Keypair(_) => "Keypair operation failed. Verify the private key format \
+                 and ensure it's a valid ed25519 key."
+                .to_string(),
+            SolanaError::Wallet(_) => "Wallet operation failed. Check wallet configuration \
+                 and ensure the wallet has the required permissions."
+                .to_string(),
+            SolanaError::Commitment(_) => "Commitment level error. Use 'confirmed' or 'finalized' \
+                 for reliable results. 'processed' may be too optimistic."
+                .to_string(),
+            SolanaError::SealCreation(_) => "Failed to create seal. Check the seal parameters \
+                 and ensure the account has sufficient space."
+                .to_string(),
             SolanaError::AnchorCreation(_) => {
                 "Failed to create anchor. Verify the blockhash is recent \
-                 and the transaction is properly signed.".to_string()
+                 and the transaction is properly signed."
+                    .to_string()
             }
             SolanaError::ProofGeneration(_) => {
                 "Proof generation failed. Check the anchor is confirmed \
-                 and has the required number of signatures.".to_string()
+                 and has the required number of signatures."
+                    .to_string()
             }
             SolanaError::InvalidInput(_) => {
                 "Invalid input provided. Check all parameters are valid \
-                 and within acceptable ranges.".to_string()
+                 and within acceptable ranges."
+                    .to_string()
             }
-            SolanaError::NotImplemented(_) => {
-                "This feature is not yet implemented. \
-                 Consider using an alternative approach or waiting for a future release.".to_string()
-            }
+            SolanaError::NotImplemented(_) => "This feature is not yet implemented. \
+                 Consider using an alternative approach or waiting for a future release."
+                .to_string(),
         }
     }
 
@@ -257,26 +259,26 @@ impl HasErrorSuggestion for SolanaError {
 
     fn fix_action(&self) -> Option<FixAction> {
         match self {
-            SolanaError::Rpc(_) | SolanaError::Network(_) => {
-                Some(FixAction::Retry {
-                    parameter_changes: std::collections::HashMap::from([
-                        ("rpc_endpoint".to_string(), "https://api.mainnet-beta.solana.com".to_string()),
-                    ]),
-                })
-            }
-            SolanaError::InsufficientFunds { required, available } => {
+            SolanaError::Rpc(_) | SolanaError::Network(_) => Some(FixAction::Retry {
+                parameter_changes: std::collections::HashMap::from([(
+                    "rpc_endpoint".to_string(),
+                    "https://api.mainnet-beta.solana.com".to_string(),
+                )]),
+            }),
+            SolanaError::InsufficientFunds {
+                required,
+                available,
+            } => {
                 let need = required.saturating_sub(*available);
                 Some(FixAction::FundFromFaucet {
                     url: "https://faucet.solana.com".to_string(),
                     amount: format!("{} lamports ({} SOL)", need, need as f64 / 1e9),
                 })
             }
-            SolanaError::AccountNotFound(_) => {
-                Some(FixAction::FundFromFaucet {
-                    url: "https://faucet.solana.com".to_string(),
-                    amount: "0.001 SOL (rent-exempt minimum)".to_string(),
-                })
-            }
+            SolanaError::AccountNotFound(_) => Some(FixAction::FundFromFaucet {
+                url: "https://faucet.solana.com".to_string(),
+                amount: "0.001 SOL (rent-exempt minimum)".to_string(),
+            }),
             SolanaError::Transaction(_) | SolanaError::InvalidInstruction(_) => {
                 Some(FixAction::Retry {
                     parameter_changes: std::collections::HashMap::from([

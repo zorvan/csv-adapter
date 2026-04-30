@@ -71,7 +71,9 @@ impl WalletContext {
         let mut s = self.state.write();
 
         // Load app state (rights, seals, etc.)
-        if let Some(persisted) = store.try_load::<csv_adapter_store::state::UnifiedStorage>(UNIFIED_STORAGE_KEY) {
+        if let Some(persisted) =
+            store.try_load::<csv_adapter_store::state::UnifiedStorage>(UNIFIED_STORAGE_KEY)
+        {
             if let Some(c) = persisted.selected_chain {
                 s.selected_chain = convert_chain_from_store(c);
             }
@@ -90,8 +92,12 @@ impl WalletContext {
                         value: r.value,
                         status: match r.status {
                             csv_adapter_store::state::RightStatus::Active => RightStatus::Active,
-                            csv_adapter_store::state::RightStatus::Transferred => RightStatus::Transferred,
-                            csv_adapter_store::state::RightStatus::Consumed => RightStatus::Consumed,
+                            csv_adapter_store::state::RightStatus::Transferred => {
+                                RightStatus::Transferred
+                            }
+                            csv_adapter_store::state::RightStatus::Consumed => {
+                                RightStatus::Consumed
+                            }
                         },
                         owner: r.owner,
                     })
@@ -108,12 +114,24 @@ impl WalletContext {
                         right_id: t.right_id,
                         dest_owner: t.destination_address.unwrap_or_default(),
                         status: match t.status {
-                            csv_adapter_store::state::TransferStatus::Initiated => TransferStatus::Initiated,
-                            csv_adapter_store::state::TransferStatus::Locked => TransferStatus::Locked,
-                            csv_adapter_store::state::TransferStatus::Verifying => TransferStatus::Verifying,
-                            csv_adapter_store::state::TransferStatus::Minting => TransferStatus::Minting,
-                            csv_adapter_store::state::TransferStatus::Completed => TransferStatus::Completed,
-                            csv_adapter_store::state::TransferStatus::Failed => TransferStatus::Failed,
+                            csv_adapter_store::state::TransferStatus::Initiated => {
+                                TransferStatus::Initiated
+                            }
+                            csv_adapter_store::state::TransferStatus::Locked => {
+                                TransferStatus::Locked
+                            }
+                            csv_adapter_store::state::TransferStatus::Verifying => {
+                                TransferStatus::Verifying
+                            }
+                            csv_adapter_store::state::TransferStatus::Minting => {
+                                TransferStatus::Minting
+                            }
+                            csv_adapter_store::state::TransferStatus::Completed => {
+                                TransferStatus::Completed
+                            }
+                            csv_adapter_store::state::TransferStatus::Failed => {
+                                TransferStatus::Failed
+                            }
                         },
                         created_at: t.created_at,
                         source_tx_hash: t.source_tx_hash,
@@ -211,7 +229,7 @@ impl WalletContext {
         let s = self.state.read();
 
         // Convert local types to unified storage types
-        use csv_adapter_store::state::{RightRecord, TransferRecord, ContractRecord, WalletConfig};
+        use csv_adapter_store::state::{ContractRecord, RightRecord, TransferRecord, WalletConfig};
 
         let persisted = csv_adapter_store::state::UnifiedStorage {
             version: 1,
@@ -235,7 +253,9 @@ impl WalletContext {
                     nullifier: None,
                     status: match r.status {
                         RightStatus::Active => csv_adapter_store::state::RightStatus::Active,
-                        RightStatus::Transferred => csv_adapter_store::state::RightStatus::Transferred,
+                        RightStatus::Transferred => {
+                            csv_adapter_store::state::RightStatus::Transferred
+                        }
                         RightStatus::Consumed => csv_adapter_store::state::RightStatus::Consumed,
                     },
                     created_at: 0, // TODO: track creation time
@@ -258,11 +278,19 @@ impl WalletContext {
                     destination_contract: t.dest_contract.clone(),
                     proof: None,
                     status: match t.status {
-                        TransferStatus::Initiated => csv_adapter_store::state::TransferStatus::Initiated,
+                        TransferStatus::Initiated => {
+                            csv_adapter_store::state::TransferStatus::Initiated
+                        }
                         TransferStatus::Locked => csv_adapter_store::state::TransferStatus::Locked,
-                        TransferStatus::Verifying => csv_adapter_store::state::TransferStatus::Verifying,
-                        TransferStatus::Minting => csv_adapter_store::state::TransferStatus::Minting,
-                        TransferStatus::Completed => csv_adapter_store::state::TransferStatus::Completed,
+                        TransferStatus::Verifying => {
+                            csv_adapter_store::state::TransferStatus::Verifying
+                        }
+                        TransferStatus::Minting => {
+                            csv_adapter_store::state::TransferStatus::Minting
+                        }
+                        TransferStatus::Completed => {
+                            csv_adapter_store::state::TransferStatus::Completed
+                        }
                         TransferStatus::Failed => csv_adapter_store::state::TransferStatus::Failed,
                     },
                     created_at: t.created_at,
@@ -337,7 +365,13 @@ impl WalletContext {
     }
 
     pub fn accounts_for_chain(&self, chain: Chain) -> Vec<ChainAccount> {
-        self.state.read().wallet.accounts_for_chain(chain).into_iter().cloned().collect()
+        self.state
+            .read()
+            .wallet
+            .accounts_for_chain(chain)
+            .into_iter()
+            .cloned()
+            .collect()
     }
 
     pub fn selected_chain(&self) -> Chain {
@@ -358,20 +392,36 @@ impl WalletContext {
 
     /// Get the first address for a chain.
     pub fn address_for_chain(&self, chain: Chain) -> Option<String> {
-        self.state.read().wallet.accounts_for_chain(chain).first().map(|a| a.address.clone())
+        self.state
+            .read()
+            .wallet
+            .accounts_for_chain(chain)
+            .first()
+            .map(|a| a.address.clone())
     }
 
     /// Get the gas payment account for a chain (falls back to regular address).
     pub fn get_gas_account(&self, chain: Chain) -> Option<String> {
         // Prefer a dedicated gas account if set, otherwise use the regular address.
-        self.state.read().wallet.get_gas_account(&chain).clone()
+        self.state
+            .read()
+            .wallet
+            .get_gas_account(&chain)
+            .clone()
             .or_else(|| self.address_for_chain(chain).clone())
     }
 
     /// Refresh an account address (for chain swaps).
     pub fn refresh_account_address(&mut self, account_id: &str) -> Result<bool, ()> {
         // Find the account by ID and refresh its address
-        if let Some(account) = self.state.write().wallet.accounts.iter_mut().find(|a| a.id == account_id) {
+        if let Some(account) = self
+            .state
+            .write()
+            .wallet
+            .accounts
+            .iter_mut()
+            .find(|a| a.id == account_id)
+        {
             // Generate a new address for the account
             // For now, this is a placeholder - actual implementation would derive a new address
             // based on the chain type and account's keys
@@ -393,7 +443,13 @@ impl WalletContext {
     }
 
     pub fn rights_for_chain(&self, chain: Chain) -> Vec<TrackedRight> {
-        self.state.read().rights.iter().filter(|r| r.chain == chain).cloned().collect()
+        self.state
+            .read()
+            .rights
+            .iter()
+            .filter(|r| r.chain == chain)
+            .cloned()
+            .collect()
     }
 
     pub fn transfers(&self) -> Vec<TrackedTransfer> {
@@ -452,11 +508,15 @@ impl WalletContext {
     }
 
     /// Get signer for a specific chain
-    pub fn get_signer_for_chain(&self, chain: Chain) -> Option<crate::services::blockchain::NativeWallet> {
+    pub fn get_signer_for_chain(
+        &self,
+        chain: Chain,
+    ) -> Option<crate::services::blockchain::NativeWallet> {
         use crate::services::blockchain::wallet_connection;
-        self.accounts_for_chain(chain).first().cloned().map(|account| {
-            wallet_connection::native_wallet(account)
-        })
+        self.accounts_for_chain(chain)
+            .first()
+            .cloned()
+            .map(|account| wallet_connection::native_wallet(account))
     }
 
     /// Refresh rights list from blockchain
@@ -477,14 +537,19 @@ impl WalletContext {
     }
 
     /// Import an account from a private key.
-    pub fn import_account_from_key(&mut self, chain: Chain, name: &str, private_key_hex: &str) -> Result<(), String> {
+    pub fn import_account_from_key(
+        &mut self,
+        chain: Chain,
+        name: &str,
+        private_key_hex: &str,
+    ) -> Result<(), String> {
         // Derive address from private key
         let address = crate::wallet_core::ChainAccount::derive_address(chain, private_key_hex)
             .map_err(|e| format!("Failed to derive address: {}", e))?;
-        
+
         // Create keystore reference (simplified - in production this would encrypt and store)
         let keystore_ref = format!("keystore_{}_{}", chain.id(), uuid::Uuid::new_v4());
-        
+
         // Create account
         let account = crate::wallet_core::ChainAccount::from_keystore(
             chain,
@@ -493,21 +558,26 @@ impl WalletContext {
             &keystore_ref,
             None,
         );
-        
+
         // Add to wallet
         self.add_account(account);
-        
+
         // TODO: Actually store the encrypted private key in keystore
-        
+
         Ok(())
     }
 
     pub fn remove_account(&mut self, chain: Chain, address: &str) -> bool {
         // Find the account ID by chain and address
-        let account_id = self.state.read().wallet.accounts.iter()
+        let account_id = self
+            .state
+            .read()
+            .wallet
+            .accounts
+            .iter()
             .find(|a| a.chain == chain && a.address == address)
             .map(|a| a.id.clone());
-        
+
         if let Some(id) = account_id {
             let removed = self.state.write().wallet.remove_account(&id);
             if removed {
@@ -520,7 +590,10 @@ impl WalletContext {
     }
 
     pub fn refresh_address(&mut self, chain: Chain, address: &str, new_address: String) {
-        self.state.write().wallet.refresh_address(chain, address, new_address);
+        self.state
+            .write()
+            .wallet
+            .refresh_address(chain, address, new_address);
         self.save_persisted();
     }
 
@@ -548,7 +621,12 @@ impl WalletContext {
     }
 
     pub fn get_right(&self, id: &str) -> Option<TrackedRight> {
-        self.state.read().rights.iter().find(|r| r.id == id).cloned()
+        self.state
+            .read()
+            .rights
+            .iter()
+            .find(|r| r.id == id)
+            .cloned()
     }
 
     pub fn add_transfer(&mut self, transfer: TrackedTransfer) {
@@ -557,12 +635,21 @@ impl WalletContext {
     }
 
     pub fn get_transfer(&self, id: &str) -> Option<TrackedTransfer> {
-        self.state.read().transfers.iter().find(|t| t.id == id).cloned()
+        self.state
+            .read()
+            .transfers
+            .iter()
+            .find(|t| t.id == id)
+            .cloned()
     }
 
     pub fn add_contract(&mut self, contract: DeployedContract) {
         let mut s = self.state.write();
-        if let Some(pos) = s.contracts.iter().position(|c| c.address == contract.address) {
+        if let Some(pos) = s
+            .contracts
+            .iter()
+            .position(|c| c.address == contract.address)
+        {
             s.contracts[pos] = contract;
         } else {
             s.contracts.push(contract);
@@ -603,7 +690,12 @@ impl WalletContext {
 
     /// Get seal for a specific right
     pub fn seal_for_right(&self, right_id: &str) -> Option<SealRecord> {
-        self.state.read().seals.iter().find(|s| s.right_id == right_id).cloned()
+        self.state
+            .read()
+            .seals
+            .iter()
+            .find(|s| s.right_id == right_id)
+            .cloned()
     }
 
     pub fn remove_seal(&mut self, seal_ref: &str) -> bool {
@@ -657,18 +749,30 @@ impl WalletContext {
 
     /// Get proof by reference (seal_ref or generated ID)
     pub fn proof_for_seal(&self, seal_ref: &str) -> Option<ProofRecord> {
-        self.state.read().proofs.iter().find(|p| p.seal_ref == seal_ref).cloned()
+        self.state
+            .read()
+            .proofs
+            .iter()
+            .find(|p| p.seal_ref == seal_ref)
+            .cloned()
     }
 
     /// Get all proofs for a right
     pub fn proofs_for_right(&self, right_id: &str) -> Vec<ProofRecord> {
-        self.state.read().proofs.iter().filter(|p| p.right_id == right_id).cloned().collect()
+        self.state
+            .read()
+            .proofs
+            .iter()
+            .filter(|p| p.right_id == right_id)
+            .cloned()
+            .collect()
     }
 
     pub fn remove_proof(&mut self, right_id: &str, proof_type: &str) -> bool {
         let mut s = self.state.write();
         let before = s.proofs.len();
-        s.proofs.retain(|p| !(p.right_id == right_id && p.proof_type == proof_type));
+        s.proofs
+            .retain(|p| !(p.right_id == right_id && p.proof_type == proof_type));
         let removed = s.proofs.len() < before;
         drop(s);
         if removed {

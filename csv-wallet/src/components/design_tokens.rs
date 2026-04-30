@@ -209,7 +209,7 @@ impl SealState {
             SealState::Error => "Error",
         }
     }
-    
+
     /// Get CSS color variable for the state dot.
     pub fn dot_color(&self) -> String {
         match self {
@@ -220,7 +220,7 @@ impl SealState {
             SealState::Error => "var(--seal-error-dot)".to_string(),
         }
     }
-    
+
     /// Check if state is actionable.
     pub fn is_actionable(&self) -> bool {
         matches!(self, SealState::Active | SealState::Pending)

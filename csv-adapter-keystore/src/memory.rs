@@ -84,7 +84,6 @@ impl SecretKey {
     }
 }
 
-
 /// A passphrase that is automatically zeroed when dropped.
 #[derive(Zeroize, ZeroizeOnDrop)]
 pub struct Passphrase(String);
@@ -106,7 +105,6 @@ impl Passphrase {
     }
 }
 
-
 /// A 64-byte seed that is automatically zeroed when dropped.
 ///
 /// This is typically used to hold the BIP-39 seed (derived from mnemonic).
@@ -124,7 +122,6 @@ impl Seed {
         &self.0
     }
 }
-
 
 /// A 16-byte IV (Initialization Vector) for AES-GCM.
 #[derive(Zeroize, ZeroizeOnDrop)]

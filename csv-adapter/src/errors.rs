@@ -6,7 +6,7 @@
 
 use thiserror::Error;
 
-use csv_adapter_core::agent_types::{FixAction, HasErrorSuggestion, error_codes};
+use csv_adapter_core::agent_types::{error_codes, FixAction, HasErrorSuggestion};
 use csv_adapter_core::Chain;
 
 /// Unified error type for all CSV operations.
@@ -196,20 +196,26 @@ impl HasErrorSuggestion for CsvError {
             }
             Self::ProofVerificationFailed(_) => {
                 "Proof verification failed. Check: 1) Source chain has enough confirmations, \
-                 2) The proof wasn't tampered with, 3) The anchor is still valid (no reorg).".to_string()
+                 2) The proof wasn't tampered with, 3) The anchor is still valid (no reorg)."
+                    .to_string()
             }
             Self::WalletError(msg) => {
-                format!("Wallet error: {}. Check wallet configuration and retry.", msg)
+                format!(
+                    "Wallet error: {}. Check wallet configuration and retry.",
+                    msg
+                )
             }
             Self::NetworkError(_) => {
                 "Network error. Check your internet connection and RPC endpoint configuration. \
-                 Try a different RPC provider if the issue persists.".to_string()
+                 Try a different RPC provider if the issue persists."
+                    .to_string()
             }
             Self::SerializationError(_) => {
                 "Serialization error. Check data format matches expected schema.".to_string()
             }
             Self::ConfigError(_) => {
-                "Configuration error. Review your config file for missing or invalid fields.".to_string()
+                "Configuration error. Review your config file for missing or invalid fields."
+                    .to_string()
             }
             Self::StoreError(_) => {
                 "Store error. Check storage is accessible and not corrupted.".to_string()
@@ -221,13 +227,22 @@ impl HasErrorSuggestion for CsvError {
                 "Event stream error. Check the stream endpoint and retry.".to_string()
             }
             Self::AdapterError { chain, message } => {
-                format!("Adapter error on {}: {}. Check chain-specific documentation.", chain, message)
+                format!(
+                    "Adapter error on {}: {}. Check chain-specific documentation.",
+                    chain, message
+                )
             }
             Self::Generic(msg) => {
-                format!("CSV error: {}. Check logs for details or contact support.", msg)
+                format!(
+                    "CSV error: {}. Check logs for details or contact support.",
+                    msg
+                )
             }
             Self::DeploymentError(msg) => {
-                format!("Deployment error: {}. Check deployment configuration and contract code.", msg)
+                format!(
+                    "Deployment error: {}. Check deployment configuration and contract code.",
+                    msg
+                )
             }
         }
     }
@@ -238,23 +253,17 @@ impl HasErrorSuggestion for CsvError {
 
     fn fix_action(&self) -> Option<FixAction> {
         match self {
-            Self::InsufficientFunds { chain, needed, .. } => {
-                Some(FixAction::FundFromFaucet {
-                    url: format!("https://faucet.{}.csv.dev", chain),
-                    amount: needed.clone(),
-                })
-            }
-            Self::NetworkError(_) => {
-                Some(FixAction::Retry {
-                    parameter_changes: std::collections::HashMap::new(),
-                })
-            }
-            Self::ProofVerificationFailed(_) => {
-                Some(FixAction::CheckState {
-                    url: "https://docs.csv.dev/proof-verification".to_string(),
-                    what: "Check source chain confirmations and proof format".to_string(),
-                })
-            }
+            Self::InsufficientFunds { chain, needed, .. } => Some(FixAction::FundFromFaucet {
+                url: format!("https://faucet.{}.csv.dev", chain),
+                amount: needed.clone(),
+            }),
+            Self::NetworkError(_) => Some(FixAction::Retry {
+                parameter_changes: std::collections::HashMap::new(),
+            }),
+            Self::ProofVerificationFailed(_) => Some(FixAction::CheckState {
+                url: "https://docs.csv.dev/proof-verification".to_string(),
+                what: "Check source chain confirmations and proof format".to_string(),
+            }),
             _ => None,
         }
     }

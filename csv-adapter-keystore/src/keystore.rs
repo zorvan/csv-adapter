@@ -137,9 +137,8 @@ impl KeystoreFile {
     ) -> Result<Self, KeystoreError> {
         // Generate random salt
         let mut salt = [0u8; 32];
-        getrandom::getrandom(&mut salt).map_err(|e| {
-            KeystoreError::EncryptionFailed(format!("RNG failed: {}", e))
-        })?;
+        getrandom::getrandom(&mut salt)
+            .map_err(|e| KeystoreError::EncryptionFailed(format!("RNG failed: {}", e)))?;
 
         // Generate random IV
         let iv = Iv::random();
@@ -319,24 +318,14 @@ fn derive_key(
             )
             .map_err(|e| KeystoreError::KdfError(e.to_string()))?;
 
-            scrypt::scrypt(
-                passphrase.as_bytes(),
-                salt,
-                &params,
-                &mut key,
-            )
-            .map_err(|e| KeystoreError::KdfError(e.to_string()))?;
+            scrypt::scrypt(passphrase.as_bytes(), salt, &params, &mut key)
+                .map_err(|e| KeystoreError::KdfError(e.to_string()))?;
         }
         KdfType::Pbkdf2 => {
             use pbkdf2::pbkdf2_hmac;
             use sha2::Sha256;
 
-            pbkdf2_hmac::<Sha256>(
-                passphrase.as_bytes(),
-                salt,
-                100000,
-                &mut key,
-            );
+            pbkdf2_hmac::<Sha256>(passphrase.as_bytes(), salt, 100000, &mut key);
         }
     }
 
@@ -345,8 +334,8 @@ fn derive_key(
 
 /// Calculate MAC (SHA3-256 of derived_key + ciphertext).
 fn calculate_mac(derived_key: &[u8; 32], ciphertext: &[u8]) -> [u8; 32] {
-    use sha3::{Sha3_256, Digest};
-    
+    use sha3::{Digest, Sha3_256};
+
     let mut hasher = Sha3_256::new();
     hasher.update(derived_key);
     hasher.update(ciphertext);

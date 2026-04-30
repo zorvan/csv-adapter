@@ -85,13 +85,19 @@ pub fn Dashboard() -> Element {
         };
     }
 
-    let active_rights = rights.iter().filter(|r| r.status == RightStatus::Active).count();
-    let completed_transfers = transfers.iter().filter(|t| t.status == TransferStatus::Completed).count();
+    let active_rights = rights
+        .iter()
+        .filter(|r| r.status == RightStatus::Active)
+        .count();
+    let completed_transfers = transfers
+        .iter()
+        .filter(|t| t.status == TransferStatus::Completed)
+        .count();
 
     rsx! {
         div { class: "space-y-6",
             h1 { class: "text-2xl font-bold", "Dashboard" }
-            
+
             // Stats row
             div { class: "grid grid-cols-2 lg:grid-cols-4 gap-4",
                 {stat_card("Accounts", &accounts.len().to_string(), "\u{1F4B3}")}
@@ -154,27 +160,27 @@ pub fn Dashboard() -> Element {
             // Quick Actions
             div { class: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4",
                 Link { to: Route::CreateRight {}, class: "{card_class()} p-5 block",
-                    div { class: "flex items-center gap-3", 
-                        span { class: "text-2xl", "\u{1F48E}" }, 
-                        h3 { class: "font-semibold text-sm", "Create Right" } 
+                    div { class: "flex items-center gap-3",
+                        span { class: "text-2xl", "\u{1F48E}" },
+                        h3 { class: "font-semibold text-sm", "Create Right" }
                     }
                 }
                 Link { to: Route::CrossChainTransfer {}, class: "{card_class()} p-5 block",
-                    div { class: "flex items-center gap-3", 
-                        span { class: "text-2xl", "\u{21C4}" }, 
-                        h3 { class: "font-semibold text-sm", "Cross-Chain" } 
+                    div { class: "flex items-center gap-3",
+                        span { class: "text-2xl", "\u{21C4}" },
+                        h3 { class: "font-semibold text-sm", "Cross-Chain" }
                     }
                 }
                 Link { to: Route::GenerateProof {}, class: "{card_class()} p-5 block",
-                    div { class: "flex items-center gap-3", 
-                        span { class: "text-2xl", "\u{1F4C4}" }, 
-                        h3 { class: "font-semibold text-sm", "Generate Proof" } 
+                    div { class: "flex items-center gap-3",
+                        span { class: "text-2xl", "\u{1F4C4}" },
+                        h3 { class: "font-semibold text-sm", "Generate Proof" }
                     }
                 }
                 Link { to: Route::CreateSeal {}, class: "{card_class()} p-5 block",
-                    div { class: "flex items-center gap-3", 
-                        span { class: "text-2xl", "\u{1F512}" }, 
-                        h3 { class: "font-semibold text-sm", "Create Seal" } 
+                    div { class: "flex items-center gap-3",
+                        span { class: "text-2xl", "\u{1F512}" },
+                        h3 { class: "font-semibold text-sm", "Create Seal" }
                     }
                 }
             }

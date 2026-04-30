@@ -1,13 +1,13 @@
 //! Validation pages.
 
-pub mod list;
+pub mod commitment_chain;
 pub mod consignment;
+pub mod list;
 pub mod proof;
 pub mod seal;
-pub mod commitment_chain;
 
-pub use list::Validate;
+pub use commitment_chain::ValidateCommitmentChain;
 pub use consignment::ValidateConsignment;
+pub use list::Validate;
 pub use proof::ValidateProof;
 pub use seal::ValidateSeal;
-pub use commitment_chain::ValidateCommitmentChain;

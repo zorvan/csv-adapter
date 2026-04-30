@@ -25,10 +25,16 @@ pub fn cmd_fund(
 
         output::success("Funding request submitted");
         output::info("Funds should arrive within a few minutes");
-        output::info(&format!("Check balance with: csv wallet balance --chain {}", chain));
+        output::info(&format!(
+            "Check balance with: csv wallet balance --chain {}",
+            chain
+        ));
     } else {
         output::warning(&format!("No {} address found in wallet", chain));
-        output::info(&format!("Generate one with: csv wallet generate --chain {}", chain));
+        output::info(&format!(
+            "Generate one with: csv wallet generate --chain {}",
+            chain
+        ));
     }
 
     Ok(())

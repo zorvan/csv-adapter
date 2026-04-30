@@ -32,7 +32,10 @@ pub fn cmd_deploy(
 ) -> Result<()> {
     let network_str = network.as_deref().unwrap_or("test");
 
-    output::header(&format!("Deploying Contracts to {} ({})", chain, network_str));
+    output::header(&format!(
+        "Deploying Contracts to {} ({})",
+        chain, network_str
+    ));
 
     match chain {
         Chain::Bitcoin => {
@@ -211,10 +214,7 @@ fn deploy_aptos_csv_client(
 }
 
 /// Deploy Solana contracts using CSV Adapter unified client.
-fn deploy_solana_csv_client(
-    _config: &Config,
-    state: &mut UnifiedStateManager,
-) -> Result<()> {
+fn deploy_solana_csv_client(_config: &Config, state: &mut UnifiedStateManager) -> Result<()> {
     use csv_adapter::CsvClient;
 
     output::progress(1, 3, "Initializing CSV client for Solana...");

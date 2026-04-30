@@ -1,6 +1,6 @@
+use csv_adapter_core::agent_types::{error_codes, FixAction, HasErrorSuggestion};
 /// Error types for the CSV Explorer.
 use thiserror::Error;
-use csv_adapter_core::agent_types::{HasErrorSuggestion, FixAction, error_codes};
 
 /// Top-level error type for the explorer.
 #[derive(Error, Debug)]
@@ -119,15 +119,25 @@ impl HasErrorSuggestion for ExplorerError {
                 format!("RPC error on chain {}. Check node status and retry.", chain)
             }
             ExplorerError::RpcParseError { chain, .. } => {
-                format!("RPC parse error on {}. Response format may have changed.", chain)
+                format!(
+                    "RPC parse error on {}. Response format may have changed.",
+                    chain
+                )
             }
             ExplorerError::IndexerStopped => {
                 "Indexer has stopped. Check logs and restart.".to_string()
             }
             ExplorerError::BlockError { chain, block, .. } => {
-                format!("Error processing block {} on {}. Check block validity.", block, chain)
+                format!(
+                    "Error processing block {} on {}. Check block validity.",
+                    block, chain
+                )
             }
-            ExplorerError::ChainReorg { chain, block, depth } => {
+            ExplorerError::ChainReorg {
+                chain,
+                block,
+                depth,
+            } => {
                 format!(
                     "Reorg detected on {} at block {} (depth {}). \
                      May need to re-index affected blocks.",
@@ -163,27 +173,22 @@ impl HasErrorSuggestion for ExplorerError {
                     parameter_changes: std::collections::HashMap::new(),
                 })
             }
-            ExplorerError::RpcError { chain, .. } => {
-                Some(FixAction::Retry {
-                    parameter_changes: std::collections::HashMap::from([
-                        ("chain".to_string(), chain.clone()),
-                        ("fallback_rpc".to_string(), "true".to_string()),
-                    ]),
-                })
-            }
-            ExplorerError::ChainReorg { chain, block, .. } => {
-                Some(FixAction::CheckState {
-                    url: format!("https://{}.csv.dev/reorg/{}?block={}", chain, chain, block),
-                    what: "Check reorg status and affected blocks".to_string(),
-                })
-            }
-            ExplorerError::IndexerStopped => {
-                Some(FixAction::Retry {
-                    parameter_changes: std::collections::HashMap::from([
-                        ("restart_indexer".to_string(), "true".to_string()),
-                    ]),
-                })
-            }
+            ExplorerError::RpcError { chain, .. } => Some(FixAction::Retry {
+                parameter_changes: std::collections::HashMap::from([
+                    ("chain".to_string(), chain.clone()),
+                    ("fallback_rpc".to_string(), "true".to_string()),
+                ]),
+            }),
+            ExplorerError::ChainReorg { chain, block, .. } => Some(FixAction::CheckState {
+                url: format!("https://{}.csv.dev/reorg/{}?block={}", chain, chain, block),
+                what: "Check reorg status and affected blocks".to_string(),
+            }),
+            ExplorerError::IndexerStopped => Some(FixAction::Retry {
+                parameter_changes: std::collections::HashMap::from([(
+                    "restart_indexer".to_string(),
+                    "true".to_string(),
+                )]),
+            }),
             _ => None,
         }
     }

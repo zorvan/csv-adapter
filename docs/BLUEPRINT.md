@@ -1,260 +1,603 @@
-# Blueprint
+# CSV Adapter Blueprint
 
-Related docs: [Motivation](MOTIVATION.md), [Architecture](ARCHITECTURE.md), [Specification](SPECIFICATION.md), [Developer Guide](DEVELOPER_GUIDE.md)
+**Status:** Canonical product and engineering blueprint  
+**Last updated:** April 30, 2026  
+**Related docs:** [Motivation](MOTIVATION.md), [Architecture](ARCHITECTURE.md), [Specification](SPECIFICATION.md), [Developer Guide](DEVELOPER_GUIDE.md), [Production Guarantee Plan](PRODUCTION_GUARANTEE_PLAN.md)
+
+---
 
 ## Purpose
 
-This blueprint is the forward-looking document for CSV Adapter. It describes where the project should invest next and how the repository should evolve from a strong protocol core into a cohesive developer platform.
+CSV Adapter is a developer platform for portable, proof-verified rights across chains. It combines client-side validation, single-use seals, chain-native anchoring, and cross-chain proof workflows so applications can move rights, assets, credentials, and state commitments without turning every chain into the source of truth for everything.
 
-## Current baseline
+This blueprint is the single planning document for the project. It replaces the older split between `PLAN.md` and `BLUEPRINT.md`.
 
-The codebase contains a comprehensive cross-chain rights platform with:
+It is intentionally opinionated:
 
-**Core Infrastructure**:
+- describe the product direction clearly
+- preserve useful ideas from earlier planning
+- avoid duplicate roadmaps
+- avoid claiming production guarantees before the guarantee gates pass
+- keep implementation acceptance criteria in [Production Guarantee Plan](PRODUCTION_GUARANTEE_PLAN.md)
 
-- Mature protocol center in `csv-adapter-core` with parallel verification
-- Chain adapter system with dyn compatibility fixed and enabled
-- Five chain adapters (Bitcoin, Ethereum, Sui, Aptos, **Solana - now fully implemented**)
-- Unified Rust client with performance optimizations
-- CLI with one-command wallet setup and **real RPC integration**
-- TypeScript SDK and MCP server with AI agent optimization
+---
 
-**Real-World Applications**:
+## Current Position
 
-- Cross-chain subscriptions with 96-97% cost savings
-- Gaming assets portability across blockchains
-- Performance optimizations achieving 2-3x speed improvements
-- Structured error handling with actionable suggestions
+The repository already has substantial foundations:
 
-**Completed During This Pass**:
+- `csv-adapter-core` contains protocol primitives for rights, seals, commitments, proofs, transitions, registries, and cross-chain abstractions.
+- Chain adapter crates exist for Bitcoin, Ethereum, Sui, Aptos, and Solana.
+- `csv-adapter` provides a unified Rust facade, though not every consumer uses it consistently yet.
+- `csv-cli`, `csv-wallet`, and `csv-explorer` exist as working surfaces.
+- Contracts/programs exist for Ethereum, Sui, Aptos, and Solana.
+- The contracts are moving toward shared lifecycle names and shared metadata for tokens, NFTs, and advanced proofs.
 
-- ~~Chain adapter dyn compatibility~~ (**FIXED** - modules enabled, types consolidated)
-- ~~Solana adapter skeleton~~ (**COMPLETED** - all AnchorLayer methods implemented)
-- ~~Explorer integration pipeline~~ (**FIXED** - workspace declared, RPC manager fixed, sync logic corrected)
-- ~~Real RPC integration~~ (**COMPLETED** - TODO stubs replaced with actual HTTP RPC calls)
+The repository is not yet production-guaranteeable. The main blockers are:
 
-**Remaining Components**:
+- duplicated chain behavior across adapter crates, CLI, wallet, and explorer
+- production-path placeholders and simulations in several modules
+- wallet and CLI paths that still need stricter keystore-only key handling
+- incomplete "real" RPC/deploy/proof paths in some adapters
+- inconsistent use of the unified facade from all surfaces
 
-- Zero-knowledge proofs for privacy (NOT STARTED - per user request, this is excluded)
-- Advanced privacy features (NOT STARTED)
-- Extended chain support (NOT STARTED)
+The production bar is defined in [Production Guarantee Plan](PRODUCTION_GUARANTEE_PLAN.md). This blueprint explains what the project should become; the guarantee plan explains how to prove it.
 
-The roadmap should focus on completing the missing critical components rather than re-describing existing functionality.
+---
 
-## Product direction
+## Product Direction
 
-CSV Adapter should become the default developer stack for portable, proof-verified rights across chains.
+CSV Adapter should become the default stack for applications that need portable rights across chains.
 
-That means optimizing for three outcomes:
+The platform should support:
 
-1. clear protocol trust boundaries
-2. fast developer onboarding
-3. reusable tooling across CLI, SDK, wallet, explorer, and agents
+- cross-chain token and NFT rights
+- rights-backed DeFi applications
+- proof-carrying credentials
+- event tickets and memberships
+- gaming assets
+- supply-chain provenance
+- privacy-preserving ownership flows
+- AI-agent-operated cross-chain workflows
+- explorer and wallet visibility into every state transition
 
-## Strategic principles
+The core promise:
 
-### 1. Protocol first
+> A Right can be created, transferred, consumed, proven, indexed, and displayed across chains using one shared protocol model and one shared implementation surface.
 
-The core abstractions in `csv-adapter-core` remain the source of truth. New capabilities should preserve:
+---
 
-- single-use enforcement at the chain layer
-- proof portability at the protocol layer
-- verification at the client layer
+## Strategic Principles
 
-### 2. One concept, many surfaces
+### 1. Protocol First
 
-The same protocol should be available through:
+`csv-adapter-core` is the conceptual source of truth. It should define:
+
+- canonical rights and seal semantics
+- chain trait contracts
+- proof bundle formats
+- event schemas
+- domain-separated hashes
+- replay and double-spend invariants
+- feature maturity levels
+
+Chain-specific crates implement the protocol. They should not redefine it.
+
+### 2. One Concept, Many Surfaces
+
+The same operation should be available through:
 
 - Rust APIs
-- TypeScript APIs
-- CLI workflows
-- wallet UX
+- CLI commands
+- Dioxus wallet UI
 - explorer APIs
-- machine-readable agent tools
+- future TypeScript SDK
+- future MCP/agent tools
 
-### 3. Canonical documentation
+Those surfaces must call the same implementation. If the CLI, wallet, and SDK each sign or broadcast differently, the architecture has failed.
 
-Every important topic should have one obvious home. The repo should avoid multiple planning files that drift apart.
+### 3. Native Chains, Shared Semantics
 
-## Priority workstreams
+Each chain adapter should use the best native tooling available:
 
-### Workstream A: protocol hardening
+- Bitcoin: `bitcoin`, BIP-32/39/86, Taproot/tapret-aware code, real broadcast clients
+- Ethereum: Alloy for ABI, signing, providers, deployment, receipts, and EIP-1559 transactions
+- Sui: Sui SDK or official JSON-RPC types for objects, checkpoints, packages, and transactions
+- Aptos: Aptos SDK/REST types, BCS, Ed25519, resources, events, and module publishing
+- Solana: Solana and Anchor crates, loader interfaces, RPC client, IDL/program bindings
+
+The shared protocol should not erase chain-native strengths. It should make them composable.
+
+### 4. Security Is a Product Feature
+
+Security cannot be added later. Production code must fail closed when real signing, real proofs, real RPC, or real finality are unavailable.
+
+Required posture:
+
+- no fake tx hashes
+- no fake proofs
+- no silent mock success
+- no plaintext key persistence
+- no unauthenticated signing
+- no replay-prone commitments
+- no undocumented proof assumptions
+
+Mocks and simulations belong in tests or explicitly non-production examples only.
+
+### 5. Documentation Has One Home Per Topic
+
+The documentation set should stay small and purposeful:
+
+- [Motivation](MOTIVATION.md): why CSV exists
+- [Specification](SPECIFICATION.md): protocol meaning
+- [Architecture](ARCHITECTURE.md): current system shape
+- [Developer Guide](DEVELOPER_GUIDE.md): how to work on the repo
+- [Blueprint](BLUEPRINT.md): product and engineering direction
+- [Production Guarantee Plan](PRODUCTION_GUARANTEE_PLAN.md): acceptance gates before production claims
+
+Planning fragments should not multiply.
+
+---
+
+## Target Architecture
+
+```text
+csv-adapter-core
+  Protocol types, traits, canonical schemas, validation logic, crypto policy.
+
+csv-adapter-{chain}
+  The only place for chain-specific implementation:
+  - native SDK/RPC clients
+  - transaction construction
+  - signing payload formats
+  - deployment/publishing
+  - event decoding
+  - inclusion/finality proofs
+  - contract/program bindings
+
+csv-adapter
+  Unified facade:
+  - CsvClient
+  - ChainRegistry
+  - Wallet service
+  - Proof service
+  - Deployment service
+  - Explorer/event schema exports
+
+csv-cli
+  Command parsing, config, and output.
+  Calls csv-adapter facade only.
+
+csv-wallet
+  UI, local session state, and human approval flows.
+  Calls wasm-compatible csv-adapter facade only.
+
+csv-explorer
+  Indexing orchestration, storage, REST/GraphQL/WebSocket APIs, UI.
+  Uses shared event schemas and per-chain indexer plugins.
+
+typescript-sdk
+  Future generated/thin SDK over stable facade schemas and WASM bindings.
+```
+
+Adding a new chain should require:
+
+- one adapter crate
+- one chain config file
+- one explorer plugin
+- registry metadata
+- contract/program module only if needed
+- integration tests
+
+It should not require rewriting CLI, wallet, or SDK business logic.
+
+---
+
+## Shared Protocol Vocabulary
+
+The project should standardize around these lifecycle events:
+
+- `RightCreated`
+- `RightConsumed`
+- `CrossChainLock`
+- `CrossChainMint`
+- `CrossChainRefund`
+- `RightTransferred`
+- `NullifierRegistered`
+- `RightMetadataRecorded`
+
+Every chain should expose as much of this shared metadata as the native platform supports:
+
+- `right_id`
+- `commitment`
+- `owner`
+- `chain_id`
+- `asset_class`
+- `asset_id`
+- `metadata_hash`
+- `proof_system`
+- `proof_root`
+- `source_chain`
+- `destination_chain`
+- `tx_hash`
+- `block_height`
+- `finality_status`
+
+This vocabulary is what lets the wallet, explorer, SDKs, and agents talk about the same thing.
+
+---
+
+## Developer Experience
+
+CSV should feel simple from the outside even when the internals are serious.
+
+Primary developer personas:
+
+| Persona | Goal | What CSV must provide |
+|---|---|---|
+| TypeScript/Web developer | Add cross-chain rights to an app | clear SDK, browser wallet flow, examples, explorer links |
+| Rust backend developer | Build reliable services | typed APIs, async clients, test fixtures, performance hooks |
+| Protocol engineer | extend proofs/chains | precise traits, invariants, docs, fuzz/integration tests |
+| AI agent | operate workflows from instructions | structured commands, machine-readable errors, deterministic status |
+
+Developer experience goals:
+
+- first successful local workflow in under 5 minutes
+- one command to check environment health
+- clear typed errors with suggested actions
+- examples that are real enough to trust
+- no hidden simulation in production commands
+- reproducible local/testnet setup
+
+Useful future commands:
+
+```bash
+csv doctor
+csv chain list
+csv wallet init --network testnet
+csv right create --chain bitcoin
+csv cross-chain transfer --from bitcoin --to sui --right-id <id>
+csv proof verify --proof-file proof.json
+```
+
+`csv doctor` should become the canonical diagnostics entrypoint:
+
+- toolchain versions
+- config health
+- RPC connectivity
+- wallet/keystore status
+- contract deployment status
+- explorer/indexer status
+- feature maturity warnings
+
+---
+
+## Agent Experience
+
+AI agents should be able to inspect, operate, and explain CSV workflows without guessing.
+
+Agent-facing requirements:
+
+- machine-readable command schemas
+- stable JSON output mode for CLI
+- structured operation statuses
+- typed error codes
+- retryability hints
+- suggested remediation
+- links to relevant docs
+- no ambiguous success states
+
+A cross-chain transfer status should be representable as a structured state machine:
+
+- `initiated`
+- `locking`
+- `waiting_for_finality`
+- `generating_proof`
+- `submitting_mint`
+- `completed`
+- `failed`
+
+Every failure should answer:
+
+- what failed
+- whether retry is safe
+- what capability was missing
+- which chain/RPC/contract was involved
+- what the next action is
+
+This agent surface should reuse CLI and SDK business logic, not create another implementation.
+
+---
+
+## Priority Workstreams
+
+### Workstream A: Production Architecture
+
+Goal: make the architecture guaranteeable.
 
 Focus:
 
-- tighten proof verification boundaries
-- improve replay and registry guarantees
-- keep experimental modules clearly labeled
-- strengthen integration coverage around real chain conditions
+- finish the single chain operation API
+- force CLI/wallet/explorer through `csv-adapter`
+- remove duplicate chain logic
+- move mocks to test-only modules
+- remove production placeholders and simulations
 
-**Status**: COMPLETED - Implemented comprehensive error handling, structured status reporting, and enhanced proof verification with parallel processing.
+Acceptance criteria live in [Production Guarantee Plan](PRODUCTION_GUARANTEE_PLAN.md).
 
-### Workstream B: developer platform
+### Workstream B: Chain-Native Adapter Completion
 
-Focus:
-
-- mature `csv-adapter` as the ergonomic Rust surface
-- continue the TypeScript SDK story
-- keep CLI flows aligned with library APIs
-- make local development faster and more reproducible
-
-**Status**: COMPLETED - Implemented one-command wallet setup, 5-minute onboarding, comprehensive examples, and performance optimizations.
-
-### Workstream C: wallet and explorer coherence
+Goal: each adapter performs real chain-backed operations or fails closed.
 
 Focus:
 
-- align explorer indexing with wallet needs
-- standardize wallet-to-explorer API contracts
-- improve visibility into rights, transfers, proofs, and seal history
+- real balance queries
+- real transaction construction
+- real signing payloads
+- real broadcast and confirmation
+- real contract/program deployment or publishing
+- real finality and inclusion proofs
+- native event decoding
 
-**Status**: COMPLETED - Wallet integration complete, explorer indexing pipeline fixed:
+Adapters should expose capability errors for unsupported features, never fake success.
 
-- Added `[workspace]` declaration to explorer `Cargo.toml`
-- Fixed RPC manager HTTP client builder with proper authentication
-- Fixed sync logic to prioritize database over config for resume
-- Fixed `reindex_from` to properly pass `from_block` parameter
-- Cleaned up duplicate/diagnosis files
+### Workstream C: Wallet and CLI Convergence
 
-### Workstream D: agent and automation support
+Goal: make CLI and wallet thin surfaces over one implementation.
 
 Focus:
 
-- keep `csv-mcp-server` and machine-readable API surfaces current
-- expose structured statuses and actionable errors
-- make agent workflows reuse the same business logic as CLI and SDK flows
+- keystore-only key persistence
+- explicit human approval for signing/broadcast
+- no duplicated signing code in wallet service modules
+- no raw chain RPC in CLI command handlers
+- same status/error model across CLI and wallet
 
-**Status**: COMPLETED - Implemented AI agent optimization with self-describing errors and actionable suggestions.
+The wallet should be production UI, not a demo dashboard.
 
-## Near-term roadmap
+### Workstream D: Explorer as Verification Surface
 
-### Near term
+Goal: explorer shows what actually happened on chains.
 
-- keep architecture and protocol docs in lockstep with the code
-- strengthen implementation-status tracking without turning it into a changelog
-- reduce friction across CLI, SDK, wallet, and explorer workflows
-- make local development and testnet testing easier to reproduce
+Focus:
 
-**Status**: COMPLETED - All near-term goals achieved with comprehensive examples, one-command setup, and AI agent integration.
+- chain indexer plugin model
+- shared event schema
+- efficient per-chain indexing
+- finality-aware status
+- rights/seals/proofs/transfers views
+- wallet-compatible API contracts
 
-### Medium term 
+Explorer should help users and agents audit rights history.
 
-- deepen explorer and wallet integration
-- improve developer-facing diagnostics and observability
-- mature agent-facing APIs and status reporting
-- clarify feature maturity across experimental modules
-- fix chain adapter dyn compatibility issues
-- implement real RPC integration for cross-chain transfers
+### Workstream E: SDK and Application Platform
 
-**Status**: **COMPLETED** - All medium-term infrastructure work finished.
+Goal: make CSV usable in real applications.
 
-### Longer term (NOT STARTED)
+Focus:
 
-- broader chain support where the seal model remains honest
-- advanced proof compression and privacy work
-- stronger programmable validation and VM strategy
-- richer application-layer examples and starter kits
+- TypeScript SDK
+- WASM bindings where useful
+- generated schemas from Rust source of truth
+- application templates
+- React components only after core APIs stabilize
+- examples for NFTs, subscriptions, credentials, and DeFi
 
-## Remaining Tasks (Lower Priority)
+SDKs should be thin and boring. Protocol complexity belongs in core and adapters.
 
-### 1. Zero-Knowledge Proofs (NOT STARTED)
+### Workstream F: Advanced Proofs and Privacy
 
-- Implement ZK proof compression for privacy-preserving transfers
-- Add ZK-SNARKs integration for confidential transactions
-- Develop ZK-proof verification in the proof bundle
-- Create privacy-focused examples and documentation
+Goal: prepare for privacy, ZK, and advanced proofs without compromising current correctness.
 
-### 2. Advanced Privacy Features (NOT STARTED)
+Focus:
 
-- Confidential transaction support
-- Private right ownership
-- Anonymous transfer capabilities
-- Privacy-preserving audit trails
+- proof-system identifiers in shared metadata
+- proof root / verification-key commitments
+- fraud proofs for invalid cross-chain claims
+- ZK proof compression
+- selective disclosure
+- future STARK/SNARK verification modules
+- privacy-preserving ownership flows
 
-### 3. Extended Chain Support (NOT STARTED)
+These features should enter through explicit design documents and gated feature maturity labels.
 
-- Cosmos SDK integration
-- Polkadot/Substrate support
-- Additional EVM-compatible chains
+---
 
+## Application Directions
 
-### Developer Experience
+The strongest application ideas from earlier planning are still valuable, but they should be treated as product directions, not current-state claims.
 
-- One-command wallet setup: `csv wallet init --fund`
-- 5-minute onboarding with comprehensive examples
-- AI agent optimization with self-describing errors
-- Performance optimizations (2-3x faster verification)
+### Cross-Chain NFTs
 
-### Real-World Applications
+Portable NFT rights across chains, with metadata roots preserved through `RightMetadataRecorded`.
 
-- Cross-chain subscriptions with 96-97% cost savings
-- Gaming assets portability across 5+ blockchains
-- Parallel proof verification for enterprise scale
-- Structured error handling with actionable suggestions
+Why it fits:
 
-### Protocol Enhancements
+- rights are naturally single-use
+- transfers benefit from proof-carrying ownership
+- wallet/explorer visibility matters
 
-- Enhanced proof verification with parallel processing
-- Bloom filters for optimized seal registry lookups
-- Performance metrics collection and reporting
-- Comprehensive status reporting for agents
+### Cross-Chain Subscriptions
 
-## Blueprint for documentation and DX
+Recurring access rights that can be consumed or transferred across chains.
 
-The previous documentation set mixed roadmap, specification, implementation notes, and agent planning across overlapping files. Going forward:
+Why it fits:
 
-- [Architecture](ARCHITECTURE.md) explains what exists
-- [Cross-Chain Specification](CROSS_CHAIN_SPEC.md) explains what the protocol means
-- [Developer Guide](DEVELOPER_GUIDE.md) explains how to work on it
-- this document explains what should happen next
+- clear business model
+- easy to demonstrate cost reduction
+- good CLI/wallet/explorer workflow
 
-That split is part of the product strategy, not just a docs cleanup.
+### Gaming Assets
 
-## Success metrics
+Rights for game items that move across chains without central custody.
 
-Track progress with a small set of signals:
+Why it fits:
 
-| Metric | Current Status | Target | Why it matters |
-|--------|----------------|--------|----------------|
-| Time to first successful local workflow | **5 minutes** | 5 minutes | Measures onboarding friction |
-| Number of surfaces sharing the same protocol contract | **6 surfaces** | 8 surfaces | Measures architectural reuse |
-| Documentation drift incidents | **0** | 0 | Measures source-of-truth discipline |
-| End-to-end reproducibility across chains | **99.9%** | 99.9% | Measures operational maturity |
-| Agent and automation success rate | **95%** | 99% | Measures machine-usable interfaces |
-| Proof verification speed | **20,000 proofs/sec** | 50,000 proofs/sec | Measures performance |
-| Cross-chain transfer cost savings | **96-97%** | 98% | Measures economic impact |
-| Chain adapter system | **100%** | 100% | Dynamic chain support working |
-| Solana integration | **100%** | 100% | All AnchorLayer methods implemented |
-| Explorer pipeline | **100%** | 100% | Indexer properly configured |
-| RPC integration | **100%** | 100% | Real HTTP RPC calls implemented |
+- assets need portability
+- ownership history matters
+- explorer timeline is useful
 
-**Key Achievements**:
+### Event Ticketing and Memberships
 
-- 5-minute onboarding achieved with one-command wallet setup
-- 6 surfaces (CLI, SDK, MCP, Wallet, Explorer, Examples) sharing protocol
-- 2-3x performance improvements with parallel verification
-- 96-97% cost savings on cross-chain transfers
+Single-use or revocable rights for access.
 
-**Completed This Pass**:
+Why it fits:
 
-- Chain adapter dyn compatibility - Fixed and enabled
-- Solana adapter - Fully implemented with all AnchorLayer methods
-- Explorer integration - Pipeline fixed with proper workspace config
-- Real RPC integration - HTTP RPC calls implemented for all chains
+- seal consumption maps cleanly to ticket use
+- refunds and transfers are understandable
+- fraud prevention is visible
 
-**Remaining Gaps**:
+### Supply Chain Provenance
 
-- Privacy features (0% coverage) - Excluded per user request
-- Extended chain support - Cosmos, Polkadot (future work)
+Rights and commitments for custody changes and attestations.
 
-## Design notes for future work
+Why it fits:
 
-Some topics remain explicitly exploratory and should stay framed that way:
+- traceability is central
+- proof history matters
+- multiple chains may anchor different stages
 
-- AluVM integration
-- RGB compatibility expansion
-- Advanced MPC wallet patterns
-- Broader chain coverage beyond the current set
-- Extended privacy features (outside current scope)
+### Credentials and Identity
 
-These should be explored through design notes and targeted implementation plans, not blended into current-state docs.
+Proof-carrying rights for claims, credentials, and identity attestations.
+
+Why it fits:
+
+- selective disclosure can be layered later
+- ownership and revocation need strong semantics
+- privacy roadmap becomes meaningful
+
+### DeFi
+
+Rights-backed cross-chain lending, DEX flows, yield aggregation, and insurance.
+
+Why it fits later:
+
+- requires production-grade proofs and finality first
+- high security stakes
+- strong demonstration of the CSV primitive once the base is hardened
+
+---
+
+## Advanced Research Tracks
+
+These are promising but should not distract from production hardening.
+
+### Fraud Proofs
+
+Fraud proofs can challenge invalid cross-chain claims:
+
+- missing source lock
+- invalid finality
+- duplicate mint
+- malformed inclusion proof
+- wrong owner or destination
+
+They become important when relayers, agents, or third-party services submit claims.
+
+### ZK and Privacy
+
+Useful directions:
+
+- proof compression
+- private ownership
+- selective disclosure
+- confidential transfer metadata
+- batch verification
+
+Rule: privacy must not hide invalid state transitions from verifiers.
+
+### MPC Wallets
+
+MPC can improve custody for teams, agents, and applications.
+
+Useful directions:
+
+- threshold signing
+- policy controls
+- agent-limited signing sessions
+- social recovery
+
+Rule: MPC is a wallet/security layer, not a replacement for protocol proof verification.
+
+### RGB and AluVM Compatibility
+
+RGB and AluVM ideas remain relevant because CSV shares client-side validation DNA.
+
+Useful directions:
+
+- import/export compatibility
+- proof translation
+- VM-based validation experiments
+- Bitcoin-native asset interoperability
+
+Rule: keep this exploratory until core production guarantees are done.
+
+### React and App UI Components
+
+Reusable UI should come after API convergence.
+
+Potential components:
+
+- right card
+- proof verifier
+- transfer timeline
+- chain status badge
+- wallet approval panel
+- explorer link panel
+
+Rule: components must display real state, never mock application data as if live.
+
+---
+
+## Success Metrics
+
+Track a small set of metrics that prove the architecture is getting healthier.
+
+| Metric | Target | Why it matters |
+|---|---:|---|
+| Production audit findings | 0 | proves no stubs/placeholders remain in production code |
+| Direct chain calls from CLI/wallet | 0 outside facade | proves single implementation |
+| Time to first local workflow | < 5 minutes | proves onboarding works |
+| Supported chains through registry | 100% | proves chain addition model |
+| Wallet plaintext key persistence | 0 paths | proves key handling discipline |
+| End-to-end transfer success on testnets | tracked per chain pair | proves real chain behavior |
+| Explorer indexing lag | bounded per chain | proves operational usefulness |
+| Agent JSON command success rate | > 95% | proves automation surface |
+| Proof verification throughput | measured in CI/bench | proves scalability |
+| Security audit critical findings | 0 unresolved | proves release readiness |
+
+Do not use success metrics that are not measured.
+
+---
+
+## Documentation Strategy
+
+The docs should follow a simple split:
+
+- Tutorials: "get something working"
+- How-to guides: "perform a task"
+- Reference: "exact API/protocol meaning"
+- Explanation: "why the system works this way"
+
+Immediate documentation cleanup:
+
+- keep this blueprint as the only roadmap-style file
+- keep `CSV_DETAILED_PLAN.md` as a dated recovery diagnosis until its tasks are either completed or migrated
+- keep `PRODUCTION_GUARANTEE_PLAN.md` as the hard acceptance checklist
+- remove stale planning fragments when their content is absorbed
+- avoid status claims like "complete" unless CI and acceptance gates prove them
+
+---
+
+## Definition of a Defendable Blueprint
+
+This blueprint is defendable if it stays true to these rules:
+
+1. It distinguishes current reality from future direction.
+2. It keeps one source of truth for each topic.
+3. It refuses production claims until acceptance gates pass.
+4. It makes new chain support a registry/adapter problem, not a CLI/wallet rewrite.
+5. It keeps security and cryptography in the critical path.
+6. It preserves ambitious ideas without pretending they are already implemented.
+

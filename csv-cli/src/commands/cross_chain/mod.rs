@@ -12,7 +12,7 @@ use csv_adapter_core::right::OwnershipProof;
 
 use crate::config::{Chain, Config};
 use crate::output;
-use crate::state::{UnifiedStateManager, RightRecord, TransferRecord, TransferStatus};
+use crate::state::{RightRecord, TransferRecord, TransferStatus, UnifiedStateManager};
 
 pub mod aptos;
 pub mod bitcoin;
@@ -83,7 +83,11 @@ pub enum CrossChainAction {
     },
 }
 
-pub fn execute(action: CrossChainAction, config: &Config, state: &mut UnifiedStateManager) -> Result<()> {
+pub fn execute(
+    action: CrossChainAction,
+    config: &Config,
+    state: &mut UnifiedStateManager,
+) -> Result<()> {
     match action {
         CrossChainAction::Transfer {
             from,

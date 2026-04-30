@@ -6,9 +6,7 @@
 use csv_adapter_core::agent_types::{error_codes, FixAction, HasErrorSuggestion};
 use serde::{Deserialize, Serialize};
 
-use crate::state::{
-    StateStorage, StorageError,
-};
+use crate::state::{StateStorage, StorageError};
 
 /// Storage error for browser storage operations.
 #[derive(Debug, thiserror::Error)]
@@ -41,16 +39,16 @@ impl HasErrorSuggestion for BrowserStorageError {
 
     fn suggested_fix(&self) -> String {
         match self {
-            BrowserStorageError::BrowserError(_) => {
-                "Browser storage API error. Check: \
+            BrowserStorageError::BrowserError(_) => "Browser storage API error. Check: \
                  1) LocalStorage is enabled in your browser, \
                  2) You are not in private/incognito mode, \
                  3) Storage quota has not been exceeded. \
-                 Try clearing some storage or using a different browser.".to_string()
-            }
+                 Try clearing some storage or using a different browser."
+                .to_string(),
             BrowserStorageError::SerializeError(_) => {
                 "Failed to serialize data for browser storage. \
-                 Ensure all data types are JSON-serializable.".to_string()
+                 Ensure all data types are JSON-serializable."
+                    .to_string()
             }
             BrowserStorageError::NotFound(key) => {
                 format!(
@@ -68,12 +66,10 @@ impl HasErrorSuggestion for BrowserStorageError {
 
     fn fix_action(&self) -> Option<FixAction> {
         match self {
-            BrowserStorageError::BrowserError(_) => {
-                Some(FixAction::CheckState {
-                    url: "https://docs.csv.dev/wallet/browser-storage".to_string(),
-                    what: "Verify localStorage is enabled and not full".to_string(),
-                })
-            }
+            BrowserStorageError::BrowserError(_) => Some(FixAction::CheckState {
+                url: "https://docs.csv.dev/wallet/browser-storage".to_string(),
+                what: "Verify localStorage is enabled and not full".to_string(),
+            }),
             _ => None,
         }
     }
@@ -95,7 +91,9 @@ impl LocalStorageManager {
         let storage = window
             .local_storage()
             .map_err(|e| BrowserStorageError::BrowserError(format!("{:?}", e)))?
-            .ok_or_else(|| BrowserStorageError::BrowserError("localStorage not available".to_string()))?;
+            .ok_or_else(|| {
+                BrowserStorageError::BrowserError("localStorage not available".to_string())
+            })?;
 
         Ok(Self {
             storage,
@@ -124,10 +122,8 @@ impl LocalStorageManager {
             .map_err(|e| BrowserStorageError::BrowserError(format!("{:?}", e)))?;
 
         match json {
-            Some(json) => {
-                serde_json::from_str(&json)
-                    .map_err(|e| BrowserStorageError::SerializeError(e.to_string()))
-            }
+            Some(json) => serde_json::from_str(&json)
+                .map_err(|e| BrowserStorageError::SerializeError(e.to_string())),
             None => Err(BrowserStorageError::NotFound(key.to_string())),
         }
     }
@@ -236,9 +232,7 @@ impl BrowserStateStorage {
 }
 
 // Re-export additional state types for convenience
-pub use crate::state::{
-    FaucetConfig, GasAccount,
-};
+pub use crate::state::{FaucetConfig, GasAccount};
 
 #[cfg(test)]
 mod tests {

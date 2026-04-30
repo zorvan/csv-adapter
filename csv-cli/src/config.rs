@@ -9,9 +9,7 @@ use std::sync::{Mutex, OnceLock};
 use serde::{Deserialize, Serialize};
 
 // Re-export unified types from csv-adapter-store
-pub use csv_adapter_store::state::{
-    Chain, ChainConfig, FaucetConfig, Network, WalletAccount,
-};
+pub use csv_adapter_store::state::{Chain, ChainConfig, FaucetConfig, Network, WalletAccount};
 
 /// CSV Wallet exported JSON format (legacy, for migration from csv-wallet < 0.4)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -40,7 +38,9 @@ impl CsvWalletData {
 
     /// Find account by chain name (case-insensitive)
     fn find_account(&self, chain: &str) -> Option<&CsvAccount> {
-        self.accounts.iter().find(|a| a.chain.eq_ignore_ascii_case(chain))
+        self.accounts
+            .iter()
+            .find(|a| a.chain.eq_ignore_ascii_case(chain))
     }
 }
 
@@ -84,7 +84,7 @@ pub fn parse_network(s: &str) -> anyhow::Result<Network> {
 }
 
 /// Full CLI configuration using unified storage types
-/// 
+///
 /// Note: New code should use UnifiedStorage from csv_adapter_store::state
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
@@ -324,7 +324,7 @@ impl Config {
 
         None
     }
-    
+
     /// Get unified wallet account for a chain (preferred method)
     pub fn wallet_account(&self, chain: &Chain) -> Option<WalletAccount> {
         // First try to load from unified storage
@@ -333,7 +333,7 @@ impl Config {
                 return Some(account.clone());
             }
         }
-        
+
         // Fall back to legacy config.toml
         if let Some(legacy) = self.wallets.get(chain) {
             return Some(WalletAccount {
@@ -346,7 +346,7 @@ impl Config {
                 keystore_ref: None,
             });
         }
-        
+
         None
     }
 
@@ -364,9 +364,13 @@ impl Config {
     pub fn set_wallet(&mut self, chain: Chain, config: LegacyWalletConfigToml) {
         self.wallets.insert(chain, config);
     }
-    
+
     /// Set unified wallet account
-    pub fn set_wallet_account(&mut self, _chain: Chain, account: WalletAccount) -> anyhow::Result<()> {
+    pub fn set_wallet_account(
+        &mut self,
+        _chain: Chain,
+        account: WalletAccount,
+    ) -> anyhow::Result<()> {
         // Also update unified storage
         let mut unified = crate::state::UnifiedStateManager::load()?;
         unified.storage.set_account(account);
@@ -382,13 +386,15 @@ fn get_cached_wallet_config(chain: &Chain, account: &CsvAccount) -> Option<Legac
 
     // Insert if not exists
     // Note: private keys are no longer stored in WalletAccount
-    cache.entry(chain.clone()).or_insert_with(|| LegacyWalletConfig {
-        private_key: None,
-        xpub: None,
-        mnemonic: None,
-        mnemonic_passphrase: None,
-        derivation_path: None,
-    });
+    cache
+        .entry(chain.clone())
+        .or_insert_with(|| LegacyWalletConfig {
+            private_key: None,
+            xpub: None,
+            mnemonic: None,
+            mnemonic_passphrase: None,
+            derivation_path: None,
+        });
 
     cache.get(chain).cloned()
 }

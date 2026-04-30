@@ -3,9 +3,9 @@
 use std::path::Path;
 
 pub use csv_adapter_store::state::{
-    Chain, ContractRecord, GasAccount, RightRecord, RightStatus, SealRecord, 
-    TransactionRecord, TransactionStatus, TransactionType,
-    TransferRecord, TransferStatus, UnifiedStorage, WalletAccount,
+    Chain, ContractRecord, GasAccount, RightRecord, RightStatus, SealRecord, TransactionRecord,
+    TransactionStatus, TransactionType, TransferRecord, TransferStatus, UnifiedStorage,
+    WalletAccount,
 };
 
 // Keystore migration module for encrypted key storage
@@ -21,9 +21,14 @@ impl UnifiedStateManager {
     /// Default storage path
     pub fn default_path() -> String {
         if let Some(home) = dirs::home_dir() {
-            home.join(".csv/unified_storage.json").to_string_lossy().to_string()
+            home.join(".csv/unified_storage.json")
+                .to_string_lossy()
+                .to_string()
         } else {
-            std::env::temp_dir().join("csv-unified-storage.json").to_string_lossy().to_string()
+            std::env::temp_dir()
+                .join("csv-unified-storage.json")
+                .to_string_lossy()
+                .to_string()
         }
     }
 
@@ -36,7 +41,7 @@ impl UnifiedStateManager {
         } else {
             UnifiedStorage::new().with_defaults()
         };
-        
+
         Ok(Self {
             storage,
             file_path: path,
@@ -51,7 +56,7 @@ impl UnifiedStateManager {
         } else {
             UnifiedStorage::new().with_defaults()
         };
-        
+
         Ok(Self {
             storage,
             file_path: path.to_string(),
@@ -78,7 +83,7 @@ impl UnifiedStateManager {
     }
 
     // --- Rights Management ---
-    
+
     /// Add a Right to tracking
     pub fn add_right(&mut self, right: RightRecord) {
         self.storage.rights.push(right);
@@ -100,7 +105,7 @@ impl UnifiedStateManager {
     }
 
     // --- Transfer Management ---
-    
+
     /// Add a transfer to tracking
     pub fn add_transfer(&mut self, transfer: TransferRecord) {
         self.storage.transfers.push(transfer);
@@ -112,7 +117,11 @@ impl UnifiedStateManager {
     }
 
     /// Update transfer status
-    pub fn update_transfer_status(&mut self, id: &str, status: TransferStatus) -> anyhow::Result<()> {
+    pub fn update_transfer_status(
+        &mut self,
+        id: &str,
+        status: TransferStatus,
+    ) -> anyhow::Result<()> {
         if let Some(transfer) = self.storage.transfers.iter_mut().find(|t| t.id == id) {
             transfer.status = status;
             Ok(())
@@ -122,15 +131,23 @@ impl UnifiedStateManager {
     }
 
     // --- Seal Management ---
-    
+
     /// Check if a seal has been consumed
     pub fn is_seal_consumed(&self, seal_ref: &str) -> bool {
-        self.storage.seals.iter().any(|s| s.seal_ref == seal_ref && s.consumed)
+        self.storage
+            .seals
+            .iter()
+            .any(|s| s.seal_ref == seal_ref && s.consumed)
     }
 
     /// Record a seal consumption
     pub fn record_seal_consumption(&mut self, seal_ref: String) {
-        if let Some(seal) = self.storage.seals.iter_mut().find(|s| s.seal_ref == seal_ref) {
+        if let Some(seal) = self
+            .storage
+            .seals
+            .iter_mut()
+            .find(|s| s.seal_ref == seal_ref)
+        {
             seal.consumed = true;
         } else {
             // Create new seal record if not exists
@@ -140,7 +157,12 @@ impl UnifiedStateManager {
 
     /// Add or update a seal
     pub fn add_seal(&mut self, seal: SealRecord) {
-        if let Some(existing) = self.storage.seals.iter_mut().find(|s| s.seal_ref == seal.seal_ref) {
+        if let Some(existing) = self
+            .storage
+            .seals
+            .iter_mut()
+            .find(|s| s.seal_ref == seal.seal_ref)
+        {
             *existing = seal;
         } else {
             self.storage.seals.push(seal);
@@ -148,11 +170,13 @@ impl UnifiedStateManager {
     }
 
     // --- Contract Management ---
-    
+
     /// Store deployed contract info
     pub fn store_contract(&mut self, contract: ContractRecord) {
         // Remove existing contract at same address
-        self.storage.contracts.retain(|c| c.address != contract.address);
+        self.storage
+            .contracts
+            .retain(|c| c.address != contract.address);
         self.storage.contracts.push(contract);
     }
 
@@ -167,7 +191,7 @@ impl UnifiedStateManager {
     }
 
     // --- Address/Account Management ---
-    
+
     /// Store an address for a chain (creates or updates wallet account)
     pub fn store_address(&mut self, chain: Chain, address: String) {
         self.storage.set_account(WalletAccount {
@@ -190,7 +214,9 @@ impl UnifiedStateManager {
     pub fn store_gas_account(&mut self, chain: Chain, address: String) {
         // Remove existing
         self.storage.gas_accounts.retain(|g| g.chain != chain);
-        self.storage.gas_accounts.push(GasAccount { chain, address });
+        self.storage
+            .gas_accounts
+            .push(GasAccount { chain, address });
     }
 
     /// Get gas payment account for a chain
@@ -200,7 +226,7 @@ impl UnifiedStateManager {
     }
 
     // --- Chain Configuration ---
-    
+
     /// Get chain configuration
     pub fn chain_config(&self, chain: &Chain) -> Option<&crate::config::ChainConfig> {
         self.storage.chains.get(chain)
@@ -212,7 +238,7 @@ impl UnifiedStateManager {
     }
 
     // --- Wallet/Account Access ---
-    
+
     /// Get wallet account for a chain
     pub fn get_account(&self, chain: &Chain) -> Option<&WalletAccount> {
         self.storage.get_account(chain)
@@ -233,9 +259,9 @@ impl UnifiedStateManager {
         self.storage = serde_json::from_str(json)?;
         Ok(())
     }
-    
+
     // --- Transaction Recording ---
-    
+
     /// Record a transaction from a transfer
     pub fn record_transaction_from_transfer(
         &mut self,
@@ -243,7 +269,14 @@ impl UnifiedStateManager {
         tx_type: TransactionType,
     ) -> TransactionRecord {
         let tx = TransactionRecord {
-            id: format!("tx-{}-{:x}", transfer.id, std::time::UNIX_EPOCH.elapsed().unwrap_or_default().as_secs()),
+            id: format!(
+                "tx-{}-{:x}",
+                transfer.id,
+                std::time::UNIX_EPOCH
+                    .elapsed()
+                    .unwrap_or_default()
+                    .as_secs()
+            ),
             chain: match tx_type {
                 TransactionType::CrossChainLock => transfer.source_chain.clone(),
                 TransactionType::CrossChainMint => transfer.dest_chain.clone(),
@@ -282,7 +315,12 @@ impl UnifiedStateManager {
     }
 
     /// Store an address with derivation path for a chain
-    pub fn store_address_with_derivation(&mut self, chain: Chain, address: String, derivation_path: Option<String>) {
+    pub fn store_address_with_derivation(
+        &mut self,
+        chain: Chain,
+        address: String,
+        derivation_path: Option<String>,
+    ) {
         self.storage.set_account(WalletAccount {
             id: format!("{}-cli", chain),
             chain: chain.clone(),

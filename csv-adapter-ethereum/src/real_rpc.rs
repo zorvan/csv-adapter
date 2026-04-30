@@ -468,9 +468,7 @@ mod real_rpc_impl {
         ) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
             let addr_hex = format!("0x{}", hex::encode(address));
             let result = self.rpc_call("eth_getBalance", json!([addr_hex, "latest"]))?;
-            let hex_str = result
-                .as_str()
-                .ok_or("Invalid balance response")?;
+            let hex_str = result.as_str().ok_or("Invalid balance response")?;
             let balance = parse_hex_u64(hex_str)?;
             Ok(balance)
         }
@@ -494,9 +492,7 @@ mod real_rpc_impl {
         ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
             let addr_hex = format!("0x{}", hex::encode(address));
             let result = self.rpc_call("eth_getCode", json!([addr_hex, "latest"]))?;
-            let hex_str = result
-                .as_str()
-                .ok_or("Invalid code response")?;
+            let hex_str = result.as_str().ok_or("Invalid code response")?;
             Ok(parse_hex_bytes(hex_str))
         }
 

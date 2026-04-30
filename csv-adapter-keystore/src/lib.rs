@@ -51,8 +51,8 @@ pub mod memory;
 
 // Re-export commonly used types
 pub use bip39::{Mnemonic, MnemonicType};
-pub use bip44::{derive_key, derivation_path, DerivationPath};
-pub use keystore::{KeystoreFile, KdfType, create_keystore};
+pub use bip44::{derivation_path, derive_key, DerivationPath};
+pub use keystore::{create_keystore, KdfType, KeystoreFile};
 pub use memory::{Iv, Nonce, Passphrase, SecretKey, Seed};
 
 /// Version of the csv-adapter-keystore crate.
@@ -107,9 +107,14 @@ pub fn create_full_wallet(
 
     // Generate keys for each chain
     let mut keystores = Vec::new();
-    for chain in [Chain::Bitcoin, Chain::Ethereum, Chain::Sui, Chain::Aptos, Chain::Solana] {
-        let key = derive_key(seed.as_bytes(), chain, 0, 0)
-            .map_err(|e| KeystoreError::Bip44(e))?;
+    for chain in [
+        Chain::Bitcoin,
+        Chain::Ethereum,
+        Chain::Sui,
+        Chain::Aptos,
+        Chain::Solana,
+    ] {
+        let key = derive_key(seed.as_bytes(), chain, 0, 0).map_err(|e| KeystoreError::Bip44(e))?;
         let keystore = KeystoreFile::encrypt(&key, encryption_passphrase, KdfType::Scrypt)
             .map_err(|e| KeystoreError::Keystore(e))?;
         keystores.push((chain, keystore));
@@ -130,8 +135,7 @@ pub fn restore_from_mnemonic(
     phrase: &str,
     passphrase: Option<&str>,
 ) -> Result<Seed, KeystoreError> {
-    let mnemonic = Mnemonic::from_phrase(phrase)
-        .map_err(|e| KeystoreError::Bip39(e))?;
+    let mnemonic = Mnemonic::from_phrase(phrase).map_err(|e| KeystoreError::Bip39(e))?;
     Ok(mnemonic.to_seed(passphrase))
 }
 

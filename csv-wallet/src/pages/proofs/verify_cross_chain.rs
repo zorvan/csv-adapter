@@ -46,7 +46,7 @@ pub fn VerifyCrossChainProof() -> Element {
 
                 button {
                     onclick: move |_| {
-                        result.set(Some(format!("Cross-chain proof verified between {:?} and {:?}", 
+                        result.set(Some(format!("Cross-chain proof verified between {:?} and {:?}",
                             *selected_source.read(),
                             *selected_dest.read()
                         )));

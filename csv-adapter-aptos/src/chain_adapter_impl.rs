@@ -106,10 +106,7 @@ impl RpcClient for AptosRpcClient {
         // In Aptos, transactions are immediate (no mempool for pending)
         // Check if transaction exists and succeeded
         let tx = self.get_transaction(hash).await?;
-        Ok(tx
-            .get("success")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false))
+        Ok(tx.get("success").and_then(|v| v.as_bool()).unwrap_or(false))
     }
 
     async fn get_chain_info(&self) -> ChainResult<serde_json::Value> {
@@ -223,9 +220,9 @@ impl Wallet for AptosWallet {
             ));
         }
 
-        let _key: [u8; 32] = bytes.try_into().map_err(|_| {
-            ChainError::InvalidInput("Failed to convert to key array".to_string())
-        })?;
+        let _key: [u8; 32] = bytes
+            .try_into()
+            .map_err(|_| ChainError::InvalidInput("Failed to convert to key array".to_string()))?;
 
         // Would create signing key from bytes
         Err(ChainError::NotImplemented(

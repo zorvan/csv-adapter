@@ -10,8 +10,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use csv_adapter_core::cross_chain::{
     AptosLedgerProof, BitcoinMerkleProof, ChainId, CrossChainError, CrossChainLockEvent,
     CrossChainRegistryEntry, CrossChainSealRegistry, CrossChainTransferProof,
-    CrossChainTransferResult, EthereumMPTProof, SuiCheckpointProof, InclusionProof, LockProvider, MintProvider,
-    TransferVerifier,
+    CrossChainTransferResult, EthereumMPTProof, InclusionProof, LockProvider, MintProvider,
+    SuiCheckpointProof, TransferVerifier,
 };
 use csv_adapter_core::hash::Hash;
 use csv_adapter_core::right::OwnershipProof;

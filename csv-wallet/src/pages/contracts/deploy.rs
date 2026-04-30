@@ -24,10 +24,10 @@ struct ContractFile {
 
 #[derive(Clone, Debug, PartialEq)]
 enum ContractFileType {
-    Bytecode,      // .bin, .mv
-    Abi,           // .abi, .json
-    Manifest,      // Move.toml, package.json
-    BpfProgram,    // .so files for Solana
+    Bytecode,   // .bin, .mv
+    Abi,        // .abi, .json
+    Manifest,   // Move.toml, package.json
+    BpfProgram, // .so files for Solana
 }
 
 fn get_file_extension(chain: Chain) -> &'static str {

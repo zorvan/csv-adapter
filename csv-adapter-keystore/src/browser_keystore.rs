@@ -15,7 +15,7 @@ use aes_gcm::{
     aead::{Aead, KeyInit},
     Aes256Gcm, Nonce,
 };
-use base64::{Engine as _, engine::general_purpose};
+use base64::{engine::general_purpose, Engine as _};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use web_sys::Storage;
@@ -125,9 +125,9 @@ pub struct StoredBrowserKey {
 impl BrowserKeystore {
     /// Create new browser keystore.
     pub fn new() -> Result<Self, BrowserKeystoreError> {
-        let window = web_sys::window()
-            .ok_or(BrowserKeystoreError::StorageUnavailable)?;
-        let storage = window.local_storage()
+        let window = web_sys::window().ok_or(BrowserKeystoreError::StorageUnavailable)?;
+        let storage = window
+            .local_storage()
             .map_err(|_| BrowserKeystoreError::StorageUnavailable)?
             .ok_or(BrowserKeystoreError::StorageUnavailable)?;
 
@@ -203,7 +203,8 @@ impl BrowserKeystore {
         }
 
         // Retrieve from LocalStorage
-        let json = self.storage
+        let json = self
+            .storage
             .get_item(&Self::storage_key(id))
             .map_err(|_| BrowserKeystoreError::StorageUnavailable)?
             .ok_or_else(|| BrowserKeystoreError::KeyNotFound(id.to_string()))?;
@@ -211,17 +212,20 @@ impl BrowserKeystore {
         let stored: StoredBrowserKey = serde_json::from_str(&json)?;
 
         // Decrypt
-        let salt = general_purpose::STANDARD.decode(&stored.salt)
+        let salt = general_purpose::STANDARD
+            .decode(&stored.salt)
             .map_err(|e| BrowserKeystoreError::Crypto(e.to_string()))?;
         let derived_key = Self::derive_key(passphrase, &salt);
 
         let cipher = Aes256Gcm::new_from_slice(&derived_key)
             .map_err(|e| BrowserKeystoreError::Crypto(e.to_string()))?;
 
-        let nonce_bytes = general_purpose::STANDARD.decode(&stored.nonce)
+        let nonce_bytes = general_purpose::STANDARD
+            .decode(&stored.nonce)
             .map_err(|e| BrowserKeystoreError::Crypto(e.to_string()))?;
 
-        let ciphertext = general_purpose::STANDARD.decode(&stored.encrypted_data)
+        let ciphertext = general_purpose::STANDARD
+            .decode(&stored.encrypted_data)
             .map_err(|e| BrowserKeystoreError::Crypto(e.to_string()))?;
 
         let nonce = Nonce::from_slice(&nonce_bytes);
@@ -277,7 +281,8 @@ impl BrowserKeystore {
 
     /// List all stored key IDs.
     pub fn list_keys(&self) -> Result<Vec<String>, BrowserKeystoreError> {
-        let length = self.storage
+        let length = self
+            .storage
             .length()
             .map_err(|_| BrowserKeystoreError::StorageUnavailable)?;
 
@@ -368,7 +373,8 @@ impl SessionToken {
 
     /// Deserialize from cookie string.
     pub fn from_cookie(cookie: &str) -> Result<Self, BrowserKeystoreError> {
-        let json = general_purpose::STANDARD.decode(cookie)
+        let json = general_purpose::STANDARD
+            .decode(cookie)
             .map_err(|e| BrowserKeystoreError::Crypto(e.to_string()))?;
         let token: SessionToken = serde_json::from_slice(&json)?;
         Ok(token)

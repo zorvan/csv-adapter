@@ -188,14 +188,16 @@ pub async fn publish_csv_package(
 ) -> SuiResult<PackageDeployment> {
     use ed25519_dalek::Signer;
     use serde_json::json;
-    
+
     // 1. Get gas coins for the sender
     let gas_coins = fetch_gas_coins(rpc_url, signer_address).await?;
     if gas_coins.is_empty() {
-        return Err(SuiError::RpcError("No gas coins found for signer".to_string()));
+        return Err(SuiError::RpcError(
+            "No gas coins found for signer".to_string(),
+        ));
     }
     let gas_coin = &gas_coins[0];
-    
+
     // 2. Build the publish transaction data (BCS encoded)
     // For package publishing, we need:
     // - TransactionKind::Publish with modules and dependencies
@@ -209,12 +211,13 @@ pub async fn publish_csv_package(
         gas_coin.version,
         &gas_coin.digest,
         50_000_000, // gas budget
-    ).await?;
-    
+    )
+    .await?;
+
     // 3. Sign the transaction
     let signature = signer_keypair.sign(&tx_data);
     let _public_key = signer_keypair.verifying_key();
-    
+
     // 4. Submit the transaction via JSON-RPC
     let client = reqwest::Client::new();
     let payload = json!({
@@ -232,7 +235,7 @@ pub async fn publish_csv_package(
             "WaitForLocalExecution"
         ]
     });
-    
+
     let response: serde_json::Value = client
         .post(rpc_url)
         .json(&payload)
@@ -242,33 +245,32 @@ pub async fn publish_csv_package(
         .json()
         .await
         .map_err(|e| SuiError::RpcError(format!("JSON error: {}", e)))?;
-    
+
     if let Some(error) = response.get("error") {
         return Err(SuiError::RpcError(format!("RPC error: {}", error)));
     }
-    
+
     let result = response["result"].clone();
-    
+
     // 5. Extract package ID from transaction effects
-    let digest = result["digest"]
-        .as_str()
-        .unwrap_or("")
-        .to_string();
-    
+    let digest = result["digest"].as_str().unwrap_or("").to_string();
+
     let effects = &result["effects"];
     let gas_used = effects["gasUsed"]["computationCost"]
         .as_str()
         .and_then(|s| s.parse::<u64>().ok())
         .unwrap_or(0);
-    
+
     // Find the published package in object changes
     let package_id = extract_package_id_from_effects(&result)?;
-    
+
     Ok(PackageDeployment {
         package_id,
         transaction_digest: digest,
         gas_used,
-        modules: compiled_modules.iter().enumerate()
+        modules: compiled_modules
+            .iter()
+            .enumerate()
             .map(|(i, _)| format!("module_{}", i))
             .collect(),
         dependencies: vec!["Sui".to_string()],
@@ -285,7 +287,7 @@ async fn fetch_gas_coins(rpc_url: &str, address: &str) -> SuiResult<Vec<GasCoin>
         "method": "suix_getCoins",
         "params": [address, null, null, null]
     });
-    
+
     let response: serde_json::Value = client
         .post(rpc_url)
         .json(&payload)
@@ -295,11 +297,11 @@ async fn fetch_gas_coins(rpc_url: &str, address: &str) -> SuiResult<Vec<GasCoin>
         .json()
         .await
         .map_err(|e| SuiError::RpcError(format!("JSON error: {}", e)))?;
-    
+
     let data = response["result"]["data"]
         .as_array()
         .ok_or_else(|| SuiError::RpcError("Invalid gas coins response".to_string()))?;
-    
+
     let mut coins = Vec::new();
     for coin in data {
         let object_id = coin["coinObjectId"]
@@ -309,15 +311,12 @@ async fn fetch_gas_coins(rpc_url: &str, address: &str) -> SuiResult<Vec<GasCoin>
             .as_str()
             .and_then(|s| s.parse::<u64>().ok())
             .unwrap_or(0);
-        let digest = coin["digest"]
-            .as_str()
-            .unwrap_or("")
-            .to_string();
+        let digest = coin["digest"].as_str().unwrap_or("").to_string();
         let balance = coin["balance"]
             .as_str()
             .and_then(|s| s.parse::<u64>().ok())
             .unwrap_or(0);
-        
+
         coins.push(GasCoin {
             object_id: object_id.to_string(),
             version,
@@ -325,7 +324,7 @@ async fn fetch_gas_coins(rpc_url: &str, address: &str) -> SuiResult<Vec<GasCoin>
             balance,
         });
     }
-    
+
     Ok(coins)
 }
 
@@ -352,12 +351,13 @@ async fn build_publish_transaction_data(
     // For a pure HTTP implementation, we use the transaction builder API
     // to get the BCS bytes, then we sign them
     let _client = reqwest::Client::new();
-    
+
     // Convert modules to base64
-    let modules_b64: Vec<String> = modules.iter()
+    let modules_b64: Vec<String> = modules
+        .iter()
         .map(|m| base64::Engine::encode(&base64::engine::general_purpose::STANDARD, m))
         .collect();
-    
+
     let _payload = serde_json::json!({
         "jsonrpc": "2.0",
         "id": 1,
@@ -372,7 +372,7 @@ async fn build_publish_transaction_data(
             gas_budget.to_string()
         ]
     });
-    
+
     // This is a simplified approach - in production you'd use proper BCS serialization
     // For now, we return an error indicating the caller should use the lower-level API
     Err(SuiError::SerializationError(
@@ -385,7 +385,7 @@ fn extract_package_id_from_effects(result: &serde_json::Value) -> SuiResult<[u8;
     // Look for object changes that indicate a published package
     let object_changes = result["objectChanges"].as_array();
     let created = result["effects"]["created"].as_array();
-    
+
     // Try objectChanges first
     if let Some(changes) = object_changes {
         for change in changes {
@@ -401,7 +401,7 @@ fn extract_package_id_from_effects(result: &serde_json::Value) -> SuiResult<[u8;
             }
         }
     }
-    
+
     // Fallback to effects.created
     if let Some(created) = created {
         for obj in created {
@@ -418,8 +418,10 @@ fn extract_package_id_from_effects(result: &serde_json::Value) -> SuiResult<[u8;
             }
         }
     }
-    
-    Err(SuiError::SerializationError("Could not find published package ID".to_string()))
+
+    Err(SuiError::SerializationError(
+        "Could not find published package ID".to_string(),
+    ))
 }
 
 #[cfg(test)]

@@ -106,7 +106,12 @@ fn cmd_run(
     Ok(())
 }
 
-fn run_test_pair(from: &Chain, to: &Chain, config: &Config, _state: &UnifiedStateManager) -> Result<()> {
+fn run_test_pair(
+    from: &Chain,
+    to: &Chain,
+    config: &Config,
+    _state: &UnifiedStateManager,
+) -> Result<()> {
     // Test 1: Check connectivity
     output::progress(1, 5, "Checking chain connectivity...");
     check_chain_connectivity(from, config)?;

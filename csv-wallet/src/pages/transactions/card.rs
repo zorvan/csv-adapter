@@ -30,7 +30,7 @@ pub fn TransactionCard(transaction: TransactionRecord) -> Element {
                     div {
                         p { class: "font-medium text-sm", "{transaction.tx_type.to_string()}" }
                         p { class: "text-xs text-gray-500",
-                            {format!("{} → {}", 
+                            {format!("{} → {}",
                                 truncate_address(&transaction.from_address, 6),
                                 transaction.to_address.as_ref().map_or("?".to_string(), |a| truncate_address(a, 6))
                             )}

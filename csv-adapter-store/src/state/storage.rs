@@ -5,8 +5,7 @@
 
 use super::core::{Chain, ChainConfig, Network};
 use super::domain::{
-    ContractRecord, ProofRecord, RightRecord, SealRecord,
-    TransactionRecord, TransferRecord,
+    ContractRecord, ProofRecord, RightRecord, SealRecord, TransactionRecord, TransferRecord,
 };
 use super::wallet::{FaucetConfig, GasAccount};
 use super::wallet::{WalletAccount, WalletConfig};
@@ -110,7 +109,13 @@ impl StateStorage {
     fn default_chains() -> HashMap<Chain, ChainConfig> {
         let mut chains = HashMap::new();
 
-        for chain in [Chain::Bitcoin, Chain::Ethereum, Chain::Sui, Chain::Aptos, Chain::Solana] {
+        for chain in [
+            Chain::Bitcoin,
+            Chain::Ethereum,
+            Chain::Sui,
+            Chain::Aptos,
+            Chain::Solana,
+        ] {
             chains.insert(
                 chain.clone(),
                 ChainConfig::default_for(&chain, &Network::Test),
@@ -124,7 +129,13 @@ impl StateStorage {
     fn default_faucets() -> HashMap<Chain, FaucetConfig> {
         let mut faucets = HashMap::new();
 
-        for chain in [Chain::Bitcoin, Chain::Ethereum, Chain::Sui, Chain::Aptos, Chain::Solana] {
+        for chain in [
+            Chain::Bitcoin,
+            Chain::Ethereum,
+            Chain::Sui,
+            Chain::Aptos,
+            Chain::Solana,
+        ] {
             if let Some(config) = FaucetConfig::default_for(&chain, &Network::Test) {
                 faucets.insert(chain, config);
             }
@@ -166,7 +177,10 @@ impl StateStorage {
 
     /// Get contracts for a chain.
     pub fn get_contracts(&self, chain: &Chain) -> Vec<&ContractRecord> {
-        self.contracts.iter().filter(|c| &c.chain == chain).collect()
+        self.contracts
+            .iter()
+            .filter(|c| &c.chain == chain)
+            .collect()
     }
 
     /// Add a contract.
@@ -232,4 +246,3 @@ impl StateStorage {
             .or_else(|| self.get_address(chain))
     }
 }
-

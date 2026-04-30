@@ -164,7 +164,7 @@ impl Wallet for EthereumWallet {
                 })
             } else {
                 // Hash the data if not exactly 32 bytes
-                use sha2::{Sha256, Digest};
+                use sha2::{Digest, Sha256};
                 let hash = Sha256::digest(data);
                 hash.into()
             };
@@ -212,9 +212,9 @@ impl Wallet for EthereumWallet {
             ));
         }
 
-        let key: [u8; 32] = bytes.try_into().map_err(|_| {
-            ChainError::InvalidInput("Failed to convert to key array".to_string())
-        })?;
+        let key: [u8; 32] = bytes
+            .try_into()
+            .map_err(|_| ChainError::InvalidInput("Failed to convert to key array".to_string()))?;
 
         let _ = secp256k1::SecretKey::from_slice(&key)
             .map_err(|e| ChainError::InvalidInput(format!("Invalid key: {}", e)))?;

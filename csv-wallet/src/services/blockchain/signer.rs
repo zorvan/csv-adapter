@@ -36,7 +36,7 @@ impl TransactionSigner {
     ) -> Result<Vec<u8>, BlockchainError> {
         // Bitcoin signing logic extracted from service.rs
         web_sys::console::log_1(&"Signing Bitcoin anchor transaction...".into());
-        
+
         // Placeholder implementation
         Err(BlockchainError {
             message: "Bitcoin signing not fully implemented".to_string(),
@@ -62,10 +62,10 @@ impl TransactionSigner {
         signer: &NativeWallet,
     ) -> Result<Vec<u8>, BlockchainError> {
         web_sys::console::log_1(&"Signing Sui transaction...".into());
-        
+
         // Sui uses BCS-encoded transactions with Ed25519 signatures
         let _private_key = signer.private_key("");
-        
+
         // Placeholder - would use ed25519-dalek for signing
         Err(BlockchainError {
             message: "Sui signing not fully implemented".to_string(),
@@ -81,9 +81,9 @@ impl TransactionSigner {
         signer: &NativeWallet,
     ) -> Result<Vec<u8>, BlockchainError> {
         web_sys::console::log_1(&"Signing Aptos transaction...".into());
-        
+
         let _private_key = signer.private_key("");
-        
+
         // Placeholder - would use ed25519-dalek for signing
         Err(BlockchainError {
             message: "Aptos signing not fully implemented".to_string(),
@@ -99,9 +99,9 @@ impl TransactionSigner {
         signer: &NativeWallet,
     ) -> Result<Vec<u8>, BlockchainError> {
         web_sys::console::log_1(&"Signing Solana transaction...".into());
-        
+
         let _private_key = signer.private_key("");
-        
+
         // Placeholder - would use ed25519-dalek for signing
         Err(BlockchainError {
             message: "Solana signing not fully implemented".to_string(),

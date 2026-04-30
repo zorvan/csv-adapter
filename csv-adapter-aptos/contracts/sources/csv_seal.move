@@ -36,6 +36,10 @@ module csv_seal::CSVSealV2 {
     use std::vector;
     use std::bcs;
 
+    const ASSET_CLASS_UNSPECIFIED: u8 = 0;
+    const ASSET_CLASS_PROOF_RIGHT: u8 = 3;
+    const PROOF_SYSTEM_UNSPECIFIED: u8 = 0;
+
     // =========================================================================
     // Cross-Chain Events (matching Sui version)
     // =========================================================================
@@ -46,6 +50,11 @@ module csv_seal::CSVSealV2 {
         right_id: vector<u8>,
         commitment: vector<u8>,
         owner: address,
+        asset_class: u8,
+        asset_id: vector<u8>,
+        metadata_hash: vector<u8>,
+        proof_system: u8,
+        proof_root: vector<u8>,
     }
 
     /// Emitted when a seal/Right is consumed.
@@ -65,6 +74,11 @@ module csv_seal::CSVSealV2 {
         destination_owner: vector<u8>,
         source_tx_hash: vector<u8>,
         locked_at: u64,
+        asset_class: u8,
+        asset_id: vector<u8>,
+        metadata_hash: vector<u8>,
+        proof_system: u8,
+        proof_root: vector<u8>,
     }
 
     /// Emitted when a Right is minted from cross-chain proof.
@@ -75,6 +89,11 @@ module csv_seal::CSVSealV2 {
         owner: address,
         source_chain: u8,
         source_seal_ref: vector<u8>,
+        asset_class: u8,
+        asset_id: vector<u8>,
+        metadata_hash: vector<u8>,
+        proof_system: u8,
+        proof_root: vector<u8>,
     }
 
     /// Emitted when a Right is refunded after timeout.
@@ -84,6 +103,17 @@ module csv_seal::CSVSealV2 {
         commitment: vector<u8>,
         claimant: address,
         refunded_at: u64,
+    }
+
+    /// Emitted whenever token/NFT/proof metadata is attached to a Right.
+    #[event]
+    struct RightMetadataRecorded has drop, store {
+        right_id: vector<u8>,
+        asset_class: u8,
+        asset_id: vector<u8>,
+        metadata_hash: vector<u8>,
+        proof_system: u8,
+        proof_root: vector<u8>,
     }
 
     // =========================================================================
@@ -111,6 +141,8 @@ module csv_seal::CSVSealV2 {
     const EAnchorDataExists: u64 = 3;
     /// Seal not found at expected address.
     const ESealNotFound: u64 = 4;
+    /// Invalid token/NFT/proof metadata.
+    const EInvalidMetadata: u64 = 5;
 
     // =========================================================================
     // Structs
@@ -136,6 +168,16 @@ module csv_seal::CSVSealV2 {
         nonce: u64,
         /// Whether this seal has been consumed.
         consumed: bool,
+        /// Asset class: 0 unspecified, 1 fungible token, 2 NFT, 3 proof right.
+        asset_class: u8,
+        /// Chain-native token/NFT/proof family id.
+        asset_id: vector<u8>,
+        /// Hash of canonical metadata.
+        metadata_hash: vector<u8>,
+        /// Proof system identifier.
+        proof_system: u8,
+        /// Proof root or verification-key commitment.
+        proof_root: vector<u8>,
     }
 
     /// Persistent storage of commitment after seal consumption.
@@ -166,7 +208,49 @@ module csv_seal::CSVSealV2 {
     public entry fun create_seal(account: &signer, nonce: u64) {
         let addr = signer::address_of(account);
         assert!(!exists<Seal>(addr), EAnchorDataExists);
-        move_to(account, Seal { nonce, consumed: false });
+        move_to(account, Seal {
+            nonce,
+            consumed: false,
+            asset_class: ASSET_CLASS_UNSPECIFIED,
+            asset_id: vector::empty<u8>(),
+            metadata_hash: vector::empty<u8>(),
+            proof_system: PROOF_SYSTEM_UNSPECIFIED,
+            proof_root: vector::empty<u8>(),
+        });
+    }
+
+    /// Attach token/NFT/proof metadata to an unconsumed seal.
+    public entry fun record_right_metadata(
+        account: &signer,
+        asset_class: u8,
+        asset_id: vector<u8>,
+        metadata_hash: vector<u8>,
+        proof_system: u8,
+        proof_root: vector<u8>,
+    ) acquires Seal {
+        let addr = signer::address_of(account);
+        assert!(exists<Seal>(addr), ESealNotFound);
+        assert!(asset_class <= ASSET_CLASS_PROOF_RIGHT, EInvalidMetadata);
+        assert!(asset_class == ASSET_CLASS_UNSPECIFIED || vector::length(&asset_id) > 0, EInvalidMetadata);
+        assert!(proof_system == PROOF_SYSTEM_UNSPECIFIED || vector::length(&proof_root) > 0, EInvalidMetadata);
+
+        let seal = borrow_global_mut<Seal>(addr);
+        assert!(!seal.consumed, ESealAlreadyConsumed);
+
+        seal.asset_class = asset_class;
+        seal.asset_id = asset_id;
+        seal.metadata_hash = metadata_hash;
+        seal.proof_system = proof_system;
+        seal.proof_root = proof_root;
+
+        event::emit(RightMetadataRecorded {
+            right_id: bcs::to_bytes(&addr),
+            asset_class,
+            asset_id: seal.asset_id,
+            metadata_hash: seal.metadata_hash,
+            proof_system,
+            proof_root: seal.proof_root,
+        });
     }
 
     // =========================================================================
@@ -348,6 +432,11 @@ module csv_seal::CSVSealV2 {
         destination_chain: u8,
         locked_at: u64,
         refunded: bool,
+        asset_class: u8,
+        asset_id: vector<u8>,
+        metadata_hash: vector<u8>,
+        proof_system: u8,
+        proof_root: vector<u8>,
     }
 
     /// Shared registry tracking all locks for settlement support.
@@ -402,6 +491,11 @@ module csv_seal::CSVSealV2 {
             destination_chain,
             locked_at,
             refunded: false,
+            asset_class: seal.asset_class,
+            asset_id: seal.asset_id,
+            metadata_hash: seal.metadata_hash,
+            proof_system: seal.proof_system,
+            proof_root: seal.proof_root,
         });
 
         // Get transaction hash (use empty for now - filled off-chain)
@@ -416,6 +510,11 @@ module csv_seal::CSVSealV2 {
             destination_owner,
             source_tx_hash,
             locked_at,
+            asset_class: seal.asset_class,
+            asset_id: seal.asset_id,
+            metadata_hash: seal.metadata_hash,
+            proof_system: seal.proof_system,
+            proof_root: seal.proof_root,
         });
 
         // Emit RightConsumed event
@@ -447,7 +546,15 @@ module csv_seal::CSVSealV2 {
         assert!(!exists<Seal>(owner_addr), EAnchorDataExists);
 
         // Create new seal
-        move_to(account, Seal { nonce, consumed: false });
+        move_to(account, Seal {
+            nonce,
+            consumed: false,
+            asset_class: ASSET_CLASS_UNSPECIFIED,
+            asset_id: vector::empty<u8>(),
+            metadata_hash: vector::empty<u8>(),
+            proof_system: PROOF_SYSTEM_UNSPECIFIED,
+            proof_root: vector::empty<u8>(),
+        });
 
         // Emit CrossChainMint event
         event::emit(CrossChainMint {
@@ -456,6 +563,11 @@ module csv_seal::CSVSealV2 {
             owner: owner_addr,
             source_chain,
             source_seal_ref,
+            asset_class: ASSET_CLASS_UNSPECIFIED,
+            asset_id: vector::empty<u8>(),
+            metadata_hash: vector::empty<u8>(),
+            proof_system: PROOF_SYSTEM_UNSPECIFIED,
+            proof_root: vector::empty<u8>(),
         });
 
         // Emit RightCreated event
@@ -463,6 +575,11 @@ module csv_seal::CSVSealV2 {
             right_id,
             commitment,
             owner: owner_addr,
+            asset_class: ASSET_CLASS_UNSPECIFIED,
+            asset_id: vector::empty<u8>(),
+            metadata_hash: vector::empty<u8>(),
+            proof_system: PROOF_SYSTEM_UNSPECIFIED,
+            proof_root: vector::empty<u8>(),
         });
     }
 

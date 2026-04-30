@@ -3,8 +3,8 @@
 //! This module provides a comprehensive error taxonomy for the Sui adapter,
 //! with chain-specific error variants and recovery guidance.
 
+use csv_adapter_core::agent_types::{error_codes, FixAction, HasErrorSuggestion};
 use thiserror::Error;
-use csv_adapter_core::agent_types::{HasErrorSuggestion, FixAction, error_codes};
 
 /// Comprehensive error types for the Sui adapter.
 ///
@@ -121,13 +121,12 @@ impl HasErrorSuggestion for SuiError {
 
     fn suggested_fix(&self) -> String {
         match self {
-            SuiError::RpcError(_) => {
-                "Sui RPC call failed. Check: \
+            SuiError::RpcError(_) => "Sui RPC call failed. Check: \
                  1) Your internet connection, \
                  2) The RPC endpoint is accessible (try https://fullnode.mainnet.sui.io), \
                  3) Rate limits haven't been exceeded. \
-                 For testnet, use https://fullnode.testnet.sui.io".to_string()
-            }
+                 For testnet, use https://fullnode.testnet.sui.io"
+                .to_string(),
             SuiError::ObjectUsed(obj) => {
                 format!(
                     "The Sui object {} has already been consumed. \
@@ -141,35 +140,37 @@ impl HasErrorSuggestion for SuiError {
                  1) The object doesn't exist at the claimed version, \
                  2) The proof is for a different object, or \
                  3) A chain reorganization occurred. \
-                 Re-fetch the proof from a reliable RPC endpoint.".to_string()
+                 Re-fetch the proof from a reliable RPC endpoint."
+                    .to_string()
             }
-            SuiError::EventProofFailed(_) => {
-                "The event proof verification failed. Check: \
+            SuiError::EventProofFailed(_) => "The event proof verification failed. Check: \
                  1) The transaction digest is correct, \
                  2) The event index matches, \
                  3) The event data hasn't been pruned. \
-                 Re-verify against a full node with complete history.".to_string()
-            }
-            SuiError::CheckpointFailed(_) => {
-                "Checkpoint certification failed. This may indicate: \
+                 Re-verify against a full node with complete history."
+                .to_string(),
+            SuiError::CheckpointFailed(_) => "Checkpoint certification failed. This may indicate: \
                  1) The checkpoint is not yet certified, \
                  2) Validator signatures are invalid, or \
                  3) The epoch has changed. \
-                 Wait for the next checkpoint and retry.".to_string()
-            }
-            SuiError::TransactionFailed(_) => {
-                "Transaction execution failed. Check: \
+                 Wait for the next checkpoint and retry."
+                .to_string(),
+            SuiError::TransactionFailed(_) => "Transaction execution failed. Check: \
                  1) You have sufficient gas (SUI tokens), \
                  2) The transaction inputs are valid, \
                  3) The Move contract doesn't abort. \
-                 Simulate the transaction first to identify issues.".to_string()
-            }
+                 Simulate the transaction first to identify issues."
+                .to_string(),
             SuiError::SerializationError(_) => {
                 "BCS serialization/deserialization failed. Ensure the data \
                  structure matches the expected Move types and all required \
-                 fields are present.".to_string()
+                 fields are present."
+                    .to_string()
             }
-            SuiError::ConfirmationTimeout { tx_digest, timeout_ms } => {
+            SuiError::ConfirmationTimeout {
+                tx_digest,
+                timeout_ms,
+            } => {
                 format!(
                     "Transaction {} did not confirm within {}ms. \
                      The transaction may still succeed. Check the transaction \
@@ -206,39 +207,34 @@ impl HasErrorSuggestion for SuiError {
 
     fn fix_action(&self) -> Option<FixAction> {
         match self {
-            SuiError::RpcError(_) => {
-                Some(FixAction::Retry {
-                    parameter_changes: std::collections::HashMap::from([
-                        ("rpc_endpoint".to_string(), "https://fullnode.mainnet.sui.io".to_string()),
-                    ]),
-                })
-            }
-            SuiError::ConfirmationTimeout { .. } => {
-                Some(FixAction::Retry {
-                    parameter_changes: std::collections::HashMap::from([
-                        ("wait_seconds".to_string(), "30".to_string()),
-                    ]),
-                })
-            }
-            SuiError::TransactionFailed(_) => {
-                Some(FixAction::Retry {
-                    parameter_changes: std::collections::HashMap::from([
-                        ("check_gas".to_string(), "true".to_string()),
-                        ("simulate_first".to_string(), "true".to_string()),
-                    ]),
-                })
-            }
-            SuiError::ReorgDetected { .. } => {
-                Some(FixAction::CheckState {
-                    url: "https://suiscan.xyz".to_string(),
-                    what: "Check current Sui checkpoint".to_string(),
-                })
-            }
+            SuiError::RpcError(_) => Some(FixAction::Retry {
+                parameter_changes: std::collections::HashMap::from([(
+                    "rpc_endpoint".to_string(),
+                    "https://fullnode.mainnet.sui.io".to_string(),
+                )]),
+            }),
+            SuiError::ConfirmationTimeout { .. } => Some(FixAction::Retry {
+                parameter_changes: std::collections::HashMap::from([(
+                    "wait_seconds".to_string(),
+                    "30".to_string(),
+                )]),
+            }),
+            SuiError::TransactionFailed(_) => Some(FixAction::Retry {
+                parameter_changes: std::collections::HashMap::from([
+                    ("check_gas".to_string(), "true".to_string()),
+                    ("simulate_first".to_string(), "true".to_string()),
+                ]),
+            }),
+            SuiError::ReorgDetected { .. } => Some(FixAction::CheckState {
+                url: "https://suiscan.xyz".to_string(),
+                what: "Check current Sui checkpoint".to_string(),
+            }),
             SuiError::StateProofFailed(_) | SuiError::EventProofFailed(_) => {
                 Some(FixAction::Retry {
-                    parameter_changes: std::collections::HashMap::from([
-                        ("rpc_endpoint".to_string(), "try_alternative".to_string()),
-                    ]),
+                    parameter_changes: std::collections::HashMap::from([(
+                        "rpc_endpoint".to_string(),
+                        "try_alternative".to_string(),
+                    )]),
                 })
             }
             SuiError::CoreError(e) => e.fix_action(),

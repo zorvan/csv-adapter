@@ -7,6 +7,12 @@ pragma solidity ^0.8.20;
 /// The source chain lock event must be proven via a Merkle proof that
 /// is verified against a trusted bridge/relayer commitment root.
 contract CSVMint {
+    uint8 public constant ASSET_CLASS_UNSPECIFIED = 0;
+    uint8 public constant ASSET_CLASS_FUNGIBLE_TOKEN = 1;
+    uint8 public constant ASSET_CLASS_NON_FUNGIBLE_TOKEN = 2;
+    uint8 public constant ASSET_CLASS_PROOF_RIGHT = 3;
+    uint8 public constant PROOF_SYSTEM_UNSPECIFIED = 0;
+
     /// @notice Address of the CSVLock contract on the source chain's bridge
     address public lockContract;
 
@@ -19,6 +25,16 @@ contract CSVMint {
     /// @notice Tracks registered nullifiers (prevents double-spend on Ethereum)
     mapping(bytes32 => bool) public nullifiers;
 
+    struct RightMetadata {
+        uint8 assetClass;
+        bytes32 assetId;
+        bytes32 metadataHash;
+        uint8 proofSystem;
+        bytes32 proofRoot;
+    }
+
+    mapping(bytes32 => RightMetadata) public rightMetadata;
+
     /// @notice Contract owner — controls verifier address and batch minting
     address public owner;
 
@@ -28,7 +44,12 @@ contract CSVMint {
         bytes32 indexed commitment,
         address indexed owner,
         uint8 sourceChain,
-        bytes sourceSealRef
+        bytes sourceSealRef,
+        uint8 assetClass,
+        bytes32 assetId,
+        bytes32 metadataHash,
+        uint8 proofSystem,
+        bytes32 proofRoot
     );
 
     /// @notice Emitted when a nullifier is registered
@@ -39,6 +60,14 @@ contract CSVMint {
 
     /// @notice Emitted when verifier is changed
     event VerifierUpdated(address indexed oldVerifier, address indexed newVerifier);
+    event RightMetadataRecorded(
+        bytes32 indexed rightId,
+        uint8 assetClass,
+        bytes32 indexed assetId,
+        bytes32 metadataHash,
+        uint8 proofSystem,
+        bytes32 indexed proofRoot
+    );
 
     /// @notice Chain IDs for cross-chain transfers
     uint8 public constant CHAIN_BITCOIN = 0;
@@ -52,6 +81,7 @@ contract CSVMint {
     error NullifierAlreadyRegistered();
     error ZeroAddress();
     error ArraysMismatch();
+    error InvalidRightMetadata();
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert NotAuthorized();
@@ -107,22 +137,100 @@ contract CSVMint {
         bytes calldata proof,
         bytes32 proofRoot
     ) external returns (bool) {
+        return _mintRight(
+            rightId,
+            commitment,
+            stateRoot,
+            sourceChain,
+            sourceSealRef,
+            proof,
+            proofRoot,
+            RightMetadata({
+                assetClass: ASSET_CLASS_UNSPECIFIED,
+                assetId: bytes32(0),
+                metadataHash: bytes32(0),
+                proofSystem: PROOF_SYSTEM_UNSPECIFIED,
+                proofRoot: proofRoot
+            })
+        );
+    }
+
+    /// @notice Mint a Right with token/NFT/proof metadata preserved for indexers and future apps.
+    function mintRightWithMetadata(
+        bytes32 rightId,
+        bytes32 commitment,
+        bytes32 stateRoot,
+        uint8 sourceChain,
+        bytes calldata sourceSealRef,
+        bytes calldata proof,
+        bytes32 proofRoot,
+        uint8 assetClass,
+        bytes32 assetId,
+        bytes32 metadataHash,
+        uint8 proofSystem
+    ) external returns (bool) {
+        RightMetadata memory metadata = RightMetadata({
+            assetClass: assetClass,
+            assetId: assetId,
+            metadataHash: metadataHash,
+            proofSystem: proofSystem,
+            proofRoot: proofRoot
+        });
+        _validateMetadata(metadata);
+        return _mintRight(rightId, commitment, stateRoot, sourceChain, sourceSealRef, proof, proofRoot, metadata);
+    }
+
+    function _mintRight(
+        bytes32 rightId,
+        bytes32 commitment,
+        bytes32 stateRoot,
+        uint8 sourceChain,
+        bytes calldata sourceSealRef,
+        bytes calldata proof,
+        bytes32 proofRoot,
+        RightMetadata memory metadata
+    ) internal returns (bool) {
         if (mintedRights[rightId]) revert RightAlreadyMinted();
+        if (stateRoot == bytes32(0)) revert InvalidProof();
 
         // Verify the cross-chain proof on-chain
         _verifyCrossChainProof(rightId, commitment, sourceChain, proof, proofRoot);
 
         mintedRights[rightId] = true;
+        rightMetadata[rightId] = metadata;
 
         emit RightMinted(
             rightId,
             commitment,
             msg.sender,
             sourceChain,
-            sourceSealRef
+            sourceSealRef,
+            metadata.assetClass,
+            metadata.assetId,
+            metadata.metadataHash,
+            metadata.proofSystem,
+            metadata.proofRoot
+        );
+        emit RightMetadataRecorded(
+            rightId,
+            metadata.assetClass,
+            metadata.assetId,
+            metadata.metadataHash,
+            metadata.proofSystem,
+            metadata.proofRoot
         );
 
         return true;
+    }
+
+    function _validateMetadata(RightMetadata memory metadata) internal pure {
+        if (metadata.assetClass > ASSET_CLASS_PROOF_RIGHT) revert InvalidRightMetadata();
+        if (metadata.assetClass != ASSET_CLASS_UNSPECIFIED && metadata.assetId == bytes32(0)) {
+            revert InvalidRightMetadata();
+        }
+        if (metadata.proofSystem != PROOF_SYSTEM_UNSPECIFIED && metadata.proofRoot == bytes32(0)) {
+            revert InvalidRightMetadata();
+        }
     }
 
     /// @notice Verify a cross-chain lock proof using Merkle tree verification
