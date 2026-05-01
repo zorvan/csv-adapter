@@ -21,7 +21,7 @@ The guarantee is allowed only when all of these are true:
 |---|---|
 | New chain scalability | Adding a chain requires one adapter crate, one chain config file, one explorer indexer plugin, and registration metadata only. No CLI/wallet command logic changes except generated command exposure if needed. |
 | Single implementation | CLI, wallet, explorer, and future TypeScript SDK call the same Rust adapter/client APIs for chain operations. No duplicate signing, balance, deploy, proof, or broadcast logic outside adapters/core. |
-| Native SDK usage | Each adapter uses the chain-native SDK/client/proof module wherever one exists. Raw HTTP is allowed only behind adapter RPC traits when the native SDK has no supported feature. |
+| Native SDK usage | Each adapter uses the chain-native SDK/client/proof module wherever one exists. Raw HTTP is allowed only behind adapter RPC traits when the native SDK has no supported feature. Use latest stable SDK of each chain. |
 | No stubs/placeholders | Production source contains no `TODO`, `placeholder`, `stub`, `mock`, `simulation`, `unimplemented!`, `todo!`, or fake deterministic tx/proof outputs outside tests/docs/examples. |
 | Security first | All cryptographic operations use reviewed libraries, domain-separated hashes, canonical serialization, encrypted key storage, replay protection, proof verification, and explicit failure on missing real RPC/signing capability. |
 

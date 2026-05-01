@@ -93,6 +93,12 @@ pub mod signature;
 pub mod error;
 pub mod traits;
 
+// Chain operation traits (Production Guarantee Plan Phase 2) - 🔒 STABLE
+pub mod chain_operations;
+
+// Shared event schemas (Production Guarantee Plan Phase 6) - 🔒 STABLE
+pub mod events;
+
 // Cross-cutting (Phase 10) - 🟡 BETA
 pub mod monitor;
 pub mod performance;
@@ -150,6 +156,20 @@ pub use proof_verify::verify_proof;
 // Errors and traits
 pub use error::{AdapterError, Result};
 pub use traits::AnchorLayer;
+
+// Chain operations (Production Guarantee Plan Phase 2)
+pub use chain_operations::{
+    BalanceInfo, ChainBroadcaster, ChainCapability, ChainDeployer, ChainOpError, ChainOpResult,
+    ChainProofProvider, ChainQuery, ChainRightOps, ChainSigner, ContractStatus, DeploymentStatus,
+    FinalityStatus, FullChainAdapter, RightOperation, RightOperationResult, TokenBalance,
+    TransactionInfo, TransactionStatus,
+};
+
+// Event schemas (Production Guarantee Plan Phase 6)
+pub use events::{
+    CsvEvent, EventData, EventFilter, EventFinalityStatus, EventIndexer, EventIndexerRegistry,
+    event_names, metadata_fields,
+};
 
 // Cross-chain transfer
 pub use client::{ValidationClient, ValidationResult};

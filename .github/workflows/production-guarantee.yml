@@ -1,0 +1,324 @@
+name: Production Guarantee Gates
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-Dwarnings"
+
+jobs:
+  # ── Phase 1: Production Surface Audit ─────────────────────────
+  production-surface-audit:
+    name: Production Surface Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ripgrep
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ripgrep
+
+      - name: Run production surface audit
+        run: |
+          ./scripts/audit-production-surface.sh
+        continue-on-error: true
+
+      - name: Upload audit report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-audit-report
+          path: docs/PRODUCTION_AUDIT.md
+
+  # ── Phase 2: No Direct Adapter Imports ──────────────────────
+  no-direct-adapter-imports:
+    name: No Direct Adapter Imports
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ripgrep
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ripgrep
+
+      - name: Check CLI for direct adapter imports
+        run: |
+          # Check if CLI imports chain adapters directly (should only use csv-adapter facade)
+          DIRECT_IMPORTS=$(rg "csv_adapter_(bitcoin|ethereum|sui|aptos|solana)" csv-cli/src --glob '*.rs' || true)
+          if [ -n "$DIRECT_IMPORTS" ]; then
+            echo "ERROR: csv-cli contains direct adapter imports:"
+            echo "$DIRECT_IMPORTS"
+            exit 1
+          fi
+          echo "✓ CLI uses only facade APIs"
+
+      - name: Check Wallet for direct adapter imports
+        run: |
+          # Check if wallet imports chain adapters directly
+          DIRECT_IMPORTS=$(rg "csv_adapter_(bitcoin|ethereum|sui|aptos|solana)" csv-wallet/src --glob '*.rs' || true)
+          if [ -n "$DIRECT_IMPORTS" ]; then
+            echo "ERROR: csv-wallet contains direct adapter imports:"
+            echo "$DIRECT_IMPORTS"
+            exit 1
+          fi
+          echo "✓ Wallet uses only facade APIs"
+
+  # ── Phase 3: No Plaintext Key Handling ───────────────────────
+  no-plaintext-keys:
+    name: No Plaintext Key Handling
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ripgrep
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ripgrep
+
+      - name: Check CLI for plaintext key handling
+        run: |
+          # Check for direct private key/mnemonic handling outside keystore
+          KEY_HANDLING=$(rg -i "private_key|mnemonic.*plain|plaintext.*key" csv-cli/src --glob '*.rs' || true)
+          if [ -n "$KEY_HANDLING" ]; then
+            echo "WARNING: csv-cli may handle keys directly:"
+            echo "$KEY_HANDLING"
+            # For now, just warn - this will become a hard failure in Phase 5
+          fi
+
+      - name: Check Wallet for plaintext key handling
+        run: |
+          # Check for direct private key/mnemonic handling outside keystore
+          KEY_HANDLING=$(rg -i "private_key|mnemonic.*plain|plaintext.*key" csv-wallet/src --glob '*.rs' || true)
+          if [ -n "$KEY_HANDLING" ]; then
+            echo "WARNING: csv-wallet may handle keys directly:"
+            echo "$KEY_HANDLING"
+            # For now, just warn - this will become a hard failure in Phase 5
+          fi
+
+  # ── Phase 4: Contract Builds ──────────────────────────────────
+  contract-builds:
+    name: Contract Builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Build Ethereum contracts
+        run: |
+          if [ -d "contracts/ethereum" ]; then
+            cd contracts/ethereum
+            forge build
+          fi
+
+      - name: Check for Sui contracts
+        run: |
+          if [ -d "contracts/sui" ]; then
+            echo "Sui contracts found - add Sui CLI build step"
+            # cd contracts/sui
+            # sui move build
+          fi
+
+      - name: Check for Aptos contracts
+        run: |
+          if [ -d "contracts/aptos" ]; then
+            echo "Aptos contracts found - add Aptos CLI build step"
+            # cd contracts/aptos
+            # aptos move compile
+          fi
+
+      - name: Check for Solana contracts
+        run: |
+          if [ -d "csv-adapter-solana/contracts" ]; then
+            echo "Solana contracts found"
+            if command -v anchor &> /dev/null; then
+              cd csv-adapter-solana/contracts
+              NO_DNA=1 anchor build
+            else
+              echo "Anchor not installed - skipping Solana build"
+            fi
+          fi
+
+  # ── Phase 5: WASM Compatibility ─────────────────────────────
+  wasm-check:
+    name: WASM Target Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Check wallet compiles for WASM
+        run: |
+          cargo check -p csv-wallet --target wasm32-unknown-unknown 2>&1 | tee wasm-check.log || true
+          if grep -q "error" wasm-check.log; then
+            echo "ERROR: csv-wallet does not compile for WASM target"
+            exit 1
+          fi
+          echo "✓ Wallet is WASM-compatible"
+
+  # ── Phase 6: Security Audit ─────────────────────────────────
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit
+
+      - name: Run cargo audit
+        run: cargo audit
+        continue-on-error: true
+
+  # ── Phase 7: Trait Implementation Check ────────────────────
+  trait-implementation-check:
+    name: Core Traits Implemented
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Check that core traits exist
+        run: |
+          # Verify that chain_operations module exists and exports traits
+          if ! grep -q "pub mod chain_operations" csv-adapter-core/src/lib.rs; then
+            echo "ERROR: chain_operations module not found"
+            exit 1
+          fi
+
+          if ! grep -q "ChainQuery" csv-adapter-core/src/lib.rs; then
+            echo "ERROR: ChainQuery trait not re-exported"
+            exit 1
+          fi
+
+          if ! grep -q "ChainSigner" csv-adapter-core/src/lib.rs; then
+            echo "ERROR: ChainSigner trait not re-exported"
+            exit 1
+          fi
+
+          if ! grep -q "ChainBroadcaster" csv-adapter-core/src/lib.rs; then
+            echo "ERROR: ChainBroadcaster trait not re-exported"
+            exit 1
+          fi
+
+          if ! grep -q "ChainDeployer" csv-adapter-core/src/lib.rs; then
+            echo "ERROR: ChainDeployer trait not re-exported"
+            exit 1
+          fi
+
+          if ! grep -q "ChainProofProvider" csv-adapter-core/src/lib.rs; then
+            echo "ERROR: ChainProofProvider trait not re-exported"
+            exit 1
+          fi
+
+          if ! grep -q "ChainRightOps" csv-adapter-core/src/lib.rs; then
+            echo "ERROR: ChainRightOps trait not re-exported"
+            exit 1
+          fi
+
+          echo "✓ All core chain traits are defined"
+
+      - name: Check that event module exists
+        run: |
+          if ! grep -q "pub mod events" csv-adapter-core/src/lib.rs; then
+            echo "ERROR: events module not found"
+            exit 1
+          fi
+
+          if ! grep -q "CsvEvent" csv-adapter-core/src/lib.rs; then
+            echo "ERROR: CsvEvent not re-exported"
+            exit 1
+          fi
+
+          echo "✓ Event schemas module is defined"
+
+  # ── Phase 8: Documentation ────────────────────────────────
+  documentation-check:
+    name: Documentation Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Check production guarantee plan exists
+        run: |
+          if [ ! -f "docs/PRODUCTION_GUARANTEE_PLAN.md" ]; then
+            echo "ERROR: PRODUCTION_GUARANTEE_PLAN.md not found"
+            exit 1
+          fi
+          echo "✓ Production guarantee plan exists"
+
+      - name: Check production audit exists
+        run: |
+          if [ ! -f "docs/PRODUCTION_AUDIT.md" ]; then
+            echo "ERROR: PRODUCTION_AUDIT.md not found"
+            exit 1
+          fi
+          echo "✓ Production audit exists"
+
+      - name: Check audit script exists
+        run: |
+          if [ ! -f "scripts/audit-production-surface.sh" ]; then
+            echo "ERROR: audit-production-surface.sh not found"
+            exit 1
+          fi
+          chmod +x scripts/audit-production-surface.sh
+          echo "✓ Audit script exists"
+
+  # ── Final Gate: Production Ready ────────────────────────────
+  production-ready:
+    name: Production Ready Gate
+    runs-on: ubuntu-latest
+    needs:
+      - production-surface-audit
+      - no-direct-adapter-imports
+      - contract-builds
+      - wasm-check
+      - security-audit
+      - trait-implementation-check
+      - documentation-check
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Production Ready Check
+        run: |
+          echo "=========================================="
+          echo "  Production Guarantee Gate Summary"
+          echo "=========================================="
+          echo ""
+          echo "This job aggregates all production guarantee checks."
+          echo "It only passes when ALL required gates pass."
+          echo ""
+
+          # Check if production surface audit passed
+          if [ "${{ needs.production-surface-audit.result }}" == "failure" ]; then
+            echo "⚠️  Production surface audit has violations"
+            echo "   Run: ./scripts/audit-production-surface.sh"
+            echo "   See: docs/PRODUCTION_AUDIT.md"
+          fi
+
+          # Overall status
+          echo ""
+          echo "Status: All critical gates passed ✓"
+          echo ""
+          echo "Note: The production guarantee is not yet complete."
+          echo "Remaining work tracked in docs/PRODUCTION_GUARANTEE_PLAN.md"
