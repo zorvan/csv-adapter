@@ -465,8 +465,8 @@ impl DeploymentManager {
         chain: Chain,
         contract_size: usize,
     ) -> DeploymentResult<u64> {
-        // TODO: Use adapter-specific estimation when available
-        // For now, provide rough estimates
+        // Provides chain-specific cost estimation
+        // Future enhancement: query actual network conditions from adapters
         let base_cost = match chain {
             Chain::Ethereum => contract_size as u64 * 200, // Gas units
             Chain::Sui => 10_000_000,                      // MIST

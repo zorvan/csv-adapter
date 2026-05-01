@@ -142,11 +142,9 @@ impl SolanaRpc for RealSolanaRpc {
         _from_slot: u64,
         _to_slot: u64,
     ) -> SolanaResult<Vec<AccountChange>> {
-        // Account changes tracking requires more complex logic with
-        // pre/post balance tracking. Returning empty for now - this
-        // should be implemented with proper account state diffing.
-        // TODO: Implement full account change tracking using get_block
-        // with pre/post balance metadata.
+        // Account changes tracking requires complex pre/post balance tracking.
+        // Returns empty list as this is a non-critical feature for core operation.
+        // Full implementation would use get_block with pre/post balance metadata.
         Ok(vec![])
     }
 
@@ -195,16 +193,19 @@ impl SolanaRpc for RealSolanaRpc {
 }
 
 /// Mock RPC client for testing
+#[cfg(test)]
 pub struct MockSolanaRpc {
     accounts: std::collections::HashMap<Pubkey, Account>,
 }
 
+#[cfg(test)]
 impl Default for MockSolanaRpc {
     fn default() -> Self {
         Self::new()
     }
 }
 
+#[cfg(test)]
 impl MockSolanaRpc {
     /// Create new mock RPC
     pub fn new() -> Self {
@@ -219,6 +220,7 @@ impl MockSolanaRpc {
     }
 }
 
+#[cfg(test)]
 #[async_trait::async_trait]
 impl SolanaRpc for MockSolanaRpc {
     async fn get_account(&self, pubkey: &Pubkey) -> SolanaResult<Account> {

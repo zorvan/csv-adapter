@@ -3,9 +3,9 @@
 //! Defines the minimal set of Ethereum JSON-RPC calls needed
 //! by the CSV adapter: storage proofs, receipts, block queries, finality.
 
-#[cfg(debug_assertions)]
+#[cfg(test)]
 use std::collections::HashMap;
-#[cfg(debug_assertions)]
+#[cfg(test)]
 use std::sync::Mutex;
 
 /// Trait for Ethereum RPC operations
@@ -139,9 +139,9 @@ pub struct LogEntry {
 
 /// Mock Ethereum RPC for testing
 ///
-/// This implementation is only compiled in debug builds to prevent
+/// This implementation is only compiled in test builds to prevent
 /// accidental use in production environments.
-#[cfg(debug_assertions)]
+#[cfg(test)]
 #[allow(clippy::type_complexity)]
 pub struct MockEthereumRpc {
     pub block_number: u64,
@@ -152,7 +152,7 @@ pub struct MockEthereumRpc {
     pub state_roots: Mutex<HashMap<[u8; 32], [u8; 32]>>,
 }
 
-#[cfg(debug_assertions)]
+#[cfg(test)]
 impl MockEthereumRpc {
     pub fn new(block_number: u64) -> Self {
         Self {
@@ -184,7 +184,7 @@ impl MockEthereumRpc {
     }
 }
 
-#[cfg(debug_assertions)]
+#[cfg(test)]
 impl EthereumRpc for MockEthereumRpc {
     fn block_number(&self) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
         Ok(self.block_number)

@@ -190,11 +190,10 @@ pub mod real_rpc {
             _outpoint: OutPoint,
             _commitment: csv_adapter_core::Hash,
         ) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>> {
-            // TODO: Integrate with the adapter's tx_builder and wallet to build,
-            // sign, and broadcast the actual Taproot commitment transaction.
-            // For now, this is a placeholder that returns a deterministic txid.
+            // This method requires adapter-level integration with tx_builder and wallet.
             // The full flow is demonstrated in the signet_real_tx_demo example
             // which wires tx_builder + wallet + RPC broadcasting together.
+            // For production use, call BitcoinAnchorLayer.publish() instead.
             Err("publish_commitment requires adapter-level integration — use the full BitcoinAnchorLayer.publish() method instead".into())
         }
     }

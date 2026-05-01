@@ -826,8 +826,9 @@ fn run_real_ethereum_to_sui(
         .get_right(&right_id_hash.to_string())
         .and_then(|r| hash_from_hex_32(&r.commitment).ok())
         .unwrap_or(right_id_hash);
-    // Use SDK-based mint instead of CLI
-    let sui_tx_digest = csv_adapter_sui::mint_right(
+    // Use adapter facade for cross-chain mint
+    let sui_tx_digest = csv_adapter::cross_chain::mint_right_on_chain(
+        csv_adapter::Chain::Sui,
         &sui_cfg.rpc_url,
         &_destination_contract, // package_id from contract
         &sui_key,
@@ -1007,15 +1008,14 @@ fn run_real_ethereum_to_solana(
         .get_right(&right_id_hash.to_string())
         .and_then(|r| hash_from_hex_32(&r.commitment).ok())
         .unwrap_or(right_id_hash);
-    // Use SDK-based mint instead of CLI
-    let state_root = Hash::new([0u8; 32]);
-    let sol_tx_sig = csv_adapter_solana::mint_right_from_hex_key(
+    // Use adapter facade for cross-chain mint
+    let sol_tx_sig = csv_adapter::cross_chain::mint_right_on_chain(
+        csv_adapter::Chain::Solana,
         &sol_cfg.rpc_url,
         &_destination_contract, // program_id from contract
         &sol_key,
         right_id_hash,
         commitment,
-        state_root,
         1u8, // source_chain = 1 for Ethereum
         source_tx_hash,
     )

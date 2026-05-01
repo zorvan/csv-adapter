@@ -37,6 +37,7 @@
 
 pub mod adapter;
 pub mod chain_adapter_impl;
+pub mod chain_operations;
 pub mod checkpoint;
 pub mod config;
 pub mod deploy;
@@ -67,10 +68,13 @@ pub use proofs::{
 };
 #[cfg(feature = "rpc")]
 pub use real_rpc::AptosRpcClient;
-#[cfg(debug_assertions)]
+#[cfg(test)]
 pub use rpc::MockAptosRpc;
 pub use rpc::{
     AptosBlockInfo, AptosEvent, AptosLedgerInfo, AptosResource, AptosRpc, AptosTransaction,
 };
 pub use seal::{SealRecord, SealRegistry, SealStore};
 pub use types::{AptosAnchorRef, AptosFinalityProof, AptosInclusionProof, AptosSealRef};
+
+// Chain operations exports
+pub use chain_operations::AptosChainOperations;

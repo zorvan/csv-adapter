@@ -302,8 +302,8 @@ pub fn create_ethereum_adapter(config: &ChainConfig) -> ChainResult<EthereumAnch
         ..Default::default()
     };
 
-    // Create mock RPC
-    #[cfg(debug_assertions)]
+    // In test builds, use mock RPC
+    #[cfg(test)]
     {
         use crate::rpc::MockEthereumRpc;
         let rpc: Box<dyn EthereumRpc> = Box::new(MockEthereumRpc::new(1000));
@@ -312,10 +312,26 @@ pub fn create_ethereum_adapter(config: &ChainConfig) -> ChainResult<EthereumAnch
             .map_err(|e| ChainError::RpcError(format!("{:?}", e)))
     }
 
-    #[cfg(not(debug_assertions))]
+    // When rpc feature is enabled, use real RPC
+    #[cfg(all(not(test), feature = "rpc"))]
+    {
+        use crate::RealEthereumRpc;
+        let rpc_url = config.rpc_endpoints.first()
+            .ok_or_else(|| ChainError::InvalidInput("RPC endpoint required".to_string()))?;
+        let csv_seal_address = [0u8; 20]; // Could be configured
+        let rpc: Box<dyn EthereumRpc> = Box::new(
+            RealEthereumRpc::new(rpc_url, csv_seal_address)
+                .map_err(|e| ChainError::RpcError(format!("{:?}", e)))?
+        );
+        EthereumAnchorLayer::from_config(eth_config, rpc, csv_seal_address)
+            .map_err(|e| ChainError::RpcError(format!("{:?}", e)))
+    }
+
+    // Otherwise, return error indicating rpc feature is needed
+    #[cfg(not(any(test, feature = "rpc")))]
     {
         Err(ChainError::NotImplemented(
-            "Real Ethereum RPC requires debug_assertions or rpc feature".to_string(),
+            "Real Ethereum RPC requires the rpc feature to be enabled".to_string(),
         ))
     }
 }

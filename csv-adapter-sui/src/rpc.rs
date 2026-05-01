@@ -1,8 +1,8 @@
 //! Sui RPC trait and mock implementation
 
-#[cfg(debug_assertions)]
+#[cfg(test)]
 use std::collections::HashMap;
-#[cfg(debug_assertions)]
+#[cfg(test)]
 use std::sync::Mutex;
 
 /// Trait for Sui RPC operations
@@ -146,9 +146,9 @@ pub struct SuiLedgerInfo {
 
 /// Mock Sui RPC for testing
 ///
-/// This implementation is only compiled in debug builds to prevent
+/// This implementation is only compiled in test builds to prevent
 /// accidental use in production environments.
-#[cfg(debug_assertions)]
+#[cfg(test)]
 pub struct MockSuiRpc {
     objects: Mutex<HashMap<[u8; 32], SuiObject>>,
     transactions: Mutex<HashMap<[u8; 32], SuiTransactionBlock>>,
@@ -158,7 +158,7 @@ pub struct MockSuiRpc {
     tx_counter: std::sync::atomic::AtomicU64,
 }
 
-#[cfg(debug_assertions)]
+#[cfg(test)]
 impl MockSuiRpc {
     pub fn new(latest_checkpoint: u64) -> Self {
         Self {
@@ -201,7 +201,7 @@ impl MockSuiRpc {
     }
 }
 
-#[cfg(debug_assertions)]
+#[cfg(test)]
 impl SuiRpc for MockSuiRpc {
     fn get_object(
         &self,

@@ -166,8 +166,11 @@ impl AptosRpc for AptosRpcClient {
     }
 
     fn sender_address(&self) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>> {
-        // In production, this would be derived from the signer's public key
-        Err("sender_address not implemented for AptosRpcClient — set via with_real_rpc()".into())
+        // This method requires a configured signer with a known address
+        // The AptosRpcClient does not store signing keys - they must be provided externally
+        Err("CapabilityUnavailable: sender_address requires a configured signer. \
+             Use AptosRpcClient with an external key management system or \
+             configure a signer address explicitly.".into())
     }
 
     fn get_account_sequence_number(
@@ -248,21 +251,20 @@ impl AptosRpc for AptosRpcClient {
 
     fn submit_transaction(
         &self,
-        tx_bytes: Vec<u8>,
+        _tx_bytes: Vec<u8>,
     ) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>> {
         // Submit the signed transaction to Aptos via the REST API.
         // POST /v1/transactions with BCS-encoded transaction bytes.
         // The response contains the transaction hash.
-        use sha3::{Digest, Sha3_256};
-
-        // Compute the transaction hash from the BCS bytes
-        // (In production, the actual hash comes from the Aptos response)
-        let mut hasher = Sha3_256::new();
-        hasher.update(&tx_bytes);
-        let result = hasher.finalize();
-        let mut hash = [0u8; 32];
-        hash.copy_from_slice(&result);
-        Ok(hash)
+        //
+        // Note: BCS-encoded transaction submission requires the full transaction
+        // structure including sender, sequence number, payload, and signature.
+        // This method is not yet fully implemented for raw BCS bytes.
+        //
+        // Use submit_signed_transaction() with JSON format instead.
+        Err("CapabilityUnavailable: BCS-encoded transaction submission not yet implemented. \
+             Use submit_signed_transaction() with JSON format, or \
+             implement BCS encoding with proper transaction structure.".into())
     }
 
     fn submit_signed_transaction(
@@ -370,16 +372,20 @@ impl AptosRpc for AptosRpcClient {
 
     fn publish_module(
         &self,
-        tx_bytes: Vec<u8>,
+        _tx_bytes: Vec<u8>,
     ) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>> {
-        // In production, submit module publishing transaction
-        let mut hash = [0u8; 32];
-        hash[..12].copy_from_slice(b"aptos-module");
-        hash[12..].copy_from_slice(&tx_bytes[..20.min(tx_bytes.len())]);
-        if tx_bytes.len() < 20 {
-            hash[12 + tx_bytes.len()..].fill(0);
-        }
-        Ok(hash)
+        // Module publishing requires a complete transaction with:
+        // 1. Module bytecode in the transaction payload
+        // 2. Sender address with sufficient balance
+        // 3. Valid sequence number
+        // 4. Proper gas parameters
+        // 5. Valid signature
+        //
+        // This method is not yet fully implemented.
+        // Use submit_signed_transaction() with a properly constructed module publish transaction.
+        Err("CapabilityUnavailable: Module publishing not yet implemented. \
+             Use submit_signed_transaction() with a properly constructed \
+             module publish transaction including bytecode and signature.".into())
     }
 
     fn verify_checkpoint(

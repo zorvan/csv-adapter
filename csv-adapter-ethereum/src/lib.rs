@@ -12,6 +12,7 @@ include!(concat!(env!("OUT_DIR"), "/contract_bytecode.rs"));
 
 pub mod adapter;
 pub mod chain_adapter_impl;
+pub mod chain_operations;
 pub mod config;
 pub mod deploy;
 pub mod error;
@@ -44,9 +45,12 @@ pub use deploy::{calculate_contract_address, ContractDeployer, ContractDeploymen
 pub use error::EthereumError;
 pub use finality::{FinalityChecker, FinalityConfig};
 pub use rpc::EthereumRpc;
-#[cfg(debug_assertions)]
+#[cfg(test)]
 pub use rpc::MockEthereumRpc;
 pub use seal_contract::CsvSealAbi;
 pub use types::{
     EthereumAnchorRef, EthereumFinalityProof, EthereumInclusionProof, EthereumSealRef,
 };
+
+// Chain operations exports
+pub use chain_operations::EthereumChainOperations;

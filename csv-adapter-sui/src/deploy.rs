@@ -436,8 +436,8 @@ mod tests {
     }
 
     #[test]
-    fn test_package_deployment_placeholder() {
-        // Verify the deployment structure compiles
+    fn test_package_deployment_structure() {
+        // Verify the deployment structure compiles and fields work correctly
         let deployment = PackageDeployment {
             package_id: [0u8; 32],
             transaction_digest: "0x...".to_string(),

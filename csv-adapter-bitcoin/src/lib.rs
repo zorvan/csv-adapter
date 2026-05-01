@@ -10,6 +10,7 @@
 pub mod adapter;
 pub mod bip341;
 pub mod chain_adapter_impl;
+pub mod chain_operations;
 pub mod config;
 pub mod deploy;
 pub mod error;
@@ -44,6 +45,12 @@ pub use tapret::{
 pub use tx_builder::{CommitmentData, CommitmentTxBuilder, TxBuilderError};
 pub use types::{BitcoinAnchorRef, BitcoinFinalityProof, BitcoinInclusionProof, BitcoinSealRef};
 pub use wallet::{Bip86Path, DerivedTaprootKey, SealWallet, WalletError, WalletUtxo};
+
+// Chain operations exports
+pub use chain_operations::{
+    BitcoinChainBroadcaster, BitcoinChainDeployer, BitcoinChainProofProvider, BitcoinChainQuery,
+    BitcoinChainRightOps, BitcoinChainSigner,
+};
 
 #[cfg(feature = "rpc")]
 pub use real_rpc::real_rpc::{RealBitcoinRpc, TxInfo};

@@ -149,9 +149,9 @@ pub struct AptosBlockInfo {
 
 /// Mock Aptos RPC for testing
 ///
-/// This implementation is only compiled in debug builds to prevent
+/// This implementation is only compiled in test builds to prevent
 /// accidental use in production environments.
-#[cfg(debug_assertions)]
+#[cfg(test)]
 pub struct MockAptosRpc {
     pub latest_version: u64,
     pub chain_id: u64,
@@ -165,7 +165,7 @@ pub struct MockAptosRpc {
     pub next_tx_events: std::sync::Mutex<Vec<AptosEvent>>,
 }
 
-#[cfg(debug_assertions)]
+#[cfg(test)]
 impl MockAptosRpc {
     pub fn new(latest_version: u64) -> Self {
         Self {
@@ -224,7 +224,7 @@ impl MockAptosRpc {
     }
 }
 
-#[cfg(debug_assertions)]
+#[cfg(test)]
 impl AptosRpc for MockAptosRpc {
     fn get_ledger_info(&self) -> Result<AptosLedgerInfo, Box<dyn std::error::Error + Send + Sync>> {
         Ok(AptosLedgerInfo {

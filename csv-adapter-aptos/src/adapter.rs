@@ -93,8 +93,8 @@ impl AptosAnchorLayer {
         })
     }
 
-    /// Create a new adapter with mock RPC for testing (only in debug builds).
-    #[cfg(debug_assertions)]
+    /// Create a new adapter with mock RPC for testing (only in test builds).
+    #[cfg(test)]
     pub fn with_mock() -> AptosResult<Self> {
         let config = AptosConfig::default();
         let rpc = Box::new(crate::rpc::MockAptosRpc::new(5000));

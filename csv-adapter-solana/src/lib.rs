@@ -9,6 +9,7 @@
 
 pub mod adapter;
 pub mod chain_adapter_impl;
+pub mod chain_operations;
 pub mod config;
 pub mod deploy;
 pub mod error;
@@ -28,6 +29,9 @@ pub use mint::mint_right_from_hex_key;
 pub use rpc::SolanaRpc;
 pub use types::{SolanaAnchorRef, SolanaFinalityProof, SolanaInclusionProof, SolanaSealRef};
 pub use wallet::{ProgramWallet, WalletError};
+
+// Chain operations exports
+pub use chain_operations::SolanaChainOperations;
 
 #[cfg(feature = "rpc")]
 pub use rpc::RealSolanaRpc;

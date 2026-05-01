@@ -338,9 +338,8 @@ pub fn create_aptos_adapter(config: &ChainConfig) -> ChainResult<AptosAnchorLaye
 
     let aptos_config = AptosConfig::new(network);
 
-    // Create mock RPC for now
-    // In production with 'rpc' feature, create real RPC
-    #[cfg(debug_assertions)]
+    // In test builds, use mock RPC
+    #[cfg(test)]
     {
         use crate::rpc::MockAptosRpc;
         let rpc = Box::new(MockAptosRpc::new(aptos_config.chain_id() as u64));
@@ -348,10 +347,22 @@ pub fn create_aptos_adapter(config: &ChainConfig) -> ChainResult<AptosAnchorLaye
             .map_err(|e| ChainError::RpcError(format!("{:?}", e)))
     }
 
-    #[cfg(not(debug_assertions))]
+    // When rpc feature is enabled, use real RPC
+    #[cfg(all(not(test), feature = "rpc"))]
+    {
+        use crate::real_rpc::AptosRpcClient;
+        let rpc_url = config.rpc_endpoints.first()
+            .ok_or_else(|| ChainError::InvalidInput("RPC endpoint required".to_string()))?;
+        let rpc = Box::new(AptosRpcClient::new(rpc_url));
+        AptosAnchorLayer::from_config(aptos_config, rpc)
+            .map_err(|e| ChainError::RpcError(format!("{:?}", e)))
+    }
+
+    // Otherwise, return error indicating rpc feature is needed
+    #[cfg(not(any(test, feature = "rpc")))]
     {
         Err(ChainError::NotImplemented(
-            "Real Aptos RPC requires debug_assertions or rpc feature".to_string(),
+            "Real Aptos RPC requires the rpc feature to be enabled".to_string(),
         ))
     }
 }

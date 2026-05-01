@@ -64,8 +64,8 @@ impl EthereumAnchorLayer {
         })
     }
 
-    /// Create a new adapter with mock RPC (only in debug builds)
-    #[cfg(debug_assertions)]
+    /// Create a new adapter with mock RPC (only in test builds)
+    #[cfg(test)]
     pub fn with_mock() -> EthereumResult<Self> {
         let config = EthereumConfig::default();
         let rpc: Box<dyn EthereumRpc> = Box::new(crate::rpc::MockEthereumRpc::new(1000));

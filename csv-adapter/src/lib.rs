@@ -68,6 +68,7 @@
 pub mod builder;
 pub mod client;
 pub mod config;
+pub mod cross_chain;
 pub mod deploy;
 pub mod errors;
 pub mod events;

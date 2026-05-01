@@ -10,6 +10,7 @@
 pub use crate::builder::ClientBuilder;
 pub use crate::client::CsvClient;
 pub use crate::config::{Config, Network, RpcConfig};
+pub use crate::cross_chain::{mint_right_on_chain, is_mint_supported, CrossChainError};
 pub use crate::errors::CsvError;
 pub use crate::events::{Event, EventStream};
 pub use crate::proofs::ProofManager;

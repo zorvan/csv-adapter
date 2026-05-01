@@ -179,6 +179,20 @@ impl Wallet {
         }
     }
 
+    /// Derive an address for a specific chain with custom account and index.
+    ///
+    /// # Arguments
+    ///
+    /// * `chain` — Which chain to derive for.
+    /// * `account` — BIP-44 account number.
+    /// * `index` — Address index within the account.
+    pub fn derive_address(&self, chain: Chain, account: u32, index: u32) -> String {
+        match chain {
+            Chain::Bitcoin => self.btc_address_with_path(account, index),
+            _ => self.address(chain), // Other chains use default for now
+        }
+    }
+
     /// Sign a message with the appropriate key for the given chain.
     ///
     /// Returns the signature bytes in chain-specific format.
@@ -207,10 +221,34 @@ impl Wallet {
     // -- Internal address derivation helpers --
 
     fn btc_address(&self) -> String {
+        self.btc_address_with_path(0, 0)
+    }
+
+    fn btc_address_with_path(&self, account: u32, index: u32) -> String {
         // Bitcoin Taproot address derivation
-        // Path: m/86'/0'/0'/0/0
-        // In production: derive xpriv -> xpub -> Taproot output key -> bech32m
-        format!("btc:seed-prefix-{}", hex::encode(&self.seed[..8]))
+        // Path: m/86'/0'/account'/0/index
+        #[cfg(feature = "bitcoin")]
+        {
+            use csv_adapter_bitcoin::wallet::{Bip86Path, SealWallet};
+            use csv_adapter_bitcoin::types::Network;
+
+            // Create wallet from seed (using regtest network for derivation)
+            let wallet = SealWallet::from_seed(&self.seed, Network::Regtest)
+                .expect("Failed to create Bitcoin wallet from seed");
+
+            // Derive external address at specified account and index
+            let path = Bip86Path::external(account, index);
+            let key = wallet.derive_key(&path)
+                .expect("Failed to derive Bitcoin key");
+
+            key.address.to_string()
+        }
+
+        #[cfg(not(feature = "bitcoin"))]
+        {
+            // Fallback when bitcoin feature not enabled
+            format!("btc:seed-prefix-{}-{}-{}", hex::encode(&self.seed[..4]), account, index)
+        }
     }
 
     fn eth_address(&self) -> String {
@@ -271,6 +309,17 @@ impl WalletManager {
     /// Get the address for a specific chain.
     pub fn address(&self, chain: Chain) -> String {
         self.wallet.address(chain)
+    }
+
+    /// Derive an address for a specific chain with custom account and index.
+    ///
+    /// # Arguments
+    ///
+    /// * `chain` — Which chain to derive for.
+    /// * `account` — BIP-44 account number.
+    /// * `index` — Address index within the account.
+    pub fn derive_address(&self, chain: Chain, account: u32, index: u32) -> String {
+        self.wallet.derive_address(chain, account, index)
     }
 
     /// Sign a message with the appropriate key for the given chain.

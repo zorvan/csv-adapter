@@ -246,8 +246,8 @@ impl SuiAnchorLayer {
         })
     }
 
-    /// Create a new adapter with mock RPC for testing (only in debug builds).
-    #[cfg(debug_assertions)]
+    /// Create a new adapter with mock RPC for testing (only in test builds).
+    #[cfg(test)]
     pub fn with_mock() -> SuiResult<Self> {
         let config = SuiConfig {
             seal_contract: crate::SealContractConfig {

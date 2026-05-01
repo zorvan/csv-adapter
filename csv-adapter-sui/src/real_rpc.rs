@@ -223,9 +223,11 @@ impl SuiRpc for SuiRpcClient {
     }
 
     fn sender_address(&self) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>> {
-        // In production, this would be the address derived from the signer's public key
-        // For now, return a placeholder
-        Err("sender_address not implemented for SuiRpcClient".into())
+        // This method requires a configured signer with a known address
+        // The SuiRpcClient does not store signing keys - they must be provided externally
+        Err("CapabilityUnavailable: sender_address requires a configured signer. \
+             Use SuiRpcClient with an external key management system or \
+             configure a signer address explicitly.".into())
     }
 
     fn get_gas_objects(

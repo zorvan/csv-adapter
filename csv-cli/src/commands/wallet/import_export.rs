@@ -214,31 +214,24 @@ fn export_extended_public_key(
 
 /// Export mnemonic phrase (requires password).
 fn export_mnemonic(_state: &UnifiedStateManager) -> Result<String> {
-    // In a real implementation:
-    // 1. Prompt for password
-    // 2. Decrypt the mnemonic from secure storage
-    // 3. Return the phrase
+    // SECURITY: Mnemonic export only available through encrypted keystore
+    // Plaintext storage in environment variables or files is NOT supported in production.
 
-    // Check if mnemonic is stored in environment (for development)
-    if let Ok(mnemonic) = std::env::var("CSV_WALLET_MNEMONIC") {
-        return Ok(mnemonic);
-    }
-
-    // Check for mnemonic file
-    let mnemonic_path =
-        dirs::home_dir().map(|h| h.join(".csv").join("wallet").join("mnemonic.backup"));
-
-    if let Some(path) = mnemonic_path {
-        if path.exists() {
-            let mnemonic = std::fs::read_to_string(&path)
-                .map_err(|e| anyhow::anyhow!("Failed to read mnemonic file: {}", e))?;
-            return Ok(mnemonic.trim().to_string());
+    // Check if we're in development mode (allow env var only for testing)
+    let dev_mode = std::env::var("CSV_DEV_MODE").map(|v| v == "1").unwrap_or(false);
+    if dev_mode {
+        if let Ok(mnemonic) = std::env::var("CSV_WALLET_MNEMONIC") {
+            tracing::warn!("Using mnemonic from environment variable (dev mode only)");
+            return Ok(mnemonic);
         }
     }
 
+    // Production path: mnemonic must be retrieved from encrypted keystore
+    // This requires the csv-adapter-keystore to be properly configured
     Err(anyhow::anyhow!(
-        "No mnemonic found. Mnemonic can be set via CSV_WALLET_MNEMONIC environment variable \
-         or stored in ~/.csv/wallet/mnemonic.backup"
+        "Mnemonic export is only available through the encrypted keystore. \
+         Please use the wallet migration tools or configure a proper keystore. \
+         Set CSV_DEV_MODE=1 only for development testing."
     ))
 }
 

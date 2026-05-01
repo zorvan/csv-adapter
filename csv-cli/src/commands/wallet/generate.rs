@@ -129,33 +129,17 @@ fn generate_bitcoin_from_mnemonic(
     account: u32,
     state: &mut UnifiedStateManager,
 ) -> Result<String> {
-    use bitcoin::Network as BtcNetwork;
+    use csv_adapter::wallet::Wallet;
 
-    // Simple seed generation from mnemonic (simplified)
-    let mut seed = [0u8; 64];
-    for (i, byte) in mnemonic.as_bytes().iter().enumerate() {
-        if i < 64 {
-            seed[i] = *byte;
-        }
-    }
+    // Create wallet from mnemonic
+    let wallet = Wallet::from_mnemonic(mnemonic, "")
+        .map_err(|e| anyhow::anyhow!("Failed to create wallet: {}", e))?;
 
-    let btc_network = match network {
-        Network::Dev => BtcNetwork::Regtest,
-        Network::Test => BtcNetwork::Signet,
-        Network::Main => BtcNetwork::Bitcoin,
-    };
+    // Derive Bitcoin address using the facade
+    let address = wallet.derive_address(csv_adapter::Chain::Bitcoin, account, 0);
 
-    let wallet = csv_adapter_bitcoin::wallet::SealWallet::from_seed(&seed, btc_network)
-        .map_err(|e| anyhow::anyhow!("Failed to create Bitcoin wallet: {}", e))?;
-
-    let path = csv_adapter_bitcoin::wallet::Bip86Path::external(account, 0);
-    let key = wallet
-        .derive_key(&path)
-        .map_err(|e| anyhow::anyhow!("Failed to derive key: {}", e))?;
-
-    let address = key.address.to_string();
-    let coin_type = match btc_network {
-        BtcNetwork::Bitcoin => 0,
+    let coin_type = match network {
+        Network::Main => 0,
         _ => 1,
     };
     let derivation_path = format!("m/86'/{}/{}'/0/0", coin_type, account);
@@ -272,26 +256,18 @@ fn generate_solana_from_mnemonic(
 // Individual chain generators (for non-mnemonic wallet generation)
 
 fn generate_bitcoin(network: Network, state: &mut UnifiedStateManager) -> Result<()> {
-    use bitcoin::Network as BtcNetwork;
+    use csv_adapter::wallet::Wallet;
     use rand::RngCore;
-
-    let btc_network = match network {
-        Network::Dev => BtcNetwork::Regtest,
-        Network::Test => BtcNetwork::Signet,
-        Network::Main => BtcNetwork::Bitcoin,
-    };
 
     let mut seed = [0u8; 64];
     rand::rngs::OsRng.fill_bytes(&mut seed);
-    let wallet = csv_adapter_bitcoin::wallet::SealWallet::from_seed(&seed, btc_network)
-        .map_err(|e| anyhow::anyhow!("Failed to create wallet: {}", e))?;
 
-    let path = csv_adapter_bitcoin::wallet::Bip86Path::external(0, 0);
-    let key = wallet
-        .derive_key(&path)
-        .map_err(|e| anyhow::anyhow!("Failed to derive key: {}", e))?;
+    // Create wallet from seed
+    let wallet = Wallet::from_seed(seed);
 
-    let address = key.address.to_string();
+    // Derive Bitcoin address using the facade
+    let address = wallet.derive_address(csv_adapter::Chain::Bitcoin, 0, 0);
+
     state.store_address(Chain::Bitcoin, address.clone());
 
     output::header("Bitcoin Wallet Generated");

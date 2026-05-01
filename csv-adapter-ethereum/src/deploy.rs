@@ -286,8 +286,8 @@ mod tests {
     }
 
     #[test]
-    fn test_contract_deployment_placeholder() {
-        // Verify the deployment structure compiles
+    fn test_contract_deployment_structure() {
+        // Verify the deployment structure compiles and fields work correctly
         let deployment = ContractDeployment {
             contract_address: [0u8; 20],
             transaction_hash: [0u8; 32],

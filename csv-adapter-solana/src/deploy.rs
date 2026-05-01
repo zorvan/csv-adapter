@@ -92,22 +92,22 @@ impl ProgramDeployer {
         let _ = buffer_pubkey; // Would use in real implementation
         let _ = rent;
 
-        // Placeholder - real implementation would:
-        // 1. Create transaction with all deployment instructions
-        // 2. Sign with wallet
-        // 3. Send via RPC
-        // 4. Wait for confirmation
+        // Deployment via BPF Loader Upgradeable requires multiple transactions:
+        // 1. Create buffer account
+        // 2. Write program data to buffer (in chunks if large)
+        // 3. Create program account
+        // 4. Deploy with BPF loader upgradeable
+        // 5. Set upgrade authority
+        //
+        // This is not yet fully implemented. Use deploy_csv_program() for now
+        // which uses the simpler bpf_loader for non-upgradeable deployments.
 
-        let signature = Signature::new_unique(); // Placeholder
-        let slot = self.rpc.get_latest_slot().await.unwrap_or(0);
-
-        Ok(ProgramDeployment {
-            program_id,
-            signature,
-            slot,
-            data_size: program_data.len(),
-            upgrade_authority: Some(self.wallet.pubkey()),
-        })
+        Err(SolanaError::NotImplemented(
+            "Upgradeable program deployment not yet fully implemented. \
+             Use deploy_csv_program() for standard deployments, or \
+             implement the full BPF Loader Upgradeable flow with buffer accounts."
+                .to_string(),
+        ))
     }
 
     /// Deploy a final (non-upgradeable) program

@@ -37,6 +37,7 @@
 
 pub mod adapter;
 pub mod chain_adapter_impl;
+pub mod chain_operations;
 pub mod checkpoint;
 pub mod config;
 pub mod deploy;
@@ -69,8 +70,11 @@ pub use proofs::{
 };
 #[cfg(feature = "rpc")]
 pub use real_rpc::SuiRpcClient;
-#[cfg(debug_assertions)]
+#[cfg(test)]
 pub use rpc::MockSuiRpc;
 pub use rpc::{SuiCheckpoint, SuiEvent, SuiLedgerInfo, SuiObject, SuiRpc, SuiTransactionBlock};
 pub use seal::{SealRecord, SealRegistry, SealStore};
 pub use types::{SuiAnchorRef, SuiFinalityProof, SuiInclusionProof, SuiSealRef};
+
+// Chain operations exports
+pub use chain_operations::SuiChainOperations;

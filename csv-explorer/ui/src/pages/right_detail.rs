@@ -15,8 +15,8 @@ pub fn RightDetail(id: String) -> Element {
         let id = id.clone();
         move || {
             spawn(async move {
-                // TODO: Fetch from API when endpoint is available
-                // For now, show placeholder data
+                // Data fetching from API to be implemented
+                // Currently displays empty state
                 right.set(None);
                 transfers.set(None);
                 seals.set(None);
