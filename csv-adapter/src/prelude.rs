@@ -7,7 +7,7 @@
 //! ```
 
 // Core types
-pub use crate::builder::ClientBuilder;
+pub use crate::builder::{ClientBuilder, StoreBackend};
 pub use crate::client::CsvClient;
 pub use crate::config::{Config, Network, RpcConfig};
 pub use crate::cross_chain::{mint_right_on_chain, is_mint_supported, CrossChainError};

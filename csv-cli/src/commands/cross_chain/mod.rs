@@ -1,66 +1,37 @@
-//! Cross-chain transfer commands
+//! Cross-chain transfer commands (Phase 5 Compliant)
+//!
+//! This module uses only the csv-adapter facade API.
+//! All chain operations are delegated through `CsvClient::transfers()`.
 
 use anyhow::Result;
-use clap::{ArgAction, Subcommand};
+use clap::Subcommand;
 
-use csv_adapter_core::cross_chain::{
-    ChainId, CrossChainFinalityProof, CrossChainSealRegistry, CrossChainTransferProof,
-    LockProvider, MintProvider, TransferVerifier,
-};
-use csv_adapter_core::hash::Hash;
-use csv_adapter_core::right::OwnershipProof;
+use csv_adapter::CsvClient;
+use csv_adapter_core::Chain;
 
-use crate::config::{Chain, Config};
+use crate::config::{Chain as ConfigChain, Config};
 use crate::output;
-use crate::state::{RightRecord, TransferRecord, TransferStatus, UnifiedStateManager};
+use crate::state::{TransferStatus, UnifiedStateManager};
 
-pub mod aptos;
-pub mod bitcoin;
-pub mod ethereum;
 pub mod status;
 pub mod transfer;
-pub mod utils;
-
-use super::cross_chain_impl::*;
-
-/// RPC response for block height queries
-#[derive(Debug, serde::Deserialize)]
-struct JsonRpcResponse<T> {
-    result: Option<T>,
-    error: Option<JsonRpcError>,
-}
-
-#[derive(Debug, serde::Deserialize)]
-struct JsonRpcError {
-    message: String,
-}
-
-/// Bitcoin REST API block height response
-#[derive(Debug, serde::Deserialize)]
-#[allow(dead_code)]
-struct BitcoinBlockHeight {
-    height: u64,
-}
 
 #[derive(Subcommand)]
 pub enum CrossChainAction {
-    /// Execute a cross-chain Right transfer
+    /// Execute a cross-chain Right transfer (via facade)
     Transfer {
         /// Source chain
         #[arg(long)]
-        from: Chain,
+        from: ConfigChain,
         /// Destination chain
         #[arg(long)]
-        to: Chain,
+        to: ConfigChain,
         /// Right ID to transfer (hex)
         #[arg(long)]
         right_id: String,
         /// Destination owner address (hex)
         #[arg(long)]
         dest_owner: Option<String>,
-        /// Run using simulated providers (demo mode, not explorer-verifiable)
-        #[arg(long, action = ArgAction::SetTrue)]
-        simulation: bool,
     },
     /// Check transfer status
     Status {
@@ -71,10 +42,10 @@ pub enum CrossChainAction {
     List {
         /// Filter by source chain
         #[arg(long, value_enum)]
-        from: Option<Chain>,
+        from: Option<ConfigChain>,
         /// Filter by destination chain
         #[arg(long, value_enum)]
-        to: Option<Chain>,
+        to: Option<ConfigChain>,
     },
     /// Retry a failed transfer
     Retry {
@@ -94,10 +65,20 @@ pub fn execute(
             to,
             right_id,
             dest_owner,
-            simulation,
-        } => transfer::cmd_transfer(from, to, right_id, dest_owner, simulation, config, state),
+        } => transfer::cmd_transfer(from, to, right_id, dest_owner, config, state),
         CrossChainAction::Status { transfer_id } => status::cmd_status(transfer_id, state),
         CrossChainAction::List { from, to } => status::cmd_list(from, to, state),
         CrossChainAction::Retry { transfer_id } => status::cmd_retry(transfer_id, config, state),
+    }
+}
+
+/// Convert CLI Chain enum to core Chain enum
+fn to_core_chain(chain: ConfigChain) -> Chain {
+    match chain {
+        ConfigChain::Bitcoin => Chain::Bitcoin,
+        ConfigChain::Ethereum => Chain::Ethereum,
+        ConfigChain::Sui => Chain::Sui,
+        ConfigChain::Aptos => Chain::Aptos,
+        ConfigChain::Solana => Chain::Solana,
     }
 }

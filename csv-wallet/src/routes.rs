@@ -54,8 +54,8 @@ pub enum Route {
     Contracts {},
     #[route("/contracts/add")]
     AddContract {},
-    #[route("/contracts/deploy")]
-    DeployContract {},
+    // Note: DeployContract route removed - deployment requires native SDKs
+    // which don't compile to WASM. Use csv-cli for contract deployment.
     #[route("/contracts/status")]
     ContractStatus {},
 

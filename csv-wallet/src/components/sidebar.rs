@@ -75,7 +75,8 @@ pub fn Sidebar(sidebar_open: bool) -> Element {
 
                     {sidebar_section("Contracts", rsx! {
                         {sidebar_link(Route::Contracts {}, "\u{1F4DC}", "All Contracts")}
-                        {sidebar_link(Route::DeployContract {}, "\u{2795}", "Deploy")}
+                        // Note: Contract deployment requires native SDKs (tokio/mio)
+                        // which don't compile to WASM. Use csv-cli for deployment.
                     })}
 
                     {sidebar_section("Test & Validate", rsx! {

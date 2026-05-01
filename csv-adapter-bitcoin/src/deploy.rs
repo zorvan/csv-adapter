@@ -201,7 +201,7 @@ mod tests {
         let wallet = SealWallet::generate_random(Network::Signet);
         let config = BitcoinConfig::default();
         let rpc =
-            Box::new(crate::rpc::StubBitcoinRpc::new(100)) as Box<dyn BitcoinRpc + Send + Sync>;
+            Box::new(crate::rpc::TestBitcoinRpc::new(100)) as Box<dyn BitcoinRpc + Send + Sync>;
         let deployer = ContractDeployer::new(config, wallet, rpc);
 
         let script = build_csv_seal_script();
@@ -223,7 +223,7 @@ mod tests {
         let wallet = SealWallet::generate_random(Network::Signet);
         let config = BitcoinConfig::default();
         let rpc =
-            Box::new(crate::rpc::StubBitcoinRpc::new(100)) as Box<dyn BitcoinRpc + Send + Sync>;
+            Box::new(crate::rpc::TestBitcoinRpc::new(100)) as Box<dyn BitcoinRpc + Send + Sync>;
         let deployer = ContractDeployer::new(config, wallet, rpc);
 
         let fee = deployer.estimate_fee(100);

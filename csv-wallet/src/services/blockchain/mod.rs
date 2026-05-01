@@ -30,7 +30,7 @@ pub use estimator::{FeeEstimator, FeePriority};
 pub use signer::TransactionSigner;
 #[allow(unused_imports)]
 pub use submitter::TransactionSubmitter;
-pub use types::{BlockchainError, ContractDeployment, ContractType};
+pub use types::{BlockchainError};
 pub use wallet::wallet_connection;
 pub use wallet::{BrowserWallet, NativeWallet, WalletType};
 

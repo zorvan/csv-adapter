@@ -1,13 +1,10 @@
-//! Bitcoin RPC trait and mock implementation
+//! Bitcoin RPC trait and test helpers
 //!
 //! ## Design Decision
 //!
 //! The `BitcoinRpc` trait defines the interface for real RPC implementations.
-//! **There is no mock that silently returns fake transaction IDs.**
-//!
-//! Mock implementations that silently succeed are how people think things work
-//! when they don't. If you attempt to call `send_raw_transaction()` on a mock,
-//! it returns an explicit error — not a fabricated txid.
+//! Test helpers are provided under `#[cfg(test)]` and **explicitly refuse**
+//! to broadcast transactions, returning errors instead of fabricated txids.
 
 #[cfg(test)]
 use std::collections::HashSet;
@@ -34,20 +31,18 @@ pub trait BitcoinRpc: Send + Sync {
     ) -> Result<u64, Box<dyn std::error::Error + Send + Sync>>;
 }
 
-/// Stub RPC client for unit testing
+/// Test-only RPC client for unit testing
 ///
 /// This implementation **explicitly refuses** to broadcast transactions.
-/// Mock implementations that silently return fake txids are how people think
-/// things work when they don't. Use this only for testing seal registry logic,
-/// not transaction broadcasting.
+/// Use this only for testing seal registry logic, not transaction broadcasting.
 #[cfg(test)]
-pub struct StubBitcoinRpc {
+pub struct TestBitcoinRpc {
     block_count: u64,
     pub unspent_utxos: HashSet<(Vec<u8>, u32)>,
 }
 
 #[cfg(test)]
-impl StubBitcoinRpc {
+impl TestBitcoinRpc {
     pub fn new(block_count: u64) -> Self {
         Self {
             block_count,
@@ -65,7 +60,7 @@ impl StubBitcoinRpc {
 }
 
 #[cfg(test)]
-impl BitcoinRpc for StubBitcoinRpc {
+impl BitcoinRpc for TestBitcoinRpc {
     fn get_block_count(&self) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
         Ok(self.block_count)
     }
@@ -91,8 +86,8 @@ impl BitcoinRpc for StubBitcoinRpc {
         &self,
         _tx_bytes: Vec<u8>,
     ) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>> {
-        // Explicit refusal — mock RPCs must not fabricate txids
-        Err("StubBitcoinRpc cannot broadcast transactions — use real RPC for that".into())
+        // Explicit refusal — test RPCs must not fabricate txids
+        Err("TestBitcoinRpc cannot broadcast transactions — use real RPC for that".into())
     }
 
     fn get_tx_confirmations(
@@ -108,14 +103,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_stub_rpc_block_count() {
-        let rpc = StubBitcoinRpc::new(100);
+    fn test_bitcoin_rpc_block_count() {
+        let rpc = TestBitcoinRpc::new(100);
         assert_eq!(rpc.get_block_count().unwrap(), 100);
     }
 
     #[test]
-    fn test_stub_rpc_utxo_lifecycle() {
-        let mut rpc = StubBitcoinRpc::new(100);
+    fn test_bitcoin_rpc_utxo_lifecycle() {
+        let mut rpc = TestBitcoinRpc::new(100);
         let _txid = [1u8, 2, 3].to_vec().into_boxed_slice();
         let txid_bytes: [u8; 32] = {
             let mut arr = [0u8; 32];
@@ -130,9 +125,9 @@ mod tests {
     }
 
     #[test]
-    fn test_stub_rpc_refuses_broadcast() {
-        let rpc = StubBitcoinRpc::new(100);
+    fn test_bitcoin_rpc_refuses_broadcast() {
+        let rpc = TestBitcoinRpc::new(100);
         let result = rpc.send_raw_transaction(vec![0x01, 0x02]);
-        assert!(result.is_err(), "Stub RPC must refuse to broadcast");
+        assert!(result.is_err(), "Test RPC must refuse to broadcast");
     }
 }

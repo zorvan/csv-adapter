@@ -1,13 +1,21 @@
-//! Wallet generation for all chains.
+//! Wallet generation for all chains (Phase 5 Compliant).
 //!
-//! Provides HD wallet generation using BIP-39/BIP-44 standards.
+//! Uses csv-adapter-keystore facade for all cryptographic operations.
+//! No direct crypto dependencies - all key derivation through keystore API.
 
-use crate::commands::wallet::types::WalletAction;
 use crate::config::{Chain, Config, Network};
 use crate::output;
 use crate::state::UnifiedStateManager;
 use anyhow::Result;
 use std::collections::HashMap;
+
+// Phase 5: Use keystore facade for all crypto operations
+use csv_adapter_keystore::{
+    Mnemonic, MnemonicType,
+    bip44::{derive_all_chain_keys, derive_address_from_key},
+    memory::Seed,
+};
+use std::str::FromStr;
 
 /// Initialize wallet with one-command setup.
 pub fn cmd_init(
@@ -93,162 +101,64 @@ pub fn cmd_generate(
     }
 }
 
-/// Generate BIP-39 mnemonic phrase.
+/// Generate BIP-39 mnemonic phrase using keystore facade.
 fn generate_mnemonic(words: u8) -> Result<String> {
-    use bip32::{Language, Mnemonic};
-    use rand::RngCore;
+    // Phase 5: Use keystore's BIP-39 implementation
+    let mnemonic_type = if words >= 24 {
+        MnemonicType::Words24
+    } else if words >= 12 {
+        MnemonicType::Words12
+    } else {
+        MnemonicType::Words24
+    };
 
-    // Generate 256-bit entropy for 24-word BIP39 mnemonic
-    let mut entropy = [0u8; 32];
-    rand::rngs::OsRng.fill_bytes(&mut entropy);
-    let mnemonic = Mnemonic::from_entropy(entropy, Language::English);
-
-    Ok(mnemonic.phrase().to_string())
+    let mnemonic = Mnemonic::generate(mnemonic_type);
+    Ok(mnemonic.as_str().to_string())
 }
 
-/// Generate wallet for a specific chain from mnemonic.
+/// Generate wallet for a specific chain from mnemonic using keystore facade.
 fn generate_wallet_for_chain(
     chain: &Chain,
-    network: &Network,
+    _network: &Network,
     mnemonic: &str,
     account: u32,
     state: &mut UnifiedStateManager,
 ) -> Result<String> {
-    match chain {
-        Chain::Bitcoin => generate_bitcoin_from_mnemonic(network, mnemonic, account, state),
-        Chain::Ethereum => generate_ethereum_from_mnemonic(mnemonic, state),
-        Chain::Sui => generate_sui_from_mnemonic(mnemonic, state),
-        Chain::Aptos => generate_aptos_from_mnemonic(mnemonic, state),
-        Chain::Solana => generate_solana_from_mnemonic(mnemonic, state),
-    }
-}
-
-fn generate_bitcoin_from_mnemonic(
-    network: &Network,
-    mnemonic: &str,
-    account: u32,
-    state: &mut UnifiedStateManager,
-) -> Result<String> {
-    use csv_adapter::wallet::Wallet;
-
-    // Create wallet from mnemonic
-    let wallet = Wallet::from_mnemonic(mnemonic, "")
-        .map_err(|e| anyhow::anyhow!("Failed to create wallet: {}", e))?;
-
-    // Derive Bitcoin address using the facade
-    let address = wallet.derive_address(csv_adapter::Chain::Bitcoin, account, 0);
-
-    let coin_type = match network {
-        Network::Main => 0,
-        _ => 1,
+    // Phase 5: Use keystore's BIP-44 derivation for all chains
+    let core_chain = match chain {
+        Chain::Bitcoin => csv_adapter_core::Chain::Bitcoin,
+        Chain::Ethereum => csv_adapter_core::Chain::Ethereum,
+        Chain::Sui => csv_adapter_core::Chain::Sui,
+        Chain::Aptos => csv_adapter_core::Chain::Aptos,
+        Chain::Solana => csv_adapter_core::Chain::Solana,
     };
-    let derivation_path = format!("m/86'/{}/{}'/0/0", coin_type, account);
 
-    // Store in unified state
-    state.store_address_with_derivation(Chain::Bitcoin, address.clone(), Some(derivation_path));
+    // Convert mnemonic to seed
+    let mnemonic_obj = Mnemonic::from_str(mnemonic)
+        .map_err(|e| anyhow::anyhow!("Invalid mnemonic: {}", e))?;
+    let seed = mnemonic_obj.to_seed(None);
 
-    Ok(address)
-}
+    // Derive keys for all chains
+    let keys = derive_all_chain_keys(seed.as_bytes(), account);
 
-fn generate_ethereum_from_mnemonic(
-    _mnemonic: &str,
-    state: &mut UnifiedStateManager,
-) -> Result<String> {
-    use rand::RngCore;
-    use secp256k1::{Secp256k1, SecretKey};
-    use sha3::{Digest, Keccak256};
+    // Get the key for the requested chain
+    let key = keys.get(&core_chain)
+        .ok_or_else(|| anyhow::anyhow!("Failed to derive key for {:?}", chain))?;
 
-    // Generate random private key
-    let mut private_key = [0u8; 32];
-    rand::rngs::OsRng.fill_bytes(&mut private_key);
+    // Derive address from key
+    let address = derive_address_from_key(key.as_bytes(), core_chain)
+        .map_err(|e| anyhow::anyhow!("Failed to derive address: {}", e))?;
 
-    // Derive address
-    let secp = Secp256k1::new();
-    let secret_key = SecretKey::from_slice(&private_key)
-        .map_err(|e| anyhow::anyhow!("Invalid private key: {}", e))?;
-    let public_key = secret_key.public_key(&secp);
-
-    // Ethereum address = last 20 bytes of keccak256(public_key)
-    let pubkey_bytes = public_key.serialize_uncompressed();
-    let hash = Keccak256::digest(&pubkey_bytes[1..]);
-    let address = format!("0x{}", hex::encode(&hash[12..]));
-
-    let derivation_path = format!("m/44'/60'/0'/0/0");
-    state.store_address_with_derivation(Chain::Ethereum, address.clone(), Some(derivation_path));
-
-    Ok(address)
-}
-
-fn generate_sui_from_mnemonic(_mnemonic: &str, state: &mut UnifiedStateManager) -> Result<String> {
-    use blake2::{digest::Digest, Blake2b};
-    use ed25519_dalek::SigningKey;
-    use rand::RngCore;
-    use typenum::U32;
-
-    let mut seed = [0u8; 32];
-    rand::rngs::OsRng.fill_bytes(&mut seed);
-
-    let signing_key = SigningKey::from_bytes(&seed);
-    let verifying_key = signing_key.verifying_key();
-
-    // Sui address: BLAKE2b-256(signature_scheme_flag || public_key)
-    let mut hasher = Blake2b::<U32>::new();
-    hasher.update([0x00]);
-    hasher.update(verifying_key.as_bytes());
-    let address_bytes = hasher.finalize();
-    let address = format!("0x{}", hex::encode(address_bytes));
-
-    let derivation_path = format!("m/44'/784'/0'/0/0");
-    state.store_address_with_derivation(Chain::Sui, address.clone(), Some(derivation_path));
-
-    Ok(address)
-}
-
-fn generate_aptos_from_mnemonic(
-    _mnemonic: &str,
-    state: &mut UnifiedStateManager,
-) -> Result<String> {
-    use ed25519_dalek::SigningKey;
-    use rand::RngCore;
-    use sha3::{Digest, Sha3_256};
-
-    let mut seed = [0u8; 32];
-    rand::rngs::OsRng.fill_bytes(&mut seed);
-
-    let signing_key = SigningKey::from_bytes(&seed);
-    let verifying_key = signing_key.verifying_key();
-
-    // Aptos address: SHA3-256(public_key || authentication_scheme_byte)
-    let mut hasher = Sha3_256::new();
-    hasher.update(verifying_key.as_bytes());
-    hasher.update([0x00]);
-    let auth_key = hasher.finalize();
-    let address = format!("0x{}", hex::encode(auth_key));
-
-    let derivation_path = format!("m/44'/637'/0'/0/0");
-    state.store_address_with_derivation(Chain::Aptos, address.clone(), Some(derivation_path));
-
-    Ok(address)
-}
-
-fn generate_solana_from_mnemonic(
-    _mnemonic: &str,
-    state: &mut UnifiedStateManager,
-) -> Result<String> {
-    use ed25519_dalek::SigningKey;
-    use rand::RngCore;
-
-    let mut seed = [0u8; 32];
-    rand::rngs::OsRng.fill_bytes(&mut seed);
-
-    let signing_key = SigningKey::from_bytes(&seed);
-    let verifying_key = signing_key.verifying_key();
-
-    // Solana address = public key (base58 encoded)
-    let address = bs58::encode(verifying_key.as_bytes()).into_string();
-
-    let derivation_path = format!("m/44'/501'/0'/0/0");
-    state.store_address_with_derivation(Chain::Solana, address.clone(), Some(derivation_path));
+    // Store in state with derivation path
+    let coin_type = match chain {
+        Chain::Bitcoin => "0",
+        Chain::Ethereum => "60",
+        Chain::Sui => "784",
+        Chain::Aptos => "637",
+        Chain::Solana => "501",
+    };
+    let derivation_path = format!("m/44'/{}'/{}'/0/0", coin_type, account);
+    state.store_address_with_derivation(chain.clone(), address.clone(), Some(derivation_path));
 
     Ok(address)
 }

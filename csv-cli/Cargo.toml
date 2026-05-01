@@ -19,55 +19,27 @@ name = "csv"
 path = "src/main.rs"
 
 [dependencies]
-csv-adapter = { version = "0.4.0", path = "../csv-adapter" }  # Removed all-chains feature due to cyclic dependencies
+# Phase 5 Compliant: Use only facade and core types
+# No direct chain adapter dependencies - all operations go through csv-adapter
+csv-adapter = { version = "0.4.0", path = "../csv-adapter", features = ["all-chains"] }
 csv-adapter-core = { version = "0.4.0", path = "../csv-adapter-core" }
-csv-adapter-bitcoin = { version = "0.4.0", path = "../csv-adapter-bitcoin", features = ["signet-rest"] }
-csv-adapter-ethereum = { version = "0.4.0", path = "../csv-adapter-ethereum" }
-csv-adapter-sui = { version = "0.4.0", path = "../csv-adapter-sui", features = ["rpc"] }
-csv-adapter-aptos = { version = "0.4.0", path = "../csv-adapter-aptos" }
-csv-adapter-solana = { version = "0.4.0", path = "../csv-adapter-solana" }
 csv-adapter-store = { version = "0.4.0", path = "../csv-adapter-store", features = ["clap"] }
 csv-adapter-keystore = { version = "0.4.0", path = "../csv-adapter-keystore" }
 
+# CLI framework and utilities (no chain-specific crypto)
 clap = { version = "4", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
-reqwest = { version = "0.12", features = ["json", "blocking"] }
 hex = "0.4"
-base64 = "0.22"
-sha2 = "0.10"
 log = "0.4"
 env_logger = "0.11"
 anyhow = "1.0"
-thiserror = "1.0"
 dirs = "5.0"
 colored = "2.0"
 toml = "0.8"
-
-# Chain-specific
-bitcoin = { version = "0.32", features = ["serde", "rand"] }
-ed25519-dalek = { version = "2.0", features = ["rand_core"] }
-rand = "0.8"
-bip32 = { version = "0.5", features = ["std", "mnemonic"] }
 chrono = "0.4"
 tracing = "0.1"
-sha3 = "0.10"
-bs58 = "0.5"
-blake2 = "0.10"
-typenum = "1.17"
-secp256k1 = { version = "0.28", features = ["rand-std"] }
-uuid = { version = "1.0", features = ["v4"] }
 
 [dev-dependencies]
-bitcoin_hashes = "0.12"
 tempfile = "3.0"
-
-[features]
-default = []
-rpc = [
-    "csv-adapter-bitcoin/rpc",
-    "csv-adapter-ethereum/rpc",
-    "csv-adapter-aptos/rpc",
-    "csv-adapter-solana/rpc",
-]

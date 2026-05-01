@@ -192,24 +192,12 @@ fn export_extended_public_key(
         }
     }
 
-    // Try to derive from stored key info
-    // In a real implementation, this would:
-    // 1. Get the master public key from the keystore
-    // 2. Derive the chain-specific xpub using BIP-44 path
-    // 3. Return the serialized xpub
-
-    // For now, check if we have an address we can use as a base
-    if let Some(address) = _state.get_address(chain) {
-        // Generate a placeholder xpub format (this would be real in production)
-        let placeholder_xpub = format!(
-            "xpub{}_{}",
-            chain.to_string(),
-            &address[..8.min(address.len())]
-        );
-        return Ok(placeholder_xpub);
-    }
-
-    Err(anyhow::anyhow!("No wallet data found for {:?}", chain))
+    // Production: xpub must be derived from the encrypted keystore
+    // This requires proper BIP-44 derivation from the master public key
+    Err(anyhow::anyhow!(
+        "Extended public key not available. \
+         Please configure a keystore with proper key derivation."
+    ))
 }
 
 /// Export mnemonic phrase (requires password).
@@ -217,21 +205,11 @@ fn export_mnemonic(_state: &UnifiedStateManager) -> Result<String> {
     // SECURITY: Mnemonic export only available through encrypted keystore
     // Plaintext storage in environment variables or files is NOT supported in production.
 
-    // Check if we're in development mode (allow env var only for testing)
-    let dev_mode = std::env::var("CSV_DEV_MODE").map(|v| v == "1").unwrap_or(false);
-    if dev_mode {
-        if let Ok(mnemonic) = std::env::var("CSV_WALLET_MNEMONIC") {
-            tracing::warn!("Using mnemonic from environment variable (dev mode only)");
-            return Ok(mnemonic);
-        }
-    }
-
     // Production path: mnemonic must be retrieved from encrypted keystore
     // This requires the csv-adapter-keystore to be properly configured
     Err(anyhow::anyhow!(
         "Mnemonic export is only available through the encrypted keystore. \
-         Please use the wallet migration tools or configure a proper keystore. \
-         Set CSV_DEV_MODE=1 only for development testing."
+         Please use the wallet migration tools or configure a proper keystore."
     ))
 }
 

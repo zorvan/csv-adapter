@@ -68,6 +68,14 @@ aptos = ["dep:csv-adapter-aptos"]
 solana = ["dep:csv-adapter-solana"]
 all-chains = ["bitcoin", "ethereum", "sui", "aptos", "solana"]
 
+# RPC features for chain queries
+rpc = [
+    "bitcoin",
+    "ethereum",
+    "csv-adapter-bitcoin/rpc",
+    "csv-adapter-ethereum/rpc",
+]
+
 # Deployment features (enable SDK-based contract deployment)
 deploy-ethereum = ["ethereum", "csv-adapter-ethereum/rpc"]
 deploy-sui = ["sui", "csv-adapter-sui/sui-sdk-deploy", "csv-adapter-sui/rpc", "dep:ed25519-dalek"]

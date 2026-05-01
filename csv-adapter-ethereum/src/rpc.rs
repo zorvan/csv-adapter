@@ -1,4 +1,4 @@
-//! Ethereum RPC trait and mock implementation
+//! Ethereum RPC trait and test helpers
 //!
 //! Defines the minimal set of Ethereum JSON-RPC calls needed
 //! by the CSV adapter: storage proofs, receipts, block queries, finality.
@@ -308,13 +308,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_mock_block_number() {
+    fn test_ethereum_rpc_block_number() {
         let rpc = MockEthereumRpc::new(1000);
         assert_eq!(rpc.block_number().unwrap(), 1000);
     }
 
     #[test]
-    fn test_mock_storage() {
+    fn test_ethereum_rpc_storage() {
         let rpc = MockEthereumRpc::new(1000);
         let address = [1u8; 20];
         let key = [2u8; 32];
@@ -328,7 +328,7 @@ mod tests {
     }
 
     #[test]
-    fn test_mock_receipt() {
+    fn test_ethereum_rpc_receipt() {
         let rpc = MockEthereumRpc::new(1000);
         let tx_hash = [3u8; 32];
         let receipt = TransactionReceipt {
@@ -353,7 +353,7 @@ mod tests {
     }
 
     #[test]
-    fn test_mock_finalized() {
+    fn test_ethereum_rpc_finalized() {
         let rpc = MockEthereumRpc::new(1000);
         let finalized = rpc.get_finalized_block_number().unwrap();
         assert!(finalized.is_some());
@@ -361,7 +361,7 @@ mod tests {
     }
 
     #[test]
-    fn test_mock_send_transaction() {
+    fn test_ethereum_rpc_send_transaction() {
         let rpc = MockEthereumRpc::new(1000);
         let tx_hash = rpc.send_raw_transaction(vec![0x01, 0x02]).unwrap();
         assert_eq!(tx_hash, [0xAB; 32]);

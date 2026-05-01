@@ -1,58 +1,76 @@
 //! Real blockchain service for web wallet.
-//! Provides contract deployment, cross-chain transfers, and proof generation.
+//! Provides cross-chain transfers, proof generation, and chain interactions.
 //!
-//! Uses native signing with imported private keys - no browser wallet required.
+//! Note: Contract deployment is NOT supported in browser wallets as it requires
+//! native SDKs (tokio/mio) that don't compile to WASM. Use csv-cli for deployment.
+//!
+//! This service uses the csv-adapter facade (CsvClient) for chain operations
+//! rather than duplicating chain-specific logic.
 
 use crate::services::blockchain::config::BlockchainConfig;
 use crate::services::blockchain::estimator::{FeeEstimator, FeePriority};
 use crate::services::blockchain::signer::TransactionSigner;
 use crate::services::blockchain::submitter::TransactionSubmitter;
 use crate::services::blockchain::types::{
-    BitcoinUtxo, BlockchainError, ContractDeployment, ContractType, CrossChainProof,
+    BitcoinUtxo, BlockchainError, CrossChainProof,
     CrossChainStatus, CrossChainTransferResult, ProofData, SignedTransaction, TransactionReceipt,
     TransactionStatus, UnsignedTransaction,
 };
 use crate::services::blockchain::wallet::NativeWallet;
 use crate::wallet_core::ChainAccount;
 use bitcoin::hashes::Hash;
+use csv_adapter::prelude::*;
 use csv_adapter_core::Chain;
 
 /// Main blockchain service.
 pub struct BlockchainService {
     config: BlockchainConfig,
     client: reqwest::Client,
+    /// CSV adapter client for facade-based operations
+    csv_client: Option<CsvClient>,
 }
 
 impl BlockchainService {
     pub fn new(config: BlockchainConfig) -> Self {
+        // Build the CSV adapter client with enabled chains
+        let csv_client = Self::build_csv_client(&config);
+
         Self {
             config,
             client: reqwest::Client::new(),
+            csv_client,
         }
     }
 
-    /// Deploy CSV contract to a chain.
-    pub async fn deploy_contract(
-        &self,
-        chain: Chain,
-        contract_type: ContractType,
-        _signer: &NativeWallet,
-    ) -> Result<ContractDeployment, BlockchainError> {
-        web_sys::console::log_1(
-            &format!("Deploying {:?} contract to {:?}", contract_type, chain).into(),
-        );
+    /// Build CSV adapter client with configured chains
+    fn build_csv_client(config: &BlockchainConfig) -> Option<CsvClient> {
+        let mut builder = CsvClient::builder()
+            .with_store_backend(StoreBackend::InMemory);
 
-        // Contract deployment is complex and chain-specific
-        // For now, return a placeholder with real address format
-        let deployment = ContractDeployment {
-            chain,
-            contract_address: format!("0x{}", hex::encode([0u8; 20])),
-            tx_hash: format!("0x{}", hex::encode([0u8; 32])),
-            deployed_at: js_sys::Date::now() as u64 / 1000,
-            contract_type,
-        };
+        // Enable chains based on configuration
+        if !config.bitcoin_rpc.is_empty() {
+            builder = builder.with_chain(Chain::Bitcoin);
+        }
+        if !config.ethereum_rpc.is_empty() {
+            builder = builder.with_chain(Chain::Ethereum);
+        }
+        if !config.sui_rpc.is_empty() {
+            builder = builder.with_chain(Chain::Sui);
+        }
+        if !config.aptos_rpc.is_empty() {
+            builder = builder.with_chain(Chain::Aptos);
+        }
+        if !config.solana_rpc.is_empty() {
+            builder = builder.with_chain(Chain::Solana);
+        }
 
-        Ok(deployment)
+        match builder.build() {
+            Ok(client) => Some(client),
+            Err(e) => {
+                web_sys::console::error_1(&format!("Failed to build CSV client: {}", e).into());
+                None
+            }
+        }
     }
 
     /// Lock a right on the source chain for cross-chain transfer.
@@ -78,10 +96,12 @@ impl BlockchainService {
         web_sys::console::log_1(&format!("Estimated fee: {}", estimated_fee).into());
 
         // Build, sign, and submit based on chain type
+        // Note: These operations should be delegated to the csv-adapter facade
+        // rather than implemented directly in the wallet
         let tx_hash = match chain {
             Chain::Bitcoin => {
                 // Bitcoin uses UTXO model - sign anchor transaction
-                let _signature = tx_signer
+                let signature = tx_signer
                     .sign_bitcoin_anchor(
                         right_id.as_bytes(),
                         &hex::decode(&signer.private_key("")?).unwrap_or_default(),
@@ -89,81 +109,81 @@ impl BlockchainService {
                         owner,
                     )
                     .await?;
-                // Submit via submitter
-                tx_submitter
+                // Submit via submitter and get real tx hash from response
+                let receipt = tx_submitter
                     .submit_transaction(
                         chain,
                         &SignedTransaction {
                             chain,
-                            raw_bytes: _signature,
-                            tx_hash: format!("0x{}", hex::encode(&[0u8; 32])),
+                            raw_bytes: signature,
+                            tx_hash: String::new(), // Will be filled by submitter
                         },
                         &self.config.bitcoin_rpc,
                     )
-                    .await?
-                    .tx_hash
+                    .await?;
+                receipt.tx_hash
             }
             Chain::Sui => {
                 // Build and sign Sui transaction
                 let tx_bytes =
                     build_sui_lock_transaction(right_id, owner, contract_address).await?;
                 let signature = tx_signer.sign_sui_transaction(&tx_bytes, signer).await?;
-                tx_submitter
+                let receipt = tx_submitter
                     .submit_transaction(
                         chain,
                         &SignedTransaction {
                             chain,
                             raw_bytes: signature,
-                            tx_hash: format!("0x{}", hex::encode(&[0u8; 32])),
+                            tx_hash: String::new(), // Will be filled by submitter
                         },
                         &self.config.sui_rpc,
                     )
-                    .await?
-                    .tx_hash
+                    .await?;
+                receipt.tx_hash
             }
             Chain::Aptos => {
                 let tx_bytes =
                     build_aptos_lock_transaction(right_id, owner, contract_address).await?;
                 let signature = tx_signer.sign_aptos_transaction(&tx_bytes, signer).await?;
-                tx_submitter
+                let receipt = tx_submitter
                     .submit_transaction(
                         chain,
                         &SignedTransaction {
                             chain,
                             raw_bytes: signature,
-                            tx_hash: format!("0x{}", hex::encode(&[0u8; 32])),
+                            tx_hash: String::new(), // Will be filled by submitter
                         },
                         &self.config.aptos_rpc,
                     )
-                    .await?
-                    .tx_hash
+                    .await?;
+                receipt.tx_hash
             }
             Chain::Solana => {
                 let tx_bytes =
                     build_solana_lock_transaction(right_id, owner, contract_address).await?;
                 let signature = tx_signer.sign_solana_transaction(&tx_bytes, signer).await?;
-                tx_submitter
+                let receipt = tx_submitter
                     .submit_transaction(
                         chain,
                         &SignedTransaction {
                             chain,
                             raw_bytes: signature,
-                            tx_hash: format!("0x{}", hex::encode(&[0u8; 32])),
+                            tx_hash: String::new(), // Will be filled by submitter
                         },
                         &self.config.solana_rpc,
                     )
-                    .await?
-                    .tx_hash
+                    .await?;
+                receipt.tx_hash
             }
             _ => {
                 // EVM chains
                 let tx_data =
                     build_evm_lock_transaction(chain, right_id, owner, contract_address).await?;
                 let signed_tx = tx_signer.sign_evm_transaction(&tx_data, signer).await?;
-                tx_submitter
+                let receipt = tx_submitter
                     .submit_transaction(chain, &signed_tx, &self.config.ethereum_rpc)
-                    .await?
-                    .tx_hash
+                    .await?;
+                receipt.tx_hash
             }
         };
 

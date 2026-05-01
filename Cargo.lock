@@ -3515,6 +3515,7 @@ dependencies = [
  "bs58",
  "chrono",
  "console_error_panic_hook",
+ "csv-adapter",
  "csv-adapter-core",
  "csv-adapter-keystore",
  "csv-adapter-solana",

@@ -153,9 +153,11 @@ scan_file() {
 export -f scan_file is_excluded
 export PROJECT_ROOT VIOLATIONS_FILE FORBIDDEN_PATTERNS FAKE_PATTERNS EXCLUDED_PATHS
 
-find "$PROJECT_ROOT" -name "*.rs" -type f | while read -r file; do
+# Use process substitution instead of pipe to avoid subshell
+# This ensures exit codes propagate correctly
+while read -r file; do
     scan_file "$file"
-done
+done < <(find "$PROJECT_ROOT" -name "*.rs" -type f)
 
 # Count violations
 VIOLATION_COUNT=$(grep -c '^[^-]' "$VIOLATIONS_FILE" 2>/dev/null || echo "0")

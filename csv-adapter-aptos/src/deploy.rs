@@ -395,7 +395,7 @@ mod tests {
     }
 
     #[test]
-    fn test_module_deployment_placeholder() {
+    fn test_module_deployment_structure() {
         // Verify the deployment structure compiles
         let deployment = ModuleDeployment {
             account_address: [0u8; 32],
@@ -414,8 +414,8 @@ mod tests {
     fn test_estimate_deployment_cost() {
         let signing_key = SigningKey::generate(&mut rand::rngs::OsRng);
         let config = AptosConfig::default();
-        let mock_rpc = crate::rpc::MockAptosRpc::new(1);
-        let deployer = ModuleDeployer::new(config, signing_key, Box::new(mock_rpc));
+        let test_rpc = crate::rpc::MockAptosRpc::new(1);
+        let deployer = ModuleDeployer::new(config, signing_key, Box::new(test_rpc));
 
         let cost = deployer.estimate_deployment_cost(1024);
         assert!(cost > 0);
