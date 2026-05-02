@@ -267,7 +267,11 @@ impl Wallet for AptosWallet {
         addr.copy_from_slice(&result);
         let derived_address = format!("0x{}", hex::encode(addr));
 
+        #[cfg(target_arch = "wasm32")]
         web_sys::console::log_1(&format!("Imported Aptos key, address: {}", derived_address).into());
+
+        #[cfg(not(target_arch = "wasm32"))]
+        log::info!("Imported Aptos key, address: {}", derived_address);
 
         // Key import successful - key is validated and address is derived
         Ok(())
@@ -327,14 +331,13 @@ impl ChainAdapter for AptosAnchorLayer {
 
     async fn create_client(&self, config: &ChainConfig) -> ChainResult<Box<dyn RpcClient>> {
         // Create Aptos RPC client from chain configuration
-        let rpc_url = config.rpc_url.as_ref()
-            .or_else(|| config.rpc_endpoints.first())
-            .ok_or_else(|| ChainError::InvalidConfig("RPC endpoint required".to_string()))?;
+        let rpc_url = config.rpc_endpoints.first()
+            .ok_or_else(|| ChainError::InvalidInput("RPC endpoint required".to_string()))?;
 
         #[cfg(feature = "rpc")]
         {
-            use crate::real_rpc::AptosRpcClient;
-            let rpc = AptosRpcClient::new(rpc_url);
+            use crate::real_rpc::AptosRpcClient as RealAptosRpcClient;
+            let rpc = RealAptosRpcClient::new(rpc_url);
             Ok(Box::new(AptosRpcClient::new(Box::new(rpc))))
         }
 

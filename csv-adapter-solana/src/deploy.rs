@@ -71,7 +71,7 @@ impl ProgramDeployer {
     ) -> SolanaResult<ProgramDeployment> {
         // Generate program keypair
         let program_keypair = Keypair::new();
-        let program_id = program_keypair.pubkey();
+        let _program_id = program_keypair.pubkey();
 
         // Generate buffer keypair for temporary storage
         let buffer_keypair = Keypair::new();

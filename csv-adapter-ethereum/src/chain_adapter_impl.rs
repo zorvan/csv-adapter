@@ -235,7 +235,11 @@ impl Wallet for EthereumWallet {
         addr.copy_from_slice(&hash[12..]);
         let derived_address = format!("0x{}", hex::encode(addr));
 
+        #[cfg(target_arch = "wasm32")]
         web_sys::console::log_1(&format!("Imported Ethereum key, address: {}", derived_address).into());
+
+        #[cfg(not(target_arch = "wasm32"))]
+        log::info!("Imported Ethereum key, address: {}", derived_address);
 
         // Key import successful - the key is validated and the address is derived
         // The actual storage of the key is handled by the keystore
@@ -279,14 +283,14 @@ impl ChainAdapter for EthereumAnchorLayer {
 
     async fn create_client(&self, config: &ChainConfig) -> ChainResult<Box<dyn RpcClient>> {
         // Create Ethereum RPC client from chain configuration
-        let rpc_url = config.rpc_url.as_ref()
-            .or_else(|| config.rpc_endpoints.first())
+        let rpc_url = config.rpc_endpoints.first()
             .ok_or_else(|| ChainError::InvalidInput("RPC endpoint required".to_string()))?;
 
         // Create the RPC client based on configuration
         #[cfg(feature = "rpc")]
         {
             use crate::real_rpc::RealEthereumRpc;
+            use crate::chain_adapter_impl::EthereumRpcClient;
             let csv_seal_address = self.csv_seal_address;
             let rpc = RealEthereumRpc::new(rpc_url, csv_seal_address)
                 .map_err(|e| ChainError::RpcError(format!("Failed to create RPC client: {}", e)))?;

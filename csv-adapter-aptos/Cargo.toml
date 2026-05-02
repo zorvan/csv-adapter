@@ -29,6 +29,7 @@ sha3 = "0.10"
 log = "0.4"
 chrono = { version = "0.4", features = ["serde"] }
 ed25519-dalek = { version = "2.0", features = ["rand_core"] }
+base64 = "0.22"
 
 # Native Aptos SDK (required per Phase 3)
 aptos-sdk = "0.4"

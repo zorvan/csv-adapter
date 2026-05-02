@@ -57,39 +57,96 @@ impl ModuleDeployer {
         module_bytes: &[u8],
         module_name: &str,
     ) -> AptosResult<ModuleDeployment> {
-        // Get sender address from signing key
-        let sender = self.signing_key.verifying_key().to_bytes();
-        let mut sender_addr = [0u8; 32];
-        sender_addr.copy_from_slice(&sender);
+        use ed25519_dalek::Signer;
+        use std::time::{SystemTime, UNIX_EPOCH};
 
-        // Get account sequence number
+        // Get sender address from signing key
+        let public_key = self.signing_key.verifying_key();
+        let sender_bytes = public_key.to_bytes();
+        let sender = format!("0x{}", hex::encode(&sender_bytes));
+
+        // Get account info via RPC
         let sequence_number = self
             .rpc
-            .get_account_sequence_number(sender_addr)
+            .get_account_sequence_number(sender_bytes)
             .map_err(|e| {
                 AptosError::SerializationError(format!("Failed to get sequence: {:?}", e))
             })?;
 
-        // Build the publish transaction
-        // Entry function: 0x1::code::publish_package_txn
+        // Build the publish transaction payload
         let payload = self.build_publish_payload(module_bytes, module_name)?;
 
-        // Build and sign transaction
-        let _tx = self
-            .build_signed_transaction(sender_addr, sequence_number, payload)
-            .await?;
+        // Calculate expiration
+        let expiration_time = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs()
+            + 600;
 
-        // Submit via RPC
-        // Note: Transaction submission is not yet fully implemented.
-        // The transaction is built and signed but not submitted to the network.
-        // This prevents fake transaction hashes from being returned in production.
-        let _ = (module_bytes, _tx);
+        // Build the raw transaction
+        let raw_txn = serde_json::json!({
+            "sender": sender,
+            "sequence_number": sequence_number.to_string(),
+            "max_gas_amount": self.config.transaction.max_gas.to_string(),
+            "gas_unit_price": "100",
+            "expiration_timestamp_secs": expiration_time.to_string(),
+            "payload": payload,
+            "chain_id": self.config.chain_id().to_string()
+        });
 
-        Err(AptosError::FeatureNotEnabled(
-            "Module deployment transaction submission is not yet implemented. \
-             The transaction can be constructed and signed but not submitted to the network. \
-             Rebuild with the 'aptos-full-deployment' feature when available.".to_string()
-        ))
+        // Sign the transaction
+        let txn_bytes = serde_json::to_vec(&raw_txn)
+            .map_err(|e| AptosError::SerializationError(format!("Failed to serialize: {}", e)))?;
+        let signature = self.signing_key.sign(&txn_bytes);
+
+        // Build signed transaction
+        let signed_txn = serde_json::json!({
+            "sender": sender,
+            "sequence_number": sequence_number.to_string(),
+            "max_gas_amount": self.config.transaction.max_gas.to_string(),
+            "gas_unit_price": "100",
+            "expiration_timestamp_secs": expiration_time.to_string(),
+            "payload": payload,
+            "signature": {
+                "type": "ed25519_signature",
+                "public_key": format!("0x{}", hex::encode(public_key.to_bytes())),
+                "signature": format!("0x{}", hex::encode(signature.to_bytes()))
+            }
+        });
+
+        // Submit via HTTP RPC
+        let client = reqwest::Client::new();
+        let submit_url = format!("{}/v1/transactions", self.config.rpc_url.trim_end_matches('/'));
+        
+        let txn_resp: serde_json::Value = client
+            .post(&submit_url)
+            .json(&signed_txn)
+            .send()
+            .await
+            .map_err(|e| AptosError::RpcError(format!("Failed to submit: {}", e)))?
+            .json()
+            .await
+            .map_err(|e| AptosError::RpcError(format!("JSON parse error: {}", e)))?;
+
+        let txn_hash = txn_resp["hash"].as_str().unwrap_or("").to_string();
+        let success = txn_resp["success"].as_bool().unwrap_or(false);
+        let version = txn_resp["version"]
+            .as_str()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0);
+        let gas_used = txn_resp["gas_used"]
+            .as_str()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0);
+
+        Ok(ModuleDeployment {
+            account_address: sender_bytes,
+            module_name: module_name.to_string(),
+            version,
+            transaction_hash: txn_hash,
+            gas_used,
+            success,
+        })
     }
 
     /// Deploy multiple modules as a package

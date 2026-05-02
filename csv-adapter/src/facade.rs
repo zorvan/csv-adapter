@@ -489,7 +489,7 @@ impl ChainFacade {
         })?;
 
         // Create commitment from right_id (the right's hash is the commitment)
-        let commitment = csv_adapter_core::hash::Hash::new(right_id.as_bytes());
+        let commitment = csv_adapter_core::hash::Hash::new(*right_id.as_bytes());
 
         // Build inclusion proof from chain state
         let inclusion_proof = adapter
@@ -581,7 +581,7 @@ impl ChainFacade {
         let signature_scheme = adapter.signature_scheme();
 
         // First verify the inclusion proof using the chain's native verification
-        let commitment = csv_adapter_core::hash::Hash::new(right_id.as_bytes());
+        let commitment = csv_adapter_core::hash::Hash::new(*right_id.as_bytes());
         let inclusion_valid = adapter
             .verify_inclusion_proof(&proof_bundle.inclusion_proof, &commitment)
             .map_err(|e| CsvError::AdapterError {
@@ -616,7 +616,7 @@ impl ChainFacade {
             let store = self.client.store.lock().unwrap();
             // Check if any right with this seal has been consumed
             // Seal ID is typically the right_id or a derived commitment
-            if let Ok(right_id) = csv_adapter_core::RightId::from_bytes(seal_id) {
+            let right_id = csv_adapter_core::RightId::from_bytes(seal_id);
                 match store.has_right(&right_id) {
                     Ok(has) => {
                         if !has {

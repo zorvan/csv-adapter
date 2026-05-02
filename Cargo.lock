@@ -3183,6 +3183,7 @@ dependencies = [
  "aptos-bcs",
  "aptos-sdk",
  "async-trait",
+ "base64 0.22.1",
  "chrono",
  "csv-adapter-core",
  "ed25519-dalek",
@@ -3204,6 +3205,7 @@ name = "csv-adapter-bitcoin"
 version = "0.4.0"
 dependencies = [
  "async-trait",
+ "base64 0.22.1",
  "bip32",
  "bitcoin 0.32.8",
  "bitcoin_hashes 0.12.0",
