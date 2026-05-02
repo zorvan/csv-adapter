@@ -61,6 +61,11 @@ pub enum AptosError {
     #[error("Network mismatch: expected chain_id {expected}, got {actual}")]
     NetworkMismatch { expected: u64, actual: u64 },
 
+    /// Feature not enabled - required feature is not compiled in.
+    /// Recovery: Rebuild with the required feature enabled.
+    #[error("Feature not enabled: {0}")]
+    FeatureNotEnabled(String),
+
     /// Core adapter error from csv-adapter-core.
     #[error(transparent)]
     CoreError(#[from] csv_adapter_core::AdapterError),
@@ -80,6 +85,7 @@ impl AptosError {
             | AptosError::SerializationError(_)
             | AptosError::ReorgDetected { .. }
             | AptosError::NetworkMismatch { .. }
+            | AptosError::FeatureNotEnabled(_)
             | AptosError::CoreError(_) => false,
         }
     }
@@ -111,6 +117,7 @@ impl HasErrorSuggestion for AptosError {
             AptosError::ConfirmationTimeout { .. } => error_codes::APT_CONFIRMATION_TIMEOUT,
             AptosError::ReorgDetected { .. } => error_codes::APT_REORG_DETECTED,
             AptosError::NetworkMismatch { .. } => error_codes::APT_NETWORK_MISMATCH,
+            AptosError::FeatureNotEnabled(_) => "APT_FEATURE_NOT_ENABLED",
             AptosError::CoreError(e) => e.error_code(),
         }
     }
@@ -197,6 +204,13 @@ impl HasErrorSuggestion for AptosError {
                     expected, actual
                 )
             }
+            AptosError::FeatureNotEnabled(feature) => {
+                format!(
+                    "Feature '{}' is not enabled. \
+                     Rebuild with the required feature: cargo build --features {}",
+                    feature, feature
+                )
+            }
             AptosError::CoreError(e) => e.suggested_fix(),
         }
     }
@@ -241,6 +255,10 @@ impl HasErrorSuggestion for AptosError {
                     )]),
                 })
             }
+            AptosError::FeatureNotEnabled(_) => Some(FixAction::CheckState {
+                url: "https://github.com/client-side-validation/csv-adapter".to_string(),
+                what: "Enable required feature in Cargo.toml".to_string(),
+            }),
             AptosError::CoreError(e) => e.fix_action(),
             _ => None,
         }

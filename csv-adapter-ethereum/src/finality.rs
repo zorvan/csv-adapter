@@ -25,6 +25,7 @@ impl Default for FinalityConfig {
 }
 
 /// Finality checker
+#[derive(Clone)]
 pub struct FinalityChecker {
     config: FinalityConfig,
 }

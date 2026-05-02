@@ -293,8 +293,8 @@ impl EventProofVerifier {
 
 /// Commitment event builder for creating CSV anchor events.
 pub struct CommitmentEventBuilder {
-    module_address: [u8; 32],
-    event_type: String,
+    pub(crate) module_address: [u8; 32],
+    pub(crate) event_type: String,
 }
 
 impl CommitmentEventBuilder {

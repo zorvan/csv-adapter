@@ -63,18 +63,37 @@ pub fn execute(
 fn cmd_create(
     chain: Chain,
     value: Option<u64>,
-    _config: &Config,
+    config: &Config,
     state: &mut UnifiedStateManager,
 ) -> Result<()> {
     output::header(&format!("Creating Right on {}", chain));
 
-    // In production, this would call the chain adapter to create a seal
-    // For now, generate a Right ID and track it
+    // Use the new facade to create the right
+    use csv_adapter::CsvClient;
+    use csv_adapter::StoreBackend;
+    use csv_adapter_core::Chain as CoreChain;
 
-    let right_id_bytes: [u8; 32] = {
+    // Map CLI Chain to core Chain
+    let core_chain = match chain {
+        Chain::Bitcoin => CoreChain::Bitcoin,
+        Chain::Ethereum => CoreChain::Ethereum,
+        Chain::Solana => CoreChain::Solana,
+        Chain::Sui => CoreChain::Sui,
+        Chain::Aptos => CoreChain::Aptos,
+    };
+
+    // Build CSV client with the requested chain enabled
+    let client = CsvClient::builder()
+        .with_chain(core_chain)
+        .with_store_backend(StoreBackend::InMemory)
+        .build()
+        .map_err(|e| anyhow::anyhow!("Failed to build CSV client: {}", e))?;
+
+    // Generate a commitment for the right
+    let commitment_bytes: [u8; 32] = {
         use sha2::Sha256;
         let mut hasher = Sha256::new();
-        hasher.update(b"right-");
+        hasher.update(b"commitment-");
         hasher.update(chain.to_string().as_bytes());
         hasher.update(value.unwrap_or(0).to_le_bytes());
         if let Some(nanos) = chrono::Utc::now().timestamp_nanos_opt() {
@@ -82,39 +101,51 @@ fn cmd_create(
         }
         hasher.finalize().into()
     };
+    let commitment = csv_adapter_core::Hash::new(commitment_bytes);
 
-    let right_id = Hash::new(right_id_bytes);
+    // Create the right through the facade
+    match client.rights().create(commitment, core_chain) {
+        Ok(right) => {
+            let right_id_hex = hex::encode(right.id.as_bytes());
+            
+            // Track the right in local state
+            let tracked = RightRecord {
+                id: right_id_hex.clone(),
+                chain: chain.clone(),
+                seal_ref: String::new(), // Would be populated by the facade
+                owner: String::new(),    // Would be populated by the facade
+                value: value.unwrap_or(0),
+                commitment: hex::encode(commitment.as_bytes()),
+                nullifier: None,
+                status: RightStatus::Active,
+                created_at: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs(),
+            };
 
-    let tracked = RightRecord {
-        id: right_id.to_hex(),
-        chain: chain.clone(),
-        seal_ref: String::new(), // Would come from adapter
-        owner: String::new(),    // Would come from wallet
-        value: value.unwrap_or(0),
-        commitment: right_id.to_hex(),
-        nullifier: None,
-        status: RightStatus::Active,
-        created_at: std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs(),
-    };
+            state.storage.rights.push(tracked);
 
-    state.storage.rights.push(tracked);
+            output::kv("Chain", &chain.to_string());
+            output::kv_hash("Right ID", right.id.as_bytes());
+            output::kv_hash("Commitment", commitment.as_bytes());
+            output::kv(
+                "Value",
+                &value
+                    .map(|v| v.to_string())
+                    .unwrap_or_else(|| "default".to_string()),
+            );
+            output::kv("Status", "Created via facade");
 
-    output::kv("Chain", &chain.to_string());
-    output::kv_hash("Right ID", right_id_bytes.as_slice());
-    output::kv(
-        "Value",
-        &value
-            .map(|v| v.to_string())
-            .unwrap_or_else(|| "default".to_string()),
-    );
-    output::kv("Status", "Created");
-
-    // UnifiedStateManager is automatically saved after command execution
-    println!();
-    output::info("Right created. Use 'csv right show <right_id>' to view details");
+            // UnifiedStateManager is automatically saved after command execution
+            println!();
+            output::info("Right created successfully via facade. Use 'csv right show <right_id>' to view details");
+        }
+        Err(e) => {
+            output::error(&format!("Failed to create right via facade: {}", e));
+            return Err(anyhow::anyhow!("Right creation failed: {}", e));
+        }
+    }
 
     Ok(())
 }

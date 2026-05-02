@@ -28,18 +28,19 @@ sha2 = "0.10"
 log = "0.4"
 chrono = { version = "0.4", features = ["serde"] }
 ed25519-dalek = { version = "2.0", features = ["rand_core"] }
+serde_bytes = "0.11"
 
 # Real RPC dependencies (optional, enabled with --features rpc)
-# Note: Uses direct JSON-RPC over HTTP, not sui-sdk
 reqwest = { version = "0.12", features = ["json", "blocking"], optional = true }
 tokio = { version = "1", features = ["rt", "time"], optional = true }
 base64 = { version = "0.22", optional = true }
 
-# Sui SDK for contract deployment (optional)
-# Temporarily commented out due to core2 dependency issue
-# sui-sdk = { git = "https://github.com/MystenLabs/sui", tag = "testnet-v1.70.2", optional = true }
-# sui-keys = { git = "https://github.com/MystenLabs/sui", tag = "testnet-v1.70.2", optional = true }
-# shared-crypto = { git = "https://github.com/MystenLabs/sui", tag = "testnet-v1.70.2", optional = true }
+# Sui Rust SDK crates for contract deployment (sui-rust-sdk from crates.io)
+# These replace the legacy sui-sdk from the monorepo which had tokio version conflicts
+sui-rpc = { version = "0.3.1", optional = true }
+sui-sdk-types = { version = "0.3.1", optional = true }
+sui-transaction-builder = { version = "0.3.1", optional = true }
+sui-crypto = { version = "0.3.0", optional = true, features = ["ed25519"] }
 bcs = { version = "0.1", optional = true }
 async-trait.workspace = true
 rand = "0.8"
@@ -48,8 +49,8 @@ rand = "0.8"
 default = []
 # Enables real RPC client (real JSON-RPC calls over HTTP)
 rpc = ["reqwest", "tokio", "base64"]
-# Sui SDK deployment feature (placeholder - SDK temporarily disabled due to core2 dependency issue)
-sui-sdk-deploy = []
+# Sui SDK deployment feature - uses sui-rust-sdk crates from crates.io
+sui-sdk-deploy = ["sui-rpc", "sui-sdk-types", "sui-transaction-builder", "sui-crypto", "bcs", "tokio"]
 
 [dev-dependencies]
 rand = "0.8"

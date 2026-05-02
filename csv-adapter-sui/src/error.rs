@@ -61,6 +61,16 @@ pub enum SuiError {
     #[error("Network mismatch: expected chain_id {expected}, got {actual}")]
     NetworkMismatch { expected: String, actual: String },
 
+    /// Configuration error - missing or invalid configuration value.
+    /// Recovery: Check configuration and set required values.
+    #[error("Configuration error: {0}")]
+    ConfigurationError(String),
+
+    /// Feature not enabled - required feature is not compiled in.
+    /// Recovery: Rebuild with the required feature enabled.
+    #[error("Feature not enabled: {0}")]
+    FeatureNotEnabled(String),
+
     /// Core adapter error from csv-adapter-core.
     #[error(transparent)]
     CoreError(#[from] csv_adapter_core::AdapterError),
@@ -80,6 +90,8 @@ impl SuiError {
             | SuiError::SerializationError(_)
             | SuiError::ReorgDetected { .. }
             | SuiError::NetworkMismatch { .. }
+            | SuiError::ConfigurationError(_)
+            | SuiError::FeatureNotEnabled(_)
             | SuiError::CoreError(_) => false,
         }
     }
@@ -111,6 +123,8 @@ impl HasErrorSuggestion for SuiError {
             SuiError::ConfirmationTimeout { .. } => error_codes::SUI_CONFIRMATION_TIMEOUT,
             SuiError::ReorgDetected { .. } => error_codes::SUI_REORG_DETECTED,
             SuiError::NetworkMismatch { .. } => error_codes::SUI_NETWORK_MISMATCH,
+            SuiError::ConfigurationError(_) => "SUI_CONFIGURATION_ERROR",
+            SuiError::FeatureNotEnabled(_) => "SUI_FEATURE_NOT_ENABLED",
             SuiError::CoreError(e) => e.error_code(),
         }
     }
@@ -194,6 +208,21 @@ impl HasErrorSuggestion for SuiError {
                     expected, actual
                 )
             }
+            SuiError::ConfigurationError(msg) => {
+                format!(
+                    "Configuration error: {}. \
+                     Check your Sui adapter configuration and ensure all \
+                     required fields (signer_address, signer_private_key) are set.",
+                    msg
+                )
+            }
+            SuiError::FeatureNotEnabled(feature) => {
+                format!(
+                    "Feature '{}' is not enabled. \
+                     Rebuild with the required feature: cargo build --features {}",
+                    feature, feature
+                )
+            }
             SuiError::CoreError(e) => e.suggested_fix(),
         }
     }
@@ -237,6 +266,14 @@ impl HasErrorSuggestion for SuiError {
                     )]),
                 })
             }
+            SuiError::ConfigurationError(_) => Some(FixAction::CheckState {
+                url: "https://docs.sui.io".to_string(),
+                what: "Check Sui adapter configuration documentation".to_string(),
+            }),
+            SuiError::FeatureNotEnabled(_) => Some(FixAction::CheckState {
+                url: "https://github.com/client-side-validation/csv-adapter".to_string(),
+                what: "Enable required feature in Cargo.toml".to_string(),
+            }),
             SuiError::CoreError(e) => e.fix_action(),
             _ => None,
         }

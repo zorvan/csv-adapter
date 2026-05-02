@@ -4,7 +4,7 @@
 #![allow(dead_code)]
 
 #[cfg(feature = "sqlite")]
-use csv_adapter_core::{AnchorRecord, Hash, SealStore, StoreError};
+use csv_adapter_core::{AnchorRecord, Hash, RightRecord, RightStore, SealStore, StoreError};
 
 #[cfg(feature = "sqlite")]
 use rusqlite::{params, Connection};
@@ -20,7 +20,7 @@ pub mod browser_storage;
 // Re-exports from state module
 pub use state::{
     Chain, ChainConfig, ContractRecord, FaucetConfig, GasAccount, Network, ProofRecord,
-    RightRecord, RightStatus, SealRecord, StateStorage, StorageBackend, StorageError,
+    RightStatus, SealRecord, StateStorage, StorageBackend, StorageError,
     TransactionRecord, TransactionStatus, TransactionType, TransferRecord, TransferStatus,
     WalletAccount, WalletConfig,
 };
@@ -88,6 +88,20 @@ impl SqliteSealStore {
             CREATE INDEX IF NOT EXISTS idx_anchors_chain ON anchors(chain);
             CREATE INDEX IF NOT EXISTS idx_anchors_height ON anchors(chain, block_height);
             CREATE INDEX IF NOT EXISTS idx_anchors_pending ON anchors(chain, is_finalized);
+
+            CREATE TABLE IF NOT EXISTS rights (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                right_id BLOB NOT NULL UNIQUE,
+                chain TEXT NOT NULL,
+                owner BLOB NOT NULL,
+                right_data BLOB NOT NULL,
+                consumed INTEGER NOT NULL DEFAULT 0,
+                recorded_at INTEGER NOT NULL,
+                consumed_at INTEGER
+            );
+            CREATE INDEX IF NOT EXISTS idx_rights_chain ON rights(chain);
+            CREATE INDEX IF NOT EXISTS idx_rights_owner ON rights(owner);
+            CREATE INDEX IF NOT EXISTS idx_rights_consumed ON rights(consumed);
             ",
         )
         .map_err(|e| StoreError::IoError(e.to_string()))?;
@@ -277,6 +291,285 @@ impl SealStore for SqliteSealStore {
             )
             .map_err(|e| StoreError::IoError(e.to_string()))?;
         Ok(max.unwrap_or(0) as u64)
+    }
+}
+
+#[cfg(feature = "sqlite")]
+impl RightStore for SqliteSealStore {
+    fn save_right(&mut self, record: &RightRecord) -> Result<(), StoreError> {
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
+        conn.execute(
+            "INSERT INTO rights (right_id, chain, owner, right_data, consumed, recorded_at, consumed_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+             ON CONFLICT(right_id) DO UPDATE SET
+             chain = excluded.chain, owner = excluded.owner, right_data = excluded.right_data",
+            params![
+                record.right_id.0.as_bytes(),
+                &record.chain,
+                &record.owner,
+                &record.right_data,
+                record.consumed as i64,
+                record.recorded_at as i64,
+                record.consumed_at.map(|t| t as i64),
+            ],
+        )
+        .map_err(|e| StoreError::IoError(e.to_string()))?;
+        Ok(())
+    }
+
+    fn get_right(&self, right_id: &csv_adapter_core::RightId) -> Result<Option<RightRecord>, StoreError> {
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
+        let mut stmt = conn
+            .prepare(
+                "SELECT chain, owner, right_data, consumed, recorded_at, consumed_at 
+                 FROM rights WHERE right_id = ?1"
+            )
+            .map_err(|e| StoreError::IoError(e.to_string()))?;
+
+        let result = stmt
+            .query_row(params![right_id.0.as_bytes()], |row| {
+                let chain: String = row.get(0)?;
+                let owner: Vec<u8> = row.get(1)?;
+                let right_data: Vec<u8> = row.get(2)?;
+                let consumed: i64 = row.get(3)?;
+                let recorded_at: i64 = row.get(4)?;
+                let consumed_at: Option<i64> = row.get(5)?;
+
+                Ok(RightRecord {
+                    right_id: right_id.clone(),
+                    chain,
+                    owner,
+                    right_data,
+                    consumed: consumed != 0,
+                    recorded_at: recorded_at as u64,
+                    consumed_at: consumed_at.map(|t| t as u64),
+                })
+            });
+
+        match result {
+            Ok(record) => Ok(Some(record)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(StoreError::IoError(e.to_string())),
+        }
+    }
+
+    fn list_rights_by_chain(&self, chain: &str) -> Result<Vec<RightRecord>, StoreError> {
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
+        let mut stmt = conn
+            .prepare(
+                "SELECT right_id, owner, right_data, consumed, recorded_at, consumed_at 
+                 FROM rights WHERE chain = ?1"
+            )
+            .map_err(|e| StoreError::IoError(e.to_string()))?;
+
+        let rights = stmt
+            .query_map(params![chain], |row| {
+                let right_id_bytes: Vec<u8> = row.get(0)?;
+                let owner: Vec<u8> = row.get(1)?;
+                let right_data: Vec<u8> = row.get(2)?;
+                let consumed: i64 = row.get(3)?;
+                let recorded_at: i64 = row.get(4)?;
+                let consumed_at: Option<i64> = row.get(5)?;
+
+                let mut hash_bytes = [0u8; 32];
+                hash_bytes.copy_from_slice(&right_id_bytes);
+
+                Ok(RightRecord {
+                    right_id: csv_adapter_core::RightId(Hash::new(hash_bytes)),
+                    chain: chain.to_string(),
+                    owner,
+                    right_data,
+                    consumed: consumed != 0,
+                    recorded_at: recorded_at as u64,
+                    consumed_at: consumed_at.map(|t| t as u64),
+                })
+            })
+            .map_err(|e| StoreError::IoError(e.to_string()))?;
+
+        rights
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| StoreError::IoError(e.to_string()))
+    }
+
+    fn list_rights_by_owner(&self, owner: &[u8]) -> Result<Vec<RightRecord>, StoreError> {
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
+        let mut stmt = conn
+            .prepare(
+                "SELECT right_id, chain, right_data, consumed, recorded_at, consumed_at 
+                 FROM rights WHERE owner = ?1"
+            )
+            .map_err(|e| StoreError::IoError(e.to_string()))?;
+
+        let rights = stmt
+            .query_map(params![owner], |row| {
+                let right_id_bytes: Vec<u8> = row.get(0)?;
+                let chain: String = row.get(1)?;
+                let right_data: Vec<u8> = row.get(2)?;
+                let consumed: i64 = row.get(3)?;
+                let recorded_at: i64 = row.get(4)?;
+                let consumed_at: Option<i64> = row.get(5)?;
+
+                let mut hash_bytes = [0u8; 32];
+                hash_bytes.copy_from_slice(&right_id_bytes);
+
+                Ok(RightRecord {
+                    right_id: csv_adapter_core::RightId(Hash::new(hash_bytes)),
+                    chain,
+                    owner: owner.to_vec(),
+                    right_data,
+                    consumed: consumed != 0,
+                    recorded_at: recorded_at as u64,
+                    consumed_at: consumed_at.map(|t| t as u64),
+                })
+            })
+            .map_err(|e| StoreError::IoError(e.to_string()))?;
+
+        rights
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| StoreError::IoError(e.to_string()))
+    }
+
+    fn consume_right(
+        &mut self,
+        right_id: &csv_adapter_core::RightId,
+        consumed_at: u64,
+    ) -> Result<(), StoreError> {
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
+        let updated = conn
+            .execute(
+                "UPDATE rights SET consumed = 1, consumed_at = ?2 WHERE right_id = ?1 AND consumed = 0",
+                params![right_id.0.as_bytes(), consumed_at as i64],
+            )
+            .map_err(|e| StoreError::IoError(e.to_string()))?;
+
+        if updated == 0 {
+            // Check if right exists and is already consumed
+            let exists: bool = conn
+                .query_row(
+                    "SELECT 1 FROM rights WHERE right_id = ?1 AND consumed = 1",
+                    params![right_id.0.as_bytes()],
+                    |_| Ok(true),
+                )
+                .unwrap_or(false);
+
+            if exists {
+                return Err(StoreError::DuplicateRecord(format!(
+                    "Right {:?} already consumed",
+                    right_id
+                )));
+            } else {
+                return Err(StoreError::NotFound(format!(
+                    "Right {:?} not found",
+                    right_id
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    fn list_consumed_rights(&self) -> Result<Vec<RightRecord>, StoreError> {
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
+        let mut stmt = conn
+            .prepare(
+                "SELECT right_id, chain, owner, right_data, recorded_at, consumed_at 
+                 FROM rights WHERE consumed = 1"
+            )
+            .map_err(|e| StoreError::IoError(e.to_string()))?;
+
+        let rights = stmt
+            .query_map([], |row| {
+                let right_id_bytes: Vec<u8> = row.get(0)?;
+                let chain: String = row.get(1)?;
+                let owner: Vec<u8> = row.get(2)?;
+                let right_data: Vec<u8> = row.get(3)?;
+                let recorded_at: i64 = row.get(4)?;
+                let consumed_at: Option<i64> = row.get(5)?;
+
+                let mut hash_bytes = [0u8; 32];
+                hash_bytes.copy_from_slice(&right_id_bytes);
+
+                Ok(RightRecord {
+                    right_id: csv_adapter_core::RightId(Hash::new(hash_bytes)),
+                    chain,
+                    owner,
+                    right_data,
+                    consumed: true,
+                    recorded_at: recorded_at as u64,
+                    consumed_at: consumed_at.map(|t| t as u64),
+                })
+            })
+            .map_err(|e| StoreError::IoError(e.to_string()))?;
+
+        rights
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| StoreError::IoError(e.to_string()))
+    }
+
+    fn list_active_rights(&self) -> Result<Vec<RightRecord>, StoreError> {
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
+        let mut stmt = conn
+            .prepare(
+                "SELECT right_id, chain, owner, right_data, recorded_at 
+                 FROM rights WHERE consumed = 0"
+            )
+            .map_err(|e| StoreError::IoError(e.to_string()))?;
+
+        let rights = stmt
+            .query_map([], |row| {
+                let right_id_bytes: Vec<u8> = row.get(0)?;
+                let chain: String = row.get(1)?;
+                let owner: Vec<u8> = row.get(2)?;
+                let right_data: Vec<u8> = row.get(3)?;
+                let recorded_at: i64 = row.get(4)?;
+
+                let mut hash_bytes = [0u8; 32];
+                hash_bytes.copy_from_slice(&right_id_bytes);
+
+                Ok(RightRecord {
+                    right_id: csv_adapter_core::RightId(Hash::new(hash_bytes)),
+                    chain,
+                    owner,
+                    right_data,
+                    consumed: false,
+                    recorded_at: recorded_at as u64,
+                    consumed_at: None,
+                })
+            })
+            .map_err(|e| StoreError::IoError(e.to_string()))?;
+
+        rights
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| StoreError::IoError(e.to_string()))
+    }
+
+    fn has_right(&self, right_id: &csv_adapter_core::RightId) -> Result<bool, StoreError> {
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM rights WHERE right_id = ?1",
+                params![right_id.0.as_bytes()],
+                |row| row.get(0),
+            )
+            .map_err(|e| StoreError::IoError(e.to_string()))?;
+        Ok(count > 0)
+    }
+
+    fn delete_right(&mut self, right_id: &csv_adapter_core::RightId) -> Result<(), StoreError> {
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
+        let deleted = conn
+            .execute(
+                "DELETE FROM rights WHERE right_id = ?1",
+                params![right_id.0.as_bytes()],
+            )
+            .map_err(|e| StoreError::IoError(e.to_string()))?;
+
+        if deleted == 0 {
+            return Err(StoreError::NotFound(format!(
+                "Right {:?} not found",
+                right_id
+            )));
+        }
+        Ok(())
     }
 }
 

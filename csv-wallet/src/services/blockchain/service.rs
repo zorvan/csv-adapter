@@ -74,130 +74,74 @@ impl BlockchainService {
     }
 
     /// Lock a right on the source chain for cross-chain transfer.
+    ///
+    /// This method delegates to the ChainRightOps trait via the csv-adapter facade,
+    /// ensuring no duplicate chain-specific logic in the wallet.
     pub async fn lock_right(
         &self,
         chain: Chain,
         right_id: &str,
         owner: &str,
-        contract_address: &str,
+        _contract_address: &str,
         signer: &NativeWallet,
     ) -> Result<TransactionReceipt, BlockchainError> {
-        web_sys::console::log_1(&format!("Locking right {} on {:?}", right_id, chain).into());
+        web_sys::console::log_1(&format!("Locking right {} on {:?} via facade", right_id, chain).into());
 
-        // Use the modular signer and submitter
-        let tx_signer = TransactionSigner::new();
-        let tx_submitter = TransactionSubmitter::new();
+        // Get CSV client
+        let client = self.csv_client.as_ref().ok_or_else(|| BlockchainError {
+            message: "CSV client not initialized".to_string(),
+            chain: Some(chain),
+            code: Some(500),
+        })?;
 
-        // Estimate fee first
-        let fee_estimator = FeeEstimator::new();
-        let estimated_fee = fee_estimator
-            .estimate_fee(chain, 256, FeePriority::Medium)
-            .await?;
-        web_sys::console::log_1(&format!("Estimated fee: {}", estimated_fee).into());
+        // Get the chain facade
+        let facade = client.chain_facade();
 
-        // Build, sign, and submit based on chain type
-        // Note: These operations should be delegated to the csv-adapter facade
-        // rather than implemented directly in the wallet
-        let tx_hash = match chain {
-            Chain::Bitcoin => {
-                // Bitcoin uses UTXO model - sign anchor transaction
-                let signature = tx_signer
-                    .sign_bitcoin_anchor(
-                        right_id.as_bytes(),
-                        &hex::decode(&signer.private_key("")?).unwrap_or_default(),
-                        &[], // UTXO would be fetched
-                        owner,
-                    )
-                    .await?;
-                // Submit via submitter and get real tx hash from response
-                let receipt = tx_submitter
-                    .submit_transaction(
-                        chain,
-                        &SignedTransaction {
-                            chain,
-                            raw_bytes: signature,
-                            tx_hash: String::new(), // Will be filled by submitter
-                        },
-                        &self.config.bitcoin_rpc,
-                    )
-                    .await?;
-                receipt.tx_hash
-            }
-            Chain::Sui => {
-                // Build and sign Sui transaction
-                let tx_bytes =
-                    build_sui_lock_transaction(right_id, owner, contract_address).await?;
-                let signature = tx_signer.sign_sui_transaction(&tx_bytes, signer).await?;
-                let receipt = tx_submitter
-                    .submit_transaction(
-                        chain,
-                        &SignedTransaction {
-                            chain,
-                            raw_bytes: signature,
-                            tx_hash: String::new(), // Will be filled by submitter
-                        },
-                        &self.config.sui_rpc,
-                    )
-                    .await?;
-                receipt.tx_hash
-            }
-            Chain::Aptos => {
-                let tx_bytes =
-                    build_aptos_lock_transaction(right_id, owner, contract_address).await?;
-                let signature = tx_signer.sign_aptos_transaction(&tx_bytes, signer).await?;
-                let receipt = tx_submitter
-                    .submit_transaction(
-                        chain,
-                        &SignedTransaction {
-                            chain,
-                            raw_bytes: signature,
-                            tx_hash: String::new(), // Will be filled by submitter
-                        },
-                        &self.config.aptos_rpc,
-                    )
-                    .await?;
-                receipt.tx_hash
-            }
-            Chain::Solana => {
-                let tx_bytes =
-                    build_solana_lock_transaction(right_id, owner, contract_address).await?;
-                let signature = tx_signer.sign_solana_transaction(&tx_bytes, signer).await?;
-                let receipt = tx_submitter
-                    .submit_transaction(
-                        chain,
-                        &SignedTransaction {
-                            chain,
-                            raw_bytes: signature,
-                            tx_hash: String::new(), // Will be filled by submitter
-                        },
-                        &self.config.solana_rpc,
-                    )
-                    .await?;
-                receipt.tx_hash
-            }
-            _ => {
-                // EVM chains
-                let tx_data =
-                    build_evm_lock_transaction(chain, right_id, owner, contract_address).await?;
-                let signed_tx = tx_signer.sign_evm_transaction(&tx_data, signer).await?;
-                let receipt = tx_submitter
-                    .submit_transaction(chain, &signed_tx, &self.config.ethereum_rpc)
-                    .await?;
-                receipt.tx_hash
-            }
-        };
+        // Estimate fee via facade
+        let fee_estimate = facade
+            .get_fee_estimate(chain)
+            .await
+            .map_err(|e| BlockchainError {
+                message: format!("Fee estimation failed: {}", e),
+                chain: Some(chain),
+                code: Some(500),
+            })?;
 
-        web_sys::console::log_1(&format!("Lock transaction broadcast: {}", tx_hash).into());
+        web_sys::console::log_1(&format!("Estimated fee: {}", fee_estimate).into());
+
+        // Create right ID
+        let right_id_obj = csv_adapter_core::right::RightId::new(right_id.as_bytes().to_vec());
+
+        // Get key ID for signing
+        let key_id = signer.key_id().map_err(|e| BlockchainError {
+            message: format!("Failed to get key ID: {}", e),
+            chain: Some(chain),
+            code: Some(500),
+        })?;
+
+        // Delegate to ChainRightOps::lock_right via facade
+        let result = facade
+            .lock_right(chain, &right_id_obj, "destination_chain", &key_id)
+            .await
+            .map_err(|e| BlockchainError {
+                message: format!("Lock right failed: {}", e),
+                chain: Some(chain),
+                code: Some(500),
+            })?;
+
+        web_sys::console::log_1(&format!("Lock transaction broadcast: {}", result.transaction_hash).into());
 
         Ok(TransactionReceipt {
-            tx_hash,
-            block_number: None,
-            gas_used: Some(estimated_fee),
+            tx_hash: result.transaction_hash,
+            block_number: Some(result.block_height),
+            gas_used: Some(fee_estimate),
             status: TransactionStatus::Pending,
         })
     }
 
-    /// Lock a right on Sui using BCS-encoded transactions
+    /// Lock a right on Sui - delegates to lock_right via facade
+    /// 
+    /// DEPRECATED: Use lock_right() instead.
     async fn lock_sui_right(
         &self,
         right_id: &str,
@@ -205,56 +149,13 @@ impl BlockchainService {
         contract_address: &str,
         signer: &NativeWallet,
     ) -> Result<String, BlockchainError> {
-        web_sys::console::log_1(&format!("Locking right {} on Sui for {}", right_id, owner).into());
-
-        // Build the unsigned transaction data
-        let right_bytes = hex::decode(right_id.trim_start_matches("0x"))
-            .unwrap_or_else(|_| right_id.as_bytes().to_vec());
-
-        let tx_data = crate::services::transaction_builder::build_sui_transaction_data(
-            owner,
-            contract_address,
-            "lock",
-            vec![right_bytes],
-        )
-        .map_err(|e| BlockchainError {
-            message: format!("Failed to build Sui transaction: {}", e),
-            chain: Some(Chain::Sui),
-            code: None,
-        })?;
-
-        let unsigned_tx = UnsignedTransaction {
-            chain: Chain::Sui,
-            from: owner.to_string(),
-            to: contract_address.to_string(),
-            value: 0,
-            data: tx_data,
-            nonce: None,
-            gas_price: None,
-            gas_limit: Some(100000),
-        };
-
-        // Sign the transaction (need password - use session if available)
-        let signed_tx = if let Ok(_pk) = signer.private_key_with_session() {
-            // Have session, sign with the retrieved key
-            let wallet_clone = signer.clone();
-            // Create a temporary wallet with the retrieved key for signing
-            wallet_clone.sign_transaction(&unsigned_tx, "")
-        } else {
-            // No session, will need password prompt in real implementation
-            signer.sign_transaction(&unsigned_tx, "")
-        }
-        .map_err(|e| BlockchainError {
-            message: format!("Failed to sign Sui transaction: {}", e),
-            chain: Some(Chain::Sui),
-            code: None,
-        })?;
-
-        // Broadcast via the existing broadcast method
-        self.broadcast_transaction(Chain::Sui, &signed_tx).await
+        let receipt = self.lock_right(Chain::Sui, right_id, owner, contract_address, signer).await?;
+        Ok(receipt.tx_hash)
     }
 
-    /// Lock a right on Aptos using BCS-encoded transactions
+    /// Lock a right on Aptos - delegates to lock_right via facade
+    /// 
+    /// DEPRECATED: Use lock_right() instead.
     async fn lock_aptos_right(
         &self,
         right_id: &str,
@@ -262,51 +163,13 @@ impl BlockchainService {
         contract_address: &str,
         signer: &NativeWallet,
     ) -> Result<String, BlockchainError> {
-        web_sys::console::log_1(
-            &format!("Locking right {} on Aptos for {}", right_id, owner).into(),
-        );
-
-        // Build the unsigned transaction data
-        let right_bytes = hex::decode(right_id.trim_start_matches("0x"))
-            .unwrap_or_else(|_| right_id.as_bytes().to_vec());
-
-        let tx_data = crate::services::transaction_builder::build_aptos_transaction_data(
-            owner,
-            contract_address,
-            "lock",
-            vec![right_bytes],
-        )
-        .map_err(|e| BlockchainError {
-            message: format!("Failed to build Aptos transaction: {}", e),
-            chain: Some(Chain::Aptos),
-            code: None,
-        })?;
-
-        let unsigned_tx = UnsignedTransaction {
-            chain: Chain::Aptos,
-            from: owner.to_string(),
-            to: contract_address.to_string(),
-            value: 0,
-            data: tx_data,
-            nonce: None,
-            gas_price: None,
-            gas_limit: Some(100000),
-        };
-
-        // Sign the transaction
-        let signed_tx = signer
-            .sign_transaction(&unsigned_tx, "")
-            .map_err(|e| BlockchainError {
-                message: format!("Failed to sign Aptos transaction: {}", e),
-                chain: Some(Chain::Aptos),
-                code: None,
-            })?;
-
-        // Broadcast via the existing broadcast method
-        self.broadcast_transaction(Chain::Aptos, &signed_tx).await
+        let receipt = self.lock_right(Chain::Aptos, right_id, owner, contract_address, signer).await?;
+        Ok(receipt.tx_hash)
     }
 
-    /// Lock a right on Solana using native transaction format
+    /// Lock a right on Solana - delegates to lock_right via facade
+    /// 
+    /// DEPRECATED: Use lock_right() instead.
     async fn lock_solana_right(
         &self,
         right_id: &str,
@@ -314,317 +177,34 @@ impl BlockchainService {
         program_id: &str,
         signer: &NativeWallet,
     ) -> Result<String, BlockchainError> {
-        // Implementation uses solana_tx module - to be refactored to use adapter facade
-        use ed25519_dalek::{Signer, SigningKey};
-
-        // Build instruction data (simplified - just the right_id as bytes)
-        // Real implementation would need proper instruction encoding
-        let instruction_data = hex::decode(right_id.trim_start_matches("0x"))
-            .unwrap_or_else(|_| right_id.as_bytes().to_vec());
-
-        // Build unsigned transaction
-        let mut tx = build_solana_transaction(
-            owner,
-            program_id,
-            vec![], // accounts - would need to add relevant accounts
-            instruction_data,
-            &self.config.solana_rpc,
-        )
-        .await?;
-
-        // Sign the transaction message
-        let key_bytes =
-            hex::decode(signer.private_key("")?.trim_start_matches("0x")).map_err(|e| {
-                BlockchainError {
-                    message: format!("Invalid private key: {}", e),
-                    chain: Some(Chain::Solana),
-                    code: None,
-                }
-            })?;
-
-        if key_bytes.len() < 32 {
-            return Err(BlockchainError {
-                message: format!("Key too short: {} bytes", key_bytes.len()),
-                chain: Some(Chain::Solana),
-                code: None,
-            });
-        }
-
-        let mut seed = [0u8; 32];
-        seed.copy_from_slice(&key_bytes[..32]);
-        let signing_key = SigningKey::from_bytes(&seed);
-
-        // Serialize message and sign
-        let message_bytes = tx.message.serialize();
-        let signature = signing_key.sign(&message_bytes);
-
-        // Add signature to transaction
-        tx.signatures = vec![signature.to_bytes().to_vec()];
-
-        // Broadcast
-        let tx_hash = broadcast_solana_transaction(&tx, &self.config.solana_rpc).await?;
-
-        Ok(tx_hash)
+        let receipt = self.lock_right(Chain::Solana, right_id, owner, program_id, signer).await?;
+        Ok(receipt.tx_hash)
     }
 
-    /// Lock a right on Bitcoin using UTXO anchor with OP_RETURN
+    /// Lock a right on Bitcoin - delegates to lock_right via facade
+    /// 
+    /// DEPRECATED: Use lock_right() instead.
     async fn lock_bitcoin_right(
         &self,
         right_id: &str,
         owner: &str,
         signer: &NativeWallet,
     ) -> Result<String, BlockchainError> {
-        use crate::wallet_core::ChainAccount;
-
-        web_sys::console::log_1(
-            &format!("Locking right {} on Bitcoin for {}", right_id, owner).into(),
-        );
-
-        // Derive Bitcoin address from signer's private key
-        let pk_hex = signer
-            .private_key("")
-            .or_else(|_| signer.private_key_with_session())?;
-
-        let bitcoin_address =
-            ChainAccount::derive_address(Chain::Bitcoin, &pk_hex).map_err(|e| BlockchainError {
-                message: format!("Failed to derive Bitcoin address: {}", e),
-                chain: Some(Chain::Bitcoin),
-                code: None,
-            })?;
-
-        web_sys::console::log_1(
-            &format!("Using derived Bitcoin address: {}", bitcoin_address).into(),
-        );
-
-        // Build lock data (OP_RETURN payload - max 80 bytes)
-        let lock_data = format!("CSV:LOCK:{}", right_id);
-        if lock_data.len() > 80 {
-            return Err(BlockchainError {
-                message: "Lock data exceeds OP_RETURN limit (80 bytes)".to_string(),
-                chain: Some(Chain::Bitcoin),
-                code: None,
-            });
-        }
-
-        // Fetch UTXOs for the address using mempool.space API
-        let utxos = self.fetch_bitcoin_utxos(&bitcoin_address).await?;
-
-        if utxos.is_empty() {
-            return Err(BlockchainError {
-                message: format!("No UTXOs available for address {}", bitcoin_address),
-                chain: Some(Chain::Bitcoin),
-                code: None,
-            });
-        }
-
-        // Select UTXO (use first available)
-        let utxo = &utxos[0];
-
-        // Build raw transaction with OP_RETURN output
-        let tx_bytes = self.build_op_return_transaction(&bitcoin_address, utxo, &lock_data)?;
-
-        // Sign the transaction
-        let signed_tx = self.sign_bitcoin_raw_transaction(&tx_bytes, &pk_hex, utxo)?;
-
-        // Broadcast via RPC
-        let tx_hash = self
-            .broadcast_transaction(
-                Chain::Bitcoin,
-                &SignedTransaction {
-                    chain: Chain::Bitcoin,
-                    tx_hash: String::new(), // Will be filled by broadcast
-                    raw_bytes: signed_tx,
-                },
-            )
-            .await?;
-
-        Ok(tx_hash)
+        // Use the facade - no more local UTXO fetching or transaction building
+        let receipt = self.lock_right(Chain::Bitcoin, right_id, owner, "", signer).await?;
+        Ok(receipt.tx_hash)
     }
 
-    /// Fetch UTXOs for a Bitcoin address from mempool.space API
-    async fn fetch_bitcoin_utxos(
-        &self,
-        address: &str,
-    ) -> Result<Vec<BitcoinUtxo>, BlockchainError> {
-        let url = format!(
-            "{}/address/{}/utxo",
-            self.config.bitcoin_rpc.trim_end_matches('/'),
-            address
-        );
-
-        let response = self
-            .client
-            .get(&url)
-            .send()
-            .await
-            .map_err(|e| BlockchainError {
-                message: format!("Failed to fetch UTXOs: {}", e),
-                chain: Some(Chain::Bitcoin),
-                code: None,
-            })?;
-
-        let utxos: Vec<BitcoinUtxo> = response.json().await.map_err(|e| BlockchainError {
-            message: format!("Failed to parse UTXOs: {}", e),
-            chain: Some(Chain::Bitcoin),
-            code: None,
-        })?;
-
-        Ok(utxos)
-    }
-
-    /// Build a raw Bitcoin transaction with OP_RETURN output
-    fn build_op_return_transaction(
-        &self,
-        from_address: &str,
-        utxo: &BitcoinUtxo,
-        lock_data: &str,
-    ) -> Result<Vec<u8>, BlockchainError> {
-        // Use the bitcoin crate to build a proper transaction
-        use bitcoin::absolute::LockTime;
-        use bitcoin::hex::FromHex;
-        use bitcoin::opcodes::all::OP_RETURN;
-        use bitcoin::{Amount, OutPoint, ScriptBuf, Sequence, Transaction, TxIn, TxOut, Witness};
-
-        // Create input from UTXO
-        let txid_bytes = Vec::<u8>::from_hex(&utxo.txid).map_err(|e| BlockchainError {
-            message: format!("Invalid txid: {}", e),
-            chain: Some(Chain::Bitcoin),
-            code: None,
-        })?;
-        let txid = bitcoin::Txid::from_slice(&txid_bytes[..32]).map_err(|_| BlockchainError {
-            message: "Invalid txid length".to_string(),
-            chain: Some(Chain::Bitcoin),
-            code: None,
-        })?;
-
-        let input = TxIn {
-            previous_output: OutPoint::new(txid, utxo.vout),
-            script_sig: ScriptBuf::new(),
-            sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
-            witness: Witness::new(),
-        };
-
-        // Create OP_RETURN output with lock data
-        let mut script_bytes = vec![OP_RETURN.to_u8()];
-        script_bytes.extend_from_slice(lock_data.as_bytes());
-        let op_return_script = ScriptBuf::from(script_bytes);
-
-        let op_return_output = TxOut {
-            value: Amount::from_sat(0),
-            script_pubkey: op_return_script,
-        };
-
-        // Create change output (return remaining funds minus fee)
-        let fee = 1000u64; // 1000 sats fee
-        let change_amount = utxo.value.saturating_sub(fee);
-
-        // Parse address and create output script
-        let change_script = self.address_to_script_pubkey(from_address)?;
-
-        let change_output = TxOut {
-            value: Amount::from_sat(change_amount),
-            script_pubkey: change_script,
-        };
-
-        // Build transaction
-        let tx = Transaction {
-            version: bitcoin::transaction::Version(2),
-            lock_time: LockTime::from_consensus(0),
-            input: vec![input],
-            output: vec![op_return_output, change_output],
-        };
-
-        Ok(bitcoin::consensus::encode::serialize(&tx))
-    }
-
-    /// Convert a Bitcoin address string to ScriptPubkey
-    fn address_to_script_pubkey(
-        &self,
-        address: &str,
-    ) -> Result<bitcoin::ScriptBuf, BlockchainError> {
-        use bitcoin::Address;
-
-        let addr: Address<_> = address.parse().map_err(|e| BlockchainError {
-            message: format!("Invalid address: {}", e),
-            chain: Some(Chain::Bitcoin),
-            code: None,
-        })?;
-
-        let addr = addr.assume_checked();
-
-        Ok(addr.script_pubkey())
-    }
-
-    /// Sign a raw Bitcoin transaction
-    fn sign_bitcoin_raw_transaction(
-        &self,
-        tx_bytes: &[u8],
-        private_key_hex: &str,
-        utxo: &BitcoinUtxo,
-    ) -> Result<Vec<u8>, BlockchainError> {
-        use bitcoin::sighash::SighashCache;
-        use secp256k1::{Secp256k1, SecretKey};
-
-        let mut tx: bitcoin::Transaction = bitcoin::consensus::encode::deserialize(tx_bytes)
-            .map_err(|e| BlockchainError {
-                message: format!("Failed to deserialize tx: {}", e),
-                chain: Some(Chain::Bitcoin),
-                code: None,
-            })?;
-
-        // Get the UTXO script pubkey for sighash calculation
-        let utxo_script = self.address_to_script_pubkey(&utxo.address)?;
-
-        // Decode private key
-        let key_bytes =
-            hex::decode(private_key_hex.trim_start_matches("0x")).map_err(|e| BlockchainError {
-                message: format!("Invalid private key: {}", e),
-                chain: Some(Chain::Bitcoin),
-                code: None,
-            })?;
-
-        let secp = Secp256k1::new();
-        let secret_key = SecretKey::from_slice(&key_bytes).map_err(|e| BlockchainError {
-            message: format!("Invalid secret key: {}", e),
-            chain: Some(Chain::Bitcoin),
-            code: None,
-        })?;
-
-        // Compute sighash for P2PKH input
-        let mut sighasher = SighashCache::new(&tx);
-        let sighash = sighasher
-            .p2wpkh_signature_hash(
-                0,
-                &utxo_script,
-                bitcoin::Amount::from_sat(utxo.value),
-                bitcoin::sighash::EcdsaSighashType::All,
-            )
-            .map_err(|e| BlockchainError {
-                message: format!("Sighash failed: {}", e),
-                chain: Some(Chain::Bitcoin),
-                code: None,
-            })?;
-
-        // Sign
-        let message =
-            secp256k1::Message::from_digest_slice(sighash.as_byte_array()).map_err(|e| {
-                BlockchainError {
-                    message: format!("Failed to create message: {}", e),
-                    chain: Some(Chain::Bitcoin),
-                    code: None,
-                }
-            })?;
-        let signature = secp.sign_ecdsa(&message, &secret_key);
-
-        // Add signature and sighash type to witness
-        let mut sig_der = signature.serialize_der().to_vec();
-        sig_der.push(bitcoin::sighash::EcdsaSighashType::All as u8);
-        tx.input[0].witness.push(sig_der);
-
-        Ok(bitcoin::consensus::encode::serialize(&tx))
-    }
+    // Note: All Bitcoin-specific methods (fetch_bitcoin_utxos, build_op_return_transaction,
+    // address_to_script_pubkey, sign_bitcoin_raw_transaction) have been removed.
+    // These operations are now handled by the csv-adapter facade via ChainRightOps trait.
+    // The facade delegates to csv-adapter-bitcoin which properly implements these using
+    // the native bitcoin crate.
 
     /// Build lock transaction data for a specific chain.
+    ///
+    /// Uses ChainFacade::build_contract_call to properly delegate transaction
+    /// building to the appropriate chain adapter.
     async fn build_lock_transaction_data(
         &self,
         chain: Chain,
@@ -636,34 +216,29 @@ impl BlockchainService {
         let nonce = self.get_nonce(chain, owner).await?;
         let gas_price = self.get_gas_price(chain).await.unwrap_or(1000000000);
 
-        // Build transaction data based on chain
-        let data = match chain {
-            Chain::Sui => {
-                // For Sui, build proper BCS TransactionData
-                crate::services::transaction_builder::build_sui_transaction_data(
-                    owner,
-                    contract_address,
-                    "lock",
-                    vec![hex::decode(right_id.trim_start_matches("0x")).unwrap_or_default()],
-                )?
-            }
-            Chain::Aptos => {
-                // For Aptos, build proper BCS RawTransaction
-                crate::services::transaction_builder::build_aptos_transaction_data(
-                    owner,
-                    contract_address,
-                    "lock",
-                    vec![hex::decode(right_id.trim_start_matches("0x")).unwrap_or_default()],
-                )?
-            }
-            _ => {
-                // Ethereum and others use ABI encoding
-                crate::services::transaction_builder::build_abi_call(
-                    "lock(bytes32)",
-                    vec![hex::decode(right_id.trim_start_matches("0x")).unwrap_or_default()],
-                )
-            }
-        };
+        // Build contract call data using the ChainFacade
+        // This properly delegates to the chain adapter for correct encoding
+        let client = self.csv_client.as_ref().ok_or_else(|| BlockchainError {
+            message: "CSV client not initialized".to_string(),
+            chain: Some(chain),
+            code: Some(500),
+        })?;
+
+        let facade = client.chain_facade();
+
+        // Prepare arguments for the lock function
+        let right_bytes = hex::decode(right_id.trim_start_matches("0x")).unwrap_or_default();
+        let args = vec![right_bytes];
+
+        // Build the contract call transaction data via facade
+        let data = facade
+            .build_contract_call(chain, contract_address, "lock(bytes32)", args, owner, nonce)
+            .await
+            .map_err(|e| BlockchainError {
+                message: format!("Failed to build lock transaction: {}", e),
+                chain: Some(chain),
+                code: Some(500),
+            })?;
 
         Ok(UnsignedTransaction {
             chain,
@@ -678,281 +253,98 @@ impl BlockchainService {
     }
 
     /// Get nonce for an address on a chain.
+    ///
+    /// Uses ChainQuery trait via csv-adapter facade instead of raw HTTP RPC.
     async fn get_nonce(&self, chain: Chain, address: &str) -> Result<u64, BlockchainError> {
-        match chain {
-            Chain::Ethereum => {
-                let body = serde_json::json!({
-                    "jsonrpc": "2.0",
-                    "method": "eth_getTransactionCount",
-                    "params": [address, "latest"],
-                    "id": 1
-                });
-                let response = self
-                    .client
-                    .post(&self.config.ethereum_rpc)
-                    .json(&body)
-                    .send()
-                    .await
-                    .map_err(|e| BlockchainError {
-                        message: format!("Failed to get nonce: {}", e),
-                        chain: Some(chain),
-                        code: None,
-                    })?;
-                let json: serde_json::Value =
-                    response.json().await.map_err(|e| BlockchainError {
-                        message: format!("Failed to parse nonce: {}", e),
-                        chain: Some(chain),
-                        code: None,
-                    })?;
-                if let Some(result) = json.get("result").and_then(|r| r.as_str()) {
-                    u64::from_str_radix(result.trim_start_matches("0x"), 16).map_err(|e| {
-                        BlockchainError {
-                            message: format!("Invalid nonce: {}", e),
-                            chain: Some(chain),
-                            code: None,
-                        }
-                    })
-                } else {
-                    Ok(0)
+        // Use the CSV adapter facade for nonce queries
+        if let Some(csv_client) = &self.csv_client {
+            let facade = csv_client.chain_facade();
+            match facade.get_transaction_count(chain, address).await {
+                Ok(nonce) => return Ok(nonce),
+                Err(e) => {
+                    web_sys::console::warn_1(&format!("Facade nonce query failed: {}. Using fallback.", e).into());
+                    // Fall through to capability error for chains that don't support this
                 }
             }
-            _ => Ok(0), // Other chains have different nonce mechanisms
         }
+        
+        // For chains without facade support or capability, return explicit error
+        Err(BlockchainError {
+            message: format!(
+                "Nonce query for {:?} requires a configured CSV adapter client. \
+                 Ensure the adapter is properly initialized.",
+                chain
+            ),
+            chain: Some(chain),
+            code: Some(503),
+        })
     }
 
-    /// Get current gas price for a chain.
+    /// Get current gas price/fee estimate for a chain.
+    ///
+    /// Uses ChainBroadcaster trait via csv-adapter facade instead of raw HTTP RPC.
     async fn get_gas_price(&self, chain: Chain) -> Result<u64, BlockchainError> {
-        match chain {
-            Chain::Ethereum => {
-                let body = serde_json::json!({
-                    "jsonrpc": "2.0",
-                    "method": "eth_gasPrice",
-                    "params": [],
-                    "id": 1
-                });
-                let response = self
-                    .client
-                    .post(&self.config.ethereum_rpc)
-                    .json(&body)
-                    .send()
-                    .await
-                    .map_err(|e| BlockchainError {
-                        message: format!("Failed to get gas price: {}", e),
-                        chain: Some(chain),
-                        code: None,
-                    })?;
-                let json: serde_json::Value =
-                    response.json().await.map_err(|e| BlockchainError {
-                        message: format!("Failed to parse gas price: {}", e),
-                        chain: Some(chain),
-                        code: None,
-                    })?;
-                if let Some(result) = json.get("result").and_then(|r| r.as_str()) {
-                    u64::from_str_radix(result.trim_start_matches("0x"), 16).map_err(|e| {
-                        BlockchainError {
-                            message: format!("Invalid gas price: {}", e),
-                            chain: Some(chain),
-                            code: None,
-                        }
-                    })
-                } else {
-                    Ok(1000000000) // Default 1 gwei
+        // Use the CSV adapter facade for fee estimation
+        if let Some(csv_client) = &self.csv_client {
+            let facade = csv_client.chain_facade();
+            match facade.get_fee_estimate(chain).await {
+                Ok(fee) => return Ok(fee),
+                Err(e) => {
+                    web_sys::console::warn_1(&format!("Facade fee estimate failed: {}. No fallback available.", e).into());
+                    // Fall through to error - production code must use real fee estimation
                 }
             }
-            _ => Ok(1000), // Default for other chains
         }
+        
+        // Production code requires real fee estimation via adapter
+        Err(BlockchainError {
+            message: format!(
+                "Fee estimation for {:?} requires a configured CSV adapter client. \
+                 Ensure the adapter is properly initialized with RPC endpoints.",
+                chain
+            ),
+            chain: Some(chain),
+            code: Some(503),
+        })
     }
 
     /// Broadcast a signed transaction to the blockchain.
+    ///
+    /// Uses the ChainBroadcaster trait via the csv-adapter facade.
+    /// This replaces the previous manual RPC implementation.
     async fn broadcast_transaction(
         &self,
         chain: Chain,
         signed_tx: &SignedTransaction,
     ) -> Result<String, BlockchainError> {
-        match chain {
-            Chain::Ethereum => {
-                let body = serde_json::json!({
-                    "jsonrpc": "2.0",
-                    "method": "eth_sendRawTransaction",
-                    "params": [format!("0x{}", hex::encode(&signed_tx.raw_bytes))],
-                    "id": 1
-                });
-                let response = self
-                    .client
-                    .post(&self.config.ethereum_rpc)
-                    .json(&body)
-                    .send()
-                    .await
-                    .map_err(|e| BlockchainError {
-                        message: format!("Failed to broadcast: {}", e),
-                        chain: Some(chain),
-                        code: None,
-                    })?;
-                let json: serde_json::Value =
-                    response.json().await.map_err(|e| BlockchainError {
-                        message: format!("Failed to parse response: {}", e),
-                        chain: Some(chain),
-                        code: None,
-                    })?;
-                if let Some(error) = json.get("error") {
-                    return Err(BlockchainError {
-                        message: format!("RPC error: {}", error),
-                        chain: Some(chain),
-                        code: None,
-                    });
-                }
-                json.get("result")
-                    .and_then(|r| r.as_str())
-                    .map(|s| s.to_string())
-                    .ok_or_else(|| BlockchainError {
-                        message: "Missing transaction hash in response".to_string(),
-                        chain: Some(chain),
-                        code: None,
-                    })
-            }
-            Chain::Bitcoin => {
-                // Broadcast via mempool.space or blockstream API
-                let url = format!("{}/api/tx", self.config.bitcoin_rpc.trim_end_matches('/'));
-                let response = self
-                    .client
-                    .post(&url)
-                    .body(hex::encode(&signed_tx.raw_bytes))
-                    .send()
-                    .await
-                    .map_err(|e| BlockchainError {
-                        message: format!("Failed to broadcast Bitcoin tx: {}", e),
-                        chain: Some(chain),
-                        code: None,
-                    })?;
+        web_sys::console::log_1(&format!("Broadcasting transaction on {:?} via facade", chain).into());
 
-                let txid = response.text().await.map_err(|e| BlockchainError {
-                    message: format!("Failed to read Bitcoin response: {}", e),
-                    chain: Some(chain),
-                    code: None,
-                })?;
+        // Get CSV client
+        let client = self.csv_client.as_ref().ok_or_else(|| BlockchainError {
+            message: "CSV client not initialized".to_string(),
+            chain: Some(chain),
+            code: Some(500),
+        })?;
 
-                Ok(format!("0x{}", txid.trim()))
-            }
-            Chain::Sui => {
-                // Broadcast via Sui JSON-RPC
-                let body = serde_json::json!({
-                    "jsonrpc": "2.0",
-                    "method": "sui_executeTransactionBlock",
-                    "params": [
-                        format!("0x{}", hex::encode(&signed_tx.raw_bytes)),
-                        [],
-                        null,
-                        "WaitForLocalExecution"
-                    ],
-                    "id": 1
-                });
+        // Use the ChainBroadcaster trait via the facade
+        let facade = client.chain_facade();
 
-                let response = self
-                    .client
-                    .post(&self.config.sui_rpc)
-                    .json(&body)
-                    .send()
-                    .await
-                    .map_err(|e| BlockchainError {
-                        message: format!("Failed to broadcast Sui tx: {}", e),
-                        chain: Some(chain),
-                        code: None,
-                    })?;
-
-                let json: serde_json::Value =
-                    response.json().await.map_err(|e| BlockchainError {
-                        message: format!("Failed to parse Sui response: {}", e),
-                        chain: Some(chain),
-                        code: None,
-                    })?;
-
-                if let Some(error) = json.get("error") {
-                    return Err(BlockchainError {
-                        message: format!("Sui RPC error: {}", error),
-                        chain: Some(chain),
-                        code: None,
-                    });
-                }
-
-                // Extract transaction digest from result
-                let digest = json
-                    .get("result")
-                    .and_then(|r| r.get("digest"))
-                    .and_then(|d| d.as_str())
-                    .map(|s| s.to_string())
-                    .ok_or_else(|| BlockchainError {
-                        message: "Missing transaction digest in Sui response".to_string(),
-                        chain: Some(chain),
-                        code: None,
-                    })?;
-
-                Ok(digest)
-            }
-            Chain::Aptos => {
-                // Broadcast via Aptos REST API
-                let url = format!(
-                    "{}/v1/transactions",
-                    self.config.aptos_rpc.trim_end_matches('/')
-                );
-
-                // The signed transaction is BCS-encoded, submit as hex
-                let body = serde_json::json!({
-                    "signature_required": true,
-                    "sender": "0x1",  // Will be extracted from tx data in real impl
-                    "sequence_number": "0",
-                    "payload": format!("0x{}", hex::encode(&signed_tx.raw_bytes))
-                });
-
-                let response = self
-                    .client
-                    .post(&url)
-                    .json(&body)
-                    .send()
-                    .await
-                    .map_err(|e| BlockchainError {
-                        message: format!("Failed to broadcast Aptos tx: {}", e),
-                        chain: Some(chain),
-                        code: None,
-                    })?;
-
-                let json: serde_json::Value =
-                    response.json().await.map_err(|e| BlockchainError {
-                        message: format!("Failed to parse Aptos response: {}", e),
-                        chain: Some(chain),
-                        code: None,
-                    })?;
-
-                if let Some(error) = json.get("message") {
-                    return Err(BlockchainError {
-                        message: format!("Aptos API error: {}", error),
-                        chain: Some(chain),
-                        code: None,
-                    });
-                }
-
-                // Extract transaction hash
-                let hash = json
-                    .get("hash")
-                    .and_then(|h| h.as_str())
-                    .map(|s| s.to_string())
-                    .ok_or_else(|| BlockchainError {
-                        message: "Missing transaction hash in Aptos response".to_string(),
-                        chain: Some(chain),
-                        code: None,
-                    })?;
-
-                Ok(hash)
-            }
-            Chain::Solana => {
-                // Solana uses different format, basic implementation for now
-                Ok(signed_tx.tx_hash.clone())
-            }
-            _ => Err(BlockchainError {
-                message: format!("Transaction broadcasting not implemented for {:?}", chain),
+        // Broadcast the signed transaction
+        let tx_hash_bytes = facade
+            .broadcast_transaction(chain, &signed_tx.raw_bytes)
+            .await
+            .map_err(|e| BlockchainError {
+                message: format!("Transaction broadcast failed: {:?}", e),
                 chain: Some(chain),
-                code: None,
-            }),
-        }
+                code: Some(500),
+            })?;
+
+        // Convert transaction hash to hex string
+        let tx_hash = format!("0x{}", hex::encode(tx_hash_bytes));
+
+        web_sys::console::log_1(&format!("Transaction broadcast successful: {}", tx_hash).into());
+
+        Ok(tx_hash)
     }
 
     /// Generate cryptographic proof for cross-chain transfer.
@@ -971,58 +363,81 @@ impl BlockchainService {
             .into(),
         );
 
-        // Real implementation would:
-        // 1. Fetch the lock transaction receipt
-        // 2. Get the block containing the transaction
-        // 3. Generate appropriate proof based on chain type:
-        //    - Bitcoin: Merkle proof
-        //    - Ethereum: MPT proof
-        //    - Sui: Checkpoint proof
-        //    - Aptos: Ledger proof
-        // 4. Serialize the proof data
-
-        let proof_data = match source_chain {
-            Chain::Bitcoin => ProofData::Merkle {
-                root: String::new(),
-                path: vec![],
-                leaf: lock_tx_hash.to_string(),
-            },
-            Chain::Ethereum => ProofData::Mpt {
-                account_proof: vec![],
-                storage_proof: vec![],
-                value: right_id.to_string(),
-            },
-            Chain::Sui => ProofData::Checkpoint {
-                checkpoint_digest: String::new(),
-                transaction_block: 0,
-                certificate: String::new(),
-            },
-            Chain::Aptos => ProofData::Ledger {
-                ledger_version: 0,
-                proof: vec![],
-                root_hash: String::new(),
-            },
-            Chain::Solana => ProofData::Merkle {
-                root: String::new(),
-                path: vec![],
-                leaf: lock_tx_hash.to_string(),
-            },
-            _ => {
-                return Err(BlockchainError {
-                    message: "Unsupported source chain for proof generation".to_string(),
+        // Use the new facade if available for proof generation
+        if let Some(csv_client) = &self.csv_client {
+            let right_id_bytes = hex::decode(right_id.strip_prefix("0x").unwrap_or(right_id))
+                .map_err(|e| BlockchainError {
+                    message: format!("Invalid right_id format: {}", e),
                     chain: Some(source_chain),
-                    code: None,
-                })
-            }
-        };
+                    code: Some(400),
+                })?;
 
-        Ok(CrossChainProof {
-            source_chain,
-            target_chain,
-            right_id: right_id.to_string(),
-            lock_tx_hash: lock_tx_hash.to_string(),
-            proof_data,
-            timestamp: js_sys::Date::now() as u64 / 1000,
+            match csv_client.chain_facade().generate_proof(source_chain, &csv_adapter_core::RightId::from_bytes(&right_id_bytes)).await {
+                Ok(proof_bundle) => {
+                    web_sys::console::log_1(&format!("Proof generated via facade: {:?}", proof_bundle).into());
+                    
+                    // Convert ProofBundle to CrossChainProof format
+                    let proof_data = match source_chain {
+                        Chain::Bitcoin => ProofData::Merkle {
+                            root: hex::encode(proof_bundle.inclusion_proof.block_hash.as_bytes()),
+                            path: vec![], // Would extract from proof_bundle
+                            leaf: lock_tx_hash.to_string(),
+                        },
+                        Chain::Ethereum => ProofData::Mpt {
+                            account_proof: vec![], // Would extract from proof_bundle
+                            storage_proof: vec![], // Would extract from proof_bundle
+                            value: right_id.to_string(),
+                        },
+                        Chain::Sui => ProofData::Checkpoint {
+                            checkpoint_digest: String::new(), // Would extract from proof_bundle
+                            transaction_block: 0, // Would extract from proof_bundle
+                            certificate: String::new(), // Would extract from proof_bundle
+                        },
+                        Chain::Aptos => ProofData::Ledger {
+                            ledger_version: 0, // Would extract from proof_bundle
+                            proof: vec![], // Would extract from proof_bundle
+                            root_hash: hex::encode(proof_bundle.inclusion_proof.block_hash.as_bytes()),
+                        },
+                        Chain::Solana => ProofData::Merkle {
+                            root: hex::encode(proof_bundle.inclusion_proof.block_hash.as_bytes()),
+                            path: vec![], // Would extract from proof_bundle
+                            leaf: lock_tx_hash.to_string(),
+                        },
+                        _ => {
+                            return Err(BlockchainError {
+                                message: "Unsupported source chain for proof generation".to_string(),
+                                chain: Some(source_chain),
+                                code: None,
+                            })
+                        }
+                    };
+
+                    return Ok(CrossChainProof {
+                        source_chain,
+                        target_chain,
+                        right_id: right_id.to_string(),
+                        lock_tx_hash: lock_tx_hash.to_string(),
+                        proof_data,
+                        timestamp: js_sys::Date::now() as u64 / 1000,
+                    });
+                }
+                Err(e) => {
+                    web_sys::console::error_1(&format!("Facade proof generation failed: {}. No fallback available.", e).into());
+                    // No fallback - proof generation requires real adapter
+                }
+            }
+        }
+
+        // Proof generation requires the CSV adapter facade with a configured chain adapter
+        // No fallback simulation is provided - production code must use real proof generation
+        Err(BlockchainError {
+            message: format!(
+                "Proof generation for {:?} requires a configured CSV adapter client. \
+                 Ensure the adapter is properly initialized with RPC endpoints.",
+                source_chain
+            ),
+            chain: Some(source_chain),
+            code: Some(503),
         })
     }
 
@@ -1030,16 +445,44 @@ impl BlockchainService {
     pub async fn verify_proof(
         &self,
         target_chain: Chain,
-        _proof: &CrossChainProof,
-        _contract_address: &str,
+        proof: &CrossChainProof,
+        contract_address: &str,
     ) -> Result<bool, BlockchainError> {
         web_sys::console::log_1(&format!("Verifying proof on {:?}", target_chain).into());
 
-        // Real implementation would:
-        // 1. Call the verify method on the target chain's CSV contract
-        // 2. Return true if the proof is valid
+        // Use the CSV adapter facade for proof verification if available
+        if let Some(csv_client) = &self.csv_client {
+            let right_id_bytes = hex::decode(proof.right_id.strip_prefix("0x").unwrap_or(&proof.right_id))
+                .map_err(|e| BlockchainError {
+                    message: format!("Invalid right_id format: {}", e),
+                    chain: Some(target_chain),
+                    code: Some(400),
+                })?;
+            let right_id = csv_adapter_core::RightId::from_bytes(&right_id_bytes);
 
-        Ok(true)
+            match csv_client.chain_facade().verify_proof_bundle(
+                target_chain,
+                &proof.lock_tx_hash,
+                &right_id,
+            ).await {
+                Ok(valid) => return Ok(valid),
+                Err(e) => {
+                    web_sys::console::error_1(&format!("Facade proof verification failed: {}", e).into());
+                    // Fall through to capability error
+                }
+            }
+        }
+
+        // Proof verification requires a real implementation
+        Err(BlockchainError {
+            message: format!(
+                "Proof verification not yet implemented for {:?}. \
+                 Contract: {}, Proof from {} chain, Lock TX: {}",
+                target_chain, contract_address, proof.source_chain, proof.lock_tx_hash
+            ),
+            chain: Some(target_chain),
+            code: Some(501),
+        })
     }
 
     /// Mint a right on the target chain after proof verification.
@@ -1056,19 +499,26 @@ impl BlockchainService {
             &format!("Minting right {} on {:?} for {}", right_id, chain, owner).into(),
         );
 
-        // Build mint transaction data (pass private key for address derivation on Sui/Aptos)
+        // Get keystore reference for signing (never pass actual private key)
+        let key_id = signer.account.keystore_ref.as_ref().ok_or_else(|| BlockchainError {
+            message: "No keystore reference available for signing".to_string(),
+            chain: Some(chain),
+            code: Some(400),
+        })?;
+
+        // Build mint transaction data using key_id reference
         let tx_data = self
             .build_mint_transaction_data(
                 chain,
                 right_id,
                 owner,
                 contract_address,
-                &signer.private_key("")?,
+                key_id, // Use keystore reference, not actual key
             )
             .await?;
 
-        // Sign the transaction
-        let signed_tx = signer.sign_transaction(&tx_data, "")?;
+        // Sign the transaction using the keystore (key_id identifies the key)
+        let signed_tx = signer.sign_transaction(&tx_data, key_id)?;
 
         // Broadcast the transaction
         let tx_hash = self.broadcast_transaction(chain, &signed_tx).await?;
@@ -1084,58 +534,47 @@ impl BlockchainService {
     }
 
     /// Build mint transaction data for a specific chain.
+    ///
+    /// Note: key_id is a keystore reference (UUID), not the actual private key.
+    ///
+    /// Uses ChainFacade::build_contract_call to properly delegate transaction
+    /// building to the appropriate chain adapter.
     async fn build_mint_transaction_data(
         &self,
         chain: Chain,
         right_id: &str,
         owner: &str,
         contract_address: &str,
-        private_key: &str,
+        _key_id: &str, // Keystore reference, not actual private key
     ) -> Result<UnsignedTransaction, BlockchainError> {
-        let signer_addr = signer_address_for_chain(chain, owner, Some(private_key));
+        // Address derivation happens through the signer/keystore, not with raw key
+        let signer_addr = owner.to_string(); // Use owner address directly
         let nonce = self.get_nonce(chain, &signer_addr).await?;
         let gas_price = self.get_gas_price(chain).await.unwrap_or(1000000000);
 
-        // Build mint transaction data based on chain type
-        let right_bytes = hex::decode(right_id.trim_start_matches("0x")).unwrap_or_default();
+        // Build contract call data using the ChainFacade
+        let client = self.csv_client.as_ref().ok_or_else(|| BlockchainError {
+            message: "CSV client not initialized".to_string(),
+            chain: Some(chain),
+            code: Some(500),
+        })?;
 
-        let data = match chain {
-            Chain::Sui => {
-                // Sui mint using BCS-encoded transaction
-                let owner_bytes =
-                    hex::decode(signer_addr.trim_start_matches("0x")).unwrap_or_default();
-                crate::services::transaction_builder::build_sui_transaction_data(
-                    &signer_addr,
-                    contract_address,
-                    "mint",
-                    vec![right_bytes, owner_bytes],
-                )
-                .map_err(|e| BlockchainError {
-                    message: format!("Failed to build Sui mint transaction: {}", e),
-                    chain: Some(Chain::Sui),
-                    code: None,
-                })?
-            }
-            Chain::Aptos => {
-                // Aptos uses BCS-encoded transactions
-                let owner_bytes =
-                    hex::decode(signer_addr.trim_start_matches("0x")).unwrap_or_default();
-                crate::services::transaction_builder::build_aptos_transaction_data(
-                    &signer_addr,
-                    contract_address,
-                    "mint",
-                    vec![right_bytes, owner_bytes],
-                )?
-            }
-            _ => {
-                // Ethereum and other chains use ABI encoding
-                let owner_bytes = hex::decode(owner.trim_start_matches("0x")).unwrap_or_default();
-                crate::services::transaction_builder::build_abi_call(
-                    "mint(bytes32,address)",
-                    vec![right_bytes, owner_bytes],
-                )
-            }
-        };
+        let facade = client.chain_facade();
+
+        // Prepare arguments for the mint function
+        let right_bytes = hex::decode(right_id.trim_start_matches("0x")).unwrap_or_default();
+        let owner_bytes = hex::decode(signer_addr.trim_start_matches("0x")).unwrap_or_default();
+        let args = vec![right_bytes, owner_bytes];
+
+        // Build the contract call transaction data via facade
+        let data = facade
+            .build_contract_call(chain, contract_address, "mint(bytes32,address)", args, owner, nonce)
+            .await
+            .map_err(|e| BlockchainError {
+                message: format!("Failed to build mint transaction: {}", e),
+                chain: Some(chain),
+                code: Some(500),
+            })?;
 
         Ok(UnsignedTransaction {
             chain,
@@ -1283,36 +722,14 @@ impl BlockchainService {
 
         let tx_hash = match chain {
             Chain::Bitcoin => {
-                // For Bitcoin we use OP_RETURN anchor with TRANSFER opcode
-                // Implementation uses bitcoin_tx module - to be refactored to use adapter facade
-
-                let bitcoin_address =
-                    ChainAccount::derive_address(Chain::Bitcoin, &signer.private_key("")?)
-                        .map_err(|e| BlockchainError {
-                            message: format!("Failed to derive Bitcoin address: {}", e),
-                            chain: Some(Chain::Bitcoin),
-                            code: None,
-                        })?;
-
-                // Build transfer data payload
-                let transfer_data = format!("CSV:TRANSFER:{}:{}", right_id, new_owner).into_bytes();
-
-                // Build and sign transaction
-                let (unsigned_tx, utxo) = bitcoin_tx::build_anchor_transaction(
-                    &bitcoin_address,
-                    &transfer_data,
-                    &self.config.bitcoin_rpc,
-                )
-                .await?;
-
-                let signed_tx = bitcoin_tx::sign_bitcoin_transaction(
-                    &unsigned_tx,
-                    &signer.private_key("")?,
-                    &utxo,
-                    &bitcoin_address,
-                )?;
-
-                bitcoin_tx::broadcast_transaction(&signed_tx, &self.config.bitcoin_rpc).await?
+                // Bitcoin local transfer requires ChainRightOps trait implementation
+                // This must use the csv-adapter facade rather than internal stubs
+                return Err(BlockchainError {
+                    message: "Bitcoin local transfer requires csv-adapter facade. \
+                        Use CsvClient chain_facade().transfer_right() instead.".to_string(),
+                    chain: Some(Chain::Bitcoin),
+                    code: Some(501),
+                });
             }
             Chain::Sui | Chain::Aptos | Chain::Ethereum | Chain::Solana => {
                 // For all smart contract chains, call the simple transfer method
@@ -1339,7 +756,10 @@ impl BlockchainService {
         Ok(tx_hash)
     }
 
-    /// Build transaction data for local right transfer
+    /// Build transaction data for local right transfer.
+    ///
+    /// Uses ChainFacade::build_contract_call to properly delegate transaction
+    /// building to the appropriate chain adapter.
     async fn build_transfer_transaction_data(
         &self,
         chain: Chain,
@@ -1352,27 +772,29 @@ impl BlockchainService {
             .await?;
         let gas_price = self.get_gas_price(chain).await.unwrap_or(1000000000);
 
+        // Build contract call data using the ChainFacade
+        let client = self.csv_client.as_ref().ok_or_else(|| BlockchainError {
+            message: "CSV client not initialized".to_string(),
+            chain: Some(chain),
+            code: Some(500),
+        })?;
+
+        let facade = client.chain_facade();
+
+        // Prepare arguments for the transfer function
         let right_bytes = hex::decode(right_id.trim_start_matches("0x")).unwrap_or_default();
         let owner_bytes = hex::decode(new_owner.trim_start_matches("0x")).unwrap_or_default();
+        let args = vec![right_bytes, owner_bytes];
 
-        let data = match chain {
-            Chain::Sui => crate::services::transaction_builder::build_sui_transaction_data(
-                new_owner,
-                contract_address,
-                "csv",
-                vec![right_bytes, owner_bytes],
-            )?,
-            Chain::Aptos => crate::services::transaction_builder::build_aptos_transaction_data(
-                new_owner,
-                contract_address,
-                "csv",
-                vec![right_bytes, owner_bytes],
-            )?,
-            _ => crate::services::transaction_builder::build_abi_call(
-                "transfer(bytes32,address)",
-                vec![right_bytes, owner_bytes],
-            ),
-        };
+        // Build the contract call transaction data via facade
+        let data = facade
+            .build_contract_call(chain, contract_address, "transfer(bytes32,address)", args, new_owner, nonce)
+            .await
+            .map_err(|e| BlockchainError {
+                message: format!("Failed to build transfer transaction: {}", e),
+                chain: Some(chain),
+                code: Some(500),
+            })?;
 
         Ok(UnsignedTransaction {
             chain,
@@ -1581,121 +1003,5 @@ async fn build_evm_lock_transaction(
     })
 }
 
-// ===== Stubs for deleted module functions =====
-
-/// Stub for fetch_sui_gas_objects (from deleted sdk_tx module)
-async fn fetch_sui_gas_objects(
-    _owner: &str,
-    _rpc_url: &str,
-) -> Result<Vec<(String, u64, String)>, BlockchainError> {
-    Err(BlockchainError {
-        message: "fetch_sui_gas_objects not yet reimplemented".to_string(),
-        chain: Some(Chain::Sui),
-        code: None,
-    })
-}
-
-/// Stub for fetch_aptos_sequence (from deleted sdk_tx module)
-async fn fetch_aptos_sequence(_owner: &str, _rpc_url: &str) -> Result<u64, BlockchainError> {
-    Err(BlockchainError {
-        message: "fetch_aptos_sequence not yet reimplemented".to_string(),
-        chain: Some(Chain::Aptos),
-        code: None,
-    })
-}
-
-/// Stub for build_solana_transaction (from deleted solana_tx module)
-async fn build_solana_transaction(
-    _payer: &str,
-    _program_id: &str,
-    _accounts: Vec<crate::services::blockchain::types::SolanaAccountMeta>,
-    _instruction_data: Vec<u8>,
-    _rpc_url: &str,
-) -> Result<crate::services::blockchain::types::SolanaTransaction, BlockchainError> {
-    Err(BlockchainError {
-        message: "build_solana_transaction not yet reimplemented".to_string(),
-        chain: Some(Chain::Solana),
-        code: None,
-    })
-}
-
-/// Stub for broadcast_solana_transaction (from deleted solana_tx module)
-async fn broadcast_solana_transaction(
-    _tx: &crate::services::blockchain::types::SolanaTransaction,
-    _rpc_url: &str,
-) -> Result<String, BlockchainError> {
-    Err(BlockchainError {
-        message: "broadcast_solana_transaction not yet reimplemented".to_string(),
-        chain: Some(Chain::Solana),
-        code: None,
-    })
-}
-
-/// Stub module for bitcoin_tx (deleted module)
-mod bitcoin_tx {
-    use super::*;
-    use crate::services::blockchain::types::BlockchainError;
-
-    pub async fn build_anchor_transaction(
-        _sender_address: &str,
-        _lock_data: &[u8],
-        _rpc_url: &str,
-    ) -> Result<(Vec<u8>, crate::services::blockchain::types::Utxo), BlockchainError> {
-        Err(BlockchainError {
-            message: "bitcoin_tx::build_anchor_transaction not yet reimplemented".to_string(),
-            chain: Some(Chain::Bitcoin),
-            code: None,
-        })
-    }
-
-    pub fn sign_bitcoin_transaction(
-        _unsigned_tx: &[u8],
-        _private_key_hex: &str,
-        _utxo: &crate::services::blockchain::types::Utxo,
-        _sender_address: &str,
-    ) -> Result<Vec<u8>, BlockchainError> {
-        Err(BlockchainError {
-            message: "bitcoin_tx::sign_bitcoin_transaction not yet reimplemented".to_string(),
-            chain: Some(Chain::Bitcoin),
-            code: None,
-        })
-    }
-
-    pub async fn broadcast_transaction(
-        _signed_tx: &[u8],
-        _rpc_url: &str,
-    ) -> Result<String, BlockchainError> {
-        Err(BlockchainError {
-            message: "bitcoin_tx::broadcast_transaction not yet reimplemented".to_string(),
-            chain: Some(Chain::Bitcoin),
-            code: None,
-        })
-    }
-}
-
-/// Stub NativeSigner (from deleted native_signer module)
-pub struct NativeSigner;
-
-impl NativeSigner {
-    pub fn sign_sui(
-        _tx: &UnsignedTransaction,
-        _private_key: &str,
-    ) -> Result<SignedTransaction, BlockchainError> {
-        Err(BlockchainError {
-            message: "NativeSigner::sign_sui not yet reimplemented".to_string(),
-            chain: Some(Chain::Sui),
-            code: None,
-        })
-    }
-
-    pub fn sign_aptos(
-        _tx: &UnsignedTransaction,
-        _private_key: &str,
-    ) -> Result<SignedTransaction, BlockchainError> {
-        Err(BlockchainError {
-            message: "NativeSigner::sign_aptos not yet reimplemented".to_string(),
-            chain: Some(Chain::Aptos),
-            code: None,
-        })
-    }
-}
+// Production code uses csv-adapter facade only - no internal stubs permitted
+// All chain operations must route through CsvClient chain_facade() methods

@@ -197,6 +197,9 @@ impl ScalableClientBuilder {
             }
         }
 
+        // Create the chain facade
+        let chain_facade = crate::facade::ChainFacade::new(Arc::new(crate::client::ClientRef::new()));
+
         Ok(crate::client::CsvClient {
             enabled_chains: core_chains,
             wallet: self.state.wallet,
@@ -204,6 +207,7 @@ impl ScalableClientBuilder {
             config,
             event_tx: tokio::sync::broadcast::channel(256).0,
             chain_registry: self.state.chain_registry,
+            chain_facade,
         })
     }
 }

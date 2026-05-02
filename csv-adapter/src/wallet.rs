@@ -230,10 +230,9 @@ impl Wallet {
         #[cfg(feature = "bitcoin")]
         {
             use csv_adapter_bitcoin::wallet::{Bip86Path, SealWallet};
-            use csv_adapter_bitcoin::types::Network;
 
             // Create wallet from seed (using regtest network for derivation)
-            let wallet = SealWallet::from_seed(&self.seed, Network::Regtest)
+            let wallet = SealWallet::from_seed(&self.seed, bitcoin::Network::Regtest)
                 .expect("Failed to create Bitcoin wallet from seed");
 
             // Derive external address at specified account and index
@@ -325,5 +324,45 @@ impl WalletManager {
     /// Sign a message with the appropriate key for the given chain.
     pub fn sign(&self, chain: Chain, message: &[u8; 32]) -> Vec<u8> {
         self.wallet.sign(chain, message)
+    }
+
+    /// Query balance for an address on a chain.
+    ///
+    /// # Note
+    ///
+    /// This operation requires RPC connectivity through a configured chain adapter.
+    /// The facade delegates to chain adapters implementing the [`ChainQuery`] trait
+    /// from csv-adapter-core.
+    ///
+    /// # Errors
+    ///
+    /// - [`ChainNotSupported`] if the chain is not enabled.
+    /// - [`ChainNotEnabled`] if RPC is not configured for this chain.
+    /// - [`NetworkError`] if the RPC call fails.
+    pub async fn query_balance(&self, chain: Chain, address: &str) -> Result<u64, crate::CsvError> {
+        // Validate the address format for the chain
+        if address.is_empty() {
+            return Err(crate::CsvError::InvalidRightId(
+                "Address cannot be empty".to_string(),
+            ));
+        }
+
+        // The full implementation requires:
+        // 1. A configured chain adapter implementing ChainQuery trait
+        // 2. RPC endpoint configured for the target chain
+        // 3. The adapter's get_balance() method is called
+        //
+        // Since the WalletManager only has access to the Wallet (not the full client),
+        // balance queries should be performed through CsvClient::wallet() when
+        // the client has chain adapters configured.
+        //
+        // For now, we return a typed error indicating the capability is not enabled.
+        // This follows Phase 4 of the Production Guarantee Plan: "fail closed"
+        // rather than providing artificial responses.
+        Err(crate::CsvError::ChainNotEnabled(format!(
+            "Balance query for {} on {:?} requires configured chain adapter with RPC endpoint. \
+             Use CsvClient::wallet() when client is built with chain configuration.",
+            address, chain
+        )))
     }
 }

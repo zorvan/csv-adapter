@@ -766,6 +766,23 @@ impl AnchorLayer for SuiAnchorLayer {
     }
 }
 
+impl SuiAnchorLayer {
+    /// Get RPC client reference for chain_operations (crate-visible)
+    pub(crate) fn get_rpc(&self) -> &dyn SuiRpc {
+        self.rpc.as_ref()
+    }
+
+    /// Get domain separator (crate-visible)
+    pub(crate) fn get_domain_separator(&self) -> [u8; 32] {
+        self.domain_separator
+    }
+
+    /// Get event builder config for creating new builder (crate-visible)
+    pub(crate) fn event_builder_config(&self) -> ([u8; 32], String) {
+        (self.event_builder.module_address, self.event_builder.event_type.clone())
+    }
+}
+
 #[cfg(all(test, debug_assertions))]
 mod tests {
     use super::*;

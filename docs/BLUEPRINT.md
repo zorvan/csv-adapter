@@ -1,7 +1,8 @@
 # CSV Adapter Blueprint
 
 **Status:** Canonical product and engineering blueprint  
-**Last updated:** April 30, 2026  
+**Last updated:** May 2, 2026  
+**Evaluation:** [Production Evaluation](PRODUCTION_EVALUATION.md) - Production-Candidate Status  
 **Related docs:** [Motivation](MOTIVATION.md), [Architecture](ARCHITECTURE.md), [Specification](SPECIFICATION.md), [Developer Guide](DEVELOPER_GUIDE.md), [Production Guarantee Plan](PRODUCTION_GUARANTEE_PLAN.md)
 
 ---
@@ -33,15 +34,24 @@ The repository already has substantial foundations:
 - Contracts/programs exist for Ethereum, Sui, Aptos, and Solana.
 - The contracts are moving toward shared lifecycle names and shared metadata for tokens, NFTs, and advanced proofs.
 
-The repository is not yet production-guaranteeable. The main blockers are:
+The repository has reached production-candidate status. Per the [Production Evaluation](PRODUCTION_EVALUATION.md):
 
-- duplicated chain behavior across adapter crates, CLI, wallet, and explorer
-- production-path placeholders and simulations in several modules
-- wallet and CLI paths that still need stricter keystore-only key handling
-- incomplete "real" RPC/deploy/proof paths in some adapters
-- inconsistent use of the unified facade from all surfaces
+**Completed:**
+- ✅ Strong protocol center in `csv-adapter-core` with canonical types
+- ✅ Clean adapter boundaries via `AnchorLayer` and `FullChainAdapter` traits
+- ✅ Native SDK compliance across all chains (Bitcoin, Ethereum, Sui, Aptos, Solana)
+- ✅ Unified facade (`ChainFacade`) for CLI, wallet, and explorer
+- ✅ Event schema standardization with shared `CsvEvent` types
+- ✅ CI guarantee gates (8 phases) enforcing production standards
 
-The production bar is defined in [Production Guarantee Plan](PRODUCTION_GUARANTEE_PLAN.md). This blueprint explains what the project should become; the guarantee plan explains how to prove it.
+**Remaining Work (Non-Blocking):**
+- ✅ CLI/wallet facade convergence audit - 100% facade usage verified
+- ✅ Example cleanup - All 4 examples created
+- ✅ Explorer indexer chain plugins - All 5 chains registered
+- ⚠️ Testnet integration test execution (tests exist, need testnet runs)
+- ⚠️ WASM wallet optimization (pending)
+
+The production bar is defined in [Production Guarantee Plan](PRODUCTION_GUARANTEE_PLAN.md). This blueprint explains what the project should become; the guarantee plan explains how to prove it. The [Production Evaluation](PRODUCTION_EVALUATION.md) provides the comprehensive assessment leading to production-candidate status.
 
 ---
 

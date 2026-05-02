@@ -90,10 +90,13 @@ pub trait AptosRpc: Send + Sync + 'static {
     {
         self
     }
+
+    /// Clone the RPC client for creating new boxed instances
+    fn clone_boxed(&self) -> Box<dyn AptosRpc>;
 }
 
 /// Aptos ledger info
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct AptosLedgerInfo {
     pub chain_id: u64,
     pub epoch: u64,
@@ -108,6 +111,36 @@ pub struct AptosLedgerInfo {
 #[derive(Clone, Debug)]
 pub struct AptosResource {
     pub data: Vec<u8>,
+}
+
+impl AptosResource {
+    /// Parse coin balance from BCS-encoded CoinStore resource data
+    ///
+    /// Aptos CoinStore<T> has the following BCS structure:
+    /// - coin: Coin<T> { value: u64 }
+    /// - frozen: bool
+    /// - deposit_events: EventHandle
+    /// - withdraw_events: EventHandle
+    ///
+    /// The BCS layout for CoinStore<0x1::aptos_coin::AptosCoin>:
+    /// - coin.value: u64 (8 bytes, little-endian) at offset 0
+    pub fn parse_coin_balance(&self) -> Option<u64> {
+        // CoinStore minimum BCS size: coin (8 bytes for value) + frozen (1 byte) + events
+        // We need at least 8 bytes for the coin value
+        if self.data.len() < 8 {
+            return None;
+        }
+
+        // Parse u64 from first 8 bytes (little-endian)
+        // The coin.value field is the first field in CoinStore
+        let value_bytes = &self.data[0..8];
+        let balance = u64::from_le_bytes([
+            value_bytes[0], value_bytes[1], value_bytes[2], value_bytes[3],
+            value_bytes[4], value_bytes[5], value_bytes[6], value_bytes[7],
+        ]);
+
+        Some(balance)
+    }
 }
 
 /// Aptos transaction
@@ -440,6 +473,22 @@ impl AptosRpc for MockAptosRpc {
 
     fn as_any(&self) -> &dyn std::any::Any {
         self
+    }
+
+    fn clone_boxed(&self) -> Box<dyn AptosRpc> {
+        let tx_count = self.tx_counter.load(std::sync::atomic::Ordering::SeqCst);
+        Box::new(MockAptosRpc {
+            latest_version: self.latest_version,
+            chain_id: self.chain_id,
+            test_address: self.test_address,
+            tx_counter: std::sync::atomic::AtomicU64::new(tx_count),
+            resources: std::sync::Mutex::new(self.resources.lock().unwrap().clone()),
+            transactions: std::sync::Mutex::new(self.transactions.lock().unwrap().clone()),
+            events: std::sync::Mutex::new(self.events.lock().unwrap().clone()),
+            blocks: std::sync::Mutex::new(self.blocks.lock().unwrap().clone()),
+            sent_transactions: std::sync::Mutex::new(self.sent_transactions.lock().unwrap().clone()),
+            next_tx_events: std::sync::Mutex::new(self.next_tx_events.lock().unwrap().clone()),
+        })
     }
 }
 

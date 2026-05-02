@@ -120,15 +120,25 @@ pub trait RpcClient: Send + Sync {
 }
 
 /// Standard interface for chain wallets
+///
+/// Security note: This trait intentionally does not expose raw private key material.
+/// All signing operations happen internally. Use `key_id()` for key reference only.
 #[async_trait]
 pub trait Wallet: Send + Sync {
     /// Get wallet address
     fn address(&self) -> &str;
 
-    /// Get private key (encrypted)
-    fn private_key(&self) -> &str;
+    /// Get key identifier (not the actual private key)
+    ///
+    /// This returns a reference/key ID that can be used with the keystore
+    /// to retrieve the actual key for signing operations. Never returns
+    /// raw private key material.
+    fn key_id(&self) -> &str;
 
-    /// Sign transaction data
+    /// Sign transaction data using the wallet's internal key
+    ///
+    /// The signing happens internally - private key is never exposed.
+    /// This is the secure way to sign transactions.
     async fn sign_transaction(&self, data: &[u8]) -> ChainResult<Vec<u8>>;
 
     /// Verify signature
@@ -138,6 +148,10 @@ pub trait Wallet: Send + Sync {
     fn generate_address(&self) -> ChainResult<String>;
 
     /// Import from private key
+    ///
+    /// # Security
+    /// The private key is consumed and stored securely. It is not retained
+    /// in memory after import.
     fn import_from_private_key(&self, private_key: &str) -> ChainResult<()>;
 }
 

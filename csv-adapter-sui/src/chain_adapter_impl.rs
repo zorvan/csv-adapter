@@ -29,13 +29,38 @@ impl SuiRpcClient {
 
 #[async_trait]
 impl RpcClient for SuiRpcClient {
-    async fn send_transaction(&self, tx: &[u8]) -> ChainResult<String> {
-        // Sui transactions are BCS-encoded TransactionData
-        // Submit via the RPC
-        let _ = tx;
-        Err(ChainError::NotImplemented(
-            "Sui transaction submission".to_string(),
-        ))
+    async fn send_transaction(&self, signed_tx: &[u8]) -> ChainResult<String> {
+        // Sui transactions are BCS-encoded TransactionData with signatures
+        // Format: [tx_bytes_len:4][tx_bytes][signature:64][public_key:32]
+
+        if signed_tx.len() < 4 + 64 + 32 {
+            return Err(ChainError::InvalidInput(
+                "Signed transaction too short for Sui format".to_string(),
+            ));
+        }
+
+        // Parse the transaction length prefix
+        let tx_len = u32::from_le_bytes([
+            signed_tx[0], signed_tx[1], signed_tx[2], signed_tx[3],
+        ]) as usize;
+
+        if signed_tx.len() < 4 + tx_len + 64 + 32 {
+            return Err(ChainError::InvalidInput(
+                "Invalid Sui transaction format".to_string(),
+            ));
+        }
+
+        let tx_bytes = signed_tx[4..4 + tx_len].to_vec();
+        let signature = signed_tx[4 + tx_len..4 + tx_len + 64].to_vec();
+        let public_key = signed_tx[4 + tx_len + 64..4 + tx_len + 64 + 32].to_vec();
+
+        // Submit via execute_signed_transaction
+        let digest = self
+            .inner
+            .execute_signed_transaction(tx_bytes, signature, public_key)
+            .map_err(|e| ChainError::RpcError(format!("Transaction submission failed: {}", e)))?;
+
+        Ok(format!("0x{}", hex::encode(digest)))
     }
 
     async fn get_transaction(&self, hash: &str) -> ChainResult<serde_json::Value> {
@@ -89,16 +114,27 @@ impl RpcClient for SuiRpcClient {
             .map_err(|e| ChainError::RpcError(format!("{:?}", e)))?;
 
         // Sum up SUI coins
-        let mut total_balance = 0u64;
+        // Note: Proper balance extraction requires parsing the BCS-encoded coin object data
+        // to get the actual balance field. The SuiObject struct needs enhancement to include
+        // parsed object content or a dedicated balance field for coin types.
+        //
+        // For production use, this must be implemented using the Sui SDK's object parsing
+        // capabilities to extract the actual balance from Coin<SUI> objects.
+        let _total_balance = 0u64;
         for obj in objects {
             if obj.object_type == "0x2::coin::Coin<0x2::sui::SUI>" {
-                // Coin objects have balance in their data
-                // Simplified - actual parsing would depend on object structure
-                total_balance += obj.version; // Placeholder
+                // Placeholder: In real implementation, parse BCS content to get balance
+                // This prevents returning incorrect balance data in production
+                let _ = obj; // Acknowledge we're using the object
             }
         }
 
-        Ok(total_balance)
+        // Return capability unavailable error instead of fake balance
+        Err(ChainError::NotImplemented(
+            "SUI balance extraction from coin objects requires BCS parsing. \
+             This capability is not yet fully implemented. \
+             Rebuild with 'sui-full-balance' feature when available.".to_string()
+        ))
     }
 
     async fn is_transaction_confirmed(&self, hash: &str) -> ChainResult<bool> {
@@ -153,9 +189,9 @@ impl Wallet for SuiWallet {
         &self.address
     }
 
-    fn private_key(&self) -> &str {
-        // Ed25519 keys not exposed directly
-        ""
+    fn key_id(&self) -> &str {
+        // Return the address as the key identifier
+        &self.address
     }
 
     async fn sign_transaction(&self, data: &[u8]) -> ChainResult<Vec<u8>> {

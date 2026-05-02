@@ -33,13 +33,16 @@ use std::sync::Arc;
 
 use csv_adapter_core::Chain;
 use csv_adapter_core::ChainRegistry;
+#[cfg(feature = "tokio")]
 use tokio::sync::broadcast;
 
 use crate::builder::ClientBuilder;
 use crate::config::Config;
 use crate::deploy::DeploymentManager;
 use crate::errors::CsvError;
+#[cfg(feature = "tokio")]
 use crate::events::EventStream;
+use crate::facade::ChainFacade;
 use crate::proofs::ProofManager;
 use crate::rights::RightsManager;
 use crate::scalable_builder_v2::ScalableClientBuilder;
@@ -54,6 +57,102 @@ pub enum StoreHandle {
     /// SQLite-backed store (requires `sqlite` feature).
     #[cfg(feature = "sqlite")]
     Sqlite(csv_adapter_store::SqliteSealStore),
+}
+
+impl StoreHandle {
+    /// Save a Right to the store.
+    pub fn save_right(&mut self, record: &csv_adapter_core::RightRecord) -> Result<(), CsvError> {
+        use csv_adapter_core::RightStore;
+        match self {
+            StoreHandle::InMemory(store) => store
+                .save_right(record)
+                .map_err(|e| CsvError::StoreError(e.to_string())),
+            #[cfg(feature = "sqlite")]
+            StoreHandle::Sqlite(store) => store
+                .save_right(record)
+                .map_err(|e| CsvError::StoreError(e.to_string())),
+        }
+    }
+
+    /// Get a Right by its ID.
+    pub fn get_right(
+        &self,
+        right_id: &csv_adapter_core::RightId,
+    ) -> Result<Option<csv_adapter_core::RightRecord>, CsvError> {
+        use csv_adapter_core::RightStore;
+        match self {
+            StoreHandle::InMemory(store) => store
+                .get_right(right_id)
+                .map_err(|e| CsvError::StoreError(e.to_string())),
+            #[cfg(feature = "sqlite")]
+            StoreHandle::Sqlite(store) => store
+                .get_right(right_id)
+                .map_err(|e| CsvError::StoreError(e.to_string())),
+        }
+    }
+
+    /// List all Rights for a specific chain.
+    pub fn list_rights_by_chain(
+        &self,
+        chain: &str,
+    ) -> Result<Vec<csv_adapter_core::RightRecord>, CsvError> {
+        use csv_adapter_core::RightStore;
+        match self {
+            StoreHandle::InMemory(store) => store
+                .list_rights_by_chain(chain)
+                .map_err(|e| CsvError::StoreError(e.to_string())),
+            #[cfg(feature = "sqlite")]
+            StoreHandle::Sqlite(store) => store
+                .list_rights_by_chain(chain)
+                .map_err(|e| CsvError::StoreError(e.to_string())),
+        }
+    }
+
+    /// Mark a Right as consumed.
+    pub fn consume_right(
+        &mut self,
+        right_id: &csv_adapter_core::RightId,
+        consumed_at: u64,
+    ) -> Result<(), CsvError> {
+        use csv_adapter_core::RightStore;
+        match self {
+            StoreHandle::InMemory(store) => store
+                .consume_right(right_id, consumed_at)
+                .map_err(|e| CsvError::StoreError(e.to_string())),
+            #[cfg(feature = "sqlite")]
+            StoreHandle::Sqlite(store) => store
+                .consume_right(right_id, consumed_at)
+                .map_err(|e| CsvError::StoreError(e.to_string())),
+        }
+    }
+
+    /// List all active (unconsumed) Rights.
+    pub fn list_active_rights(&self) -> Result<Vec<csv_adapter_core::RightRecord>, CsvError> {
+        use csv_adapter_core::RightStore;
+        match self {
+            StoreHandle::InMemory(store) => store
+                .list_active_rights()
+                .map_err(|e| CsvError::StoreError(e.to_string())),
+            #[cfg(feature = "sqlite")]
+            StoreHandle::Sqlite(store) => store
+                .list_active_rights()
+                .map_err(|e| CsvError::StoreError(e.to_string())),
+        }
+    }
+
+    /// Check if a Right exists.
+    pub fn has_right(&self, right_id: &csv_adapter_core::RightId) -> Result<bool, CsvError> {
+        use csv_adapter_core::RightStore;
+        match self {
+            StoreHandle::InMemory(store) => store
+                .has_right(right_id)
+                .map_err(|e| CsvError::StoreError(e.to_string())),
+            #[cfg(feature = "sqlite")]
+            StoreHandle::Sqlite(store) => store
+                .has_right(right_id)
+                .map_err(|e| CsvError::StoreError(e.to_string())),
+        }
+    }
 }
 
 /// The unified CSV client.
@@ -76,9 +175,14 @@ pub struct CsvClient {
     /// Configuration.
     pub(crate) config: Config,
     /// Event broadcast channel sender.
+    #[cfg(feature = "tokio")]
     pub(crate) event_tx: broadcast::Sender<crate::events::Event>,
+    #[cfg(not(feature = "tokio"))]
+    pub(crate) event_tx: (),
     /// Chain registry for dynamic chain management.
     pub(crate) chain_registry: Option<Arc<ChainRegistry>>,
+    /// Chain facade for unified chain operations.
+    pub(crate) chain_facade: ChainFacade,
 }
 
 impl CsvClient {
@@ -187,6 +291,7 @@ impl CsvClient {
     ///
     /// Returns a stream that receives events emitted by this client
     /// and its managers.
+    #[cfg(feature = "tokio")]
     pub fn watch(&self) -> EventStream {
         EventStream::new(self.event_tx.subscribe())
     }
@@ -211,11 +316,28 @@ impl CsvClient {
         &self.config
     }
 
+    /// Get a reference to the chain facade for unified chain operations.
+    ///
+    /// The chain facade provides all chain operations (balance queries,
+    /// transaction signing, broadcasting, proof generation, etc.) through
+    /// a unified interface that delegates to the appropriate chain adapters.
+    pub fn chain_facade(&self) -> &ChainFacade {
+        &self.chain_facade
+    }
+
     /// Emit an event to all event stream subscribers.
+    #[cfg(feature = "tokio")]
     #[allow(dead_code)]
     pub(crate) fn emit_event(&self, event: crate::events::Event) {
         // Best-effort: ignore if no receivers
         let _ = self.event_tx.send(event);
+    }
+
+    /// Emit an event (no-op when tokio feature is disabled)
+    #[cfg(not(feature = "tokio"))]
+    #[allow(dead_code)]
+    pub(crate) fn emit_event(&self, _event: crate::events::Event) {
+        // No-op: event system requires tokio feature
     }
 
     // Internal: create a cheap clone reference for managers
@@ -227,6 +349,7 @@ impl CsvClient {
             config: self.config.clone(),
             event_tx: self.event_tx.clone(),
             chain_registry: self.chain_registry.clone(),
+            chain_facade: Some(self.chain_facade.clone()),
         }
     }
 }
@@ -244,17 +367,52 @@ pub(crate) struct ClientRef {
     pub(crate) store: Arc<std::sync::Mutex<StoreHandle>>,
     #[allow(dead_code)]
     pub(crate) config: Config,
+    #[cfg(feature = "tokio")]
     pub(crate) event_tx: broadcast::Sender<crate::events::Event>,
+    #[cfg(not(feature = "tokio"))]
+    pub(crate) event_tx: (),
     #[allow(dead_code)]
     pub(crate) chain_registry: Option<Arc<ChainRegistry>>,
+    /// Chain facade for unified chain operations.
+    #[allow(dead_code)]
+    pub(crate) chain_facade: Option<crate::facade::ChainFacade>,
 }
 
 impl ClientRef {
+    /// Create a new empty ClientRef (used by AdapterFacade for testing)
+    #[allow(dead_code)]
+    pub(crate) fn new() -> Self {
+        #[cfg(feature = "tokio")]
+        use tokio::sync::broadcast;
+        #[cfg(feature = "tokio")]
+        let event_tx = broadcast::channel(256).0;
+        #[cfg(not(feature = "tokio"))]
+        let event_tx = ();
+        
+        Self {
+            enabled_chains: HashSet::new(),
+            wallet: None,
+            store: Arc::new(std::sync::Mutex::new(crate::client::StoreHandle::InMemory(
+                csv_adapter_core::InMemorySealStore::new()
+            ))),
+            config: Config::default(),
+            event_tx,
+            chain_registry: None,
+            chain_facade: None,
+        }
+    }
+
     pub(crate) fn is_chain_enabled(&self, chain: Chain) -> bool {
         self.enabled_chains.contains(&chain)
     }
 
+    #[cfg(feature = "tokio")]
     pub(crate) fn emit_event(&self, event: crate::events::Event) {
         let _ = self.event_tx.send(event);
+    }
+
+    #[cfg(not(feature = "tokio"))]
+    pub(crate) fn emit_event(&self, _event: crate::events::Event) {
+        // No-op: event system requires tokio feature
     }
 }

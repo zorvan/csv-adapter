@@ -31,7 +31,7 @@ pub trait EthereumRpc: Send + Sync {
     fn get_transaction_receipt(
         &self,
         tx_hash: [u8; 32],
-    ) -> Result<TransactionReceipt, Box<dyn std::error::Error + Send + Sync>>;
+    ) -> Result<Option<TransactionReceipt>, Box<dyn std::error::Error + Send + Sync>>;
 
     /// Get block by hash (returns state root)
     fn get_block_state_root(
@@ -73,6 +73,24 @@ pub trait EthereumRpc: Send + Sync {
     fn as_any(&self) -> Option<&dyn std::any::Any> {
         None
     }
+
+    /// Clone the RPC client for creating new boxed instances
+    fn clone_boxed(&self) -> Box<dyn EthereumRpc>;
+
+    /// Get current gas price
+    fn get_gas_price(&self) -> Result<u64, Box<dyn std::error::Error + Send + Sync>>;
+
+    /// Get block by number (returns full block info)
+    fn get_block_by_number(
+        &self,
+        block_number: u64,
+    ) -> Result<Option<RpcBlock>, Box<dyn std::error::Error + Send + Sync>>;
+
+    /// Get transaction by hash
+    fn get_transaction(
+        &self,
+        tx_hash: [u8; 32],
+    ) -> Result<Option<RpcTransaction>, Box<dyn std::error::Error + Send + Sync>>;
 }
 
 /// Storage proof response (matches eth_getProof format)
@@ -137,6 +155,38 @@ pub struct LogEntry {
     pub log_index: u64,
 }
 
+/// RPC Block representation
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct RpcBlock {
+    /// Block number
+    pub number: u64,
+    /// Block hash
+    pub hash: [u8; 32],
+    /// State root
+    pub state_root: [u8; 32],
+    /// Timestamp
+    pub timestamp: u64,
+}
+
+/// RPC Transaction representation
+#[derive(Clone, Debug)]
+pub struct RpcTransaction {
+    /// Transaction hash
+    pub hash: [u8; 32],
+    /// Sender address
+    pub from: [u8; 20],
+    /// Recipient address (None for contract creation)
+    pub to: Option<[u8; 20]>,
+    /// Transaction value
+    pub value: Option<u64>,
+    /// Gas price
+    pub gas_price: Option<u64>,
+    /// Gas used
+    pub gas: u64,
+    /// Block number
+    pub block_number: Option<u64>,
+}
+
 /// Mock Ethereum RPC for testing
 ///
 /// This implementation is only compiled in test builds to prevent
@@ -150,11 +200,24 @@ pub struct MockEthereumRpc {
     pub receipts: Mutex<HashMap<[u8; 32], TransactionReceipt>>,
     pub sent_transactions: Mutex<Vec<Vec<u8>>>,
     pub state_roots: Mutex<HashMap<[u8; 32], [u8; 32]>>,
+    pub blocks: Mutex<HashMap<u64, RpcBlock>>,
+    pub transactions: Mutex<HashMap<[u8; 32], RpcTransaction>>,
+    pub gas_price: u64,
 }
 
 #[cfg(test)]
 impl MockEthereumRpc {
     pub fn new(block_number: u64) -> Self {
+        let mut blocks = HashMap::new();
+        // Create a default block at the current block number
+        let block = RpcBlock {
+            number: block_number,
+            hash: [0u8; 32],
+            state_root: [0u8; 32],
+            timestamp: 0,
+        };
+        blocks.insert(block_number, block);
+        
         Self {
             block_number,
             finalized_block: Some(block_number.saturating_sub(64)),
@@ -162,7 +225,22 @@ impl MockEthereumRpc {
             receipts: Mutex::new(HashMap::new()),
             sent_transactions: Mutex::new(Vec::new()),
             state_roots: Mutex::new(HashMap::new()),
+            blocks: Mutex::new(blocks),
+            transactions: Mutex::new(HashMap::new()),
+            gas_price: 20_000_000_000, // 20 Gwei default
         }
+    }
+
+    pub fn add_block(&self, block: RpcBlock) {
+        self.blocks.lock().unwrap().insert(block.number, block);
+    }
+
+    pub fn add_transaction(&self, tx: RpcTransaction) {
+        self.transactions.lock().unwrap().insert(tx.hash, tx);
+    }
+
+    pub fn set_gas_price(&mut self, price: u64) {
+        self.gas_price = price;
     }
 
     pub fn set_storage(&self, address: [u8; 20], key: [u8; 32], value: Vec<u8>) {
@@ -236,16 +314,9 @@ impl EthereumRpc for MockEthereumRpc {
     fn get_transaction_receipt(
         &self,
         tx_hash: [u8; 32],
-    ) -> Result<TransactionReceipt, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<Option<TransactionReceipt>, Box<dyn std::error::Error + Send + Sync>> {
         let receipts = self.receipts.lock().unwrap();
-        receipts.get(&tx_hash).cloned().ok_or_else(
-            || -> Box<dyn std::error::Error + Send + Sync> {
-                Box::new(std::io::Error::new(
-                    std::io::ErrorKind::NotFound,
-                    "Receipt not found",
-                ))
-            },
-        )
+        Ok(receipts.get(&tx_hash).cloned())
     }
 
     fn get_block_state_root(
@@ -300,6 +371,38 @@ impl EthereumRpc for MockEthereumRpc {
 
     fn as_any(&self) -> Option<&dyn std::any::Any> {
         Some(self)
+    }
+
+    fn clone_boxed(&self) -> Box<dyn EthereumRpc> {
+        Box::new(MockEthereumRpc {
+            block_number: self.block_number,
+            finalized_block: self.finalized_block,
+            storage_values: Mutex::new(self.storage_values.lock().unwrap().clone()),
+            receipts: Mutex::new(self.receipts.lock().unwrap().clone()),
+            sent_transactions: Mutex::new(self.sent_transactions.lock().unwrap().clone()),
+            state_roots: Mutex::new(self.state_roots.lock().unwrap().clone()),
+            blocks: Mutex::new(self.blocks.lock().unwrap().clone()),
+            transactions: Mutex::new(self.transactions.lock().unwrap().clone()),
+            gas_price: self.gas_price,
+        })
+    }
+
+    fn get_gas_price(&self) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
+        Ok(self.gas_price)
+    }
+
+    fn get_block_by_number(
+        &self,
+        block_number: u64,
+    ) -> Result<Option<RpcBlock>, Box<dyn std::error::Error + Send + Sync>> {
+        Ok(self.blocks.lock().unwrap().get(&block_number).cloned())
+    }
+
+    fn get_transaction(
+        &self,
+        tx_hash: [u8; 32],
+    ) -> Result<Option<RpcTransaction>, Box<dyn std::error::Error + Send + Sync>> {
+        Ok(self.transactions.lock().unwrap().get(&tx_hash).cloned())
     }
 }
 

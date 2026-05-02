@@ -181,13 +181,33 @@ impl ClientBuilder {
             ),
         };
 
+        let store_arc = Arc::new(std::sync::Mutex::new(store));
+        #[cfg(feature = "tokio")]
+        let event_tx = tokio::sync::broadcast::channel(256).0;
+        #[cfg(not(feature = "tokio"))]
+        let event_tx = ();
+
+        // Create the chain facade
+        // Note: ClientRef initially has no chain_facade to avoid circular dependency
+        let client_ref = Arc::new(crate::client::ClientRef {
+            enabled_chains: self.state.enabled_chains.clone(),
+            wallet: self.state.wallet.clone(),
+            store: store_arc.clone(),
+            config: config.clone(),
+            event_tx: event_tx.clone(),
+            chain_registry: self.state.chain_registry.clone(),
+            chain_facade: None,
+        });
+        let chain_facade = crate::facade::ChainFacade::new(client_ref);
+
         Ok(crate::client::CsvClient {
             enabled_chains: self.state.enabled_chains,
             wallet: self.state.wallet,
-            store: Arc::new(std::sync::Mutex::new(store)),
+            store: store_arc,
             config,
             chain_registry: self.state.chain_registry.clone(),
-            event_tx: tokio::sync::broadcast::channel(256).0,
+            event_tx,
+            chain_facade,
         })
     }
 

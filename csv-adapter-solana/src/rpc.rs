@@ -1,11 +1,9 @@
 //! RPC client for Solana adapter
 
-#[cfg(feature = "rpc")]
-use std::time::Duration;
-
 use solana_sdk::{
     account::Account, pubkey::Pubkey, signature::Signature, transaction::Transaction,
 };
+use solana_commitment_config::CommitmentConfig;
 
 use crate::error::{SolanaError, SolanaResult};
 use crate::types::{AccountChange, ConfirmationStatus};
@@ -53,6 +51,9 @@ pub trait SolanaRpc: Send + Sync {
 
     /// Get balance for account
     async fn get_balance(&self, pubkey: &Pubkey) -> SolanaResult<u64>;
+
+    /// Clone the RPC client for creating new boxed instances
+    fn clone_boxed(&self) -> Box<dyn SolanaRpc>;
 }
 
 /// Real RPC client implementation using solana-rpc-client
@@ -72,10 +73,10 @@ impl RealSolanaRpc {
     /// Create with specific commitment level
     pub fn with_commitment(rpc_url: &str, commitment: &str) -> Self {
         let commitment_config = match commitment {
-            "processed" => solana_sdk::commitment_config::CommitmentConfig::processed(),
-            "confirmed" => solana_sdk::commitment_config::CommitmentConfig::confirmed(),
-            "finalized" => solana_sdk::commitment_config::CommitmentConfig::finalized(),
-            _ => solana_sdk::commitment_config::CommitmentConfig::confirmed(),
+            "processed" => CommitmentConfig::processed(),
+            "confirmed" => CommitmentConfig::confirmed(),
+            "finalized" => CommitmentConfig::finalized(),
+            _ => CommitmentConfig::confirmed(),
         };
         let client = solana_rpc_client::rpc_client::RpcClient::new_with_commitment(
             rpc_url.to_string(),
@@ -109,13 +110,17 @@ impl SolanaRpc for RealSolanaRpc {
     }
 
     async fn get_transaction(&self, signature: &Signature) -> SolanaResult<String> {
-        let tx = self
+        // Use get_signature_status to check if transaction exists and return status info
+        let status = self
             .client
-            .get_transaction(signature, solana_sdk::commitment_config::UiTransactionEncoding::Json)
-            .map_err(|e| SolanaError::Rpc(format!("Failed to get transaction: {}", e)))?;
-
-        serde_json::to_string(&tx)
-            .map_err(|e| SolanaError::Serialization(format!("Failed to serialize transaction: {}", e)))
+            .get_signature_status(signature)
+            .map_err(|e| SolanaError::Rpc(format!("Failed to get transaction status: {}", e)))?;
+        
+        match status {
+            Some(Ok(())) => Ok(format!("Transaction {{ signature: {} }}", signature)),
+            Some(Err(e)) => Err(SolanaError::TransactionFailed(format!("Transaction failed: {:?}", e))),
+            None => Err(SolanaError::Rpc("Transaction not found".to_string())),
+        }
     }
 
     async fn send_transaction(&self, transaction: &Transaction) -> SolanaResult<Signature> {
@@ -132,10 +137,10 @@ impl SolanaRpc for RealSolanaRpc {
 
     async fn get_slot_with_commitment(&self, commitment: &str) -> SolanaResult<u64> {
         let commitment_config = match commitment {
-            "processed" => solana_sdk::commitment_config::CommitmentConfig::processed(),
-            "confirmed" => solana_sdk::commitment_config::CommitmentConfig::confirmed(),
-            "finalized" => solana_sdk::commitment_config::CommitmentConfig::finalized(),
-            _ => solana_sdk::commitment_config::CommitmentConfig::confirmed(),
+            "processed" => CommitmentConfig::processed(),
+            "confirmed" => CommitmentConfig::confirmed(),
+            "finalized" => CommitmentConfig::finalized(),
+            _ => CommitmentConfig::confirmed(),
         };
 
         self.client
@@ -163,25 +168,35 @@ impl SolanaRpc for RealSolanaRpc {
         let max_retries = 30;
 
         while retries < max_retries {
-            match self.client.get_signature_statuses(&[*signature]) {
-                Ok(response) => {
-                    if let Some(Some(status)) = response.value.get(0) {
-                        if status.confirmation_status.is_some() {
-                            let conf_status = status.confirmation_status.as_ref().unwrap();
-                            return Ok(match conf_status {
-                                solana_rpc_client::rpc_client::TransactionConfirmationStatus::Processed => ConfirmationStatus::Processed,
-                                solana_rpc_client::rpc_client::TransactionConfirmationStatus::Confirmed => ConfirmationStatus::Confirmed,
-                                solana_rpc_client::rpc_client::TransactionConfirmationStatus::Finalized => ConfirmationStatus::Finalized,
-                            });
+            // Check signature status to determine confirmation
+            match self.client.get_signature_status(signature) {
+                Ok(Some(Ok(()))) => {
+                    // Transaction confirmed - check if finalized by looking at block height
+                    match self.client.get_slot_with_commitment(CommitmentConfig::finalized()) {
+                        Ok(finalized_slot) => {
+                            match self.client.get_slot_with_commitment(CommitmentConfig::confirmed()) {
+                                Ok(confirmed_slot) => {
+                                    if confirmed_slot <= finalized_slot {
+                                        return Ok(ConfirmationStatus::Finalized);
+                                    } else {
+                                        return Ok(ConfirmationStatus::Confirmed);
+                                    }
+                                }
+                                _ => return Ok(ConfirmationStatus::Confirmed),
+                            }
                         }
-                        if status.err.is_some() {
-                            return Err(SolanaError::TransactionFailed(
-                                status.err.as_ref().unwrap().to_string()
-                            ));
-                        }
+                        _ => return Ok(ConfirmationStatus::Confirmed),
                     }
                 }
-                Err(_) => {}
+                Ok(Some(Err(e))) => {
+                    return Err(SolanaError::TransactionFailed(format!("Transaction failed: {:?}", e)));
+                }
+                Ok(None) => {
+                    // Transaction not found yet, wait
+                }
+                Err(e) => {
+                    return Err(SolanaError::Rpc(format!("Failed to get signature status: {}", e)));
+                }
             }
 
             retries += 1;
@@ -207,6 +222,12 @@ impl SolanaRpc for RealSolanaRpc {
         self.client
             .get_balance(pubkey)
             .map_err(|e| SolanaError::Rpc(format!("Failed to get balance for {}: {}", pubkey, e)))
+    }
+
+    fn clone_boxed(&self) -> Box<dyn SolanaRpc> {
+        // RealSolanaRpc cannot be easily cloned due to RpcClient
+        // In production, you should create a new instance
+        panic!("RealSolanaRpc cannot be cloned. Create a new instance instead.")
     }
 }
 
@@ -292,7 +313,7 @@ impl SolanaRpc for MockSolanaRpc {
     }
 
     async fn get_minimum_balance_for_rent_exemption(&self, _data_len: usize) -> SolanaResult<u64> {
-        // Mock value - rent exemption for typical program size
+        // Test value - rent exemption for typical program size
         Ok(6_900_000_000)
     }
 
@@ -301,7 +322,13 @@ impl SolanaRpc for MockSolanaRpc {
     }
 
     async fn get_balance(&self, pubkey: &Pubkey) -> SolanaResult<u64> {
-        // Return mock balance from accounts or default
+        // Return test balance from configured accounts or default
         Ok(self.accounts.get(pubkey).map(|a| a.lamports).unwrap_or(1_000_000_000))
+    }
+
+    fn clone_boxed(&self) -> Box<dyn SolanaRpc> {
+        Box::new(MockSolanaRpc {
+            accounts: self.accounts.clone(),
+        })
     }
 }

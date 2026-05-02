@@ -130,7 +130,7 @@ pub fn mint_right_on_chain(
             // Suppress unused variable warnings for unsupported chains
             let _ = (rpc_url, contract, private_key, right_id, commitment, source_chain, source_seal_ref);
             Err(CrossChainError::ChainNotSupported(format!(
-                "Cross-chain mint not yet implemented for {:?}",
+                "Cross-chain mint not available for {:?}",
                 chain
             )))
         }

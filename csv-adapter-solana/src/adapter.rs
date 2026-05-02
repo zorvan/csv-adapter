@@ -9,7 +9,7 @@ use csv_adapter_core::{
     dag::DAGSegment, proof::ProofBundle, signature::SignatureScheme, AdapterError, Hash, Result,
 };
 use sha2::{Digest, Sha256};
-use solana_sdk::{pubkey::Pubkey, signature::Signature};
+use solana_sdk::pubkey::Pubkey;
 use solana_system_interface::instruction as system_instruction;
 
 use crate::config::SolanaConfig;
@@ -132,7 +132,7 @@ impl SolanaAnchorLayer {
 }
 
 impl AnchorLayer for SolanaAnchorLayer {
-    type SealRef = SolanaAnchorRef;
+    type SealRef = SolanaSealRef;
     type AnchorRef = SolanaAnchorRef;
     type InclusionProof = SolanaInclusionProof;
     type FinalityProof = SolanaFinalityProof;
@@ -170,7 +170,7 @@ impl AnchorLayer for SolanaAnchorLayer {
                 .map_err(|e| SolanaError::Rpc(format!("Failed to get recent blockhash: {}", e)))?;
 
             // Create system program instruction to transfer lamports and create account
-            let create_account_ix = solana_sdk::system_instruction::create_account(
+            let create_account_ix = system_instruction::create_account(
                 &owner,
                 &seal_pda,
                 lamports,
@@ -200,25 +200,13 @@ impl AnchorLayer for SolanaAnchorLayer {
             let slot = rpc.get_latest_slot().await
                 .map_err(|e| SolanaError::Rpc(format!("Failed to get slot: {}", e)))?;
 
-            Ok::<SolanaAnchorRef, SolanaError>(SolanaAnchorRef {
-                signature,
-                slot,
-                block_height: slot,
-                account_changes: vec![AccountChange {
-                    pubkey: seal_pda,
-                    prev_lamports: 0,
-                    new_lamports: lamports,
-                    prev_data: None,
-                    new_data: Some(right_id.as_bytes().to_vec()),
-                    closed: false,
-                }],
-            })
+            Ok::<(), SolanaError>(())
         }).map_err(|e: SolanaError| AdapterError::NetworkError(e.to_string()))?;
 
         // Store seal reference locally for tracking
         self.store_seal(seal_ref.clone());
 
-        Ok(anchor_ref)
+        Ok(seal_ref)
     }
 
     /// Publish a commitment to the seal account
@@ -382,11 +370,8 @@ impl AnchorLayer for SolanaAnchorLayer {
             .as_ref()
             .ok_or_else(|| SolanaError::Wallet("No wallet configured".to_string()))?;
 
-        // Find the seal account to consume
-        let seal_account = seal_ref
-            .account_changes
-            .first()
-            .ok_or_else(|| SolanaError::InvalidInput("No seal account in reference".to_string()))?;
+        // Get the seal account to consume
+        let seal_account = seal_ref.account;
 
         // In production, this would:
         // 1. Build a ConsumeSeal instruction
@@ -395,7 +380,7 @@ impl AnchorLayer for SolanaAnchorLayer {
 
         // For now, mark as consumed in our tracking
         if let Ok(mut seals) = self.active_seals.lock() {
-            seals.retain(|s| s.account != seal_account.pubkey);
+            seals.retain(|s| s.account != seal_account);
         }
 
         Ok(())
@@ -423,10 +408,8 @@ impl AnchorLayer for SolanaAnchorLayer {
         hasher.update(anchor.as_bytes());
 
         // Seal reference data
-        if let Some(first_change) = seal_ref.account_changes.first() {
-            hasher.update(first_change.pubkey.as_ref());
-            hasher.update(first_change.new_lamports.to_le_bytes());
-        }
+        hasher.update(seal_ref.account.as_ref());
+        hasher.update(seal_ref.lamports.to_le_bytes());
 
         Hash::new(hasher.finalize().into())
     }
@@ -538,6 +521,23 @@ impl AnchorLayer for SolanaAnchorLayer {
     /// Get signature scheme (Ed25519 for Solana)
     fn signature_scheme(&self) -> SignatureScheme {
         SignatureScheme::Ed25519
+    }
+}
+
+impl SolanaAnchorLayer {
+    /// Get RPC client reference for chain_operations (crate-visible)
+    pub(crate) fn get_rpc(&self) -> SolanaResult<&dyn SolanaRpc> {
+        self.check_rpc()
+    }
+
+    /// Get network from config (crate-visible)
+    pub(crate) fn get_network(&self) -> crate::config::Network {
+        self.config.network
+    }
+
+    /// Get domain separator (crate-visible)
+    pub(crate) fn get_domain(&self) -> [u8; 32] {
+        SOLANA_DOMAIN_SEPARATOR
     }
 }
 

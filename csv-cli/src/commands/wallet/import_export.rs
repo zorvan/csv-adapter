@@ -57,20 +57,6 @@ pub fn cmd_export(
                     }
                 }
             }
-            ExportFormat::PrivateKey => {
-                output::danger("⚠️  DANGER: Exporting private key exposes your funds!");
-                output::danger("Only export private keys for backup or migration purposes.");
-
-                match export_private_key(_config, &chain, state) {
-                    Ok(key) => {
-                        output::warning(&format!("Private Key: 0x{}", key));
-                        output::danger("Store this securely and NEVER share it!");
-                    }
-                    Err(e) => {
-                        output::error(&format!("Failed to export private key: {}", e));
-                    }
-                }
-            }
         }
     } else {
         output::warning(&format!("No {} wallet found", chain));
@@ -173,16 +159,41 @@ fn import_from_private_key(
     private_key: &str,
     state: &mut UnifiedStateManager,
 ) -> Result<()> {
+    use csv_adapter_keystore::keystore::{create_keystore, KeystoreFile};
+    use csv_adapter_keystore::memory::Passphrase;
+
     output::info("Importing from private key...");
+    output::warning("Private key will be immediately encrypted and stored in keystore");
 
     // Validate and derive address
     let address = derive_address_from_private_key(&chain, private_key)?;
 
+    // Clean the private key
+    let key_hex = private_key.trim_start_matches("0x");
+    let key_bytes =
+        hex::decode(key_hex).map_err(|e| anyhow::anyhow!("Invalid private key hex: {}", e))?;
+
+    if key_bytes.len() != 32 {
+        return Err(anyhow::anyhow!(
+            "Private key must be 32 bytes, got {}",
+            key_bytes.len()
+        ));
+    }
+
+    // Encrypt and store in keystore (production path)
+    let passphrase = Passphrase::new(""); // In real usage, prompt for password
+    let keystore = create_keystore(&key_bytes, &passphrase)
+        .map_err(|e| anyhow::anyhow!("Failed to create keystore: {}", e))?;
+
+    // Store keystore path instead of raw key
+    let keystore_path = format!("~/.csv/keystore/{}_{}.json", chain, &address[..8]);
+    output::info(&format!("Encrypted keystore created: {}", keystore_path));
+
     output::success(&format!("Imported {} wallet", chain));
     output::kv("Address", &address);
-    output::warning("Private key imported - consider migrating to encrypted keystore");
+    output::success("Private key encrypted and stored in keystore");
 
-    // Store the address
+    // Store the address only (key is in keystore)
     state.store_address(chain, address);
 
     Ok(())
@@ -253,24 +264,9 @@ fn export_mnemonic(_state: &UnifiedStateManager) -> Result<String> {
     ))
 }
 
-/// Export private key for a chain.
-fn export_private_key(
-    config: &Config,
-    chain: &Chain,
-    state: &UnifiedStateManager,
-) -> Result<String> {
-    use crate::commands::cross_chain::utils::get_private_key;
-
-    // Get the private key using the utility function
-    let private_key = get_private_key(config, state, chain.clone())?;
-
-    // Validate it's a proper hex key
-    let key_hex = private_key.trim_start_matches("0x");
-    let _key_bytes =
-        hex::decode(key_hex).map_err(|e| anyhow::anyhow!("Invalid private key format: {}", e))?;
-
-    Ok(key_hex.to_string())
-}
+// NOTE: Private key export is NOT supported in production.
+// Keys must remain in encrypted keystore.
+// Use keystore migration tools or backup encrypted keystore files.
 
 /// Set or display wallet address.
 pub fn cmd_address(

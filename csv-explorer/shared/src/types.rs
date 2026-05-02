@@ -498,3 +498,110 @@ pub struct IndexingActivity {
     /// Error message if indexing failed.
     pub error: Option<String>,
 }
+
+// ===========================================================================
+// Shared Event Schema Integration (Production Guarantee Plan Phase 6)
+// ===========================================================================
+
+/// Re-export canonical event types from csv-adapter-core
+pub use csv_adapter_core::events::{
+    CsvEvent, EventData, EventFilter as CsvEventFilter, EventFinalityStatus,
+    event_names, metadata_fields,
+};
+
+/// Bridge trait for converting explorer records to CsvEvent
+///
+/// Implement this trait on chain indexers to enable shared schema compliance.
+pub trait ToCsvEvent {
+    /// Convert this record to a canonical CsvEvent
+    fn to_csv_event(&self, chain_id: &str, block_info: BlockInfo) -> CsvEvent;
+}
+
+/// Block metadata for event conversion
+#[derive(Debug, Clone)]
+pub struct BlockInfo {
+    pub height: u64,
+    pub hash: String,
+    pub timestamp: u64,
+    pub tx_hash: String,
+    pub log_index: u64,
+}
+
+impl RightRecord {
+    /// Convert RightRecord to CsvEvent::RightCreated
+    pub fn to_right_created_event(&self, block_info: BlockInfo) -> CsvEvent {
+        use csv_adapter_core::events::event_names;
+        use csv_adapter_core::hash::Hash;
+        use csv_adapter_core::right::RightId;
+
+        // Parse the right ID from hex string
+        let id_bytes = hex::decode(&self.id).unwrap_or_default();
+        let id_hash = if id_bytes.len() == 32 {
+            Hash::new(id_bytes.try_into().unwrap_or([0u8; 32]))
+        } else {
+            Hash::zero()
+        };
+
+        let data = EventData::empty()
+            .with_right_id(RightId(id_hash))
+            .with_owner(&self.owner);
+
+        CsvEvent {
+            event_name: event_names::RIGHT_CREATED.to_string(),
+            chain_id: self.chain.clone(),
+            block_height: block_info.height,
+            block_hash: block_info.hash,
+            tx_hash: block_info.tx_hash,
+            log_index: block_info.log_index,
+            timestamp: block_info.timestamp,
+            data,
+            finality_status: EventFinalityStatus::Confirmed,
+        }
+    }
+}
+
+impl TransferRecord {
+    /// Convert TransferRecord to CsvEvent::RightTransferred or CrossChainLock/Mint
+    pub fn to_transfer_event(&self, block_info: BlockInfo, is_cross_chain: bool) -> CsvEvent {
+        use csv_adapter_core::events::event_names;
+        use csv_adapter_core::hash::Hash;
+        use csv_adapter_core::right::RightId;
+
+        let event_name = if is_cross_chain {
+            if self.from_chain == self.to_chain {
+                event_names::CROSS_CHAIN_LOCK
+            } else {
+                event_names::CROSS_CHAIN_MINT
+            }
+        } else {
+            event_names::RIGHT_TRANSFERRED
+        };
+
+        // Parse the right ID from hex string
+        let id_bytes = hex::decode(&self.right_id).unwrap_or_default();
+        let id_hash = if id_bytes.len() == 32 {
+            Hash::new(id_bytes.try_into().unwrap_or([0u8; 32]))
+        } else {
+            Hash::zero()
+        };
+
+        let data = EventData::empty()
+            .with_right_id(RightId(id_hash))
+            .with_previous_owner(&self.from_owner)
+            .with_new_owner(&self.to_owner)
+            .with_source_chain(&self.from_chain)
+            .with_destination_chain(&self.to_chain);
+
+        CsvEvent {
+            event_name: event_name.to_string(),
+            chain_id: self.from_chain.clone(),
+            block_height: block_info.height,
+            block_hash: block_info.hash,
+            tx_hash: block_info.tx_hash,
+            log_index: block_info.log_index,
+            timestamp: block_info.timestamp,
+            data,
+            finality_status: EventFinalityStatus::Confirmed,
+        }
+    }
+}

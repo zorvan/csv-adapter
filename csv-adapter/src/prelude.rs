@@ -12,7 +12,9 @@ pub use crate::client::CsvClient;
 pub use crate::config::{Config, Network, RpcConfig};
 pub use crate::cross_chain::{mint_right_on_chain, is_mint_supported, CrossChainError};
 pub use crate::errors::CsvError;
-pub use crate::events::{Event, EventStream};
+pub use crate::events::Event;
+#[cfg(feature = "tokio")]
+pub use crate::events::EventStream;
 pub use crate::proofs::ProofManager;
 pub use crate::rights::RightsManager;
 pub use crate::transfers::{TransferBuilder, TransferManager};
@@ -24,7 +26,7 @@ pub use csv_adapter_core::{
 };
 
 // Agent-friendly types
-pub use csv_adapter_core::agent_types::{Chain, ErrorSuggestion, FixAction, TransferStatus};
+pub use csv_adapter_core::agent_types::{Chain, ErrorSuggestion, FixAction};
 
 // Unified result type
 pub use crate::Result;

@@ -68,6 +68,9 @@ pub trait SuiRpc: Send + Sync + 'static {
     /// Get ledger info
     fn get_ledger_info(&self) -> Result<SuiLedgerInfo, Box<dyn std::error::Error + Send + Sync>>;
 
+    /// Clone the RPC client for creating new boxed instances
+    fn clone_boxed(&self) -> Box<dyn SuiRpc>;
+
     /// Downcast to Any for feature-gated real implementations
     fn as_any(&self) -> &dyn std::any::Any
     where
@@ -85,6 +88,56 @@ pub struct SuiObject {
     pub owner: Vec<u8>,
     pub object_type: String,
     pub has_public_transfer: bool,
+    /// BCS-encoded object content for parsing balances and other data
+    pub bcs_data: Option<Vec<u8>>,
+}
+
+impl SuiObject {
+    /// Create a new SuiObject with the given properties
+    pub fn new(
+        object_id: [u8; 32],
+        version: u64,
+        owner: Vec<u8>,
+        object_type: String,
+        has_public_transfer: bool,
+    ) -> Self {
+        Self {
+            object_id,
+            version,
+            owner,
+            object_type,
+            has_public_transfer,
+            bcs_data: None,
+        }
+    }
+
+    /// Set the BCS data for this object
+    pub fn with_bcs_data(mut self, bcs_data: Vec<u8>) -> Self {
+        self.bcs_data = Some(bcs_data);
+        self
+    }
+
+    /// Parse balance from BCS data for Coin objects
+    /// SUI Coin BCS format: id (32 bytes) + value (u64, 8 bytes little-endian)
+    pub fn parse_coin_balance(&self) -> Option<u64> {
+        let bcs_data = self.bcs_data.as_ref()?;
+
+        // Coin<T> has struct layout: { id: UID, value: u64 }
+        // UID is 32 bytes, u64 is 8 bytes little-endian
+        // Minimum size: 32 + 8 = 40 bytes
+        if bcs_data.len() < 40 {
+            return None;
+        }
+
+        // Parse u64 from last 8 bytes (little-endian)
+        let value_bytes = &bcs_data[32..40];
+        let balance = u64::from_le_bytes([
+            value_bytes[0], value_bytes[1], value_bytes[2], value_bytes[3],
+            value_bytes[4], value_bytes[5], value_bytes[6], value_bytes[7],
+        ]);
+
+        Some(balance)
+    }
 }
 
 /// Sui object change type
@@ -128,7 +181,7 @@ pub struct SuiEvent {
 }
 
 /// Sui checkpoint
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct SuiCheckpoint {
     pub sequence_number: u64,
     pub digest: [u8; 32],
@@ -257,6 +310,7 @@ impl SuiRpc for MockSuiRpc {
             owner: self.test_address.to_vec(),
             object_type: "0x2::coin::Coin<0x2::sui::SUI>".to_string(),
             has_public_transfer: true,
+            bcs_data: None,
         }])
     }
 
@@ -291,6 +345,17 @@ impl SuiRpc for MockSuiRpc {
         })
     }
 
+    fn clone_boxed(&self) -> Box<dyn SuiRpc> {
+        Box::new(MockSuiRpc {
+            objects: std::sync::Mutex::new(self.objects.lock().unwrap().clone()),
+            transactions: std::sync::Mutex::new(self.transactions.lock().unwrap().clone()),
+            checkpoints: std::sync::Mutex::new(self.checkpoints.lock().unwrap().clone()),
+            latest_checkpoint: self.latest_checkpoint,
+            test_address: self.test_address,
+            tx_counter: std::sync::atomic::AtomicU64::new(self.tx_counter.load(std::sync::atomic::Ordering::SeqCst)),
+        })
+    }
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -309,6 +374,7 @@ mod tests {
             owner: vec![2, 3],
             object_type: "CSV::Seal".to_string(),
             has_public_transfer: false,
+            bcs_data: None,
         };
         rpc.add_object(obj.clone());
 

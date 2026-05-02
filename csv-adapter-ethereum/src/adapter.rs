@@ -136,7 +136,8 @@ impl EthereumAnchorLayer {
         let receipt = self
             .rpc
             .get_transaction_receipt(tx_hash)
-            .map_err(|e| AdapterError::NetworkError(e.to_string()))?;
+            .map_err(|e| AdapterError::NetworkError(e.to_string()))?
+            .ok_or_else(|| AdapterError::InclusionProofFailed("Transaction receipt not found".to_string()))?;
 
         // Step 5: Verify LOG event
         let has_valid_event = verify_seal_consumption_in_receipt(
@@ -198,7 +199,8 @@ impl AnchorLayer for EthereumAnchorLayer {
             let receipt = self
                 .rpc
                 .get_transaction_receipt(tx_hash)
-                .map_err(|e| AdapterError::NetworkError(e.to_string()))?;
+                .map_err(|e| AdapterError::NetworkError(e.to_string()))?
+                .ok_or_else(|| AdapterError::PublishFailed("Transaction receipt not found".to_string()))?;
 
             let has_valid_event = verify_seal_consumption_in_receipt(
                 &receipt,
@@ -261,7 +263,8 @@ impl AnchorLayer for EthereumAnchorLayer {
                     .get_transaction_receipt(anchor.tx_hash)
                     .map_err(|e| {
                         AdapterError::InclusionProofFailed(format!("Failed to get receipt: {}", e))
-                    })?;
+                    })?
+                    .ok_or_else(|| AdapterError::InclusionProofFailed("Transaction receipt not found".to_string()))?;
 
                 // Verify the receipt is in the correct block
                 if receipt.block_number != anchor.block_number {
@@ -429,6 +432,28 @@ impl AnchorLayer for EthereumAnchorLayer {
 
     fn signature_scheme(&self) -> csv_adapter_core::SignatureScheme {
         csv_adapter_core::SignatureScheme::Secp256k1
+    }
+}
+
+impl EthereumAnchorLayer {
+    /// Get RPC client reference (crate-visible for chain_operations)
+    pub(crate) fn rpc(&self) -> &dyn EthereumRpc {
+        self.rpc.as_ref()
+    }
+
+    /// Get domain separator
+    pub(crate) fn domain(&self) -> [u8; 32] {
+        self.domain_separator
+    }
+
+    /// Get config clone
+    pub(crate) fn config_clone(&self) -> EthereumConfig {
+        self.config.clone()
+    }
+
+    /// Get finality checker clone
+    pub(crate) fn finality_checker_clone(&self) -> FinalityChecker {
+        self.finality_checker.clone()
     }
 }
 

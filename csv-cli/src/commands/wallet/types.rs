@@ -99,15 +99,17 @@ pub enum WalletAction {
 }
 
 /// Wallet export formats.
+///
+/// SECURITY: Private key export is NOT supported. Keys must remain
+/// in encrypted keystore. Use keystore migration tools for backup.
 pub enum ExportFormat {
-    /// Export address only.
+    /// Export address only (safe, recommended).
     Address,
-    /// Export extended public key.
+    /// Export extended public key (safe, for watch-only).
     Xpub,
-    /// Export mnemonic (requires passphrase).
+    /// Export mnemonic requires keystore password.
+    /// Only available through encrypted keystore operations.
     Mnemonic,
-    /// Export private key (dangerous!).
-    PrivateKey,
 }
 
 impl std::str::FromStr for ExportFormat {
@@ -118,7 +120,11 @@ impl std::str::FromStr for ExportFormat {
             "address" => Ok(ExportFormat::Address),
             "xpub" => Ok(ExportFormat::Xpub),
             "mnemonic" => Ok(ExportFormat::Mnemonic),
-            "private-key" | "privatekey" => Ok(ExportFormat::PrivateKey),
+            "private-key" | "privatekey" => Err(
+                "Private key export is NOT supported in production. \
+                 Use keystore migration tools or backup the encrypted keystore file directly."
+                    .to_string(),
+            ),
             _ => Err(format!("Unknown export format: {}", s)),
         }
     }

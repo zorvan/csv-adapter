@@ -24,7 +24,7 @@ use csv_adapter_core::AnchorLayer;
 use csv_adapter_core::Hash;
 
 use crate::checkpoint::CheckpointVerifier;
-use crate::config::AptosConfig;
+use crate::config::{AptosConfig, AptosNetwork};
 use crate::error::{AptosError, AptosResult};
 use crate::proofs::{CommitmentEventBuilder, EventProofVerifier, StateProofVerifier};
 use crate::rpc::AptosRpc;
@@ -181,43 +181,38 @@ impl AptosAnchorLayer {
         expiration_secs: u64,
         module_address: &str,
         commitment: [u8; 32],
-    ) -> Result<aptos_sdk::types::transaction::RawTransaction, Box<dyn std::error::Error + Send + Sync>> {
-        use aptos_sdk::types::transaction::{EntryFunction, RawTransaction, TransactionPayload};
-        use aptos_sdk::bcs;
-        use aptos_sdk::move_types::identifier::Identifier;
-        use aptos_sdk::move_types::language_storage::{ModuleId, TypeTag};
-        use std::str::FromStr;
+    ) -> Result<aptos_sdk::transaction::types::RawTransaction, Box<dyn std::error::Error + Send + Sync>> {
+        use aptos_sdk::transaction::EntryFunction;
+        use aptos_sdk::transaction::payload::TransactionPayload;
+        use aptos_sdk::transaction::types::RawTransaction;
+        use aptos_sdk::types::{AccountAddress, ChainId, MoveModuleId, TypeTag};
 
         // Parse module address
-        let module_addr = aptos_sdk::types::AccountAddress::from_hex_literal(module_address)
+        let module_addr = AccountAddress::from_hex(module_address)
             .map_err(|e| format!("Invalid module address: {}", e))?;
 
         // Build the EntryFunction for consume_seal
-        let module_id = ModuleId::new(
-            module_addr,
-            Identifier::new("csv_seal").map_err(|e| format!("Invalid module name: {}", e))?,
-        );
-
-        let function_id = Identifier::new("consume_seal")
-            .map_err(|e| format!("Invalid function name: {}", e))?;
+        let module_name = aptos_sdk::types::Identifier::new("csv_seal")
+            .map_err(|e| format!("Invalid module name: {}", e))?;
+        let module_id = MoveModuleId::new(module_addr, module_name);
 
         // Convert commitment to Move value (hex string)
-        let commitment_arg = bcs::to_bytes(&format!("0x{}", hex::encode(commitment)))
+        let commitment_arg = aptos_bcs::to_bytes(&format!("0x{}", hex::encode(commitment)))
             .map_err(|e| format!("Failed to serialize commitment: {}", e))?;
 
         let entry_function = EntryFunction::new(
             module_id,
-            function_id,
+            "consume_seal",
             vec![], // type arguments
             vec![commitment_arg], // arguments
         );
 
         // Build raw transaction
-        let sender_addr = aptos_sdk::types::AccountAddress::new(sender);
+        let sender_addr = AccountAddress::new(sender);
         let payload = TransactionPayload::EntryFunction(entry_function);
         let max_gas = self.config.transaction.max_gas;
 
-        let chain_id = aptos_sdk::types::chain_id::ChainId::new(self.config.network.chain_id());
+        let chain_id = ChainId::new(self.config.network.chain_id());
 
         Ok(RawTransaction::new(
             sender_addr,
@@ -327,7 +322,7 @@ impl AptosAnchorLayer {
         ).map_err(|e| format!("Failed to build raw transaction: {}", e))?;
 
         // Serialize to BCS format for signing
-        let signing_bytes = bcs::to_bytes(&raw_transaction)
+        let signing_bytes = aptos_bcs::to_bytes(&raw_transaction)
             .map_err(|e| format!("BCS serialization failed: {}", e))?;
 
         // Sign with Ed25519 using the BCS-serialized transaction bytes
@@ -692,6 +687,28 @@ impl AnchorLayer for AptosAnchorLayer {
 
     fn signature_scheme(&self) -> csv_adapter_core::SignatureScheme {
         csv_adapter_core::SignatureScheme::Ed25519
+    }
+}
+
+impl AptosAnchorLayer {
+    /// Get RPC client reference (crate-visible for chain_operations)
+    pub(crate) fn rpc(&self) -> &dyn AptosRpc {
+        self.rpc.as_ref()
+    }
+
+    /// Get network configuration
+    pub(crate) fn network(&self) -> AptosNetwork {
+        self.config.network.clone()
+    }
+
+    /// Get domain separator
+    pub(crate) fn domain(&self) -> [u8; 32] {
+        self.domain_separator
+    }
+
+    /// Get event builder module address and event type for creating new builder
+    pub(crate) fn event_builder_config(&self) -> ([u8; 32], String) {
+        (self.event_builder.module_address, self.event_builder.event_type.clone())
     }
 }
 

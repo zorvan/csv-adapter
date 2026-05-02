@@ -19,6 +19,10 @@ pub enum CsvError {
     #[error("Chain not supported: {0}")]
     ChainNotSupported(Chain),
 
+    /// The requested operation is not enabled for this chain.
+    #[error("Chain operation not enabled: {0}")]
+    ChainNotEnabled(String),
+
     /// The wallet has insufficient funds for the operation.
     #[error("Insufficient funds: available {available}, needed {needed}")]
     InsufficientFunds {
@@ -95,6 +99,15 @@ pub enum CsvError {
         message: String,
     },
 
+    /// A required capability is not available on this chain.
+    #[error("Capability unavailable on {chain}: {capability}")]
+    CapabilityUnavailable {
+        /// Which chain the capability is unavailable on.
+        chain: Chain,
+        /// The unavailable capability.
+        capability: String,
+    },
+
     /// A generic error with a message.
     #[error("CSV error: {0}")]
     Generic(String),
@@ -119,6 +132,7 @@ impl HasErrorSuggestion for CsvError {
     fn error_code(&self) -> &'static str {
         match self {
             Self::ChainNotSupported(_) => error_codes::CSV_CHAIN_NOT_SUPPORTED,
+            Self::ChainNotEnabled(_) => error_codes::CSV_CHAIN_NOT_ENABLED,
             Self::InsufficientFunds { .. } => error_codes::CSV_INSUFFICIENT_FUNDS,
             Self::InvalidRightId(_) => error_codes::CSV_INVALID_RIGHT_ID,
             Self::RightNotFound(_) => error_codes::CSV_RIGHT_NOT_FOUND,
@@ -135,6 +149,7 @@ impl HasErrorSuggestion for CsvError {
             Self::DeploymentError(_) => error_codes::CSV_DEPLOYMENT_ERROR,
             Self::EventStreamError(_) => error_codes::CSV_EVENT_STREAM_ERROR,
             Self::AdapterError { .. } => error_codes::CSV_ADAPTER_ERROR,
+            Self::CapabilityUnavailable { .. } => "CSV_CAPABILITY_UNAVAILABLE",
             Self::Generic(_) => error_codes::CSV_GENERIC,
         }
     }
@@ -150,6 +165,13 @@ impl HasErrorSuggestion for CsvError {
                     "Chain '{}' is not supported. Supported chains: bitcoin, ethereum, sui, aptos, solana. \
                      Check for SDK updates or enable the chain in configuration.",
                     chain
+                )
+            }
+            Self::ChainNotEnabled(msg) => {
+                format!(
+                    "Chain operation not enabled: {}. This feature requires RPC configuration \
+                     or chain adapter setup. Enable the chain when building the client.",
+                    msg
                 )
             }
             Self::InsufficientFunds { chain, needed, .. } => {
@@ -232,6 +254,13 @@ impl HasErrorSuggestion for CsvError {
                     chain, message
                 )
             }
+            Self::CapabilityUnavailable { chain, capability } => {
+                format!(
+                    "Capability '{}' is not available on {} chain. \
+                     This may require: 1) Enabling a feature flag, 2) Chain configuration, 3) SDK update.",
+                    capability, chain
+                )
+            }
             Self::Generic(msg) => {
                 format!(
                     "CSV error: {}. Check logs for details or contact support.",
@@ -263,6 +292,10 @@ impl HasErrorSuggestion for CsvError {
             Self::ProofVerificationFailed(_) => Some(FixAction::CheckState {
                 url: "https://docs.csv.dev/proof-verification".to_string(),
                 what: "Check source chain confirmations and proof format".to_string(),
+            }),
+            Self::CapabilityUnavailable { .. } => Some(FixAction::CheckState {
+                url: "https://docs.csv.dev/capabilities".to_string(),
+                what: "Check chain capability documentation".to_string(),
             }),
             _ => None,
         }

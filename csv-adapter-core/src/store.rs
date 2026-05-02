@@ -88,6 +88,7 @@ pub trait SealStore: Send + Sync {
 pub struct InMemorySealStore {
     seals: Vec<SealRecord>,
     anchors: Vec<AnchorRecord>,
+    rights: Vec<RightRecord>,
 }
 
 impl InMemorySealStore {
@@ -96,6 +97,7 @@ impl InMemorySealStore {
         Self {
             seals: Vec::new(),
             anchors: Vec::new(),
+            rights: Vec::new(),
         }
     }
 }
@@ -195,6 +197,167 @@ impl SealStore for InMemorySealStore {
             .max()
             .unwrap_or(0))
     }
+}
+
+impl RightStore for InMemorySealStore {
+    fn save_right(&mut self, record: &RightRecord) -> Result<(), StoreError> {
+        // Check for duplicate
+        if self.has_right(&record.right_id)? {
+            return Err(StoreError::DuplicateRecord(format!(
+                "Right with ID {:?} already exists",
+                record.right_id
+            )));
+        }
+        self.rights.push(record.clone());
+        Ok(())
+    }
+
+    fn get_right(&self, right_id: &crate::right::RightId) -> Result<Option<RightRecord>, StoreError> {
+        Ok(self
+            .rights
+            .iter()
+            .find(|r| r.right_id.0.as_bytes() == right_id.0.as_bytes())
+            .cloned())
+    }
+
+    fn list_rights_by_chain(&self, chain: &str) -> Result<Vec<RightRecord>, StoreError> {
+        Ok(self
+            .rights
+            .iter()
+            .filter(|r| r.chain == chain)
+            .cloned()
+            .collect())
+    }
+
+    fn list_rights_by_owner(&self, owner: &[u8]) -> Result<Vec<RightRecord>, StoreError> {
+        Ok(self
+            .rights
+            .iter()
+            .filter(|r| r.owner == owner)
+            .cloned()
+            .collect())
+    }
+
+    fn consume_right(
+        &mut self,
+        right_id: &crate::right::RightId,
+        consumed_at: u64,
+    ) -> Result<(), StoreError> {
+        if let Some(r) = self
+            .rights
+            .iter_mut()
+            .find(|r| r.right_id.0.as_bytes() == right_id.0.as_bytes())
+        {
+            if r.consumed {
+                return Err(StoreError::DuplicateRecord(format!(
+                    "Right {:?} already consumed",
+                    right_id
+                )));
+            }
+            r.consumed = true;
+            r.consumed_at = Some(consumed_at);
+            Ok(())
+        } else {
+            Err(StoreError::NotFound(format!(
+                "Right {:?} not found",
+                right_id
+            )))
+        }
+    }
+
+    fn list_consumed_rights(&self) -> Result<Vec<RightRecord>, StoreError> {
+        Ok(self
+            .rights
+            .iter()
+            .filter(|r| r.consumed)
+            .cloned()
+            .collect())
+    }
+
+    fn list_active_rights(&self) -> Result<Vec<RightRecord>, StoreError> {
+        Ok(self
+            .rights
+            .iter()
+            .filter(|r| !r.consumed)
+            .cloned()
+            .collect())
+    }
+
+    fn has_right(&self, right_id: &crate::right::RightId) -> Result<bool, StoreError> {
+        Ok(self
+            .rights
+            .iter()
+            .any(|r| r.right_id.0.as_bytes() == right_id.0.as_bytes()))
+    }
+
+    fn delete_right(&mut self, right_id: &crate::right::RightId) -> Result<(), StoreError> {
+        let before = self.rights.len();
+        self.rights
+            .retain(|r| r.right_id.0.as_bytes() != right_id.0.as_bytes());
+        if self.rights.len() == before {
+            return Err(StoreError::NotFound(format!(
+                "Right {:?} not found",
+                right_id
+            )));
+        }
+        Ok(())
+    }
+}
+
+/// A persisted Right record
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RightRecord {
+    /// Right ID (unique identifier)
+    pub right_id: crate::right::RightId,
+    /// The chain where this Right is anchored
+    pub chain: String,
+    /// Owner identifier (address or pubkey)
+    pub owner: Vec<u8>,
+    /// The serialized Right data
+    pub right_data: Vec<u8>,
+    /// Whether the Right has been consumed
+    pub consumed: bool,
+    /// Timestamp (Unix epoch seconds) when recorded
+    pub recorded_at: u64,
+    /// Timestamp (Unix epoch seconds) when consumed (if applicable)
+    pub consumed_at: Option<u64>,
+}
+
+/// Trait for persistent Right storage
+///
+/// This trait extends the seal storage with Right-specific operations
+/// required by the RightsManager facade.
+pub trait RightStore: Send + Sync {
+    /// Save a Right to the store
+    fn save_right(&mut self, record: &RightRecord) -> Result<(), StoreError>;
+
+    /// Get a Right by its ID
+    fn get_right(&self, right_id: &crate::right::RightId) -> Result<Option<RightRecord>, StoreError>;
+
+    /// List all Rights for a specific chain
+    fn list_rights_by_chain(&self, chain: &str) -> Result<Vec<RightRecord>, StoreError>;
+
+    /// List all Rights for a specific owner
+    fn list_rights_by_owner(&self, owner: &[u8]) -> Result<Vec<RightRecord>, StoreError>;
+
+    /// Mark a Right as consumed
+    fn consume_right(
+        &mut self,
+        right_id: &crate::right::RightId,
+        consumed_at: u64,
+    ) -> Result<(), StoreError>;
+
+    /// List consumed Rights
+    fn list_consumed_rights(&self) -> Result<Vec<RightRecord>, StoreError>;
+
+    /// List unconsumed (active) Rights
+    fn list_active_rights(&self) -> Result<Vec<RightRecord>, StoreError>;
+
+    /// Check if a Right exists
+    fn has_right(&self, right_id: &crate::right::RightId) -> Result<bool, StoreError>;
+
+    /// Delete a Right (for administrative purposes)
+    fn delete_right(&mut self, right_id: &crate::right::RightId) -> Result<(), StoreError>;
 }
 
 /// Store error types

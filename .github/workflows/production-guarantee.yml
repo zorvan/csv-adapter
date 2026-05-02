@@ -23,17 +23,71 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ripgrep
 
-      - name: Run production surface audit
+      - name: Check for production stubs
         run: |
-          ./scripts/audit-production-surface.sh
-        continue-on-error: true
+          # Search for stub functions that return "not.*implemented" or similar
+          STUBS=$(rg -i "not.*yet.*reimplemented|stub.*function|TODO.*implement|FIXME.*implement" \
+            --type rust csv-adapter/src csv-adapter-core/src csv-adapter-bitcoin/src \
+            csv-adapter-ethereum/src csv-adapter-sui/src csv-adapter-aptos/src \
+            csv-adapter-solana/src csv-wallet/src csv-cli/src \
+            --exclude-pattern "tests/" --exclude-pattern "examples/" || true)
+          
+          if [ -n "$STUBS" ]; then
+            echo "ERROR: Found production stubs that need implementation:"
+            echo "$STUBS"
+            exit 1
+          fi
+          echo "✓ No production stubs found"
 
-      - name: Upload audit report
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: production-audit-report
-          path: docs/PRODUCTION_AUDIT.md
+      - name: Check for TODO/FIXME in production code
+        run: |
+          # Search for TODO and FIXME comments in production source files
+          # This is a hard failure to enforce production code completeness
+          TODO_FIXME=$(rg -i "TODO|FIXME|XXX|HACK" \
+            --type rust csv-adapter/src csv-adapter-core/src csv-adapter-bitcoin/src \
+            csv-adapter-ethereum/src csv-adapter-sui/src csv-adapter-aptos/src \
+            csv-adapter-solana/src csv-wallet/src csv-cli/src \
+            --exclude-pattern "tests/" --exclude-pattern "examples/" \
+            --exclude-pattern "// (TODO|FIXME|XXX|HACK):.*test" || true)
+          
+          if [ -n "$TODO_FIXME" ]; then
+            echo "ERROR: Found TODO/FIXME/XXX/HACK comments in production code:"
+            echo "$TODO_FIXME"
+            echo ""
+            echo "Production code must not contain incomplete work markers."
+            echo "Either: 1) Complete the implementation, 2) Remove the comment, or 3) Move to examples/tests"
+            exit 1
+          fi
+          echo "✓ No TODO/FIXME markers in production code"
+
+      - name: Check for fake/simulation code
+        run: |
+          # Search for fake hashes, mock signatures, simulation code outside tests
+          FAKE=$(rg -i "fake.*hash|mock.*signature|simulation.*mode|demo.*only" \
+            --type rust csv-adapter/src csv-adapter-core/src \
+            csv-wallet/src csv-cli/src \
+            --exclude-pattern "tests/" --exclude-pattern "examples/" || true)
+          
+          if [ -n "$FAKE" ]; then
+            echo "ERROR: Found fake/simulation code in production:"
+            echo "$FAKE"
+            exit 1
+          fi
+          echo "✓ No fake/simulation code found"
+
+      - name: Check for plaintext key persistence
+        run: |
+          # Search for plaintext key storage outside keystore
+          PLAINTEXT=$(rg -i "private_key.*save|mnemonic.*save|plaintext.*store" \
+            --type rust csv-wallet/src csv-cli/src \
+            --exclude-pattern "keystore" --exclude-pattern "tests/" || true)
+          
+          if [ -n "$PLAINTEXT" ]; then
+            echo "WARNING: Potential plaintext key storage found:"
+            echo "$PLAINTEXT"
+            # For now, just warn - this may become a hard failure later
+          fi
+          echo "✓ Plaintext key check complete"
 
   # ── Phase 2: No Direct Adapter Imports ──────────────────────
   no-direct-adapter-imports:
@@ -113,37 +167,73 @@ jobs:
 
       - name: Build Ethereum contracts
         run: |
-          if [ -d "contracts/ethereum" ]; then
-            cd contracts/ethereum
+          if [ -d "csv-adapter-ethereum/contracts" ]; then
+            cd csv-adapter-ethereum/contracts
             forge build
+          else
+            echo "Ethereum contracts directory not found"
+            exit 1
           fi
 
-      - name: Check for Sui contracts
+      - name: Install Sui CLI
         run: |
-          if [ -d "contracts/sui" ]; then
-            echo "Sui contracts found - add Sui CLI build step"
-            # cd contracts/sui
-            # sui move build
-          fi
+          # Install Sui CLI from official release
+          SUI_VERSION="testnet"
+          wget -q https://github.com/MystenLabs/sui/releases/download/${SUI_VERSION}/sui-${SUI_VERSION}-ubuntu-x86_64.tgz
+          tar -xzf sui-${SUI_VERSION}-ubuntu-x86_64.tgz
+          chmod +x sui
+          sudo mv sui /usr/local/bin/
+          sui --version
 
-      - name: Check for Aptos contracts
+      - name: Build Sui contracts
         run: |
-          if [ -d "contracts/aptos" ]; then
-            echo "Aptos contracts found - add Aptos CLI build step"
-            # cd contracts/aptos
-            # aptos move compile
+          if [ -d "csv-adapter-sui/contracts" ]; then
+            cd csv-adapter-sui/contracts
+            sui move build
+          else
+            echo "Sui contracts directory not found"
+            exit 1
           fi
 
-      - name: Check for Solana contracts
+      - name: Install Aptos CLI
+        run: |
+          # Install Aptos CLI from official release
+          APTOS_VERSION="4.2.0"
+          wget -q https://github.com/aptos-labs/aptos-core/releases/download/aptos-cli-v${APTOS_VERSION}/aptos-cli-${APTOS_VERSION}-Ubuntu-x86_64.zip
+          unzip -q aptos-cli-${APTOS_VERSION}-Ubuntu-x86_64.zip
+          chmod +x aptos
+          sudo mv aptos /usr/local/bin/
+          aptos --version
+
+      - name: Build Aptos contracts
+        run: |
+          if [ -d "csv-adapter-aptos/contracts" ]; then
+            cd csv-adapter-aptos/contracts
+            aptos move compile
+          else
+            echo "Aptos contracts directory not found"
+            exit 1
+          fi
+
+      - name: Install Anchor
+        run: |
+          # Install Rust first
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          source ~/.cargo/env
+          # Install Anchor CLI
+          cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
+          avm install latest
+          avm use latest
+          anchor --version
+
+      - name: Build Solana contracts
         run: |
           if [ -d "csv-adapter-solana/contracts" ]; then
-            echo "Solana contracts found"
-            if command -v anchor &> /dev/null; then
-              cd csv-adapter-solana/contracts
-              NO_DNA=1 anchor build
-            else
-              echo "Anchor not installed - skipping Solana build"
-            fi
+            cd csv-adapter-solana/contracts
+            NO_DNA=1 anchor build
+          else
+            echo "Solana contracts directory not found"
+            exit 1
           fi
 
   # ── Phase 5: WASM Compatibility ─────────────────────────────
@@ -182,7 +272,6 @@ jobs:
 
       - name: Run cargo audit
         run: cargo audit
-        continue-on-error: true
 
   # ── Phase 7: Trait Implementation Check ────────────────────
   trait-implementation-check:
@@ -266,23 +355,6 @@ jobs:
           fi
           echo "✓ Production guarantee plan exists"
 
-      - name: Check production audit exists
-        run: |
-          if [ ! -f "docs/PRODUCTION_AUDIT.md" ]; then
-            echo "ERROR: PRODUCTION_AUDIT.md not found"
-            exit 1
-          fi
-          echo "✓ Production audit exists"
-
-      - name: Check audit script exists
-        run: |
-          if [ ! -f "scripts/audit-production-surface.sh" ]; then
-            echo "ERROR: audit-production-surface.sh not found"
-            exit 1
-          fi
-          chmod +x scripts/audit-production-surface.sh
-          echo "✓ Audit script exists"
-
   # ── Final Gate: Production Ready ────────────────────────────
   production-ready:
     name: Production Ready Gate
@@ -308,13 +380,6 @@ jobs:
           echo "This job aggregates all production guarantee checks."
           echo "It only passes when ALL required gates pass."
           echo ""
-
-          # Check if production surface audit passed
-          if [ "${{ needs.production-surface-audit.result }}" == "failure" ]; then
-            echo "⚠️  Production surface audit has violations"
-            echo "   Run: ./scripts/audit-production-surface.sh"
-            echo "   See: docs/PRODUCTION_AUDIT.md"
-          fi
 
           # Overall status
           echo ""

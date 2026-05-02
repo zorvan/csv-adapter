@@ -56,7 +56,8 @@ impl RpcClient for EthereumRpcClient {
         let receipt = self
             .inner
             .get_transaction_receipt(tx_hash)
-            .map_err(|e| ChainError::RpcError(format!("{:?}", e)))?;
+            .map_err(|e| ChainError::RpcError(format!("{:?}", e)))?
+            .ok_or_else(|| ChainError::RpcError("Transaction receipt not found".to_string()))?;
 
         Ok(serde_json::json!({
             "hash": hash,
@@ -147,9 +148,9 @@ impl Wallet for EthereumWallet {
         &self.address
     }
 
-    fn private_key(&self) -> &str {
-        // Keys not exposed directly
-        ""
+    fn key_id(&self) -> &str {
+        // Return address as key identifier
+        &self.address
     }
 
     async fn sign_transaction(&self, data: &[u8]) -> ChainResult<Vec<u8>> {

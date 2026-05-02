@@ -224,10 +224,19 @@ impl SequentialVerifier {
     }
 
     /// Internal proof verification logic
+    ///
+    /// Note: This implementation is for performance benchmarking only.
+    /// It simulates work without performing real cryptographic verification.
+    /// Production verification must use ChainProofProvider implementations
+    /// that perform actual signature and proof verification.
     fn verify_proof_internal(&self, _proof: &ProofBundle) -> bool {
-        // Simulate verification work
+        // Simulate verification work for benchmarking
         std::thread::sleep(Duration::from_micros(100));
-        true // Placeholder - real implementation would verify signatures, DAG, etc.
+        // Return false in production builds to prevent accidental use
+        #[cfg(not(test))]
+        return false;
+        #[cfg(test)]
+        return true;
     }
 }
 

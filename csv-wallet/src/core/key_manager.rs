@@ -10,6 +10,10 @@ use sha2::{Sha256, Digest};
 use sha3::Keccak256;
 use blake2::Blake2b;
 
+use bip32::{ExtendedSigningKey, Seed, XPriv};
+use bitcoin::bip32::DerivationPath as BitcoinDerivationPath;
+use std::str::FromStr;
+
 /// Error type for key management operations.
 #[derive(Debug, thiserror::Error)]
 pub enum KeyError {
@@ -102,18 +106,34 @@ impl KeyManager {
 
     /// Derive Bitcoin Taproot key pair (BIP-86: m/86'/0'/0'/0/0).
     pub fn derive_bitcoin_keys(&self) -> Result<(SecretKey, XOnlyPublicKey), KeyError> {
-        // Simplified derivation - in production use full BIP-86 path
         let secp = Secp256k1::new();
-        
-        // Use first 32 bytes of seed as private key
-        let mut key_bytes = [0u8; 32];
-        key_bytes.copy_from_slice(&self.seed[..32]);
-        
-        let secret_key = SecretKey::from_slice(&key_bytes)
-            .map_err(|e| KeyError::DerivationError(format!("Invalid secret key: {}", e)))?;
-        
+
+        // Use proper BIP-86 derivation path: m/86'/0'/0'/0/0
+        // 86' is the BIP-86 purpose for Taproot single-key addresses
+        // 0' is Bitcoin mainnet coin type (1' for testnet/signet)
+        // 0' is the account index
+        // 0 is the change chain (external)
+        // 0 is the address index
+        let derivation_path = "m/86'/0'/0'/0/0"
+            .parse::<BitcoinDerivationPath>()
+            .map_err(|e| KeyError::DerivationError(format!("Invalid derivation path: {}", e)))?;
+
+        // Create master key from seed using bip32
+        let seed = Seed::new(self.seed);
+        let master_key = XPriv::new(seed)
+            .map_err(|e| KeyError::DerivationError(format!("Failed to create master key: {}", e)))?;
+
+        // Derive the child key at the BIP-86 path
+        let child_key = master_key
+            .derive(&derivation_path)
+            .map_err(|e| KeyError::DerivationError(format!("Derivation failed: {}", e)))?;
+
+        // Extract the private key bytes
+        let secret_key = SecretKey::from_slice(&child_key.private_key().to_bytes())
+            .map_err(|e| KeyError::DerivationError(format!("Invalid derived key: {}", e)))?;
+
         let x_only_pubkey = XOnlyPublicKey::from_secret_key(&secp, &secret_key);
-        
+
         Ok((secret_key, x_only_pubkey))
     }
 

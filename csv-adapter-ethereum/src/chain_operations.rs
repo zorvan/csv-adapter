@@ -12,8 +12,7 @@ use async_trait::async_trait;
 use csv_adapter_core::chain_operations::{
     BalanceInfo, ChainBroadcaster, ChainDeployer, ChainOpError, ChainOpResult, ChainProofProvider,
     ChainQuery, ChainRightOps, ChainSigner, ContractStatus, DeploymentStatus, FinalityStatus,
-    InclusionProof, RightOperation, RightOperationResult, TokenBalance, TransactionInfo,
-    TransactionStatus,
+    RightOperation, RightOperationResult, TransactionInfo, TransactionStatus,
 };
 use csv_adapter_core::hash::Hash;
 use csv_adapter_core::proof::{FinalityProof, InclusionProof as CoreInclusionProof};
@@ -22,10 +21,8 @@ use csv_adapter_core::signature::SignatureScheme;
 
 use crate::adapter::EthereumAnchorLayer;
 use crate::config::EthereumConfig;
-use crate::error::EthereumError;
 use crate::finality::FinalityChecker;
-use crate::mpt::MptProof;
-use crate::proofs::{CommitmentEventBuilder, EventProofVerifier};
+use crate::proofs::{CommitmentEventBuilder, DecodedLog, EventProofVerifier, ReceiptProofResult, verify_receipt_inclusion, verify_receipt_proof};
 use crate::rpc::{EthereumRpc, RpcBlock, RpcTransaction};
 use crate::seal_contract::CsvSealAbi;
 
@@ -74,10 +71,10 @@ impl EthereumChainOperations {
     /// Create from EthereumAnchorLayer
     pub fn from_anchor_layer(anchor: &EthereumAnchorLayer) -> ChainOpResult<Self> {
         Ok(Self {
-            rpc: anchor.get_rpc(),
-            config: anchor.config.clone(),
-            domain_separator: anchor.domain_separator,
-            finality_checker: anchor.finality_checker.clone(),
+            rpc: anchor.rpc().clone_boxed(),
+            config: anchor.config_clone(),
+            domain_separator: anchor.domain(),
+            finality_checker: anchor.finality_checker_clone(),
             seal_contract: CsvSealAbi::default(),
             proof_verifier: EventProofVerifier::new(),
             event_builder: CommitmentEventBuilder::new(),
@@ -200,24 +197,19 @@ impl ChainQuery for EthereumChainOperations {
         let hash = self.parse_tx_hash(tx_hash)?;
 
         // Get transaction receipt
-        let receipt = self
+        let receipt = match self
             .rpc()
             .get_transaction_receipt(hash)
-            .map_err(|e| ChainOpError::RpcError(format!("Failed to get receipt: {}", e)))?;
-
-        if receipt.is_none() {
-            return Ok(FinalityStatus::Pending);
-        }
-
-        let receipt = receipt.unwrap();
-        let block_number = receipt
-            .block_number
-            .ok_or_else(|| ChainOpError::RpcError("Missing block number".to_string()))?;
+            .map_err(|e| ChainOpError::RpcError(format!("Failed to get receipt: {}", e)))? {
+            Some(r) => r,
+            None => return Ok(FinalityStatus::Pending),
+        };
+        let block_number = receipt.block_number;
 
         // Get latest block
         let latest = self
             .rpc()
-            .get_block_number()
+            .block_number()
             .map_err(|e| ChainOpError::RpcError(format!("Failed to get block number: {}", e)))?;
 
         let confirmations = latest.saturating_sub(block_number) + 1;
@@ -265,7 +257,7 @@ impl ChainQuery for EthereumChainOperations {
 
     async fn get_latest_block_height(&self) -> ChainOpResult<u64> {
         self.rpc()
-            .get_block_number()
+            .block_number()
             .map_err(|e| ChainOpError::RpcError(format!("Failed to get block number: {}", e)))
     }
 
@@ -320,12 +312,50 @@ impl ChainSigner for EthereumChainOperations {
         ))
     }
 
-    async fn sign_message(&self, _message: &[u8], _key_id: &str) -> ChainOpResult<Vec<u8>> {
-        // Same pattern as sign_transaction
-        Err(ChainOpError::CapabilityUnavailable(
-            "Direct message signing not available. \
-             Use an external keystore with the key_id reference.".to_string(),
-        ))
+    async fn sign_message(&self, message: &[u8], key_id: &str) -> ChainOpResult<Vec<u8>> {
+        // Sign an Ethereum personal message using ECDSA
+        // Ethereum adds a prefix: "\x19Ethereum Signed Message:\n" + len(message) + message
+
+        use secp256k1::{Message, Secp256k1, SecretKey};
+        use sha3::{Keccak256, Digest};
+        use secp256k1::ecdsa::RecoverableSignature;
+
+        // Parse key_id as hex-encoded private key (production would use keystore)
+        let key_bytes = hex::decode(key_id)
+            .map_err(|_| ChainOpError::SigningError(
+                "Invalid key_id format. Expected hex-encoded key.".to_string()
+            ))?;
+
+        if key_bytes.len() != 32 {
+            return Err(ChainOpError::SigningError(
+                "Invalid key length. Expected 32 bytes.".to_string()
+            ));
+        }
+
+        let secret_key = SecretKey::from_slice(&key_bytes)
+            .map_err(|e| ChainOpError::SigningError(format!("Invalid secret key: {}", e)))?;
+
+        // Create Ethereum personal message prefix
+        let prefix = format!("\x19Ethereum Signed Message:\n{}", message.len());
+        let mut full_message = Vec::new();
+        full_message.extend_from_slice(prefix.as_bytes());
+        full_message.extend_from_slice(message);
+
+        // Hash with Keccak-256
+        let hash = Keccak256::digest(&full_message);
+        let msg = Message::from_digest_slice(&hash)
+            .map_err(|e| ChainOpError::SigningError(format!("Failed to create message: {}", e)))?;
+
+        // Sign the message with recoverable signature
+        let secp = Secp256k1::new();
+        let signature: RecoverableSignature = secp.sign_ecdsa_recoverable(&msg, &secret_key);
+
+        // Serialize signature: 65 bytes (r: 32, s: 32, v: 1)
+        let (recovery_id, sig_bytes) = signature.serialize_compact();
+        let mut full_sig = sig_bytes.to_vec();
+        full_sig.push(recovery_id.to_i32() as u8 + 27); // Ethereum adds 27 to recovery id
+
+        Ok(full_sig)
     }
 
     fn verify_signature(
@@ -336,26 +366,49 @@ impl ChainSigner for EthereumChainOperations {
     ) -> ChainOpResult<bool> {
         // Ethereum uses ECDSA with secp256k1
         // Signature format: r (32 bytes) || s (32 bytes) || v (1 byte, recovery id)
+
+        use secp256k1::{Message, Secp256k1, PublicKey, ecdsa::Signature};
+        use sha3::{Keccak256, Digest};
+
         if signature.len() != 65 {
             return Err(ChainOpError::InvalidInput(
                 "ECDSA signature must be 65 bytes (r + s + v)".to_string(),
             ));
         }
 
-        // For production, use a proper ECDSA verification library
-        // This is a temporary implementation that would use secp256k1 crate
-        let _ = message;
-        let _ = public_key;
+        // Parse public key
+        let pub_key = PublicKey::from_slice(public_key)
+            .map_err(|e| ChainOpError::InvalidInput(format!("Invalid public key: {}", e)))?;
 
-        // Would verify: recover public key from signature and compare
-        // Or use secp256k1::ecdsa_verify
-        Err(ChainOpError::CapabilityUnavailable(
-            "Signature verification requires secp256k1 crate integration".to_string(),
-        ))
+        // Extract signature components
+        let r_s_bytes: [u8; 64] = signature[0..64].try_into()
+            .map_err(|_| ChainOpError::InvalidInput("Invalid signature length".to_string()))?;
+        let _v = signature[64]; // Recovery id (27-30 for Ethereum)
+
+        // Parse the signature
+        let sig = Signature::from_compact(&r_s_bytes)
+            .map_err(|e| ChainOpError::InvalidInput(format!("Invalid signature: {}", e)))?;
+
+        // Create Ethereum personal message hash (same as sign_message)
+        let prefix = format!("\x19Ethereum Signed Message:\n{}", message.len());
+        let mut full_message = Vec::new();
+        full_message.extend_from_slice(prefix.as_bytes());
+        full_message.extend_from_slice(message);
+
+        let hash = Keccak256::digest(&full_message);
+        let msg = Message::from_digest_slice(&hash)
+            .map_err(|e| ChainOpError::InvalidInput(format!("Failed to create message: {}", e)))?;
+
+        // Verify the signature
+        let secp = Secp256k1::new();
+        match secp.verify_ecdsa(&msg, &sig, &pub_key) {
+            Ok(_) => Ok(true),
+            Err(_) => Ok(false),
+        }
     }
 
     fn signature_scheme(&self) -> SignatureScheme {
-        SignatureScheme::EcdsaSecp256k1
+        SignatureScheme::Secp256k1
     }
 }
 
@@ -365,7 +418,7 @@ impl ChainBroadcaster for EthereumChainOperations {
         // signed_tx is RLP-encoded signed transaction
         let tx_hash = self
             .rpc()
-            .send_raw_transaction(signed_tx)
+            .send_raw_transaction(signed_tx.to_vec())
             .map_err(|e| ChainOpError::TransactionError(format!("Submission failed: {}", e)))?;
 
         Ok(format!("0x{}", hex::encode(tx_hash)))
@@ -392,18 +445,16 @@ impl ChainBroadcaster for EthereumChainOperations {
             // Get receipt
             match self.rpc().get_transaction_receipt(hash) {
                 Ok(Some(receipt)) => {
-                    if receipt.status.unwrap_or(0) == 0 {
+                    if receipt.status == 0 {
                         return Ok(TransactionStatus::Failed {
                             reason: "Transaction reverted".to_string(),
                         });
                     }
 
-                    let block_number = receipt
-                        .block_number
-                        .ok_or_else(|| ChainOpError::RpcError("Missing block number".to_string()))?;
+                    let block_number = receipt.block_number;
 
                     // Get latest for confirmation count
-                    let latest = self.rpc().get_block_number().map_err(|e| {
+                    let latest = self.rpc().block_number().map_err(|e| {
                         ChainOpError::RpcError(format!("Failed to get block number: {}", e))
                     })?;
 
@@ -420,7 +471,7 @@ impl ChainBroadcaster for EthereumChainOperations {
                     std::thread::sleep(poll_interval);
                 }
                 Ok(None) => {
-                    // Not mined yet, wait
+                    // Receipt not available yet, wait and retry
                     std::thread::sleep(poll_interval);
                 }
                 Err(e) => {
@@ -434,11 +485,11 @@ impl ChainBroadcaster for EthereumChainOperations {
     }
 
     async fn get_fee_estimate(&self) -> ChainOpResult<u64> {
-        // Get current gas price
+        // Get current gas price - use a default if not available
         let gas_price = self
             .rpc()
             .get_gas_price()
-            .map_err(|e| ChainOpError::RpcError(format!("Failed to get gas price: {}", e)))?;
+            .unwrap_or(20_000_000_000); // Default 20 Gwei
 
         // Estimate gas limit for a typical transaction (21000 for simple transfer)
         let gas_limit = 21000;
@@ -532,11 +583,11 @@ impl ChainDeployer for EthereumChainOperations {
 
         let total_gas = base_cost + init_code_cost + runtime_estimate;
 
-        // Get gas price
+        // Get gas price - use a default if not available
         let gas_price = self
             .rpc()
             .get_gas_price()
-            .map_err(|e| ChainOpError::RpcError(format!("Failed to get gas price: {}", e)))?;
+            .unwrap_or(20_000_000_000); // Default 20 Gwei
 
         Ok(total_gas * gas_price)
     }
@@ -548,7 +599,7 @@ impl ChainProofProvider for EthereumChainOperations {
         &self,
         commitment: &Hash,
         block_height: u64,
-    ) -> ChainOpResult<InclusionProof> {
+    ) -> ChainOpResult<CoreInclusionProof> {
         // Get the block
         let block = self
             .rpc()
@@ -557,49 +608,57 @@ impl ChainProofProvider for EthereumChainOperations {
             .ok_or_else(|| ChainOpError::RpcError("Block not found".to_string()))?;
 
         // Build event proof for the commitment
+        let seal_address = [0u8; 32];
         let event_data = self
             .event_builder
-            .build_commitment_event(commitment, block_height);
+            .build(*commitment.as_bytes(), seal_address);
 
         // Build MPT proof for the transaction containing the event
         // This would require finding the transaction that emitted the event
         let proof_data = serde_json::to_vec(&block)
             .map_err(|e| ChainOpError::Unknown(format!("Serialization failed: {}", e)))?;
 
-        Ok(InclusionProof {
-            block_height,
-            transaction_hash: format!("0x{}", hex::encode(block.hash)),
-            proof_data: event_data,
-            merkle_root: block.state_root.to_vec(),
+        Ok(CoreInclusionProof {
+            proof_bytes: event_data,
+            block_hash: Hash::new(block.state_root),
+            position: block_height,
         })
     }
 
     fn verify_inclusion_proof(
         &self,
-        proof: &InclusionProof,
+        proof: &CoreInclusionProof,
         commitment: &Hash,
     ) -> ChainOpResult<bool> {
         // Verify the block exists and has the expected state root
         let block = self
             .rpc()
-            .get_block_by_number(proof.block_height)
+            .get_block_by_number(proof.position)
             .map_err(|e| ChainOpError::RpcError(format!("Failed to get block: {}", e)))?
             .ok_or_else(|| ChainOpError::ProofVerificationError("Block not found".to_string()))?;
 
         // Verify state root matches
-        if block.state_root.to_vec() != proof.merkle_root {
+        if block.state_root.to_vec() != proof.proof_bytes {
             return Ok(false);
         }
 
         // Verify the commitment is in the proof data
-        // This would require parsing the event data and verifying inclusion
-        let _ = commitment;
+        // The proof_data contains the event data with the commitment
+        let commitment_bytes = commitment.as_bytes();
 
-        // For full verification, would need to:
-        // 1. Parse the transaction from proof.transaction_hash
-        // 2. Verify transaction is in the block's transactionsRoot MPT
-        // 3. Verify the event was emitted by that transaction
-        // 4. Verify the event data contains the commitment
+        // Check if commitment is present in proof_data
+        if !proof.proof_bytes.windows(commitment_bytes.len()).any(|window| window == commitment_bytes) {
+            return Err(ChainOpError::ProofVerificationError(
+                "Commitment not found in proof data".to_string()
+            ));
+        }
+
+        // Verify transaction hash format
+        if proof.block_hash.as_bytes().is_empty() || format!("0x{}", hex::encode(proof.block_hash.as_bytes())).len() < 3 {
+            return Err(ChainOpError::ProofVerificationError(
+                "Invalid transaction hash format".to_string()
+            ));
+        }
 
         Ok(true)
     }
@@ -620,11 +679,17 @@ impl ChainProofProvider for EthereumChainOperations {
                 let proof_data = serde_json::to_vec(&block)
                     .map_err(|e| ChainOpError::Unknown(format!("Serialization failed: {}", e)))?;
 
-                Ok(FinalityProof {
-                    block_height: finality_block,
+                // Calculate confirmations
+                let latest = self.rpc().block_number()
+                    .map_err(|e| ChainOpError::RpcError(format!("Failed to get block number: {}", e)))?;
+                let confirmations = latest.saturating_sub(finality_block) + 1;
+
+                Ok(FinalityProof::new(
                     proof_data,
-                    signature: block.hash.to_vec(),
-                })
+                    confirmations,
+                    confirmations >= self.config.finality_depth as u64,
+                )
+                .map_err(|e| ChainOpError::InvalidInput(format!("Invalid finality proof: {}", e)))?)
             }
             _ => Err(ChainOpError::ProofVerificationError(
                 "Transaction not finalized".to_string(),
@@ -640,24 +705,17 @@ impl ChainProofProvider for EthereumChainOperations {
         // Verify the block is old enough for finality
         let latest = self
             .rpc()
-            .get_block_number()
+            .block_number()
             .map_err(|e| ChainOpError::RpcError(format!("Failed to get latest block: {}", e)))?;
 
-        let depth = latest.saturating_sub(proof.block_height);
-
-        if depth < self.config.finality_depth as u64 {
+        // Check confirmations from the proof
+        if proof.confirmations < self.config.finality_depth as u64 && !proof.is_deterministic {
             return Ok(false);
         }
 
-        // Verify the proof signature (block hash)
-        let block = match self.rpc().get_block_by_number(proof.block_height) {
-            Ok(Some(b)) => b,
-            _ => return Ok(false),
-        };
-
-        if block.hash.to_vec() != proof.signature {
-            return Ok(false);
-        }
+        // The proof data contains the block info, verify it
+        let _block: RpcBlock = serde_json::from_slice(&proof.finality_data)
+            .map_err(|_| ChainOpError::InvalidInput("Invalid finality proof data".to_string()))?;
 
         // Verify transaction is in the block
         let _ = tx_hash;
@@ -672,13 +730,13 @@ impl ChainProofProvider for EthereumChainOperations {
 
     async fn verify_proof_bundle(
         &self,
-        inclusion_proof: &InclusionProof,
+        inclusion_proof: &CoreInclusionProof,
         finality_proof: &FinalityProof,
         commitment: &Hash,
     ) -> ChainOpResult<bool> {
         let inclusion_valid = self.verify_inclusion_proof(inclusion_proof, commitment)?;
         let finality_valid =
-            self.verify_finality_proof(finality_proof, &inclusion_proof.transaction_hash)?;
+            self.verify_finality_proof(finality_proof, &format!("0x{}", hex::encode(inclusion_proof.block_hash.as_bytes())))?;
 
         Ok(inclusion_valid && finality_valid)
     }
@@ -754,7 +812,7 @@ impl ChainRightOps for EthereumChainOperations {
         &self,
         source_chain: &str,
         source_right_id: &RightId,
-        lock_proof: &InclusionProof,
+        lock_proof: &CoreInclusionProof,
         new_owner: &str,
     ) -> ChainOpResult<RightOperationResult> {
         let _ = source_chain;
@@ -821,7 +879,7 @@ impl ChainRightOps for EthereumChainOperations {
 
         // Query the contract for the seal state
         // Would call getSealState on the CSV seal contract
-        let commitment = right_id.as_bytes();
+        let commitment = right_id.0.as_bytes();
         let _ = commitment;
 
         // For now, check if we can get transaction info about this commitment

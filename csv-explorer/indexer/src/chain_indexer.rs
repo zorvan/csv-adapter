@@ -5,9 +5,9 @@
 use async_trait::async_trait;
 
 use csv_explorer_shared::{
-    CommitmentScheme, CsvContract, EnhancedRightRecord, EnhancedSealRecord, EnhancedTransferRecord,
-    ExplorerError, FinalityProofType, InclusionProofType, Network, PriorityLevel, RightRecord,
-    SealRecord, TransferRecord,
+    BlockInfo, CommitmentScheme, CsvContract, CsvEvent, EnhancedRightRecord, EnhancedSealRecord,
+    EnhancedTransferRecord, EventFinalityStatus, ExplorerError, FinalityProofType,
+    InclusionProofType, Network, PriorityLevel, RightRecord, SealRecord, TransferRecord,
 };
 
 /// Result type alias for chain indexer operations.
@@ -44,6 +44,52 @@ pub trait ChainIndexer: Send + Sync {
 
     /// Index contract deployments/events found in a specific block.
     async fn index_contracts(&self, block: u64) -> ChainResult<Vec<CsvContract>>;
+
+    // -----------------------------------------------------------------------
+    // Shared Schema Event Indexing (Production Guarantee Plan Phase 6)
+    // -----------------------------------------------------------------------
+
+    /// Index canonical CsvEvent from chain-specific logs/events.
+    ///
+    /// This method parses raw chain events into the shared CsvEvent format
+    /// defined in csv-adapter-core::events.
+    ///
+    /// # Arguments
+    /// * `block` - Block height to index
+    ///
+    /// # Returns
+    /// Vector of CsvEvent structs following the standard schema:
+    /// - RightCreated, RightConsumed
+    /// - CrossChainLock, CrossChainMint, CrossChainRefund
+    /// - RightTransferred, NullifierRegistered
+    /// - RightMetadataRecorded
+    async fn index_csv_events(&self, block: u64) -> ChainResult<Vec<CsvEvent>> {
+        // Default implementation: convert from legacy records
+        let mut events = Vec::new();
+
+        let rights = self.index_rights(block).await?;
+        let transfers = self.index_transfers(block).await?;
+
+        // Create dummy block info - real implementations should override this
+        // with actual block hash, timestamp from the chain
+        let block_info = BlockInfo {
+            height: block,
+            hash: format!("0x{:064x}", block),
+            timestamp: 0,
+            tx_hash: String::new(),
+            log_index: 0,
+        };
+
+        for right in rights {
+            events.push(right.to_right_created_event(block_info.clone()));
+        }
+
+        for transfer in transfers {
+            events.push(transfer.to_transfer_event(block_info.clone(), false));
+        }
+
+        Ok(events)
+    }
 
     /// Parse a single block and return the latest block height processed.
     /// This is a convenience method that calls all index_* methods.

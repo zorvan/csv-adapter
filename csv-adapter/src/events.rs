@@ -37,6 +37,7 @@
 //! ```
 
 use csv_adapter_core::{Chain, RightId};
+#[cfg(feature = "tokio")]
 use tokio::sync::broadcast;
 
 /// Events emitted by the CSV client.
@@ -89,10 +90,12 @@ pub enum Event {
 /// Created via [`CsvClient::watch()`](crate::client::CsvClient::watch).
 ///
 /// Use [`EventStream::recv()`] to asynchronously receive events.
+#[cfg(feature = "tokio")]
 pub struct EventStream {
     receiver: broadcast::Receiver<Event>,
 }
 
+#[cfg(feature = "tokio")]
 impl EventStream {
     pub(crate) fn new(receiver: broadcast::Receiver<Event>) -> Self {
         Self { receiver }

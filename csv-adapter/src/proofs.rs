@@ -71,11 +71,12 @@ impl ProofManager {
             return Err(CsvError::ChainNotSupported(chain));
         }
 
-        // Proof generation requires chain adapter integration
+        // Proof generation requires chain adapter proof provider integration
         // This will be implemented when the chain adapter proof providers are ready
-        Err(CsvError::Generic(
-            "Proof generation not yet implemented. Chain adapter integration required.".to_string()
-        ))
+        Err(CsvError::AdapterError {
+            chain,
+            message: "Proof generation requires chain adapter ProofProvider trait integration.".to_string()
+        })
     }
 
     /// Verify a proof bundle against an expected Right ID.

@@ -136,9 +136,9 @@ impl Wallet for SolanaWallet {
         &self.pubkey
     }
 
-    fn private_key(&self) -> &str {
-        // ProgramWallet doesn't expose private keys directly
-        ""
+    fn key_id(&self) -> &str {
+        // Return the public key as the key identifier
+        &self.pubkey
     }
 
     async fn sign_transaction(&self, data: &[u8]) -> ChainResult<Vec<u8>> {

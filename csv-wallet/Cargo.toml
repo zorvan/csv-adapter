@@ -16,7 +16,7 @@ path = "src/main.rs"
 
 [dependencies]
 # Core CSV Adapter types
-csv-adapter = { path = "../csv-adapter", default-features = false, features = ["in-memory", "wallet", "tokio"] }
+csv-adapter = { path = "../csv-adapter", default-features = false, features = ["in-memory", "wallet"] }
 csv-adapter-core = { path = "../csv-adapter-core" }
 csv-adapter-store = { path = "../csv-adapter-store", default-features = false, features = ["browser-storage"] }
 csv-adapter-keystore = { path = "../csv-adapter-keystore", features = ["wasm"] }

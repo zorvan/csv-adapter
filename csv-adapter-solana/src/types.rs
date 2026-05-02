@@ -156,3 +156,49 @@ pub enum SealStatus {
     /// Seal is pending confirmation
     Pending,
 }
+
+/// Solana transaction status
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SolanaTransactionStatus {
+    /// Transaction is confirmed
+    Confirmed,
+    /// Transaction failed
+    Failed,
+    /// Transaction is pending
+    Pending,
+}
+
+/// Solana transaction representation
+#[derive(Debug, Clone)]
+pub struct SolanaTransaction {
+    /// Transaction status
+    pub status: SolanaTransactionStatus,
+    /// Slot number
+    pub slot: u64,
+    /// Account keys involved in the transaction
+    pub account_keys: Vec<Pubkey>,
+    /// Transaction fee
+    pub fee: u64,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_solana_seal_ref() {
+        let seal = SolanaSealRef {
+            account: Pubkey::new_unique(),
+            owner: Pubkey::new_unique(),
+            lamports: 1000,
+            seed: None,
+        };
+        assert_eq!(seal.lamports, 1000);
+    }
+
+    #[test]
+    fn test_confirmation_status() {
+        assert_eq!(ConfirmationStatus::Processed, ConfirmationStatus::Processed);
+        assert_ne!(ConfirmationStatus::Processed, ConfirmationStatus::Confirmed);
+    }
+}

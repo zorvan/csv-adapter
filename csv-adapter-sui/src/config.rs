@@ -124,6 +124,11 @@ pub struct SuiConfig {
     pub transaction: TransactionConfig,
     /// CSV seal contract configuration.
     pub seal_contract: SealContractConfig,
+    /// Signer address for transaction signing (required for deployment).
+    pub signer_address: Option<String>,
+    /// Signer private key bytes (32 bytes, required for deployment).
+    #[serde(with = "serde_bytes")]
+    pub signer_private_key: Option<Vec<u8>>,
 }
 
 impl SuiConfig {
@@ -136,6 +141,8 @@ impl SuiConfig {
             checkpoint: CheckpointConfig::default(),
             transaction: TransactionConfig::default(),
             seal_contract: SealContractConfig::default(),
+            signer_address: None,
+            signer_private_key: None,
         }
     }
 

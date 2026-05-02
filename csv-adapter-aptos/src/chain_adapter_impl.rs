@@ -158,9 +158,9 @@ impl Wallet for AptosWallet {
         &self.address
     }
 
-    fn private_key(&self) -> &str {
-        // Ed25519 keys are not exposed directly
-        ""
+    fn key_id(&self) -> &str {
+        // Return the address as the key identifier
+        &self.address
     }
 
     async fn sign_transaction(&self, data: &[u8]) -> ChainResult<Vec<u8>> {

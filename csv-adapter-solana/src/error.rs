@@ -14,6 +14,14 @@ pub enum SolanaError {
     #[error("Transaction error: {0}")]
     Transaction(String),
 
+    /// Transaction failed
+    #[error("Transaction failed: {0}")]
+    TransactionFailed(String),
+
+    /// Timeout error
+    #[error("Timeout: {0}")]
+    Timeout(String),
+
     /// Account not found
     #[error("Account not found: {0}")]
     AccountNotFound(String),
@@ -144,6 +152,8 @@ impl HasErrorSuggestion for SolanaError {
             SolanaError::ProofGeneration(_) => error_codes::SOL_PROOF_GENERATION_ERROR,
             SolanaError::InvalidInput(_) => error_codes::SOL_INVALID_INPUT,
             SolanaError::NotImplemented(_) => error_codes::SOL_NOT_IMPLEMENTED,
+            SolanaError::TransactionFailed(_) => error_codes::SOL_TRANSACTION_ERROR,
+            SolanaError::Timeout(_) => error_codes::SOL_NETWORK_ERROR,
         }
     }
 
@@ -250,6 +260,20 @@ impl HasErrorSuggestion for SolanaError {
             SolanaError::NotImplemented(_) => "This feature is not yet implemented. \
                  Consider using an alternative approach or waiting for a future release."
                 .to_string(),
+            SolanaError::TransactionFailed(msg) => format!(
+                "Transaction failed on-chain: {}. Check: \
+                 1) Program logs for specific errors, \
+                 2) Account permissions are correct, \
+                 3) Instruction data is valid.",
+                msg
+            ),
+            SolanaError::Timeout(msg) => format!(
+                "Operation timed out: {}. Check: \
+                 1) Network connection is stable, \
+                 2) RPC endpoint is responsive, \
+                 3) Consider using a higher commitment level.",
+                msg
+            ),
         }
     }
 

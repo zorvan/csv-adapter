@@ -1,30 +1,22 @@
-//! Sui package deployment via RPC
+//! Sui package deployment using sui-rust-sdk
 //!
-//! This module provides RPC-based deployment of Sui Move packages,
-//! replacing the need for CLI commands like `sui client publish`.
+//! This module provides deployment of Sui Move packages using the
+//! official sui-rust-sdk crates from crates.io.
 
 use crate::config::SuiConfig;
 use crate::error::{SuiError, SuiResult};
 use crate::rpc::SuiRpc;
 
-// Sui SDK imports for real deployment (temporarily disabled due to core2 dependency issue)
-// #[cfg(feature = "sui-sdk-deploy")]
-// use sui_sdk::{
-//     SuiClientBuilder,
-//     rpc_types::SuiTransactionBlockResponse,
-//     types::{
-//         base_types::ObjectID,
-//         crypto::SignatureScheme,
-//         messages::TransactionData,
-//         transaction::Transaction,
-//     },
-// };
-// #[cfg(feature = "sui-sdk-deploy")]
-// use sui_keys::keystore::{AccountKeystore, FileBasedKeystore};
-// #[cfg(feature = "sui-sdk-deploy")]
-// use shared_crypto::intent::Intent;
-// #[cfg(feature = "sui-sdk-deploy")]
-// use std::str::FromStr;
+#[cfg(feature = "sui-sdk-deploy")]
+use std::str::FromStr;
+#[cfg(feature = "sui-sdk-deploy")]
+use sui_rpc::client::Client;
+#[cfg(feature = "sui-sdk-deploy")]
+use sui_sdk_types::{Address, Transaction, Ed25519Signature};
+#[cfg(feature = "sui-sdk-deploy")]
+use sui_transaction_builder::TransactionBuilder;
+#[cfg(feature = "sui-sdk-deploy")]
+use sui_crypto::ed25519::Ed25519PrivateKey;
 
 /// Sui package deployment result
 pub struct PackageDeployment {
@@ -52,7 +44,7 @@ impl PackageDeployer {
         Self { config, rpc }
     }
 
-    /// Deploy a Sui package
+    /// Deploy a Sui package using sui-rust-sdk
     ///
     /// # Arguments
     /// * `package_bytes` - The compiled Move package bytes
@@ -60,27 +52,116 @@ impl PackageDeployer {
     ///
     /// # Returns
     /// The package deployment details
+    #[cfg(feature = "sui-sdk-deploy")]
     pub async fn deploy_package(
         &self,
         package_bytes: &[u8],
         gas_budget: u64,
     ) -> SuiResult<PackageDeployment> {
-        // Build the publish transaction
-        // This involves:
-        // 1. Creating a TransactionData for Publish
-        // 2. Signing with the sender's key
-        // 3. Executing via RPC
+        // Create gRPC client
+        let client = Client::new(&self.config.rpc_url)
+            .map_err(|e| SuiError::RpcError(format!("Failed to create gRPC client: {}", e)))?;
 
-        let _ = package_bytes; // Would be used in real implementation
+        // Get sender address from config
+        let sender = self.config.signer_address
+            .as_ref()
+            .ok_or_else(|| SuiError::ConfigurationError("No signer address configured".to_string()))?;
+        let sender_address = Address::from_str(sender)
+            .map_err(|e| SuiError::ConfigurationError(format!("Invalid address: {}", e)))?;
 
-        // Placeholder deployment
-        Ok(PackageDeployment {
-            package_id: [0u8; 32], // Would be actual object ID
-            transaction_digest: "0x...".to_string(),
-            gas_used: gas_budget / 2, // Estimate
-            modules: vec!["csv_seal".to_string()],
-            dependencies: vec!["Sui".to_string()],
-        })
+        // Build publish transaction using sui-transaction-builder
+        // TransactionBuilder uses a mutable builder pattern
+        let mut builder = TransactionBuilder::new();
+        
+        // Set transaction parameters
+        builder.set_sender(sender_address);
+        builder.set_gas_budget(gas_budget);
+        
+        // Add modules and dependencies for publishing
+        let modules = vec![package_bytes.to_vec()];
+        // Dependencies: 0x1 (Sui framework), 0x2 (Sui system) as Addresses
+        let dep1 = Address::from_str("0x1").map_err(|e| SuiError::ConfigurationError(format!("Invalid dep: {}", e)))?;
+        let dep2 = Address::from_str("0x2").map_err(|e| SuiError::ConfigurationError(format!("Invalid dep: {}", e)))?;
+        let dependencies = vec![dep1, dep2];
+        
+        // Call publish - this adds a publish command to the transaction
+        builder.publish(modules, dependencies);
+        
+        // Build the transaction
+        let transaction = builder.try_build()
+            .map_err(|e| SuiError::SerializationError(format!("Failed to build transaction: {}", e)))?;
+
+        // Serialize transaction data for signing
+        let tx_bytes = bcs::to_bytes(&transaction)
+            .map_err(|e| SuiError::SerializationError(format!("BCS encoding failed: {}", e)))?;
+
+        // Sign the transaction using sui-crypto's Ed25519PrivateKey
+        // Import the Signer trait to use try_sign
+        use sui_crypto::Signer;
+        let private_key = self.get_signer_private_key()?;
+        let signature: Ed25519Signature = private_key.try_sign(&tx_bytes)
+            .map_err(|e| SuiError::RpcError(format!("Signing failed: {}", e)))?;
+
+        // Note: Full transaction execution via gRPC is not yet implemented.
+        // The transaction can be constructed and signed but the gRPC submission
+        // to the Sui network requires additional implementation.
+        // This prevents fake transaction digests from being returned in production.
+        let _ = (client, transaction, signature);
+
+        Err(SuiError::FeatureNotEnabled(
+            "Package deployment transaction submission via gRPC is not yet fully implemented. \
+             The transaction can be constructed and signed but not yet submitted to the network. \
+             Rebuild with the 'sui-full-deployment' feature when available.".to_string()
+        ))
+    }
+    
+    /// Execute transaction with gRPC client
+    #[cfg(feature = "sui-sdk-deploy")]
+    async fn execute_with_client(
+        &self,
+        _client: Client,
+        _transaction: Transaction,
+        _signature: Ed25519Signature,
+    ) -> SuiResult<sui_sdk_types::Digest> {
+        // gRPC transaction execution is not yet implemented.
+        // The sui-rpc client requires proper gRPC service calls for transaction submission.
+        Err(SuiError::FeatureNotEnabled(
+            "gRPC transaction execution service is not yet implemented. \
+             This is required for submitting signed transactions to the Sui network.".to_string()
+        ))
+    }
+
+    /// Fallback implementation when sui-sdk-deploy feature is not enabled
+    #[cfg(not(feature = "sui-sdk-deploy"))]
+    pub async fn deploy_package(
+        &self,
+        _package_bytes: &[u8],
+        _gas_budget: u64,
+    ) -> SuiResult<PackageDeployment> {
+        Err(SuiError::FeatureNotEnabled(
+            "Package deployment requires the 'sui-sdk-deploy' feature enabled".to_string()
+        ))
+    }
+
+    /// Get the signer private key from configuration
+    #[cfg(feature = "sui-sdk-deploy")]
+    fn get_signer_private_key(&self) -> SuiResult<Ed25519PrivateKey> {
+        let private_key_bytes = self.config.signer_private_key
+            .as_ref()
+            .ok_or_else(|| SuiError::ConfigurationError("No signer private key configured".to_string()))?;
+
+        if private_key_bytes.len() != 32 {
+            return Err(SuiError::ConfigurationError(
+                "Invalid private key length - expected 32 bytes".to_string()
+            ));
+        }
+
+        // Convert Vec<u8> to [u8; 32] for sui-crypto's Ed25519PrivateKey
+        let key_bytes: [u8; 32] = private_key_bytes.as_slice().try_into()
+            .map_err(|_| SuiError::ConfigurationError("Private key must be exactly 32 bytes".to_string()))?;
+        
+        // Create sui-crypto's Ed25519PrivateKey directly from bytes
+        Ok(Ed25519PrivateKey::new(key_bytes))
     }
 
     /// Deploy multiple packages
@@ -373,8 +454,9 @@ async fn build_publish_transaction_data(
         ]
     });
 
-    // This is a simplified approach - in production you'd use proper BCS serialization
-    // For now, we return an error indicating the caller should use the lower-level API
+    // Full BCS serialization for Move package publishing requires the sui-sdk
+    // which provides the TransactionData types. The RPC feature enables this
+    // through the deploy_csv_seal_package_with_sdk function.
     Err(SuiError::SerializationError(
         "Full BCS serialization requires sui-sdk. Use deploy_csv_seal_package with RPC feature instead.".to_string()
     ))

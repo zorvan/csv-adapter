@@ -107,6 +107,7 @@ impl SuiRpc for SuiRpcClient {
             owner: data["owner"].to_string().into_bytes(),
             object_type: data["type"].as_str().unwrap_or("").to_string(),
             has_public_transfer: data["hasPublicTransfer"].as_bool().unwrap_or(false),
+            bcs_data: data["bcs"].as_str().map(|s| hex::decode(s).ok()).flatten(),
         }))
     }
 
@@ -260,6 +261,7 @@ impl SuiRpc for SuiRpcClient {
                             owner: owner.to_vec(),
                             object_type: "0x2::coin::Coin<0x2::sui::SUI>".to_string(),
                             has_public_transfer: true,
+                            bcs_data: None,
                         })
                     })
                     .collect());
@@ -340,5 +342,15 @@ impl SuiRpc for SuiRpcClient {
 
     fn as_any(&self) -> &dyn std::any::Any {
         self
+    }
+
+    fn clone_boxed(&self) -> Box<dyn SuiRpc> {
+        Box::new(SuiRpcClient {
+            client: Client::builder()
+                .timeout(Duration::from_secs(30))
+                .build()
+                .expect("Failed to build HTTP client"),
+            rpc_url: self.rpc_url.clone(),
+        })
     }
 }

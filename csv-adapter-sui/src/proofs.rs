@@ -234,9 +234,9 @@ fn hex_to_bytes_for_proof(hex: &str) -> Result<Vec<u8>, String> {
 /// Builder for commitment events emitted when seals are consumed.
 pub struct CommitmentEventBuilder {
     /// Package ID of the CSV seal module
-    package_id: [u8; 32],
+    pub(crate) module_address: [u8; 32],
     /// Event type tag
-    event_type: String,
+    pub(crate) event_type: String,
 }
 
 impl CommitmentEventBuilder {
@@ -247,7 +247,7 @@ impl CommitmentEventBuilder {
     /// * `event_type` - The event type (e.g., "csv_seal::AnchorEvent")
     pub fn new(package_id: [u8; 32], event_type: String) -> Self {
         Self {
-            package_id,
+            module_address: package_id,
             event_type,
         }
     }
@@ -258,9 +258,9 @@ impl CommitmentEventBuilder {
     /// * `commitment_hash` - The 32-byte commitment hash
     /// * `seal_object_id` - The object ID of the consumed seal
     pub fn build(&self, commitment_hash: [u8; 32], seal_object_id: [u8; 32]) -> Vec<u8> {
-        // Event format: package_id (32) + commitment (32) + seal_object_id (32)
+        // Event format: module_address (32) + commitment (32) + seal_object_id (32)
         let mut data = Vec::with_capacity(96);
-        data.extend_from_slice(&self.package_id);
+        data.extend_from_slice(&self.module_address);
         data.extend_from_slice(&commitment_hash);
         data.extend_from_slice(&seal_object_id);
         data

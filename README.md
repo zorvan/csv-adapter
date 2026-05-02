@@ -1,5 +1,8 @@
 # CSV Adapter
 
+**Status:** Production-Candidate (May 2026)  
+**Evaluation:** [Production Evaluation](docs/PRODUCTION_EVALUATION.md)
+
 Client-side validation for cross-chain rights built around a universal seal model.
 
 CSV Adapter treats a blockchain as the place where single-use is enforced, not where full application state lives. A `Right` stays in client state, while a chain-specific `Seal` is consumed on Bitcoin, Sui, Aptos, or Ethereum and later proven to another client with inclusion and finality evidence.
@@ -190,20 +193,20 @@ The MCP server provides self-describing errors with actionable suggestions:
 
 ## Documentation
 
-Start with [Documentation Hub](docs/INDEX.md).
-
 | Document | Purpose |
 |----------|---------|
+| [Production Evaluation](docs/PRODUCTION_EVALUATION.md) | **Current production readiness assessment** |
 | [Architecture](docs/ARCHITECTURE.md) | System model, invariants, and package boundaries |
-| [Scalable Chain Architecture](docs/SCALABLE_CHAIN_ARCHITECTURE.md) | Plugin-based multi-chain adapter system |
-| [Cross-Chain Spec](docs/CROSS_CHAIN_SPEC.md) | Protocol semantics and proof model |
-| [Developer Guide](docs/DEVELOPER_GUIDE.md) | Build, test, extend, and operate the repo |
-| [Implementation Status](docs/CROSS_CHAIN_IMPLEMENTATION.md) | Current implementation status |
 | [Blueprint](docs/BLUEPRINT.md) | Product and engineering roadmap |
-| [Explorer and Wallet Indexing](docs/EXPLORER_WALLET_INDEXING.md) | Explorer indexing and wallet integration |
-| [AluVM Note](docs/ALUVM.md) | Experimental VM integration design |
-| [E2E Manual](docs/E2E_TESTNET_MANUAL.md) | Testnet walkthrough |
-| [E2E Report](docs/TESTNET_E2E_REPORT.md) | Recorded test outcomes |
+| [Developer Guide](docs/DEVELOPER_GUIDE.md) | Build, test, extend, and operate the repo |
+| [Production Guarantee Plan](docs/PRODUCTION_GUARANTEE_PLAN.md) | Acceptance gates before production claims |
+| [Specification](docs/SPECIFICATION.md) | Protocol semantics and proof model |
+
+**Architecture Highlights:**
+- 5 supported chains (Bitcoin, Ethereum, Sui, Aptos, Solana)
+- Unified facade pattern for CLI, wallet, explorer
+- Native SDK compliance per chain
+- 8-phase CI guarantee gates
 
 ## Codebase analysis
 

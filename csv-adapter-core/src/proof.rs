@@ -68,9 +68,13 @@ impl InclusionProof {
     }
 
     /// Check if confirmed with given depth
+    ///
+    /// Note: This default implementation returns false (fail closed).
+    /// Chain adapters must implement their own confirmation logic using
+    /// chain-specific finality rules. This prevents false positives in
+    /// production where unconfirmed proofs could be accepted.
     pub fn is_confirmed(&self, _required_depth: u32) -> bool {
-        // Placeholder - adapters implement chain-specific logic
-        true
+        false
     }
 }
 

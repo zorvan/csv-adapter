@@ -1,6 +1,7 @@
 # Developer Guide
 
-Related docs: [Motivation](MOTIVATION.md), [Architecture](ARCHITECTURE.md), [Specification](SPECIFICATION.md), [Blueprint](BLUEPRINT.md)
+**Status:** Production-Candidate  
+**Related docs:** [Motivation](MOTIVATION.md), [Architecture](ARCHITECTURE.md), [Specification](SPECIFICATION.md), [Blueprint](BLUEPRINT.md), [Production Evaluation](PRODUCTION_EVALUATION.md)
 
 ## Purpose
 
@@ -164,18 +165,34 @@ For guided operational testing, use:
 - [E2E Testnet Manual](E2E_TESTNET_MANUAL.md)
 - [Testnet E2E Report](TESTNET_E2E_REPORT.md)
 
-## Documentation update rule
+## Documentation Update Rule
 
 When a change affects behavior, update the matching canonical doc:
 
 | If you changed... | Update... |
 |-------------------|-----------|
-| Protocol meaning or invariants | [Cross-Chain Specification](CROSS_CHAIN_SPEC.md) |
+| Protocol meaning or invariants | [Specification](SPECIFICATION.md) |
 | System boundaries or package responsibilities | [Architecture](ARCHITECTURE.md) |
 | Build and workflow instructions | [Developer Guide](DEVELOPER_GUIDE.md) |
+| Production readiness or evaluation | [Production Evaluation](PRODUCTION_EVALUATION.md) |
 | Roadmap or future priorities | [Blueprint](BLUEPRINT.md) |
 
 That rule is the main guardrail against documentation drift.
+
+## Production Readiness
+
+The project has reached **production-candidate status** as documented in [Production Evaluation](PRODUCTION_EVALUATION.md):
+
+- ✅ Core protocol traits implemented (`ChainQuery`, `ChainSigner`, `ChainBroadcaster`, `ChainDeployer`, `ChainProofProvider`, `ChainRightOps`)
+- ✅ All 5 chains use native SDKs per `NATIVE_SDK_COMPLIANCE.md`
+- ✅ Unified facade pattern via `ChainFacade`
+- ✅ CI guarantee gates enforce production standards
+- ✅ Security audits pass (`cargo audit`)
+
+Before claiming full production guarantee:
+1. Run the CLI/wallet facade audit (check for direct adapter imports)
+2. Verify all examples compile and run
+3. Complete testnet integration test coverage
 
 ## Contributor checklist
 

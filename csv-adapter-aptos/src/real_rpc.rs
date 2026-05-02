@@ -415,4 +415,9 @@ impl AptosRpc for AptosRpcClient {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
+
+    fn clone_boxed(&self) -> Box<dyn AptosRpc> {
+        // Clone by creating a new client with the same RPC URL
+        Box::new(AptosRpcClient::new(&self.rpc_url))
+    }
 }

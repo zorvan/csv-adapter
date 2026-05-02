@@ -17,7 +17,7 @@ mod real_rpc_impl {
     use serde_json::json;
     use tokio::runtime::Runtime;
 
-    use crate::rpc::{EthereumRpc, LogEntry, SingleStorageProof, StorageProof, TransactionReceipt};
+    use crate::rpc::{EthereumRpc, LogEntry, RpcBlock, RpcTransaction, SingleStorageProof, StorageProof, TransactionReceipt};
     use crate::seal_contract::CsvSealAbi;
     use crate::types::EthereumSealRef;
 
@@ -345,11 +345,12 @@ mod real_rpc_impl {
         fn get_transaction_receipt(
             &self,
             tx_hash: [u8; 32],
-        ) -> Result<TransactionReceipt, Box<dyn std::error::Error + Send + Sync>> {
+        ) -> Result<Option<TransactionReceipt>, Box<dyn std::error::Error + Send + Sync>> {
             let hash_hex = format!("0x{}", hex::encode(tx_hash));
-            let receipt = self
-                .get_tx_receipt_raw(&hash_hex)?
-                .ok_or_else(|| format!("Receipt not found for tx {}", hash_hex))?;
+            let receipt = match self.get_tx_receipt_raw(&hash_hex)? {
+                Some(r) => r,
+                None => return Ok(None),
+            };
 
             let logs: Vec<LogEntry> = receipt["logs"]
                 .as_array()
@@ -411,7 +412,7 @@ mod real_rpc_impl {
 
             let success = status == 1;
 
-            Ok(TransactionReceipt {
+            Ok(Some(TransactionReceipt {
                 tx_hash,
                 block_number,
                 block_hash,
@@ -420,7 +421,70 @@ mod real_rpc_impl {
                 status,
                 gas_used,
                 success,
+            }))
+        }
+
+        fn clone_boxed(&self) -> Box<dyn EthereumRpc> {
+            Box::new(RealEthereumRpc {
+                client: self.client.clone(),
+                rpc_url: self.rpc_url.clone(),
+                csv_seal_address: self.csv_seal_address,
+                signer: self.signer.clone(),
+                chain_id: self.chain_id,
+                seal_store: None, // SqliteSealStore doesn't implement Clone
+                runtime: Arc::clone(&self.runtime),
             })
+        }
+
+        fn get_gas_price(&self) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
+            let result = self.rpc_call("eth_gasPrice", json!([]))?;
+            let hex_str = result.as_str().ok_or("Invalid gas price response")?;
+            parse_hex_u64(hex_str).map_err(|e| e.into())
+        }
+
+        fn get_block_by_number(
+            &self,
+            block_number: u64,
+        ) -> Result<Option<RpcBlock>, Box<dyn std::error::Error + Send + Sync>> {
+            let tag = format!("0x{:x}", block_number);
+            let result = self.rpc_call("eth_getBlockByNumber", json!([tag, false]))?;
+            if result.is_null() {
+                return Ok(None);
+            }
+            Ok(Some(RpcBlock {
+                number: block_number,
+                hash: parse_hex_bytes32(result["hash"].as_str().unwrap_or("0x0")),
+                state_root: parse_hex_bytes32(result["stateRoot"].as_str().unwrap_or("0x0")),
+                timestamp: parse_hex_u64(result["timestamp"].as_str().unwrap_or("0x0")).unwrap_or(0),
+            }))
+        }
+
+        fn get_transaction(
+            &self,
+            tx_hash: [u8; 32],
+        ) -> Result<Option<RpcTransaction>, Box<dyn std::error::Error + Send + Sync>> {
+            let hash_hex = format!("0x{}", hex::encode(tx_hash));
+            let result = self.rpc_call("eth_getTransactionByHash", json!([hash_hex]))?;
+            if result.is_null() {
+                return Ok(None);
+            }
+            
+            let from = parse_hex_bytes20(result["from"].as_str().unwrap_or("0x0"));
+            let to = result["to"].as_str().filter(|s| !s.is_empty() && *s != "null").map(parse_hex_bytes20);
+            let value = result["value"].as_str().and_then(|s| parse_hex_u64(s).ok());
+            let gas_price = result["gasPrice"].as_str().and_then(|s| parse_hex_u64(s).ok());
+            let gas = parse_hex_u64(result["gas"].as_str().unwrap_or("0x0")).unwrap_or(0);
+            let block_number = result["blockNumber"].as_str().and_then(|s| parse_hex_u64(s).ok());
+            
+            Ok(Some(RpcTransaction {
+                hash: tx_hash,
+                from,
+                to,
+                value,
+                gas_price,
+                gas,
+                block_number,
+            }))
         }
 
         fn get_block_state_root(

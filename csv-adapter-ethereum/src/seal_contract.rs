@@ -29,6 +29,7 @@ fn seal_used_signature() -> [u8; 32] {
 ///
 /// Seal identifiers are 32-byte values. When consumed, they emit a LOG event
 /// with the seal ID and the commitment hash.
+#[derive(Default)]
 pub struct CsvSealAbi;
 
 impl CsvSealAbi {

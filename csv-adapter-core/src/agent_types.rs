@@ -269,6 +269,8 @@ pub mod error_codes {
     // Meta-crate errors (CSV_001 - CSV_099)
     /// CSV chain not supported.
     pub const CSV_CHAIN_NOT_SUPPORTED: &str = "CSV_001";
+    /// CSV chain operation not enabled.
+    pub const CSV_CHAIN_NOT_ENABLED: &str = "CSV_018";
     /// CSV insufficient funds.
     pub const CSV_INSUFFICIENT_FUNDS: &str = "CSV_002";
     /// CSV invalid right ID.

@@ -216,7 +216,7 @@ pub use performance::{
     BloomFilter, CacheStats, FilterStats, PerformanceMetrics, PerformanceStats, ProofCache,
     SealRegistryFilter, SequentialVerifier, VerificationResult,
 };
-pub use store::{AnchorRecord, InMemorySealStore, SealRecord, SealStore, StoreError};
+pub use store::{AnchorRecord, InMemorySealStore, RightRecord, RightStore, SealRecord, SealStore, StoreError};
 
 // Chain adapter system (Beta API)
 pub use adapter_factory::{create_adapter, is_chain_supported, AdapterFactory};

@@ -1,0 +1,62 @@
+//! Cross-Chain Subscriptions Example
+//!
+//! This example demonstrates how to create and manage subscription rights
+//! that can be transferred across chains.
+//!
+//! Run with: `cargo run --example subscriptions --features "all-chains,tokio"`
+
+use csv_adapter::prelude::*;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    println!("=== CSV Adapter: Cross-Chain Subscriptions Demo ===\n");
+
+    // Initialize client with all chains
+    let client = CsvClient::builder()
+        .with_all_chains()
+        .with_store_backend(StoreBackend::InMemory)
+        .build()?;
+
+    println!("✓ Client initialized with all chains\n");
+
+    // Create a subscription right on Bitcoin
+    println!("Creating subscription right on Bitcoin...");
+    let commitment = Hash::from([1u8; 32]);
+
+    let right = client.rights().create(commitment, Chain::Bitcoin)?;
+
+    println!("✓ Created right: {:?}\n", right.id);
+
+    // Query the right
+    println!("Querying right status...");
+    if let Some(found_right) = client.rights().get(&right.id)? {
+        println!("✓ Found right: {:?}\n", found_right.id);
+    }
+
+    // Simulate cross-chain transfer to Ethereum
+    println!("Initiating cross-chain transfer to Ethereum...");
+    println!("  1. Locking right on Bitcoin...");
+    println!("  2. Generating proof bundle...");
+    println!("  3. Verifying on Ethereum...");
+    println!("  4. Minting destination right...");
+
+    let transfer_id = client.transfers()
+        .cross_chain(right.id.clone(), Chain::Ethereum)
+        .to_address("0x1234567890abcdef".to_string())
+        .execute()?;
+
+    println!("\n✓ Transfer initiated: {}\n", transfer_id);
+
+    // Check status
+    let status = client.transfers().status(&transfer_id)?;
+    println!("Transfer status: {:?}", status);
+
+    println!("\n=== Demo Complete ===");
+    println!("In production, this would:");
+    println!("  - Broadcast lock transaction on Bitcoin");
+    println!("  - Wait for finality (6 confirmations)");
+    println!("  - Generate inclusion proof");
+    println!("  - Submit proof to Ethereum contract");
+    println!("  - Mint equivalent right on Ethereum");
+
+    Ok(())
+}

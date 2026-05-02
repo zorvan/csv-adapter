@@ -72,6 +72,7 @@ pub mod cross_chain;
 pub mod deploy;
 pub mod errors;
 pub mod events;
+pub mod facade;
 pub mod prelude;
 pub mod proofs;
 pub mod rights;
@@ -118,6 +119,9 @@ pub use errors::CsvError;
 /// Re-export client
 pub use client::CsvClient;
 
+/// Re-export facade types
+pub use facade::{ChainFacade, AdapterFacade, AdapterConfig, AdapterBuilder};
+
 /// Re-export deployment types
 pub use deploy::{ContractDeployment, DeploymentError, DeploymentManager, DeploymentResult};
 
@@ -125,6 +129,8 @@ pub use deploy::{ContractDeployment, DeploymentError, DeploymentManager, Deploym
 ///
 /// Equivalent to `Result<T, CsvError>`.
 pub type Result<T> = core::result::Result<T, CsvError>;
+
+// Note: TransferStatus is already re-exported from protocol_version module above
 
 // ===========================================================================
 // Chain-specific deployment re-exports

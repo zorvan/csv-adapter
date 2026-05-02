@@ -80,19 +80,16 @@ impl ModuleDeployer {
             .await?;
 
         // Submit via RPC
-        // let response = self.rpc.submit_transaction(tx).await?;
+        // Note: Transaction submission is not yet fully implemented.
+        // The transaction is built and signed but not submitted to the network.
+        // This prevents fake transaction hashes from being returned in production.
+        let _ = (module_bytes, _tx);
 
-        // Placeholder - real implementation would submit and wait
-        let _ = module_bytes;
-
-        Ok(ModuleDeployment {
-            account_address: sender_addr,
-            module_name: module_name.to_string(),
-            version: 1,                            // Would be actual version from response
-            transaction_hash: "0x...".to_string(), // Would be actual hash
-            gas_used: self.config.transaction.max_gas,
-            success: true,
-        })
+        Err(AptosError::FeatureNotEnabled(
+            "Module deployment transaction submission is not yet implemented. \
+             The transaction can be constructed and signed but not submitted to the network. \
+             Rebuild with the 'aptos-full-deployment' feature when available.".to_string()
+        ))
     }
 
     /// Deploy multiple modules as a package

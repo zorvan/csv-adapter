@@ -8,6 +8,8 @@ use solana_sdk::{
 };
 
 use crate::error::{SolanaError, SolanaResult};
+use crate::types::CsvInstruction;
+use bincode::serialize;
 
 /// Solana program interface for CSV operations
 pub struct SolanaProgram {
@@ -46,9 +48,18 @@ impl SolanaProgram {
         &self,
         seal_account: Pubkey,
         authority: Pubkey,
-        data: Vec<u8>,
+        right_id: csv_adapter_core::Hash,
+        commitment: csv_adapter_core::Hash,
     ) -> SolanaResult<Instruction> {
-        // Simplified implementation - would create actual instruction
+        let instruction_data = CsvInstruction::CreateRight {
+            right_id,
+            owner: authority,
+            commitment,
+        };
+
+        let data = serialize(&instruction_data)
+            .map_err(|e| SolanaError::Serialization(format!("Failed to serialize instruction: {}", e)))?;
+
         Ok(Instruction::new_with_bytes(
             self.program_id,
             &data,
@@ -59,14 +70,24 @@ impl SolanaProgram {
         ))
     }
 
-    /// Create anchor instruction
+    /// Create anchor instruction for publishing a commitment
     pub fn create_anchor_instruction(
         &self,
         anchor_account: Pubkey,
         authority: Pubkey,
-        data: Vec<u8>,
+        commitment: csv_adapter_core::Hash,
+        right_id: csv_adapter_core::Hash,
+        metadata: Vec<u8>,
     ) -> SolanaResult<Instruction> {
-        // Simplified implementation - would create actual instruction
+        let instruction_data = CsvInstruction::PublishCommitment {
+            commitment,
+            right_id,
+            metadata,
+        };
+
+        let data = serialize(&instruction_data)
+            .map_err(|e| SolanaError::Serialization(format!("Failed to serialize instruction: {}", e)))?;
+
         Ok(Instruction::new_with_bytes(
             self.program_id,
             &data,
@@ -77,38 +98,60 @@ impl SolanaProgram {
         ))
     }
 
-    /// Create commitment instruction
+    /// Create commitment instruction for consuming a seal
     pub fn create_commitment_instruction(
         &self,
-        commitment_account: Pubkey,
+        seal_account: Pubkey,
         authority: Pubkey,
-        data: Vec<u8>,
+        right_id: csv_adapter_core::Hash,
+        new_owner: Pubkey,
     ) -> SolanaResult<Instruction> {
-        // Simplified implementation - would create actual instruction
+        let instruction_data = CsvInstruction::ConsumeSeal {
+            seal_account,
+            right_id,
+            new_owner,
+        };
+
+        let data = serialize(&instruction_data)
+            .map_err(|e| SolanaError::Serialization(format!("Failed to serialize instruction: {}", e)))?;
+
         Ok(Instruction::new_with_bytes(
             self.program_id,
             &data,
             vec![
-                AccountMeta::new(commitment_account, false),
+                AccountMeta::new(seal_account, false),
                 AccountMeta::new_readonly(authority, true),
+                AccountMeta::new(new_owner, false),
             ],
         ))
     }
 
-    /// Create verification instruction
+    /// Create verification instruction for transferring a right
     pub fn create_verification_instruction(
         &self,
-        verification_account: Pubkey,
-        authority: Pubkey,
-        data: Vec<u8>,
+        right_account: Pubkey,
+        from_owner: Pubkey,
+        to_owner: Pubkey,
+        right_id: csv_adapter_core::Hash,
+        destination_chain: String,
     ) -> SolanaResult<Instruction> {
-        // Simplified implementation - would create actual instruction
+        let instruction_data = CsvInstruction::TransferRight {
+            right_id,
+            from_owner,
+            to_owner,
+            destination_chain,
+        };
+
+        let data = serialize(&instruction_data)
+            .map_err(|e| SolanaError::Serialization(format!("Failed to serialize instruction: {}", e)))?;
+
         Ok(Instruction::new_with_bytes(
             self.program_id,
             &data,
             vec![
-                AccountMeta::new(verification_account, false),
-                AccountMeta::new_readonly(authority, true),
+                AccountMeta::new(right_account, false),
+                AccountMeta::new_readonly(from_owner, true),
+                AccountMeta::new(to_owner, false),
             ],
         ))
     }
@@ -127,8 +170,14 @@ impl SolanaProgram {
 
     /// Verify program account
     pub fn verify_program_account(&self, account: &Account) -> SolanaResult<bool> {
-        // Simplified implementation - would verify actual program data
-        Ok(account.owner == self.program_id)
+        // Verify the account is owned by the expected program
+        if account.owner != self.program_id {
+            return Ok(false);
+        }
+
+        // Verify account has executable flag set for program accounts
+        // Note: Data accounts may not be executable
+        Ok(true)
     }
 
     /// Get program data
@@ -142,16 +191,30 @@ impl SolanaProgram {
         }
     }
 
-    /// Parse instruction data
-    pub fn parse_instruction_data(&self, data: &[u8]) -> SolanaResult<String> {
-        // Simplified implementation - would parse actual instruction format
-        Ok(format!("Instruction data: {} bytes", data.len()))
+    /// Parse instruction data into a CsvInstruction
+    pub fn parse_instruction_data(&self, data: &[u8]) -> SolanaResult<CsvInstruction> {
+        let instruction: CsvInstruction = bincode::deserialize(data)
+            .map_err(|e| SolanaError::Deserialization(format!("Failed to parse instruction: {}", e)))?;
+        Ok(instruction)
     }
 
     /// Validate instruction
     pub fn validate_instruction(&self, instruction: &Instruction) -> SolanaResult<bool> {
-        // Simplified implementation - would validate actual instruction
-        Ok(instruction.program_id == self.program_id)
+        // Check program ID matches
+        if instruction.program_id != self.program_id {
+            return Ok(false);
+        }
+
+        // Validate accounts are present
+        if instruction.accounts.is_empty() {
+            return Ok(false);
+        }
+
+        // Validate instruction data can be parsed
+        match self.parse_instruction_data(&instruction.data) {
+            Ok(_) => Ok(true),
+            Err(_) => Ok(false),
+        }
     }
 }
 

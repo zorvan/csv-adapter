@@ -185,7 +185,7 @@ impl ExtendedWallet {
             Err(e) => {
                 // Log error but don't add a sample address
                 eprintln!("Error: Bitcoin address derivation failed: {}", e);
-                // Don't add invalid placeholder - let caller handle the missing address
+                // Skip adding invalid entry - let caller handle the missing address
             }
         }
 

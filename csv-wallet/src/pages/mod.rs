@@ -52,7 +52,7 @@ pub use proofs::{GenerateProof, Proofs, VerifyCrossChainProof, VerifyProof};
 pub use cross_chain::{CrossChain, CrossChainRetry, CrossChainStatus, CrossChainTransfer};
 
 // Re-exports from contracts module
-pub use contracts::{AddContract, ContractStatus, Contracts, DeployContract};
+pub use contracts::{AddContract, ContractStatus, Contracts};
 
 // Re-exports from seals module
 pub use seals::{ConsumeSeal, CreateSeal, Seals, VerifySeal};
