@@ -868,20 +868,31 @@ impl ChainRightOps for SuiChainOperations {
         right_id: &RightId,
         expected_state: &str,
     ) -> ChainOpResult<bool> {
-        let _ = expected_state;
-
         // Verify right exists by querying the object
         // RightId should map to an object ID
         let object_id = right_id.0.as_bytes();
 
-        match self.rpc().get_object(*object_id) {
-            Ok(Some(_)) => Ok(true),
-            Ok(None) => Ok(false),
-            Err(e) => Err(ChainOpError::RpcError(format!(
-                "Failed to query right state: {}",
-                e
+        let object_info = match self.rpc().get_object(*object_id) {
+            Ok(Some(obj)) => Some(obj),
+            Ok(None) => None,
+            Err(e) => return Err(ChainOpError::RpcError(format!(
+                "Failed to query right state: {}", e
             ))),
-        }
+        };
+
+        // Determine actual state from object info
+        let actual_state = match object_info {
+            Some(_) => "active",
+            None => {
+                // Object doesn't exist - check if consumed or never created
+                return match expected_state {
+                    "consumed" | "deleted" | "never_created" => Ok(true),
+                    _ => Ok(false),
+                };
+            }
+        };
+
+        Ok(actual_state == expected_state)
     }
 }
 
