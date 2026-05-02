@@ -65,64 +65,62 @@ fn cmd_generate(
     right_id: String,
     output: Option<String>,
     config: &Config,
-    _state: &UnifiedStateManager,
+    state: &UnifiedStateManager,
 ) -> Result<()> {
+    use csv_adapter::prelude::{CsvClient, Chain as AdapterChain, ProofManager};
+    use csv_adapter_core::right::RightId;
+
     output::header(&format!("Generating Proof on {}", chain));
 
     let bytes = hex::decode(right_id.trim_start_matches("0x"))
         .map_err(|e| anyhow::anyhow!("Invalid Right ID: {}", e))?;
+    if bytes.len() < 32 {
+        return Err(anyhow::anyhow!("Right ID must be at least 32 bytes"));
+    }
     let mut hash_bytes = [0u8; 32];
     hash_bytes.copy_from_slice(&bytes[..32]);
-    let _right_id_hash = Hash::new(hash_bytes);
+    let right_id_obj = RightId::new(hash_bytes);
 
     output::kv("Chain", &chain.to_string());
     output::kv_hash("Right ID", &hash_bytes);
 
-    match chain {
-        Chain::Bitcoin => {
-            output::progress(1, 3, "Fetching block data...");
-            let _chain_config = config.chain(&chain)?;
-            // In production: get block with tx, extract Merkle proof
-            output::progress(2, 3, "Extracting Merkle proof...");
-            output::progress(3, 3, "Building proof bundle...");
-            output::success("Bitcoin Merkle proof generated");
-        }
-        Chain::Ethereum => {
-            output::progress(1, 3, "Fetching receipt...");
-            let _chain_config = config.chain(&chain)?;
-            // In production: get receipt, extract MPT proof
-            output::progress(2, 3, "Extracting MPT proof...");
-            output::progress(3, 3, "Building proof bundle...");
-            output::success("Ethereum MPT proof generated");
-        }
-        Chain::Sui => {
-            output::progress(1, 3, "Fetching checkpoint...");
-            let _chain_config = config.chain(&chain)?;
-            // In production: get checkpoint, verify certification
-            output::progress(2, 3, "Verifying certification...");
-            output::progress(3, 3, "Building proof bundle...");
-            output::success("Sui checkpoint proof generated");
-        }
-        Chain::Aptos => {
-            output::progress(1, 3, "Fetching transaction...");
-            let _chain_config = config.chain(&chain)?;
-            // In production: get tx by version, verify ledger
-            output::progress(2, 3, "Verifying ledger info...");
-            output::progress(3, 3, "Building proof bundle...");
-            output::success("Aptos ledger proof generated");
-        }
-        Chain::Solana => {
-            output::progress(1, 3, "Fetching slot info...");
-            let _chain_config = config.chain(&chain)?;
-            // In production: get transaction with block data, verify slot
-            output::progress(2, 3, "Fetching block hash...");
-            output::progress(3, 3, "Building epoch proof bundle...");
-            output::success("Solana epoch proof generated");
-        }
-    }
+    // Get chain configuration
+    let chain_config = config.chain(&chain)?;
 
-    // Generate proof JSON
-    let proof_data = serde_json::json!({
+    // Build CSV client with the chain enabled
+    let adapter_chain = match chain {
+        Chain::Bitcoin => AdapterChain::Bitcoin,
+        Chain::Ethereum => AdapterChain::Ethereum,
+        Chain::Sui => AdapterChain::Sui,
+        Chain::Aptos => AdapterChain::Aptos,
+        Chain::Solana => AdapterChain::Solana,
+    };
+
+    output::progress(1, 4, "Initializing CSV client...");
+
+    // Build the CSV client
+    let client = CsvClient::builder()
+        .with_chain(adapter_chain)
+        .build()
+        .map_err(|e| anyhow::anyhow!("Failed to build CSV client: {}", e))?;
+
+    output::progress(2, 4, "Querying chain state for inclusion proof...");
+
+    // Use the proof manager to generate the proof
+    let rt = tokio::runtime::Runtime::new()?;
+    let proof_bundle = rt.block_on(async {
+        // Get the chain facade
+        let facade = client.chain_facade();
+
+        // Generate the proof using the facade
+        facade.generate_proof(adapter_chain, &right_id_obj).await
+            .map_err(|e| anyhow::anyhow!("Proof generation failed: {}", e))
+    })?;
+
+    output::progress(3, 4, "Serializing proof bundle...");
+
+    // Serialize the proof bundle
+    let proof_json = serde_json::json!({
         "chain": chain.to_string(),
         "right_id": right_id,
         "proof_type": match chain {
@@ -132,16 +130,24 @@ fn cmd_generate(
             Chain::Aptos => "ledger",
             Chain::Solana => "epoch",
         },
-        "data": "proof_data_placeholder",
+        "block_height": proof_bundle.finality_proof.confirmations,
+        "inclusion_proof": hex::encode(&proof_bundle.inclusion_proof.proof_bytes),
+        "dag_root": hex::encode(proof_bundle.transition_dag.root_commitment.as_bytes()),
+        "seal_id": hex::encode(&proof_bundle.seal_ref.seal_id),
+        "anchor_height": proof_bundle.anchor_ref.block_height,
+        "generated_at": chrono::Utc::now().to_rfc3339(),
     });
 
+    output::progress(4, 4, "Finalizing...");
+
     if let Some(path) = output {
-        std::fs::write(&path, serde_json::to_string_pretty(&proof_data)?)?;
+        std::fs::write(&path, serde_json::to_string_pretty(&proof_json)?)?;
         output::success(&format!("Proof saved to {}", path));
     } else {
-        output::json(&proof_data);
+        output::json(&proof_json);
     }
 
+    output::success(&format!("{} proof generated successfully", chain));
     Ok(())
 }
 
@@ -151,6 +157,9 @@ fn cmd_verify(
     _config: &Config,
     _state: &UnifiedStateManager,
 ) -> Result<()> {
+    use csv_adapter::prelude::{CsvClient, Chain as AdapterChain};
+    use csv_adapter_core::{right::RightId, proof::ProofBundle};
+
     output::header(&format!("Verifying Proof on {}", chain));
 
     let proof_content = match proof_file {
@@ -162,30 +171,142 @@ fn cmd_verify(
         }
     };
 
-    let proof: serde_json::Value = serde_json::from_str(&proof_content)
+    let proof_json: serde_json::Value = serde_json::from_str(&proof_content)
         .map_err(|e| anyhow::anyhow!("Invalid proof JSON: {}", e))?;
 
     output::kv(
         "Proof Chain",
-        proof
+        proof_json
             .get("chain")
             .and_then(|v| v.as_str())
             .unwrap_or("unknown"),
     );
     output::kv(
         "Proof Type",
-        proof
+        proof_json
             .get("proof_type")
             .and_then(|v| v.as_str())
             .unwrap_or("unknown"),
     );
 
-    output::progress(1, 3, "Parsing proof bundle...");
-    output::progress(2, 3, "Verifying cryptographic proof...");
-    output::progress(3, 3, "Checking finality...");
+    // Extract right_id from proof
+    let right_id_str = proof_json
+        .get("right_id")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| anyhow::anyhow!("Proof missing right_id"))?;
 
-    output::success("Proof verified successfully");
-    Ok(())
+    let bytes = hex::decode(right_id_str.trim_start_matches("0x"))
+        .map_err(|e| anyhow::anyhow!("Invalid Right ID in proof: {}", e))?;
+    if bytes.len() < 32 {
+        return Err(anyhow::anyhow!("Right ID in proof must be at least 32 bytes"));
+    }
+    let mut hash_bytes = [0u8; 32];
+    hash_bytes.copy_from_slice(&bytes[..32]);
+    let right_id = RightId::new(hash_bytes);
+
+    output::progress(1, 4, "Building CSV client...");
+
+    // Build the CSV client
+    let adapter_chain = match chain {
+        Chain::Bitcoin => AdapterChain::Bitcoin,
+        Chain::Ethereum => AdapterChain::Ethereum,
+        Chain::Sui => AdapterChain::Sui,
+        Chain::Aptos => AdapterChain::Aptos,
+        Chain::Solana => AdapterChain::Solana,
+    };
+
+    let client = CsvClient::builder()
+        .with_chain(adapter_chain)
+        .build()
+        .map_err(|e| anyhow::anyhow!("Failed to build CSV client: {}", e))?;
+
+    output::progress(2, 4, "Reconstructing proof bundle...");
+
+    // Parse the proof bundle from JSON
+    let inclusion_proof_hex = proof_json
+        .get("inclusion_proof")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let inclusion_proof_bytes = hex::decode(inclusion_proof_hex)
+        .map_err(|e| anyhow::anyhow!("Invalid inclusion proof: {}", e))?;
+
+    // Reconstruct the proof bundle
+    let proof_bundle = {
+        use csv_adapter_core::{
+            dag::{DAGNode, DAGSegment},
+            hash::Hash,
+            proof::{FinalityProof, InclusionProof},
+            seal::{AnchorRef, SealRef},
+        };
+
+        let dag_root = proof_json
+            .get("dag_root")
+            .and_then(|v| v.as_str())
+            .and_then(|s| hex::decode(s).ok())
+            .and_then(|b| b.try_into().ok())
+            .map(Hash::new)
+            .unwrap_or_else(|| Hash::new(hash_bytes));
+
+        let seal_id = proof_json
+            .get("seal_id")
+            .and_then(|v| v.as_str())
+            .and_then(|s| hex::decode(s).ok())
+            .unwrap_or_else(|| hash_bytes.to_vec());
+
+        let anchor_height = proof_json
+            .get("anchor_height")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+
+        let dag_node = DAGNode::new(dag_root, vec![], vec![], vec![], vec![]);
+        let dag_segment = DAGSegment::new(vec![dag_node], dag_root);
+
+        let seal_ref = SealRef::new(seal_id.clone(), None)
+            .map_err(|e| anyhow::anyhow!("Failed to create seal ref: {}", e))?;
+
+        let anchor_ref = AnchorRef::new(seal_id, anchor_height, inclusion_proof_bytes.clone())
+            .map_err(|e| anyhow::anyhow!("Failed to create anchor ref: {}", e))?;
+
+        let inclusion_proof = InclusionProof::new(inclusion_proof_bytes, dag_root, 0)
+            .map_err(|e| anyhow::anyhow!("Failed to create inclusion proof: {}", e))?;
+
+        let confirmations = proof_json
+            .get("block_height")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(6);
+
+        let finality_proof = FinalityProof::new(vec![], confirmations, true)
+            .map_err(|e| anyhow::anyhow!("Failed to create finality proof: {}", e))?;
+
+        ProofBundle::new(
+            dag_segment,
+            vec![], // No signatures in stored proof
+            seal_ref,
+            anchor_ref,
+            inclusion_proof,
+            finality_proof,
+        )
+        .map_err(|e| anyhow::anyhow!("Failed to create proof bundle: {}", e))?
+    };
+
+    output::progress(3, 4, "Verifying cryptographic proof...");
+
+    // Use the facade to verify
+    let rt = tokio::runtime::Runtime::new()?;
+    let valid = rt.block_on(async {
+        let facade = client.chain_facade();
+        facade.verify_proof_bundle(adapter_chain, &proof_bundle, &right_id).await
+            .map_err(|e| anyhow::anyhow!("Proof verification error: {}", e))
+    })?;
+
+    output::progress(4, 4, "Finalizing verification...");
+
+    if valid {
+        output::success("Proof verified successfully - cryptographic validation passed");
+        Ok(())
+    } else {
+        Err(anyhow::anyhow!("Proof verification failed - invalid or forged proof"))
+    }
 }
 
 fn cmd_verify_cross_chain(
