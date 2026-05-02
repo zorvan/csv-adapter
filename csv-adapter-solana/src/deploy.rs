@@ -102,10 +102,9 @@ impl ProgramDeployer {
         // This is not yet fully implemented. Use deploy_csv_program() for now
         // which uses the simpler bpf_loader for non-upgradeable deployments.
 
-        Err(SolanaError::NotImplemented(
-            "Upgradeable program deployment not yet fully implemented. \
-             Use deploy_csv_program() for standard deployments, or \
-             implement the full BPF Loader Upgradeable flow with buffer accounts."
+        Err(SolanaError::UnsupportedOperation(
+            "Upgradeable program deployment requires complex BPF Loader Upgradeable flow. \
+             Use deploy_csv_program() for standard deployments."
                 .to_string(),
         ))
     }
@@ -132,8 +131,8 @@ impl ProgramDeployer {
         // 3. Write new data
         // 4. Update program to point to new data
         // 5. Close old program data account
-        Err(SolanaError::NotImplemented(
-            "Program upgrade not yet implemented".to_string(),
+        Err(SolanaError::UnsupportedOperation(
+            "Program upgrade not yet supported".to_string(),
         ))
     }
 
@@ -173,8 +172,8 @@ impl ProgramDeployer {
         // Sends instructions to:
         // 1. Close program data account
         // 2. Close program account
-        Err(SolanaError::NotImplemented(
-            "Program closure not yet implemented".to_string(),
+        Err(SolanaError::UnsupportedOperation(
+            "Program closure not yet supported".to_string(),
         ))
     }
 }

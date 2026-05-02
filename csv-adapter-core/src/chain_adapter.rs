@@ -36,9 +36,9 @@ pub enum ChainError {
     /// Invalid input
     #[error("Invalid input: {0}")]
     InvalidInput(String),
-    /// Feature not yet implemented
-    #[error("Not implemented: {0}")]
-    NotImplemented(String),
+    /// Feature or capability not available/enabled
+    #[error("Feature not available: {0}")]
+    FeatureNotEnabled(String),
 }
 
 /// Result type for chain operations

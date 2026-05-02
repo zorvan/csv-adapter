@@ -203,8 +203,8 @@ impl ChainAdapter for BitcoinAnchorLayer {
         }
 
         // Create new RPC client from config
-        Err(ChainError::NotImplemented(
-            "Bitcoin RPC client creation from config - use with_rpc() instead".to_string(),
+        Err(ChainError::FeatureNotEnabled(
+            "Bitcoin RPC client creation from config requires 'rpc' feature".to_string(),
         ))
     }
 

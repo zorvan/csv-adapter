@@ -233,7 +233,7 @@ pub fn deploy_csv_seal_contract(
     let _ = config;
     let _ = bytecode;
     let _ = from_address;
-    Err(EthereumError::NotImplemented(
+    Err(EthereumError::DeploymentError(
         "Contract deployment requires the 'rpc' feature. Enable it in Cargo.toml: csv-adapter-ethereum = { features = [\"rpc\"] }".to_string()
     ))
 }

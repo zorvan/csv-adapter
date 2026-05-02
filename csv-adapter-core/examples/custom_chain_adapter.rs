@@ -34,11 +34,11 @@ impl ChainAdapter for ExampleChainAdapter {
     }
 
     async fn create_client(&self, _config: &ChainConfig) -> ChainResult<Box<dyn RpcClient>> {
-        Err(ChainError::NotImplemented("example client".to_string()))
+        Err(ChainError::FeatureNotEnabled("Example chain RPC client not available".to_string()))
     }
 
     async fn create_wallet(&self, _config: &ChainConfig) -> ChainResult<Box<dyn Wallet>> {
-        Err(ChainError::NotImplemented("example wallet".to_string()))
+        Err(ChainError::FeatureNotEnabled("Example chain wallet not available".to_string()))
     }
 
     fn csv_program_id(&self) -> Option<&'static str> {

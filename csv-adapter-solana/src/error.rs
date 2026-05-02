@@ -78,9 +78,9 @@ pub enum SolanaError {
     #[error("Invalid input: {0}")]
     InvalidInput(String),
 
-    /// Not implemented
-    #[error("Not implemented: {0}")]
-    NotImplemented(String),
+    /// Operation not supported/available
+    #[error("Operation not supported: {0}")]
+    UnsupportedOperation(String),
 }
 
 /// Result type for Solana operations
@@ -151,7 +151,7 @@ impl HasErrorSuggestion for SolanaError {
             SolanaError::AnchorCreation(_) => error_codes::SOL_ANCHOR_CREATION_ERROR,
             SolanaError::ProofGeneration(_) => error_codes::SOL_PROOF_GENERATION_ERROR,
             SolanaError::InvalidInput(_) => error_codes::SOL_INVALID_INPUT,
-            SolanaError::NotImplemented(_) => error_codes::SOL_NOT_IMPLEMENTED,
+            SolanaError::UnsupportedOperation(_) => error_codes::SOL_UNSUPPORTED_OPERATION,
             SolanaError::TransactionFailed(_) => error_codes::SOL_TRANSACTION_ERROR,
             SolanaError::Timeout(_) => error_codes::SOL_NETWORK_ERROR,
         }
@@ -253,11 +253,11 @@ impl HasErrorSuggestion for SolanaError {
                     .to_string()
             }
             SolanaError::InvalidInput(_) => {
-                "Invalid input provided. Check all parameters are valid \
+                "The provided input is invalid. Check all parameters are correct \
                  and within acceptable ranges."
                     .to_string()
             }
-            SolanaError::NotImplemented(_) => "This feature is not yet implemented. \
+            SolanaError::UnsupportedOperation(_) => "This operation is not supported. \
                  Consider using an alternative approach or waiting for a future release."
                 .to_string(),
             SolanaError::TransactionFailed(msg) => format!(

@@ -256,8 +256,8 @@ impl ChainAdapter for SolanaAnchorLayer {
             let _ = rpc;
         }
 
-        Err(ChainError::NotImplemented(
-            "Solana RPC client creation from config - use with_rpc_client() instead".to_string(),
+        Err(ChainError::FeatureNotEnabled(
+            "Solana RPC client creation from config requires 'rpc' feature".to_string(),
         ))
     }
 

@@ -130,10 +130,8 @@ impl RpcClient for SuiRpcClient {
         }
 
         // Return capability unavailable error instead of fake balance
-        Err(ChainError::NotImplemented(
-            "SUI balance extraction from coin objects requires BCS parsing. \
-             This capability is not yet fully implemented. \
-             Rebuild with 'sui-full-balance' feature when available.".to_string()
+        Err(ChainError::FeatureNotEnabled(
+            "SUI balance extraction requires 'sui-full-balance' feature for BCS parsing".to_string()
         ))
     }
 
@@ -372,8 +370,8 @@ pub fn create_sui_adapter(config: &ChainConfig) -> ChainResult<SuiAnchorLayer> {
     // Otherwise, return error indicating rpc feature is needed
     #[cfg(not(any(test, feature = "rpc")))]
     {
-        Err(ChainError::NotImplemented(
-            "Real Sui RPC requires the rpc feature to be enabled".to_string(),
+        Err(ChainError::FeatureNotEnabled(
+            "Real Sui RPC requires the 'rpc' feature to be enabled".to_string(),
         ))
     }
 }

@@ -367,8 +367,8 @@ pub fn create_ethereum_adapter(config: &ChainConfig) -> ChainResult<EthereumAnch
     // Otherwise, return error indicating rpc feature is needed
     #[cfg(not(any(test, feature = "rpc")))]
     {
-        Err(ChainError::NotImplemented(
-            "Real Ethereum RPC requires the rpc feature to be enabled".to_string(),
+        Err(ChainError::FeatureNotEnabled(
+            "Real Ethereum RPC requires the 'rpc' feature to be enabled in csv-adapter-ethereum".to_string(),
         ))
     }
 }

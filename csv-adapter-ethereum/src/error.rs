@@ -38,10 +38,6 @@ pub enum EthereumError {
     #[error("Deployment error: {0}")]
     DeploymentError(String),
 
-    /// Feature not implemented
-    #[error("Not implemented: {0}")]
-    NotImplemented(String),
-
     /// Wrapper for core adapter errors
     #[error(transparent)]
     CoreError(#[from] csv_adapter_core::AdapterError),
@@ -57,7 +53,6 @@ impl EthereumError {
             EthereumError::WalletError(_) => false,
             EthereumError::ConfigError(_) => false,
             EthereumError::DeploymentError(_) => false,
-            EthereumError::NotImplemented(_) => false,
             EthereumError::SlotUsed(_) => false,
             EthereumError::InvalidReceiptProof(_) => false,
             EthereumError::CoreError(_) => false,
@@ -78,7 +73,6 @@ impl HasErrorSuggestion for EthereumError {
             EthereumError::WalletError(_) => error_codes::ETH_WALLET_ERROR,
             EthereumError::ConfigError(_) => error_codes::ETH_CONFIG_ERROR,
             EthereumError::DeploymentError(_) => error_codes::ETH_DEPLOYMENT_ERROR,
-            EthereumError::NotImplemented(_) => error_codes::NOT_IMPLEMENTED,
             EthereumError::CoreError(e) => e.error_code(),
         }
     }
@@ -200,9 +194,6 @@ impl From<EthereumError> for csv_adapter_core::AdapterError {
             EthereumError::ConfigError(msg) => csv_adapter_core::AdapterError::InvalidConfig(msg),
             EthereumError::DeploymentError(msg) => {
                 csv_adapter_core::AdapterError::PublishFailed(msg)
-            }
-            EthereumError::NotImplemented(msg) => {
-                csv_adapter_core::AdapterError::Generic(format!("Not implemented: {}", msg))
             }
         }
     }
