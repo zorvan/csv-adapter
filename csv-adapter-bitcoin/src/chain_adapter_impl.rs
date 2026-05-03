@@ -133,7 +133,7 @@ impl Wallet for BitcoinWallet {
 
     fn verify_signature(&self, data: &[u8], signature: &[u8]) -> bool {
         // Use secp256k1 for signature verification
-        use secp256k1::{Message, PublicKey, Secp256k1, ecdsa::Signature};
+        use secp256k1::Secp256k1;
 
         if signature.len() != 64 && signature.len() != 71 && signature.len() != 72 {
             return false;

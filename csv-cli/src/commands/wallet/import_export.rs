@@ -7,6 +7,38 @@ use crate::output;
 use crate::state::UnifiedStateManager;
 use anyhow::Result;
 use csv_adapter_core::Chain as CoreChain;
+use csv_adapter_core::hash::Hash;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
+/// Wallet data format compatible with csv-wallet.
+#[derive(Serialize, Deserialize, Clone)]
+pub struct CsvWalletExport {
+    /// All accounts
+    pub accounts: Vec<CsvWalletAccount>,
+    /// Last selected account ID
+    pub selected_account_id: Option<String>,
+}
+
+/// Single account in the wallet export format.
+#[derive(Serialize, Deserialize, Clone)]
+pub struct CsvWalletAccount {
+    /// Unique account ID (UUID)
+    pub id: String,
+    /// Blockchain this account belongs to
+    pub chain: String,
+    /// User-friendly account name
+    pub name: String,
+    /// Keystore reference (UUID)
+    pub keystore_ref: Option<String>,
+    /// Derived address for display
+    pub address: String,
+    /// Balance in native token
+    #[serde(default, skip_serializing)]
+    pub balance: f64,
+    /// BIP-44 derivation path (if HD wallet)
+    pub derivation_path: Option<String>,
+}
 
 /// Export wallet in various formats.
 pub fn cmd_export(
@@ -313,14 +345,37 @@ pub fn cmd_import_csv_wallet(
     output::header("Importing CSV Wallet");
     output::info(&format!("Reading from: {}", path));
 
-    // In a real implementation, this would:
-    // 1. Read the JSON file
-    // 2. Parse the wallet structure
-    // 3. Import each account
-    // 4. Migrate to encrypted keystore
+    // Read the JSON file
+    let json = std::fs::read_to_string(&path)
+        .map_err(|e| anyhow::anyhow!("Failed to read wallet file: {}", e))?;
+
+    // Parse the wallet structure
+    let wallet: CsvWalletExport = serde_json::from_str(&json)
+        .map_err(|e| anyhow::anyhow!("Failed to parse wallet JSON: {}", e))?;
+
+    // Import each account
+    let mut imported = 0u32;
+    for account in &wallet.accounts {
+        let chain = match account.chain.to_lowercase().as_str() {
+            "bitcoin" => Chain::Bitcoin,
+            "ethereum" => Chain::Ethereum,
+            "sui" => Chain::Sui,
+            "aptos" => Chain::Aptos,
+            "solana" => Chain::Solana,
+            _ => {
+                output::warning(&format!("Skipping unknown chain: {}", account.chain));
+                continue;
+            }
+        };
+
+        // Store the address
+        state.store_address(chain.clone(), account.address.clone());
+        imported += 1;
+        output::success(&format!("Imported {} ({})", account.name, chain));
+    }
 
     output::success("CSV wallet imported successfully");
-    output::info(&format!("Imported {} accounts", 0)); // Would show actual count
+    output::info(&format!("Imported {} accounts", imported));
 
     Ok(())
 }
@@ -328,7 +383,7 @@ pub fn cmd_import_csv_wallet(
 /// Export wallet to csv-wallet JSON format.
 pub fn cmd_export_csv_wallet(
     output: Option<String>,
-    _config: &Config,
+    config: &Config,
     state: &mut UnifiedStateManager,
 ) -> Result<()> {
     let output = output.unwrap_or_else(|| {
@@ -344,13 +399,55 @@ pub fn cmd_export_csv_wallet(
     output::header("Exporting CSV Wallet");
     output::info(&format!("Writing to: {}", output));
 
-    // In a real implementation, this would:
-    // 1. Collect all accounts
-    // 2. Build the export structure
-    // 3. Serialize to JSON
-    // 4. Write to file
+    // Collect all accounts from state
+    let mut accounts = Vec::new();
+    let mut id_counter = 0u32;
+
+    for chain in [
+        Chain::Bitcoin,
+        Chain::Ethereum,
+        Chain::Sui,
+        Chain::Aptos,
+        Chain::Solana,
+    ] {
+        if let Some(address) = state.get_address(&chain) {
+            id_counter += 1;
+            let name = format!("{:?} Account", chain);
+
+            // Try to get derivation path from config
+            let derivation_path = config
+                .wallets
+                .get(&chain)
+                .and_then(|w| w.derivation_path.clone());
+
+            accounts.push(CsvWalletAccount {
+                id: format!("account-{:04}", id_counter),
+                chain: chain.to_string().to_lowercase(),
+                name,
+                keystore_ref: None,
+                address: address.to_string(),
+                balance: 0.0,
+                derivation_path,
+            });
+        }
+    }
+
+    // Build export structure
+    let wallet = CsvWalletExport {
+        accounts,
+        selected_account_id: None,
+    };
+
+    // Serialize to JSON
+    let json = serde_json::to_string_pretty(&wallet)
+        .map_err(|e| anyhow::anyhow!("Failed to serialize wallet: {}", e))?;
+
+    // Write to file
+    std::fs::write(&output, &json)
+        .map_err(|e| anyhow::anyhow!("Failed to write wallet file: {}", e))?;
 
     output::success("CSV wallet exported successfully");
+    output::info(&format!("Exported {} accounts to {}", wallet.accounts.len(), output));
     output::warning("⚠️  Exported file may contain sensitive data - store securely!");
 
     Ok(())

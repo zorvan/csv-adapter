@@ -79,9 +79,17 @@ pub enum TransactionStatus {
     /// Transaction is pending/in mempool
     Pending,
     /// Transaction has been confirmed in a block
-    Confirmed { block_height: u64, confirmations: u64 },
+    Confirmed {
+        /// Block height where transaction was confirmed
+        block_height: u64,
+        /// Number of confirmations since the block
+        confirmations: u64,
+    },
     /// Transaction failed
-    Failed { reason: String },
+    Failed {
+        /// Reason for the failure
+        reason: String,
+    },
     /// Transaction was dropped from mempool
     Dropped,
     /// Unknown status
@@ -95,12 +103,18 @@ pub enum DeploymentStatus {
     Pending,
     /// Deployment succeeded
     Success {
+        /// Address of the deployed contract
         contract_address: String,
+        /// Transaction hash of the deployment
         transaction_hash: String,
+        /// Block height where deployment was confirmed
         block_height: u64,
     },
     /// Deployment failed
-    Failed { reason: String },
+    Failed {
+        /// Reason for the failure
+        reason: String,
+    },
 }
 
 /// Status of finality for a transaction or anchor
@@ -109,7 +123,12 @@ pub enum FinalityStatus {
     /// Not yet finalized
     Pending,
     /// Finalized (safe from reorgs per chain's finality rules)
-    Finalized { block_height: u64, finality_block: u64 },
+    Finalized {
+        /// Block height of the transaction
+        block_height: u64,
+        /// Block height considered final
+        finality_block: u64,
+    },
     /// Orphaned due to reorg
     Orphaned,
 }

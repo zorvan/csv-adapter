@@ -3520,7 +3520,7 @@ name = "csv-wallet"
 version = "0.4.0"
 dependencies = [
  "aes-gcm",
- "base64 0.22.1",
+ "base64 0.21.7",
  "bcs",
  "bip32",
  "bitcoin 0.32.8",

@@ -25,7 +25,7 @@ use solana_sdk::signature::Signature;
 use crate::adapter::SolanaAnchorLayer;
 use crate::config::Network;
 use crate::rpc::SolanaRpc;
-use crate::types::{ConfirmationStatus, SolanaSealRef};
+use crate::types::ConfirmationStatus;
 
 /// Solana chain operations implementation
 pub struct SolanaChainOperations {
@@ -468,7 +468,7 @@ impl ChainDeployer for SolanaChainOperations {
 impl ChainProofProvider for SolanaChainOperations {
     async fn build_inclusion_proof(
         &self,
-        commitment: &Hash,
+        _commitment: &Hash,
         block_height: u64,
     ) -> ChainOpResult<CoreInclusionProof> {
         // Get block at slot

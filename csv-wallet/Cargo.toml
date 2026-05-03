@@ -69,7 +69,7 @@ reqwest = { version = "0.12.12", features = ["json"] }
 bcs = "0.1"
 
 # Base64 for Solana transaction encoding
-base64 = "0.22"
+base64 = "0.21"
 
 [dev-dependencies]
 # Web testing

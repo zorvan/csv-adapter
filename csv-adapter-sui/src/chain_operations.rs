@@ -11,8 +11,7 @@
 use async_trait::async_trait;
 use csv_adapter_core::chain_operations::{
     BalanceInfo, ChainBroadcaster, ChainDeployer, ChainOpError, ChainOpResult, ChainProofProvider,
-    ChainQuery, ChainRightOps, ChainSigner, ContractStatus, DeploymentStatus, FinalityStatus,
-    RightOperation, RightOperationResult, TransactionInfo, TransactionStatus,
+    ChainQuery, ChainRightOps, ChainSigner, ContractStatus, DeploymentStatus, FinalityStatus, RightOperationResult, TransactionInfo, TransactionStatus,
 };
 use csv_adapter_core::hash::Hash;
 use csv_adapter_core::proof::{FinalityProof, InclusionProof as CoreInclusionProof};
@@ -21,7 +20,7 @@ use csv_adapter_core::signature::SignatureScheme;
 use ed25519_dalek::{VerifyingKey, Verifier};
 
 use crate::adapter::SuiAnchorLayer;
-use crate::config::{SuiConfig, SuiNetwork};
+use crate::config::SuiConfig;
 use crate::deploy::{PackageDeployer, PackageDeployment};
 use crate::error::SuiError;
 use crate::proofs::CommitmentEventBuilder;
@@ -141,7 +140,7 @@ impl ChainQuery for SuiChainOperations {
             .map_err(|e| ChainOpError::RpcError(format!("Failed to get gas objects: {}", e)))?;
 
         let mut total_balance = 0u64;
-        let mut token_balances = Vec::new();
+        let token_balances = Vec::new();
 
         for obj in objects {
             if obj.object_type == "0x2::coin::Coin<0x2::sui::SUI>" {
@@ -550,9 +549,9 @@ impl ChainDeployer for SuiChainOperations {
             Ok(PackageDeployment {
                 package_id,
                 transaction_digest,
-                gas_used,
-                modules,
-                dependencies,
+                gas_used: _,
+                modules: _,
+                dependencies: _,
             }) => {
                 let package_id_hex = format!("0x{}", hex::encode(&package_id));
 

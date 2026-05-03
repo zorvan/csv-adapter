@@ -82,7 +82,7 @@ pub fn compute_merkle_root(txids: &[[u8; 32]]) -> Option<[u8; 32]> {
 /// * `Some(branch)` — Vector of sibling hashes (one per tree level)
 /// * `None` — If the input is empty or index is out of range
 pub fn compute_merkle_branch(
-    target_txid: &[u8; 32],
+    _target_txid: &[u8; 32],
     target_index: usize,
     all_txids: &[[u8; 32]],
 ) -> Option<Vec<[u8; 32]>> {
@@ -340,7 +340,7 @@ pub fn verify_full_spv_proof_rust_bitcoin(
         Ok(h) => h,
         Err(_) => return false,
     };
-    let (pmt, total_txs) = match deserialize_merkle_proof(merkle_proof) {
+    let (pmt, _total_txs) = match deserialize_merkle_proof(merkle_proof) {
         Some(result) => result,
         None => return false,
     };
@@ -442,7 +442,7 @@ fn extract_merkle_branch_from_pmt(pmt: &PartialMerkleTree, target_index: usize) 
 /// * `all_txids` — All transaction IDs in the block (needed to rebuild PMT)
 /// * `target_index` — Index of the target transaction
 pub fn to_rust_bitcoin_merkle_proof(
-    inclusion_proof: &BitcoinInclusionProof,
+    _inclusion_proof: &BitcoinInclusionProof,
     all_txids: &[[u8; 32]],
     target_index: usize,
 ) -> Option<PartialMerkleTree> {

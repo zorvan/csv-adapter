@@ -51,15 +51,26 @@ pub enum VMError {
     /// Bytecode is malformed or invalid
     InvalidBytecode(String),
     /// Execution ran out of steps (loop detection / gas limit)
-    ExecutionLimitExceeded { max_steps: u64, actual_steps: u64 },
+    ExecutionLimitExceeded {
+        /// Maximum allowed execution steps
+        max_steps: u64,
+        /// Actual number of steps executed before limit reached
+        actual_steps: u64,
+    },
     /// A state input referenced in the transition was not found
-    StateNotFound { state_ref: StateRef },
+    StateNotFound {
+        /// The state reference that was not found
+        state_ref: StateRef,
+    },
     /// The VM produced inconsistent output (e.g., negative supply)
     InconsistentOutput(String),
     /// Signature verification failed
     InvalidSignature(String),
     /// Seal was already consumed (replay detected)
-    SealReplay { seal: SealRef },
+    SealReplay {
+        /// The seal that was replayed
+        seal: SealRef,
+    },
     /// Schema validation failed
     SchemaViolation(String),
     /// Generic execution error

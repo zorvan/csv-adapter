@@ -6,7 +6,7 @@ use async_trait::async_trait;
 
 use csv_explorer_shared::{
     BlockInfo, CommitmentScheme, CsvContract, CsvEvent, EnhancedRightRecord, EnhancedSealRecord,
-    EnhancedTransferRecord, EventFinalityStatus, ExplorerError, FinalityProofType,
+    EnhancedTransferRecord, ExplorerError, FinalityProofType,
     InclusionProofType, Network, PriorityLevel, RightRecord, SealRecord, TransferRecord,
 };
 

@@ -11,8 +11,7 @@
 use async_trait::async_trait;
 use csv_adapter_core::chain_operations::{
     BalanceInfo, ChainBroadcaster, ChainDeployer, ChainOpError, ChainOpResult, ChainProofProvider,
-    ChainQuery, ChainRightOps, ChainSigner, ContractStatus, DeploymentStatus, FinalityStatus,
-    RightOperation, RightOperationResult, TransactionInfo, TransactionStatus,
+    ChainQuery, ChainRightOps, ChainSigner, ContractStatus, DeploymentStatus, FinalityStatus, RightOperationResult, TransactionInfo, TransactionStatus,
 };
 use csv_adapter_core::hash::Hash;
 use csv_adapter_core::proof::{FinalityProof, InclusionProof as CoreInclusionProof};
@@ -22,7 +21,7 @@ use csv_adapter_core::signature::SignatureScheme;
 use crate::adapter::EthereumAnchorLayer;
 use crate::config::EthereumConfig;
 use crate::finality::FinalityChecker;
-use crate::proofs::{CommitmentEventBuilder, DecodedLog, EventProofVerifier, ReceiptProofResult, verify_receipt_inclusion, verify_receipt_proof};
+use crate::proofs::{CommitmentEventBuilder, EventProofVerifier};
 use crate::rpc::{EthereumRpc, RpcBlock, RpcTransaction};
 use crate::seal_contract::CsvSealAbi;
 
@@ -615,7 +614,7 @@ impl ChainProofProvider for EthereumChainOperations {
 
         // Build MPT proof for the transaction containing the event
         // This would require finding the transaction that emitted the event
-        let proof_data = serde_json::to_vec(&block)
+        let _proof_data = serde_json::to_vec(&block)
             .map_err(|e| ChainOpError::Unknown(format!("Serialization failed: {}", e)))?;
 
         Ok(CoreInclusionProof {
@@ -703,7 +702,7 @@ impl ChainProofProvider for EthereumChainOperations {
         tx_hash: &str,
     ) -> ChainOpResult<bool> {
         // Verify the block is old enough for finality
-        let latest = self
+        let _latest = self
             .rpc()
             .block_number()
             .map_err(|e| ChainOpError::RpcError(format!("Failed to get latest block: {}", e)))?;

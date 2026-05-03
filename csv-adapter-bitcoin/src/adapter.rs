@@ -348,7 +348,7 @@ impl BitcoinAnchorLayer {
     /// Searches through the wallet's UTXOs to find a seal (UTXO) that is 
     /// associated with the given right_id. Returns the seal reference if found.
     pub fn find_seal_for_right(&self, right_id: &RightId) -> Option<BitcoinSealRef> {
-        let right_bytes = right_id.as_bytes();
+        let _right_bytes = right_id.as_bytes();
         
         for utxo in self.wallet.list_utxos() {
             let outpoint = utxo.outpoint;

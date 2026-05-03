@@ -552,7 +552,7 @@ impl ChainProofProvider for BitcoinChainProofProvider {
 
     async fn build_finality_proof(&self, tx_hash: &str) -> ChainOpResult<FinalityProof> {
         // Build a finality proof (SPV proof of confirmation depth)
-        use bitcoin_hashes::{sha256d, Hash as BitcoinHash};
+        
 
         // Parse txid
         let txid_bytes = hex::decode(tx_hash.trim_start_matches("0x"))
@@ -841,7 +841,7 @@ impl BitcoinChainRightOps {
     fn build_metadata_transaction(
         &self,
         seal: BitcoinSealRef,
-        metadata: &[u8],
+        _metadata: &[u8],
         _owner_key: &[u8],
     ) -> Result<bitcoin::Transaction, String> {
      let seal_outpoint = bitcoin::OutPoint {
@@ -930,7 +930,7 @@ impl ChainRightOps for BitcoinChainRightOps {
         // The lock UTXO contains the destination chain hash in its script
         
         // Parse the destination chain to ensure it's valid
-        let destination = destination_chain.parse::<csv_adapter_core::Chain>()
+        let _destination = destination_chain.parse::<csv_adapter_core::Chain>()
             .map_err(|_| ChainOpError::InvalidInput(format!("Invalid destination chain: {}", destination_chain)))?;
         
         // Get the right's associated UTXO (seal)

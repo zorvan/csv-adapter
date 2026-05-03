@@ -4,6 +4,7 @@
 //! enabling Aptos to be used through the unified chain adapter interface.
 
 use async_trait::async_trait;
+use base64::Engine;
 use csv_adapter_core::chain_adapter::{
     AccountModel, ChainAdapter, ChainCapabilities, ChainError, ChainResult, RpcClient, Wallet,
 };
@@ -33,7 +34,7 @@ impl RpcClient for AptosRpcClient {
     async fn send_transaction(&self, tx: &[u8]) -> ChainResult<String> {
         // Aptos transactions are BCS-encoded Transaction payloads
         // Submit via the REST API /v1/transactions endpoint
-        let tx_base64 = base64::encode(tx);
+        let tx_base64 = base64::engine::general_purpose::STANDARD.encode(tx);
 
         let request = serde_json::json!({
             "transaction": tx_base64,

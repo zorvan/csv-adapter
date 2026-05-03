@@ -206,7 +206,7 @@ impl AnchorLayer for SolanaAnchorLayer {
         let rt = tokio::runtime::Runtime::new()
             .map_err(|e| SolanaError::Rpc(format!("Failed to create runtime: {}", e)))?;
 
-        let anchor_ref = rt.block_on(async {
+        let _anchor_ref = rt.block_on(async {
             // Get recent blockhash
             let recent_blockhash = rpc.get_recent_blockhash().await
                 .map_err(|e| SolanaError::Rpc(format!("Failed to get recent blockhash: {}", e)))?;
@@ -235,11 +235,11 @@ impl AnchorLayer for SolanaAnchorLayer {
                 .map_err(|e| SolanaError::Rpc(format!("Failed to send transaction: {}", e)))?;
 
             // Wait for confirmation
-            let status = rpc.wait_for_confirmation(&signature).await
+            let _status = rpc.wait_for_confirmation(&signature).await
                 .map_err(|e| SolanaError::Rpc(format!("Transaction confirmation failed: {}", e)))?;
 
             // Get slot information
-            let slot = rpc.get_latest_slot().await
+            let _slot = rpc.get_latest_slot().await
                 .map_err(|e| SolanaError::Rpc(format!("Failed to get slot: {}", e)))?;
 
             Ok::<(), SolanaError>(())

@@ -264,7 +264,7 @@ pub mod real_rpc {
             address: &str,
         ) -> Result<Vec<crate::rpc::UtxoInfo>, Box<dyn std::error::Error + Send + Sync>> {
             use crate::rpc::UtxoInfo;
-            use bitcoin::OutPoint;
+            
             
             // Use listunspent RPC call to get UTXOs for the address
             // This requires the Bitcoin Core wallet to be watching this address
