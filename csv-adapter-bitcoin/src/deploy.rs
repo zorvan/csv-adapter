@@ -9,6 +9,7 @@ use crate::error::{BitcoinError, BitcoinResult};
 use crate::rpc::BitcoinRpc;
 use crate::wallet::SealWallet;
 use bitcoin::key::TapTweak;
+use bitcoin_hashes::Hash as BitcoinHash;
 
 /// Bitcoin contract deployment transaction
 pub struct ContractDeployment {
@@ -92,7 +93,7 @@ impl ContractDeployer {
             bitcoin::Address::p2tr_tweaked(tweaked_key, self.config.network.to_bitcoin_network());
 
         // Get UTXOs for the deployer address to fund the transaction
-        let deployer_address = format!("{}", internal_key);
+        let deployer_address = derived_key.address.to_string();
         let utxos = self
             .rpc
             .get_utxos_for_address(&deployer_address)
@@ -193,8 +194,7 @@ impl ContractDeployer {
         // Create the input from the UTXO
         let input = TxIn {
             previous_output: OutPoint {
-                txid: bitcoin::Txid::from_slice(&utxo.txid)
-                    .map_err(|e| BitcoinError::InvalidInput(format!("Invalid txid: {}", e)))?,
+                txid: bitcoin::Txid::from_byte_array(utxo.txid),
                 vout: utxo.vout,
             },
             script_sig: ScriptBuf::new(),
@@ -220,13 +220,10 @@ impl ContractDeployer {
 
         // Add change output if significant
         if change_value > dust_limit {
-            // For change, we need the deployer's address - use internal key for now
-            let internal_key = self.wallet.secp_public_key();
-            let change_address = bitcoin::Address::p2wpkh(
-                &internal_key,
-                self.config.network.to_bitcoin_network(),
-            )
-            .map_err(|e| BitcoinError::InvalidInput(format!("Failed to create change address: {}", e)))?;
+            let (change_key, _) = self.wallet
+                .next_address(0)
+                .map_err(|e| BitcoinError::RpcError(format!("Failed to derive change address: {}", e)))?;
+            let change_address = &change_key.address;
 
             outputs.push(TxOut {
                 value: bitcoin::Amount::from_sat(change_value),

@@ -3164,6 +3164,7 @@ dependencies = [
  "dirs",
  "ed25519-dalek",
  "hex",
+ "log",
  "rand 0.8.6",
  "serde",
  "serde_json",

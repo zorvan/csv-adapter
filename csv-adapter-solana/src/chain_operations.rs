@@ -715,7 +715,7 @@ impl ChainRightOps for SolanaChainOperations {
         // Derive the seal account address from the right_id
         // The seal account is a PDA derived from the right_id hash
         use solana_sdk::pubkey::Pubkey;
-        use solana_sdk::system_program;
+        use solana_system_interface::program;
 
         // Convert right_id bytes to a Pubkey (32 bytes)
         let right_bytes = right_id.as_bytes();
@@ -730,26 +730,20 @@ impl ChainRightOps for SolanaChainOperations {
             .map_err(|e| ChainOpError::RpcError(format!("Failed to query seal account: {}", e)))?;
 
         // Determine state from account info
-        let actual_state = match account_info {
-            Some(account) => {
-                if account.owner == system_program::ID && account.lamports == 0 {
-                    // Account exists but is closed (zeroed)
-                    "consumed"
-                } else if account.data.is_empty() {
-                    // Account exists but has no data (likely locked/closed)
-                    "locked"
-                } else {
-                    // Account exists with data - active seal
-                    "active"
-                }
+        // An account that doesn't exist will have zero lamports, empty data, and be owned by system_program
+        let is_default_account = account_info.lamports == 0
+            && account_info.data.is_empty()
+            && account_info.owner == program::id();
+
+        let actual_state = if is_default_account {
+            if expected_state == "consumed" || expected_state == "never_created" {
+                return Ok(true);
             }
-            None => {
-                // Account doesn't exist - either never created or consumed
-                if expected_state == "consumed" || expected_state == "never_created" {
-                    return Ok(true);
-                }
-                "consumed"
-            }
+            "consumed"
+        } else if account_info.data.is_empty() {
+            "locked"
+        } else {
+            "active"
         };
 
         Ok(actual_state == expected_state)

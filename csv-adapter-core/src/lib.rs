@@ -119,7 +119,6 @@ pub mod chain_adapter;
 pub mod chain_config;
 pub mod chain_discovery;
 pub mod chain_plugin;
-pub mod chain_system;
 
 // RGB protocol compatibility (Sprint 5) - 🧪 EXPERIMENTAL
 #[cfg(feature = "experimental")]
@@ -224,12 +223,11 @@ pub use chain_adapter::{
     ChainAdapter, ChainAdapterExt, ChainError, ChainRegistry, ChainResult, RpcClient, Wallet,
 };
 pub use chain_config::{AccountModel, ChainCapabilities, ChainConfig, ChainConfigLoader};
-pub use chain_discovery::ChainDiscovery;
+pub use chain_discovery::{ChainDiscovery, ChainInfo};
 pub use chain_plugin::{
     ChainPlugin, ChainPluginBuildError, ChainPluginBuilder, ChainPluginMetadata,
     ChainPluginRegistry,
 };
-pub use chain_system::{ChainInfo, SimpleChainRegistry};
 
 // ===========================================================================
 // Re-exports: Experimental API (feature-gated, may change)
@@ -243,7 +241,10 @@ pub use mpc::{MerkleBranchNode, MpcLeaf, MpcProof, MpcTree, ProtocolId};
 /// Experimental module — feature-gated behind `experimental`.
 /// These APIs may change or be removed without notice.
 #[cfg(feature = "experimental")]
-pub use vm::{execute_transition, DeterministicVM, PassthroughVM, VMError, VMInputs, VMOutputs};
+pub use vm::{
+    execute_transition, AluVmAdapter, DeterministicVM, MeteredVMAdapter, PassthroughVM, VMError,
+    VMInputs, VMOutputs,
+};
 
 /// Experimental module — feature-gated behind `experimental`.
 /// These APIs may change or be removed without notice.

@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 /// Chain-specific capabilities and features
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ChainCapabilities {
     /// Whether this chain supports NFTs
     pub supports_nfts: bool,
@@ -27,7 +27,7 @@ pub struct ChainCapabilities {
 }
 
 /// Account model types
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub enum AccountModel {
     /// UTXO-based model (Bitcoin-like)
     UTXO,
@@ -36,6 +36,7 @@ pub enum AccountModel {
     /// Object-based model (Sui-like)
     Object,
     /// Hybrid model (mixed approaches)
+    #[default]
     Hybrid,
 }
 

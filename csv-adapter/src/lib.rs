@@ -76,7 +76,7 @@ pub mod facade;
 pub mod prelude;
 pub mod proofs;
 pub mod rights;
-pub mod scalable_builder_v2;
+pub mod scalable_builder;
 pub mod transfers;
 pub mod wallet;
 

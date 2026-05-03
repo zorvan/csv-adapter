@@ -67,7 +67,9 @@ fn cmd_generate(
     config: &Config,
     state: &UnifiedStateManager,
 ) -> Result<()> {
-    use csv_adapter::prelude::{CsvClient, Chain as AdapterChain, ProofManager};
+    use csv_adapter::prelude::CsvClient;
+    use csv_adapter_core::Chain as AdapterChain;
+    use csv_adapter::prelude::ProofManager;
     use csv_adapter_core::right::RightId;
 
     output::header(&format!("Generating Proof on {}", chain));
@@ -157,7 +159,8 @@ fn cmd_verify(
     _config: &Config,
     _state: &UnifiedStateManager,
 ) -> Result<()> {
-    use csv_adapter::prelude::{CsvClient, Chain as AdapterChain};
+    use csv_adapter::prelude::CsvClient;
+    use csv_adapter_core::Chain as AdapterChain;
     use csv_adapter_core::{right::RightId, proof::ProofBundle};
 
     output::header(&format!("Verifying Proof on {}", chain));

@@ -1,4 +1,4 @@
-//! Scalable builder for dynamic chain support.
+//! Scalable builder implementation using dynamic chain registry.
 
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -30,10 +30,12 @@ struct ScalableBuilderState {
     wallet: Option<Wallet>,
     store_backend: Option<StoreBackend>,
     config: Option<Config>,
-    chain_registry: ChainRegistry,
+    chain_registry: Option<Arc<ChainRegistry>>,
 }
 
 /// Scalable fluent builder for constructing a CsvClient with dynamic chain support.
+///
+/// Use [`CsvClient::scalable_builder()`](crate::client::CsvClient::scalable_builder) to create a new builder.
 pub struct ScalableClientBuilder {
     state: ScalableBuilderState,
 }
@@ -59,7 +61,7 @@ impl ScalableClientBuilder {
     /// ```no_run
     /// use csv_adapter::prelude::*;
     ///
-    /// let client = CsvClient::builder()
+    /// let client = CsvClient::scalable_builder()
     ///     .with_chain("bitcoin")
     ///     .with_chain("ethereum")
     ///     .with_chain("solana")
@@ -71,34 +73,64 @@ impl ScalableClientBuilder {
         self
     }
 
-    /// Enable all available chains from the registry.
+    /// Enable all chains from the registry.
+    ///
+    /// This method automatically enables all chains that have been registered
+    /// in the chain registry.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use csv_adapter::prelude::*;
+    ///
+    /// let registry = ChainRegistry::new();
+    /// // Register chains dynamically (in real implementation)
+    /// registry.register_chain("bitcoin".to_string(), "Bitcoin".to_string());
+    /// registry.register_chain("ethereum".to_string(), "Ethereum".to_string());
+    ///
+    /// let client = CsvClient::scalable_builder()
+    ///     .with_chain_registry(registry)
+    ///     .with_all_available_chains()
+    ///     .build()?;
+    /// # Ok::<_, csv_adapter::CsvError>(())
+    /// ```
     pub fn with_all_available_chains(mut self) -> Self {
-        // This will be populated from the chain registry
-        let available_chains = self.state.chain_registry.supported_chains();
-        
-        for chain_id in available_chains {
-            self.state.enabled_chains.insert(chain_id.to_string());
-        }
-        
-        self
-    }
+        if let Some(ref registry) = self.state.chain_registry {
+            let available_chains = registry.supported_chains();
 
-    /// Enable chains from configuration file.
-    pub fn with_config(mut self, config: Config) -> Self {
-        // Enable chains from config
-        for (chain_id, chain_config) in &config.chains {
-            if chain_config.enabled {
-                self.state.enabled_chains.insert(chain_id.clone());
+            for chain_id in available_chains {
+                self.state.enabled_chains.insert(chain_id.to_string());
             }
         }
-        
-        self.state.config = Some(config);
+
         self
     }
 
     /// Set the chain registry for dynamic chain discovery.
+    ///
+    /// The registry contains all registered chain adapters and their capabilities.
+    ///
+    /// # Arguments
+    ///
+    /// * `registry` — The chain registry to use.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use csv_adapter::prelude::*;
+    ///
+    /// let registry = ChainRegistry::new();
+    /// // Register chains dynamically
+    /// registry.register_chain("polygon".to_string(), "Polygon".to_string());
+    ///
+    /// let client = CsvClient::scalable_builder()
+    ///     .with_chain_registry(registry)
+    ///     .with_chain("polygon")
+    ///     .build()?;
+    /// # Ok::<_, csv_adapter::CsvError>(())
+    /// ```
     pub fn with_chain_registry(mut self, registry: ChainRegistry) -> Self {
-        self.state.chain_registry = registry;
+        self.state.chain_registry = Some(Arc::new(registry));
         self
     }
 
@@ -106,13 +138,13 @@ impl ScalableClientBuilder {
     ///
     /// The wallet is used for signing transactions and deriving addresses.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```no_run
     /// use csv_adapter::prelude::*;
     ///
     /// let wallet = Wallet::generate();
-    /// let client = CsvClient::builder()
+    /// let client = CsvClient::scalable_builder()
     ///     .with_wallet(wallet)
     ///     .build()?;
     /// # Ok::<_, csv_adapter::CsvError>(())
@@ -124,12 +156,12 @@ impl ScalableClientBuilder {
 
     /// Set the storage backend.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```no_run
     /// use csv_adapter::prelude::*;
     ///
-    /// let client = CsvClient::builder()
+    /// let client = CsvClient::scalable_builder()
     ///     .with_store_backend(StoreBackend::InMemory)
     ///     .build()?;
     /// # Ok::<_, csv_adapter::CsvError>(())
@@ -139,28 +171,39 @@ impl ScalableClientBuilder {
         self
     }
 
-    /// Build the CsvClient, validating all settings.
+    /// Load configuration from a [`Config`] struct.
+    ///
+    /// This overrides any previously set chain or store settings.
+    pub fn with_config(mut self, config: Config) -> Self {
+        // Enable chains from config before moving config into state
+        for (chain_id, chain_config) in &config.chains {
+            if chain_config.enabled {
+                self.state.enabled_chains.insert(chain_id.clone());
+            }
+        }
+
+        self.state.config = Some(config);
+        self
+    }
+
+    /// Build the [`CsvClient`](crate::client::CsvClient), validating all settings.
     ///
     /// # Errors
     ///
     /// Returns an error if:
     /// - No chains are enabled
     /// - The store backend cannot be initialized
-    /// - Chain registry is not set
+    /// - Chain registry is not set when enabling chains from registry
     ///
     /// # Examples
     ///
     /// ```no_run
     /// use csv_adapter::prelude::*;
     ///
-    /// let registry = ChainRegistry::new();
-    /// registry.register_chain("bitcoin".to_string(), "Bitcoin".to_string());
-    /// registry.register_chain("ethereum".to_string(), "Ethereum".to_string());
-    ///
-    /// let client = CsvClient::builder()
-    ///     .with_chain_registry(registry)
+    /// let client = CsvClient::scalable_builder()
     ///     .with_chain("bitcoin")
     ///     .with_chain("ethereum")
+    ///     .with_chain("solana")
     ///     .build()?;
     /// # Ok::<_, csv_adapter::CsvError>(())
     /// ```
@@ -172,8 +215,22 @@ impl ScalableClientBuilder {
             ));
         }
 
+        // Validate that chain registry is set if using registry-based chains
+        if self.state.enabled_chains.iter().any(|chain_id| {
+            !matches!(
+                chain_id.as_str(),
+                "bitcoin" | "ethereum" | "solana" | "sui" | "aptos"
+            )
+        }) && self.state.chain_registry.is_none()
+        {
+            return Err(CsvError::BuilderError(
+                "Chain registry must be set when enabling custom chains. Use .with_chain_registry()."
+                    .to_string(),
+            ));
+        }
+
         // Apply config overrides if present
-        let config = self.state.config.unwrap_or_else(Config::default);
+        let config = self.state.config.unwrap_or_default();
 
         // Initialize store backend
         let store = match self.state.store_backend.unwrap_or(StoreBackend::InMemory) {
@@ -181,12 +238,10 @@ impl ScalableClientBuilder {
                 crate::client::StoreHandle::InMemory(csv_adapter_core::InMemorySealStore::new())
             }
             #[cfg(feature = "sqlite")]
-            StoreBackend::Sqlite { ref path } => {
-                crate::client::StoreHandle::Sqlite(
-                    csv_adapter_store::SqliteSealStore::open(path)
-                        .map_err(|e| CsvError::StoreError(e.to_string()))?,
-                )
-            }
+            StoreBackend::Sqlite { ref path } => crate::client::StoreHandle::Sqlite(
+                csv_adapter_store::SqliteSealStore::open(path)
+                    .map_err(|e| CsvError::StoreError(e.to_string()))?,
+            ),
         };
 
         // Convert enabled chain IDs to core Chain enum
@@ -200,12 +255,17 @@ impl ScalableClientBuilder {
         // Create the chain facade
         let chain_facade = crate::facade::ChainFacade::new(Arc::new(crate::client::ClientRef::new()));
 
+        #[cfg(feature = "tokio")]
+        let event_tx = tokio::sync::broadcast::channel(256).0;
+        #[cfg(not(feature = "tokio"))]
+        let event_tx = ();
+
         Ok(crate::client::CsvClient {
             enabled_chains: core_chains,
             wallet: self.state.wallet,
             store: Arc::new(std::sync::Mutex::new(store)),
             config,
-            event_tx: tokio::sync::broadcast::channel(256).0,
+            event_tx,
             chain_registry: self.state.chain_registry,
             chain_facade,
         })

@@ -15,7 +15,6 @@ pub mod config;
 pub mod deploy;
 pub mod error;
 pub mod proofs;
-pub mod proofs_new;
 pub mod rpc;
 pub mod seal;
 pub mod signatures;

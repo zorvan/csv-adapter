@@ -892,7 +892,11 @@ impl ChainRightOps for EthereumChainOperations {
         match self.get_transaction(&tx_hash).await {
             Ok(tx_info) => {
                 // Transaction found - check confirmations for state
-                if tx_info.confirmations > 0 {
+                let has_confirmations = match &tx_info.status {
+                    csv_adapter_core::chain_operations::TransactionStatus::Confirmed { confirmations, .. } => *confirmations > 0,
+                    _ => false,
+                };
+                if has_confirmations {
                     let actual_state = "active";
                     return Ok(actual_state == expected_state);
                 }

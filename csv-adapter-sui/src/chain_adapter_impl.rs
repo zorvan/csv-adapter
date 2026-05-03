@@ -7,6 +7,7 @@ use async_trait::async_trait;
 use csv_adapter_core::chain_adapter::{
     AccountModel, ChainAdapter, ChainCapabilities, ChainError, ChainResult, RpcClient, Wallet,
 };
+use ed25519_dalek::Verifier;
 use csv_adapter_core::chain_config::ChainConfig;
 use csv_adapter_core::Chain;
 
@@ -93,6 +94,7 @@ impl RpcClient for SuiRpcClient {
         Ok(checkpoint_seq)
     }
 
+    #[cfg(feature = "rpc")]
     async fn get_balance(&self, address: &str) -> ChainResult<u64> {
         use serde_json::{json, Value};
         use reqwest::Client;
@@ -171,6 +173,13 @@ impl RpcClient for SuiRpcClient {
         Ok(total_balance)
     }
 
+    #[cfg(not(feature = "rpc"))]
+    async fn get_balance(&self, _address: &str) -> ChainResult<u64> {
+        Err(ChainError::CapabilityUnavailable(
+            "Sui balance query requires the 'rpc' feature".to_string()
+        ))
+    }
+
 
     async fn get_chain_info(&self) -> ChainResult<serde_json::Value> {
         let checkpoint_seq = self
@@ -182,6 +191,20 @@ impl RpcClient for SuiRpcClient {
             "chain": "sui",
             "checkpoint": checkpoint_seq,
         }))
+    }
+
+    async fn is_transaction_confirmed(&self, hash: &str) -> ChainResult<bool> {
+        let digest_bytes = hex::decode(hash.trim_start_matches("0x"))
+            .map_err(|e| ChainError::InvalidInput(format!("Invalid digest: {}", e)))?;
+        let digest: [u8; 32] = digest_bytes.try_into()
+            .map_err(|_| ChainError::InvalidInput("Digest must be 32 bytes".to_string()))?;
+
+        let tx = self
+            .inner
+            .get_transaction_block(digest)
+            .map_err(|e| ChainError::RpcError(format!("Transaction query failed: {}", e)))?;
+
+        Ok(tx.is_some())
     }
 }
 

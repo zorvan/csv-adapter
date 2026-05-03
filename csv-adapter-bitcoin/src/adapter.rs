@@ -20,6 +20,7 @@ use csv_adapter_core::dag::DAGSegment;
 use csv_adapter_core::error::AdapterError;
 use csv_adapter_core::error::Result as CoreResult;
 use csv_adapter_core::proof::{FinalityProof, ProofBundle};
+use csv_adapter_core::right::RightId;
 use csv_adapter_core::seal::AnchorRef as CoreAnchorRef;
 use csv_adapter_core::seal::SealRef as CoreSealRef;
 use csv_adapter_core::AnchorLayer;
@@ -347,25 +348,19 @@ impl BitcoinAnchorLayer {
     /// Searches through the wallet's UTXOs to find a seal (UTXO) that is 
     /// associated with the given right_id. Returns the seal reference if found.
     pub fn find_seal_for_right(&self, right_id: &RightId) -> Option<BitcoinSealRef> {
-        // The right_id is encoded as bytes, we need to find a UTXO that 
-        // was created for this right (typically through the wallet's seal tracking)
         let right_bytes = right_id.as_bytes();
         
-        // Search through known UTXOs in the wallet
-        for (outpoint, utxo) in self.wallet.utxos() {
-            // Check if this UTXO's metadata contains the right_id
-            // This is a simplified check - in production, seals are tracked 
-            // with explicit right associations
-            let utxo_key = format!("{}:{}", outpoint.txid_hex(), outpoint.vout);
+        for utxo in self.wallet.list_utxos() {
+            let outpoint = utxo.outpoint;
+            let utxo_key = format!("{}:{}", hex::encode(outpoint.txid), outpoint.vout);
             let seal_id = format!("seal:{}", utxo_key);
             
-            // Derive a right_id from the seal_id and compare
             let derived_right = RightId::from_bytes(seal_id.as_bytes());
             if derived_right == *right_id {
                 return Some(BitcoinSealRef {
-                    txid: outpoint.txid,
+                    txid: outpoint.txid.to_byte_array(),
                     vout: outpoint.vout,
-                    amount_sat: utxo.amount_sat,
+                    nonce: Some(utxo.amount_sat),
                 });
             }
         }

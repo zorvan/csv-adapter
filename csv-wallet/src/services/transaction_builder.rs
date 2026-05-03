@@ -223,18 +223,25 @@ pub fn build_btc_transaction_with_utxos(
     }
 
     // Build the transaction
-    let tx = BitcoinTransaction {
-        version: 2,
-        inputs: selected_utxos.into_iter().map(|u| TxInput {
-            txid: hex::decode(&u.txid).map_err(|e| BlockchainError {
+    let inputs: Result<Vec<TxInput>, BlockchainError> = selected_utxos.into_iter().map(|u| {
+        let txid_bytes = hex::decode(&u.txid)
+            .map_err(|e| BlockchainError {
                 message: format!("Invalid txid: {}", e),
                 chain: Some(Chain::Bitcoin),
                 code: Some(400),
-            })?,
+            })?;
+        Ok(TxInput {
+            txid: txid_bytes,
             vout: u.vout,
             sequence: 0xffffffff, // RBF disabled
             witness: vec![],        // Will be filled during signing
-        }).collect(),
+        })
+    }).collect();
+    let inputs = inputs?;
+    
+    let tx = BitcoinTransaction {
+        version: 2,
+        inputs,
         outputs,
         locktime: 0,
     };

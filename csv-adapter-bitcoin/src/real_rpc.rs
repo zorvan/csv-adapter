@@ -88,7 +88,7 @@ pub mod real_rpc {
             &self,
             txid: [u8; 32],
         ) -> Result<TxInfo, Box<dyn std::error::Error + Send + Sync>> {
-            let txid = Txid::from_slice(&txid).map_err(|e| format!("Invalid txid: {}", e))?;
+            let txid = Txid::from_byte_array(txid);
 
             let tx_info = self.client.get_raw_transaction_info(&txid, None)?;
 
@@ -232,7 +232,7 @@ pub mod real_rpc {
             txid: [u8; 32],
             vout: u32,
         ) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
-            let txid = Txid::from_slice(&txid).map_err(|e| format!("Invalid txid: {}", e))?;
+            let txid = Txid::from_byte_array(txid);
             let result = self.client.get_tx_out(&txid, vout, Some(true))?;
             Ok(result.is_some())
         }
@@ -254,7 +254,7 @@ pub mod real_rpc {
             &self,
             txid: [u8; 32],
         ) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
-            let txid = Txid::from_slice(&txid).map_err(|e| format!("Invalid txid: {}", e))?;
+            let txid = Txid::from_byte_array(txid);
             let info = self.client.get_raw_transaction_info(&txid, None)?;
             Ok(info.confirmations.map(|c| c as u64).unwrap_or(0))
         }
@@ -262,16 +262,23 @@ pub mod real_rpc {
         fn get_utxos_for_address(
             &self,
             address: &str,
-        ) -> Result<Vec<super::rpc::UtxoInfo>, Box<dyn std::error::Error + Send + Sync>> {
-            use super::rpc::UtxoInfo;
+        ) -> Result<Vec<crate::rpc::UtxoInfo>, Box<dyn std::error::Error + Send + Sync>> {
+            use crate::rpc::UtxoInfo;
             use bitcoin::OutPoint;
             
             // Use listunspent RPC call to get UTXOs for the address
             // This requires the Bitcoin Core wallet to be watching this address
+            use std::str::FromStr;
+            let addr = bitcoin::Address::from_str(address)
+                .map_err(|e| format!("Invalid address: {}", e))?
+                .require_network(self.network)
+                .map_err(|e| format!("Address network mismatch: {}", e))?;
             let utxos = self.client.list_unspent(
                 Some(0),          // min_confirmations
                 None,             // max_confirmations
-                Some(&[address]), // addresses filter
+                Some(&[&addr]),    // addresses filter
+                None,             // filter label
+                Default::default(), // options
             )?;
             
             let result: Vec<UtxoInfo> = utxos

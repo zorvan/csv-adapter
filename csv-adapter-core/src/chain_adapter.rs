@@ -39,6 +39,10 @@ pub enum ChainError {
     /// Feature or capability not available/enabled
     #[error("Feature not available: {0}")]
     FeatureNotEnabled(String),
+
+    /// Capability not available
+    #[error("Capability unavailable: {0}")]
+    CapabilityUnavailable(String),
 }
 
 /// Result type for chain operations

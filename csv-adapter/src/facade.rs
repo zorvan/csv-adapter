@@ -502,7 +502,8 @@ impl ChainFacade {
 
         // Get the transaction info to build finality proof
         // For proof generation, we use the right_id as the lookup key
-        let tx_info = adapter.get_transaction(right_id.to_string().as_str()).await;
+        let tx_hash_lookup = hex::encode(right_id.as_bytes());
+        let tx_info = adapter.get_transaction(tx_hash_lookup.as_str()).await;
         let tx_hash = match &tx_info {
             Ok(info) => info.hash.clone(),
             Err(_) => hex::encode(right_id.as_bytes()), // Fallback to right_id as hex

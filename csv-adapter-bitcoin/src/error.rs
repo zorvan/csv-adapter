@@ -34,6 +34,10 @@ pub enum BitcoinError {
     #[error("Insufficient confirmations: got {got}, need {need}")]
     InsufficientConfirmations { got: u64, need: u64 },
 
+    /// Invalid input parameters
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
+
     /// Wrapper for core adapter errors
     #[error(transparent)]
     CoreError(#[from] csv_adapter_core::AdapterError),
@@ -62,6 +66,7 @@ impl From<BitcoinError> for csv_adapter_core::AdapterError {
                     got, need
                 ))
             }
+            BitcoinError::InvalidInput(msg) => csv_adapter_core::AdapterError::InvalidInput(msg),
         }
     }
 }
@@ -74,6 +79,7 @@ impl BitcoinError {
             BitcoinError::TransactionNotFound(_) => true,
             BitcoinError::InsufficientConfirmations { .. } => true,
             BitcoinError::ReorgDetected { .. } => true,
+            BitcoinError::InvalidInput(_) => false,
             BitcoinError::UTXOSpent(_) => false,
             BitcoinError::InvalidMerkleProof(_) => false,
             BitcoinError::RegistryFull(_) => false,
@@ -94,6 +100,7 @@ impl HasErrorSuggestion for BitcoinError {
             BitcoinError::InsufficientConfirmations { .. } => {
                 error_codes::BTC_INSUFFICIENT_CONFIRMATIONS
             }
+            BitcoinError::InvalidInput(_) => error_codes::BTC_RPC_ERROR,
             BitcoinError::CoreError(e) => e.error_code(),
         }
     }
@@ -156,6 +163,7 @@ impl HasErrorSuggestion for BitcoinError {
                     (need - got) * 10
                 )
             }
+            BitcoinError::InvalidInput(msg) => format!("Check the input parameters: {}", msg),
             BitcoinError::CoreError(e) => e.suggested_fix(),
         }
     }
@@ -192,6 +200,7 @@ impl HasErrorSuggestion for BitcoinError {
                 )]),
             }),
             BitcoinError::CoreError(e) => e.fix_action(),
+            BitcoinError::InvalidInput(_) => None,
             _ => None,
         }
     }

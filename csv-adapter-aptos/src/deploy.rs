@@ -52,6 +52,7 @@ impl ModuleDeployer {
     ///
     /// # Returns
     /// The module deployment details
+    #[cfg(feature = "rpc")]
     pub async fn deploy_module(
         &self,
         module_bytes: &[u8],
@@ -177,6 +178,17 @@ impl ModuleDeployer {
         // Check if upgrade policy allows it
         // Then deploy new version
         self.deploy_module(module_bytes, module_name).await
+    }
+
+    #[cfg(not(feature = "rpc"))]
+    pub async fn deploy_module(
+        &self,
+        _module_bytes: &[u8],
+        _module_name: &str,
+    ) -> AptosResult<ModuleDeployment> {
+        Err(AptosError::RpcError(
+            "Module deployment requires the 'rpc' feature".to_string()
+        ))
     }
 
     /// Verify a module is deployed

@@ -336,6 +336,36 @@ impl BitcoinRpc for MempoolSignetRpc {
             base_url: self.base_url.clone(),
         })
     }
+
+    fn get_utxos_for_address(
+        &self,
+        address: &str,
+    ) -> Result<Vec<crate::rpc::UtxoInfo>, Box<dyn std::error::Error + Send + Sync>> {
+        let url = format!("{}/address/{}/utxo", self.base_url, address);
+        let utxos: Vec<AddressUtxo> = self.get_with_retry(&url)?;
+        let current_height = self.get_block_count().unwrap_or(0);
+        let result: Vec<crate::rpc::UtxoInfo> = utxos
+            .into_iter()
+            .filter_map(|u| {
+                let txid_bytes = hex::decode(&u.txid).ok()?;
+                let mut txid = [0u8; 32];
+                txid.copy_from_slice(&txid_bytes);
+                let confirmations = if u.status.confirmed {
+                    let bh = u.status.block_height.unwrap_or(current_height as u32) as u64;
+                    current_height.saturating_sub(bh) + 1
+                } else {
+                    0
+                };
+                Some(crate::rpc::UtxoInfo {
+                    txid,
+                    vout: u.vout,
+                    amount_sat: u.value,
+                    confirmations,
+                })
+            })
+            .collect();
+        Ok(result)
+    }
 }
 
 /// Block info response from mempool.space

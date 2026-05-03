@@ -439,6 +439,7 @@ mod tests {
     use super::*;
     use crate::consignment::Consignment;
     use crate::genesis::Genesis;
+    use crate::seal::{AnchorRef, SealRef};
     use crate::state_store::StateHistoryStore;
 
     fn make_test_consignment() -> Consignment {
@@ -499,5 +500,210 @@ mod tests {
         assert!(step_names.contains(&"Structural Validation"));
         assert!(step_names.contains(&"Seal Consumption Validation"));
         assert!(step_names.contains(&"State Transition Validation"));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Property-based tests (proptest)
+    // ─────────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_tampered_commitment_hash_rejected() {
+        use proptest::prelude::*;
+
+        proptest!(|(bytes in any::<[u8; 32]>())| {
+            // A tampered commitment should not match any valid anchor
+            let tampered_hash = Hash::new(bytes);
+            let genesis = Genesis::new(
+                tampered_hash,
+                Hash::new([0x01; 32]),
+                vec![],
+                vec![],
+                vec![],
+            );
+            let consignment = Consignment::new(
+                genesis,
+                vec![],
+                vec![],
+                vec![],
+                tampered_hash,
+            );
+            let validator = ConsignmentValidator::new();
+            let report = validator.validate_consignment(&consignment, ChainId::Bitcoin);
+            // Structural validation should catch the mismatch
+            assert!(
+                !report.passed || report.steps.iter().any(|s| !s.passed),
+                "Tampered commitment should be detected"
+            );
+        });
+    }
+
+    #[test]
+    fn test_wrong_chain_id_detected() {
+        use proptest::prelude::*;
+
+        proptest!(|(_chain_id_bytes in any::<[u8; 4]>())| {
+            let genesis = Genesis::new(
+                Hash::new([0xAB; 32]),
+                Hash::new([0x01; 32]),
+                vec![],
+                vec![],
+                vec![],
+            );
+            let consignment = Consignment::new(
+                genesis,
+                vec![],
+                vec![],
+                vec![],
+                Hash::new([0x01; 32]),
+            );
+            let validator = ConsignmentValidator::new();
+            // Validation should complete without panic regardless of chain ID
+            let _report = validator.validate_consignment(&consignment, ChainId::Bitcoin);
+        });
+    }
+
+    #[test]
+    fn test_empty_consignment_validates_cleanly() {
+        let genesis = Genesis::new(
+            Hash::new([0xAB; 32]),
+            Hash::new([0x01; 32]),
+            vec![],
+            vec![],
+            vec![],
+        );
+        let consignment = Consignment::new(
+            genesis,
+            vec![],
+            vec![],
+            vec![],
+            Hash::new([0x01; 32]),
+        );
+        let validator = ConsignmentValidator::new();
+        let report = validator.validate_consignment(&consignment, ChainId::Bitcoin);
+        // Empty consignment (genesis-only) should pass structural validation
+        assert!(
+            report.steps.iter().all(|s| s.passed),
+            "Genesis-only consignment should pass: {:?}",
+            report.steps
+        );
+    }
+
+    #[test]
+    fn test_multiple_transitions_validated_sequentially() {
+        use proptest::prelude::*;
+
+        proptest!(|(n in 1u32..10)| {
+            let mut transitions = Vec::new();
+            let mut seal_assignments = Vec::new();
+            let mut anchors = Vec::new();
+
+            for i in 0..n {
+                let tx_hash = Hash::new([i as u8; 32]);
+                transitions.push(crate::transition::Transition::new(
+                    i as u16,
+                    vec![],
+                    vec![],
+                    vec![],
+                    vec![],
+                    vec![0x01; 16],
+                    vec![],
+                ));
+                anchors.push(crate::consignment::Anchor::new(
+                    AnchorRef::new(tx_hash.to_vec(), 0, vec![]).unwrap(),
+                    tx_hash,
+                    vec![0x02; 32],
+                    vec![0x03; 32],
+                ));
+                seal_assignments.push(crate::consignment::SealAssignment::new(
+                    SealRef::new(vec![i as u8; 16], Some(i as u64)).unwrap(),
+                    crate::state::StateAssignment::new(
+                        1,
+                        SealRef::new(vec![i as u8; 16], Some(i as u64)).unwrap(),
+                        vec![],
+                    ),
+                    vec![],
+                ));
+            }
+
+            let genesis = Genesis::new(
+                Hash::new([0xAB; 32]),
+                Hash::new([0x01; 32]),
+                vec![],
+                vec![],
+                vec![],
+            );
+            let consignment = Consignment::new(
+                genesis,
+                transitions,
+                seal_assignments,
+                anchors,
+                Hash::new([0x01; 32]),
+            );
+            let validator = ConsignmentValidator::new();
+            let report = validator.validate_consignment(&consignment, ChainId::Bitcoin);
+            assert!(!report.steps.is_empty());
+        });
+    }
+
+    #[test]
+    fn test_anchor_count_mismatch_detected() {
+        let genesis = Genesis::new(
+            Hash::new([0xAB; 32]),
+            Hash::new([0x01; 32]),
+            vec![],
+            vec![],
+            vec![],
+        );
+        let transitions = vec![
+            crate::transition::Transition::new(0, vec![], vec![], vec![], vec![], vec![0x01; 16], vec![]),
+            crate::transition::Transition::new(1, vec![], vec![], vec![], vec![], vec![0x02; 16], vec![]),
+        ];
+        // Only one anchor for two transitions
+        let anchors = vec![crate::consignment::Anchor::new(
+            AnchorRef::new(Hash::new([0x01; 32]).to_vec(), 0, vec![]).unwrap(),
+            Hash::new([0x01; 32]),
+            vec![0x02; 32],
+            vec![0x03; 32],
+        )];
+        let consignment = Consignment::new(
+            genesis,
+            transitions,
+            vec![],
+            anchors,
+            Hash::new([0x01; 32]),
+        );
+        let validator = ConsignmentValidator::new();
+        let report = validator.validate_consignment(&consignment, ChainId::Bitcoin);
+        assert!(!report.passed, "Anchor count mismatch should be detected");
+    }
+
+    #[test]
+    fn test_empty_inclusion_proof_detected() {
+        let genesis = Genesis::new(
+            Hash::new([0xAB; 32]),
+            Hash::new([0x01; 32]),
+            vec![],
+            vec![],
+            vec![],
+        );
+        let tx_hash = Hash::new([0x01; 32]);
+        let transitions = vec![crate::transition::Transition::new(0, vec![], vec![], vec![], vec![], vec![0x01; 16], vec![])];
+        // Anchor with empty inclusion proof
+        let anchors = vec![crate::consignment::Anchor::new(
+            AnchorRef::new(tx_hash.to_vec(), 0, vec![]).unwrap(),
+            tx_hash,
+            vec![], // empty inclusion proof
+            vec![0x03; 32],
+        )];
+        let consignment = Consignment::new(
+            genesis,
+            transitions,
+            vec![],
+            anchors,
+            Hash::new([0x01; 32]),
+        );
+        let validator = ConsignmentValidator::new();
+        let report = validator.validate_consignment(&consignment, ChainId::Bitcoin);
+        assert!(!report.passed, "Empty inclusion proof should be detected");
     }
 }

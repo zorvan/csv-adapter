@@ -599,10 +599,10 @@ impl BlockchainService {
                         code: Some(500),
                     })?
             }
-            ProofData::Ledger { ledger_version, proof, root_hash } => {
+            ProofData::Ledger { ledger_version, proof: ledger_proof, root_hash } => {
                 let mut proof_bytes = vec![];
                 proof_bytes.extend_from_slice(&ledger_version.to_le_bytes());
-                proof_bytes.extend_from_slice(proof);
+                proof_bytes.extend_from_slice(&ledger_proof);
                 proof_bytes.extend_from_slice(root_hash.as_bytes());
                 InclusionProof::new(proof_bytes, Hash::new(right_id_bytes.try_into().unwrap_or([0u8; 32])), 0)
                     .map_err(|e| BlockchainError {
@@ -968,12 +968,18 @@ impl BlockchainService {
                 let right_id_core = csv_adapter_core::RightId::from_bytes(&right_id_bytes);
 
                 // Execute transfer via facade
-                match facade.transfer_right(chain, &right_id_core, new_owner).await {
+                let empty_proof = csv_adapter_core::proof::InclusionProof::new(vec![], csv_adapter_core::Hash::new([0u8; 32]), 0)
+                    .map_err(|e| BlockchainError {
+                        message: format!("Failed to create empty proof: {}", e),
+                        chain: Some(chain),
+                        code: Some(500),
+                    })?;
+                match facade.mint_right(chain, "source", &right_id_core, &empty_proof, new_owner).await {
                     Ok(result) => {
                         web_sys::console::log_1(
-                            &format!("Bitcoin transfer completed: {:?}", result.tx_hash).into(),
+                            &format!("Bitcoin transfer completed: {:?}", result.transaction_hash).into(),
                         );
-                        result.tx_hash
+                        result.transaction_hash
                     }
                     Err(e) => {
                         return Err(BlockchainError {

@@ -29,6 +29,7 @@ impl AptosRpcClient {
 
 #[async_trait]
 impl RpcClient for AptosRpcClient {
+    #[cfg(feature = "rpc")]
     async fn send_transaction(&self, tx: &[u8]) -> ChainResult<String> {
         // Aptos transactions are BCS-encoded Transaction payloads
         // Submit via the REST API /v1/transactions endpoint
@@ -65,6 +66,13 @@ impl RpcClient for AptosRpcClient {
             .ok_or_else(|| ChainError::RpcError("Aptos API returned no transaction hash".to_string()))?;
 
         Ok(tx_hash.to_string())
+    }
+
+    #[cfg(not(feature = "rpc"))]
+    async fn send_transaction(&self, _tx: &[u8]) -> ChainResult<String> {
+        Err(ChainError::CapabilityUnavailable(
+            "Aptos transaction submission requires the 'rpc' feature".to_string()
+        ))
     }
 
     async fn get_transaction(&self, hash: &str) -> ChainResult<serde_json::Value> {
@@ -113,9 +121,7 @@ impl RpcClient for AptosRpcClient {
             .map_err(|e| ChainError::RpcError(e.to_string()))?;
 
         // Extract balance from resource data
-        // The resource has a 'coin' field with 'value'
         if let Some(data) = resource {
-            // Parse the resource data as JSON to extract balance
             if let Ok(json) = serde_json::from_slice::<serde_json::Value>(&data.data) {
                 if let Some(coin) = json.get("coin") {
                     if let Some(value) = coin.get("value") {
@@ -127,13 +133,10 @@ impl RpcClient for AptosRpcClient {
             }
         }
 
-        // If no resource found, account has 0 balance
         Ok(0)
     }
 
     async fn is_transaction_confirmed(&self, hash: &str) -> ChainResult<bool> {
-        // In Aptos, transactions are immediate (no mempool for pending)
-        // Check if transaction exists and succeeded
         let tx = self.get_transaction(hash).await?;
         Ok(tx.get("success").and_then(|v| v.as_bool()).unwrap_or(false))
     }

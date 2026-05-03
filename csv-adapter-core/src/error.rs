@@ -71,6 +71,10 @@ pub enum AdapterError {
     #[error("Signature verification failed: {0}")]
     SignatureVerificationFailed(String),
 
+    /// Invalid input parameters
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
+
     /// Generic error with message
     #[error("Adapter error: {0}")]
     Generic(String),
@@ -120,6 +124,7 @@ impl HasErrorSuggestion for AdapterError {
             AdapterError::VersionMismatch { .. } => error_codes::CORE_VERSION_MISMATCH,
             AdapterError::DomainSeparatorMismatch => error_codes::CORE_DOMAIN_SEPARATOR_MISMATCH,
             AdapterError::SignatureVerificationFailed(_) => error_codes::CORE_SIGNATURE_VERIFICATION_FAILED,
+            AdapterError::InvalidInput(_) => error_codes::CORE_INVALID_CONFIG,
             AdapterError::Generic(_) => error_codes::CORE_GENERIC,
         }
     }
@@ -195,6 +200,7 @@ impl HasErrorSuggestion for AdapterError {
                  2) The correct public key is being used, \
                  3) The signature algorithm matches.".to_string()
             }
+            AdapterError::InvalidInput(msg) => format!("Invalid input parameters: {}", msg),
             AdapterError::Generic(_) => {
                 "An unexpected error occurred. Check the logs for details \
                  or contact support with the error context.".to_string()

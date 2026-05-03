@@ -45,7 +45,7 @@ use crate::events::EventStream;
 use crate::facade::ChainFacade;
 use crate::proofs::ProofManager;
 use crate::rights::RightsManager;
-use crate::scalable_builder_v2::ScalableClientBuilder;
+use crate::scalable_builder::ScalableClientBuilder;
 use crate::transfers::TransferManager;
 use crate::wallet::Wallet;
 use crate::wallet::WalletManager;
