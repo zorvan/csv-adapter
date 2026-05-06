@@ -50,6 +50,9 @@
 
 extern crate alloc;
 
+// No-std compatible collections
+pub mod collections;
+
 // Core types
 pub mod commitment;
 pub mod hash;
@@ -156,7 +159,7 @@ pub use proof::{FinalityProof, InclusionProof, ProofBundle};
 pub use verifier::verify_proof;
 
 // Errors and traits
-pub use error::{AdapterError, Result};
+pub use error::{ProtocolError, Result};
 pub use seal_protocol::SealProtocol;
 
 // Chain operations (Production Guarantee Plan Phase 2)

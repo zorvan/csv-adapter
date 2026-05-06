@@ -4,11 +4,11 @@ use thiserror::Error;
 use crate::mcp::{HasErrorSuggestion, FixAction, error_codes};
 
 /// Result type alias for adapter operations
-pub type Result<T> = core::result::Result<T, AdapterError>;
+pub type Result<T> = core::result::Result<T, ProtocolError>;
 
 /// Error types for CSV adapter operations
 #[derive(Error, Debug)]
-pub enum AdapterError {
+pub enum ProtocolError {
     /// Seal has already been used (replay attack)
     #[error("Seal replay detected: seal {0:?}")]
     SealReplay(String),
@@ -84,58 +84,58 @@ pub enum AdapterError {
     Generic(String),
 }
 
-impl AdapterError {
+impl ProtocolError {
     /// Check if this error is a reorg-related error
     pub fn is_reorg(&self) -> bool {
-        matches!(self, AdapterError::ReorgInvalid(_))
+        matches!(self, ProtocolError::ReorgInvalid(_))
     }
 
     /// Check if this error is a replay attack detection
     pub fn is_replay(&self) -> bool {
-        matches!(self, AdapterError::SealReplay(_))
+        matches!(self, ProtocolError::SealReplay(_))
     }
 
     /// Check if this error indicates a seal without on-chain anchor
     pub fn is_seal_not_anchored(&self) -> bool {
-        matches!(self, AdapterError::SealNotAnchored(_))
+        matches!(self, ProtocolError::SealNotAnchored(_))
     }
 
     /// Check if this error is a signature verification failure
     pub fn is_signature_error(&self) -> bool {
-        matches!(self, AdapterError::SignatureVerificationFailed(_))
+        matches!(self, ProtocolError::SignatureVerificationFailed(_))
     }
 
     /// Check if this error is transient (can be retried)
     pub fn is_transient(&self) -> bool {
         matches!(
             self,
-            AdapterError::NetworkError(_) |
-            AdapterError::PublishFailed(_) |
-            AdapterError::FinalityNotReached(_) |
-            AdapterError::ReorgInvalid(_)
+            ProtocolError::NetworkError(_) |
+            ProtocolError::PublishFailed(_) |
+            ProtocolError::FinalityNotReached(_) |
+            ProtocolError::ReorgInvalid(_)
         )
     }
 }
 
-impl HasErrorSuggestion for AdapterError {
+impl HasErrorSuggestion for ProtocolError {
     fn error_code(&self) -> &'static str {
         match self {
-            AdapterError::SealReplay(_) => error_codes::CORE_SEAL_REPLAY,
-            AdapterError::InvalidSeal(_) => error_codes::CORE_INVALID_SEAL,
-            AdapterError::SealNotAnchored(_) => error_codes::CORE_SEAL_NOT_ANCHORED,
-            AdapterError::CommitmentMismatch { .. } => error_codes::CORE_COMMITMENT_MISMATCH,
-            AdapterError::InclusionProofFailed(_) => error_codes::CORE_INCLUSION_PROOF_FAILED,
-            AdapterError::FinalityNotReached(_) => error_codes::CORE_FINALITY_NOT_REACHED,
-            AdapterError::ReorgInvalid(_) => error_codes::CORE_REORG_INVALID,
-            AdapterError::NetworkError(_) => error_codes::CORE_NETWORK_ERROR,
-            AdapterError::PublishFailed(_) => error_codes::CORE_PUBLISH_FAILED,
-            AdapterError::SerializationError(_) => error_codes::CORE_SERIALIZATION_ERROR,
-            AdapterError::InvalidConfig(_) => error_codes::CORE_INVALID_CONFIG,
-            AdapterError::VersionMismatch { .. } => error_codes::CORE_VERSION_MISMATCH,
-            AdapterError::DomainSeparatorMismatch => error_codes::CORE_DOMAIN_SEPARATOR_MISMATCH,
-            AdapterError::SignatureVerificationFailed(_) => error_codes::CORE_SIGNATURE_VERIFICATION_FAILED,
-            AdapterError::InvalidInput(_) => error_codes::CORE_INVALID_CONFIG,
-            AdapterError::Generic(_) => error_codes::CORE_GENERIC,
+            ProtocolError::SealReplay(_) => error_codes::CORE_SEAL_REPLAY,
+            ProtocolError::InvalidSeal(_) => error_codes::CORE_INVALID_SEAL,
+            ProtocolError::SealNotAnchored(_) => error_codes::CORE_SEAL_NOT_ANCHORED,
+            ProtocolError::CommitmentMismatch { .. } => error_codes::CORE_COMMITMENT_MISMATCH,
+            ProtocolError::InclusionProofFailed(_) => error_codes::CORE_INCLUSION_PROOF_FAILED,
+            ProtocolError::FinalityNotReached(_) => error_codes::CORE_FINALITY_NOT_REACHED,
+            ProtocolError::ReorgInvalid(_) => error_codes::CORE_REORG_INVALID,
+            ProtocolError::NetworkError(_) => error_codes::CORE_NETWORK_ERROR,
+            ProtocolError::PublishFailed(_) => error_codes::CORE_PUBLISH_FAILED,
+            ProtocolError::SerializationError(_) => error_codes::CORE_SERIALIZATION_ERROR,
+            ProtocolError::InvalidConfig(_) => error_codes::CORE_INVALID_CONFIG,
+            ProtocolError::VersionMismatch { .. } => error_codes::CORE_VERSION_MISMATCH,
+            ProtocolError::DomainSeparatorMismatch => error_codes::CORE_DOMAIN_SEPARATOR_MISMATCH,
+            ProtocolError::SignatureVerificationFailed(_) => error_codes::CORE_SIGNATURE_VERIFICATION_FAILED,
+            ProtocolError::InvalidInput(_) => error_codes::CORE_INVALID_CONFIG,
+            ProtocolError::Generic(_) => error_codes::CORE_GENERIC,
         }
     }
 
@@ -145,15 +145,15 @@ impl HasErrorSuggestion for AdapterError {
 
     fn suggested_fix(&self) -> String {
         match self {
-            AdapterError::SealReplay(_) => {
+            ProtocolError::SealReplay(_) => {
                 "This seal has already been consumed. You cannot reuse a single-use seal. \
                  Check the seal state or use a different seal.".to_string()
             }
-            AdapterError::InvalidSeal(_) => {
+            ProtocolError::InvalidSeal(_) => {
                 "The seal format is invalid. Verify the seal is properly constructed \
                  and matches the expected format for this chain.".to_string()
             }
-            AdapterError::SealNotAnchored(seal_id) => {
+            ProtocolError::SealNotAnchored(seal_id) => {
                 format!(
                     "Seal {} was never created on-chain via a real chain adapter. \
                      This typically means a fake/timestamp-based seal ID was used. \
@@ -162,65 +162,65 @@ impl HasErrorSuggestion for AdapterError {
                     seal_id
                 )
             }
-            AdapterError::CommitmentMismatch { expected, actual } => {
+            ProtocolError::CommitmentMismatch { expected, actual } => {
                 format!(
                     "Commitment hash mismatch: expected {}, got {}. \
                      Regenerate the commitment with the correct parameters.",
                     expected, actual
                 )
             }
-            AdapterError::InclusionProofFailed(_) => {
+            ProtocolError::InclusionProofFailed(_) => {
                 "The inclusion proof could not be verified. This may indicate: \
                  1) The anchor has not been confirmed on-chain, \
                  2) The proof is for a different commitment, or \
                  3) A chain reorganization occurred. \
                  Retry with a more recent anchor.".to_string()
             }
-            AdapterError::FinalityNotReached(_) => {
+            ProtocolError::FinalityNotReached(_) => {
                 "The required finality has not been reached. Wait for more confirmations \
                  or lower the required finality threshold.".to_string()
             }
-            AdapterError::ReorgInvalid(_) => {
+            ProtocolError::ReorgInvalid(_) => {
                 "The anchor was invalidated by a chain reorganization. \
                  Republish the commitment at the new chain tip.".to_string()
             }
-            AdapterError::NetworkError(_) => {
+            ProtocolError::NetworkError(_) => {
                 "Network communication failed. Check your internet connection, \
                  verify the RPC endpoint is accessible, or try a different node.".to_string()
             }
-            AdapterError::PublishFailed(_) => {
+            ProtocolError::PublishFailed(_) => {
                 "Failed to publish the transaction. Check: \
                  1) You have sufficient funds for gas fees, \
                  2) The transaction is properly signed, \
                  3) The chain is accepting transactions.".to_string()
             }
-            AdapterError::SerializationError(_) => {
+            ProtocolError::SerializationError(_) => {
                 "Data serialization/deserialization failed. Check the data format \
                  matches the expected schema for this operation.".to_string()
             }
-            AdapterError::InvalidConfig(_) => {
+            ProtocolError::InvalidConfig(_) => {
                 "The configuration is invalid. Review your config file and ensure \
                  all required fields are present and correctly formatted.".to_string()
             }
-            AdapterError::VersionMismatch { expected, actual } => {
+            ProtocolError::VersionMismatch { expected, actual } => {
                 format!(
                     "Version mismatch: expected {}, got {}. \
                      Upgrade or downgrade to the correct protocol version.",
                     expected, actual
                 )
             }
-            AdapterError::DomainSeparatorMismatch => {
+            ProtocolError::DomainSeparatorMismatch => {
                 "The domain separator does not match. Ensure you are using \
                  the correct network (mainnet vs testnet).".to_string()
             }
-            AdapterError::SignatureVerificationFailed(_) => {
+            ProtocolError::SignatureVerificationFailed(_) => {
                 "Signature verification failed. Check: \
                  1) The message was not tampered with, \
                  2) The correct public key is being used, \
                  3) The signature algorithm matches.".to_string()
             }
-            AdapterError::InvalidInput(msg) => format!("Invalid input parameters: {}", msg),
-            AdapterError::Generic(_) => {
+            ProtocolError::InvalidInput(msg) => format!("Invalid input parameters: {}", msg),
+            ProtocolError::Generic(_) => {
                 "An unexpected error occurred. Check the logs for details \
                  or contact support with the error context.".to_string()
             }
@@ -233,26 +233,26 @@ impl HasErrorSuggestion for AdapterError {
 
     fn fix_action(&self) -> Option<FixAction> {
         match self {
-            AdapterError::NetworkError(_) => {
+            ProtocolError::NetworkError(_) => {
                 Some(FixAction::Retry {
-                    parameter_changes: std::collections::HashMap::new(),
+                    parameter_changes: crate::collections::HashMap::new(),
                 })
             }
-            AdapterError::FinalityNotReached(_) => {
+            ProtocolError::FinalityNotReached(_) => {
                 Some(FixAction::WaitForConfirmations {
                     confirmations: 6,
                     estimated_seconds: 600,
                 })
             }
-            AdapterError::ReorgInvalid(_) => {
+            ProtocolError::ReorgInvalid(_) => {
                 Some(FixAction::CheckState {
                     url: "https://docs.csv.dev/reorg-handling".to_string(),
                     what: "Check current chain tip and republish anchor".to_string(),
                 })
             }
-            AdapterError::PublishFailed(_) => {
+            ProtocolError::PublishFailed(_) => {
                 Some(FixAction::Retry {
-                    parameter_changes: std::collections::HashMap::from([
+                    parameter_changes: crate::collections::HashMap::from([
                         ("check_gas".to_string(), "true".to_string()),
                     ]),
                 })
@@ -268,31 +268,31 @@ mod tests {
 
     #[test]
     fn test_error_display() {
-        let err = AdapterError::SealReplay("abc123".to_string());
+        let err = ProtocolError::SealReplay("abc123".to_string());
         assert!(err.to_string().contains("replay"));
     }
 
     #[test]
     fn test_error_is_reorg() {
-        let err = AdapterError::ReorgInvalid("anchor".to_string());
+        let err = ProtocolError::ReorgInvalid("anchor".to_string());
         assert!(err.is_reorg());
     }
 
     #[test]
     fn test_error_is_replay() {
-        let err = AdapterError::SealReplay("seal".to_string());
+        let err = ProtocolError::SealReplay("seal".to_string());
         assert!(err.is_replay());
     }
 
     #[test]
     fn test_error_is_signature_error() {
-        let err = AdapterError::SignatureVerificationFailed("invalid sig".to_string());
+        let err = ProtocolError::SignatureVerificationFailed("invalid sig".to_string());
         assert!(err.is_signature_error());
     }
 
     #[test]
     fn test_error_signature_verification_failed() {
-        let err = AdapterError::SignatureVerificationFailed("bad signature".to_string());
+        let err = ProtocolError::SignatureVerificationFailed("bad signature".to_string());
         assert!(err.to_string().contains("Signature verification failed"));
     }
 }

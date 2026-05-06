@@ -2,7 +2,7 @@
 //!
 //! Extends csv_core with additional functionality for the UI application.
 
-use csv_core::Chain;
+use csv_core::ChainId;
 use bip32::Mnemonic;
 use serde::{Serialize, Deserialize};
 use rand::RngCore;

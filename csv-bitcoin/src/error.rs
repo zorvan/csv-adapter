@@ -44,34 +44,34 @@ pub enum BitcoinError {
 
     /// Wrapper for core adapter errors
     #[error(transparent)]
-    CoreError(#[from] csv_core::AdapterError),
+    CoreError(#[from] csv_core::ProtocolError),
 }
 
-impl From<BitcoinError> for csv_core::AdapterError {
+impl From<BitcoinError> for csv_core::ProtocolError {
     fn from(err: BitcoinError) -> Self {
         match err {
             BitcoinError::CoreError(e) => e,
-            BitcoinError::RpcError(msg) => csv_core::AdapterError::NetworkError(msg),
-            BitcoinError::TransactionNotFound(msg) => csv_core::AdapterError::Generic(msg),
-            BitcoinError::UTXOSpent(msg) => csv_core::AdapterError::InvalidSeal(msg),
+            BitcoinError::RpcError(msg) => csv_core::ProtocolError::NetworkError(msg),
+            BitcoinError::TransactionNotFound(msg) => csv_core::ProtocolError::Generic(msg),
+            BitcoinError::UTXOSpent(msg) => csv_core::ProtocolError::InvalidSeal(msg),
             BitcoinError::InvalidMerkleProof(msg) => {
-                csv_core::AdapterError::InclusionProofFailed(msg)
+                csv_core::ProtocolError::InclusionProofFailed(msg)
             }
-            BitcoinError::RegistryFull(msg) => csv_core::AdapterError::Generic(msg),
+            BitcoinError::RegistryFull(msg) => csv_core::ProtocolError::Generic(msg),
             BitcoinError::ReorgDetected { height, depth } => {
-                csv_core::AdapterError::ReorgInvalid(format!(
+                csv_core::ProtocolError::ReorgInvalid(format!(
                     "Reorg at height {}, depth {}",
                     height, depth
                 ))
             }
             BitcoinError::InsufficientConfirmations { got, need } => {
-                csv_core::AdapterError::FinalityNotReached(format!(
+                csv_core::ProtocolError::FinalityNotReached(format!(
                     "Got {} confirmations, need {}",
                     got, need
                 ))
             }
-            BitcoinError::InvalidInput(msg) => csv_core::AdapterError::InvalidInput(msg),
-            BitcoinError::MpcError(msg) => csv_core::AdapterError::Generic(format!("MPC: {}", msg)),
+            BitcoinError::InvalidInput(msg) => csv_core::ProtocolError::InvalidInput(msg),
+            BitcoinError::MpcError(msg) => csv_core::ProtocolError::Generic(format!("MPC: {}", msg)),
         }
     }
 }

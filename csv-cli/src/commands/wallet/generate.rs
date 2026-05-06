@@ -36,11 +36,11 @@ pub fn cmd_init(
     let mut addresses = HashMap::new();
 
     for chain in [
-        Chain::Bitcoin,
-        Chain::Ethereum,
-        Chain::Sui,
-        Chain::Aptos,
-        Chain::Solana,
+        builtin::Bitcoin,
+        builtin::Ethereum,
+        builtin::Sui,
+        builtin::Aptos,
+        builtin::Solana,
     ] {
         output::info(&format!("Generating {} wallet...", chain));
         let address = generate_wallet_for_chain(&chain, &network, &mnemonic, account, state)?;
@@ -91,11 +91,11 @@ pub fn cmd_generate(
     state: &mut UnifiedStateManager,
 ) -> Result<()> {
     match chain {
-        Chain::Bitcoin => generate_bitcoin(network, state),
-        Chain::Ethereum => generate_ethereum(state),
-        Chain::Sui => generate_sui(state),
-        Chain::Aptos => generate_aptos(state),
-        Chain::Solana => generate_solana(state),
+        builtin::Bitcoin => generate_bitcoin(network, state),
+        builtin::Ethereum => generate_ethereum(state),
+        builtin::Sui => generate_sui(state),
+        builtin::Aptos => generate_aptos(state),
+        builtin::Solana => generate_solana(state),
     }
 }
 
@@ -124,11 +124,11 @@ fn generate_wallet_for_chain(
 ) -> Result<String> {
     // Phase 5: Use keystore's BIP-44 derivation for all chains
     let core_chain = match chain {
-        Chain::Bitcoin => csv_core::Chain::Bitcoin,
-        Chain::Ethereum => csv_core::Chain::Ethereum,
-        Chain::Sui => csv_core::Chain::Sui,
-        Chain::Aptos => csv_core::Chain::Aptos,
-        Chain::Solana => csv_core::Chain::Solana,
+        builtin::Bitcoin => csv_core::builtin::Bitcoin,
+        builtin::Ethereum => csv_core::builtin::Ethereum,
+        builtin::Sui => csv_core::builtin::Sui,
+        builtin::Aptos => csv_core::builtin::Aptos,
+        builtin::Solana => csv_core::builtin::Solana,
     };
 
     // Convert mnemonic to seed
@@ -149,11 +149,11 @@ fn generate_wallet_for_chain(
 
     // Store in state with derivation path
     let coin_type = match chain {
-        Chain::Bitcoin => "0",
-        Chain::Ethereum => "60",
-        Chain::Sui => "784",
-        Chain::Aptos => "637",
-        Chain::Solana => "501",
+        builtin::Bitcoin => "0",
+        builtin::Ethereum => "60",
+        builtin::Sui => "784",
+        builtin::Aptos => "637",
+        builtin::Solana => "501",
     };
     let derivation_path = format!("m/44'/{}'/{}'/0/0", coin_type, account);
     state.store_address_with_derivation(chain.clone(), address.clone(), Some(derivation_path));
@@ -174,9 +174,9 @@ fn generate_bitcoin(network: Network, state: &mut UnifiedStateManager) -> Result
     let wallet = Wallet::from_seed(seed);
 
     // Derive Bitcoin address using the facade
-    let address = wallet.derive_address(csv_adapter::Chain::Bitcoin, 0, 0);
+    let address = wallet.derive_address(csv_adapter::builtin::Bitcoin, 0, 0);
 
-    state.store_address(Chain::Bitcoin, address.clone());
+    state.store_address(builtin::Bitcoin, address.clone());
 
     output::header("Bitcoin Wallet Generated");
     output::kv("Network", &network.to_string());
@@ -208,7 +208,7 @@ fn generate_ethereum(state: &mut UnifiedStateManager) -> Result<()> {
     let hash = Keccak256::digest(&pubkey_bytes[1..]);
     let address = format!("0x{}", hex::encode(&hash[12..]));
 
-    state.store_address(Chain::Ethereum, address.clone());
+    state.store_address(builtin::Ethereum, address.clone());
 
     output::header("Ethereum Wallet Generated");
     output::kv("Address", &address);
@@ -239,7 +239,7 @@ fn generate_sui(state: &mut UnifiedStateManager) -> Result<()> {
     let address_bytes = hasher.finalize();
     let address = format!("0x{}", hex::encode(address_bytes));
 
-    state.store_address(Chain::Sui, address.clone());
+    state.store_address(builtin::Sui, address.clone());
 
     output::header("Sui Wallet Generated");
     output::kv("Address", &address);
@@ -269,7 +269,7 @@ fn generate_aptos(state: &mut UnifiedStateManager) -> Result<()> {
     let auth_key = hasher.finalize();
     let address = format!("0x{}", hex::encode(auth_key));
 
-    state.store_address(Chain::Aptos, address.clone());
+    state.store_address(builtin::Aptos, address.clone());
 
     output::header("Aptos Wallet Generated");
     output::kv("Address", &address);
@@ -294,7 +294,7 @@ fn generate_solana(state: &mut UnifiedStateManager) -> Result<()> {
 
     let address = bs58::encode(verifying_key.as_bytes()).into_string();
 
-    state.store_address(Chain::Solana, address.clone());
+    state.store_address(builtin::Solana, address.clone());
 
     output::header("Solana Wallet Generated");
     output::kv("Address", &address);

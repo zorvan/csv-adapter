@@ -6,7 +6,7 @@
 use anyhow::Result;
 use clap::Subcommand;
 
-use csv_core::Chain;
+use csv_core::ChainId;
 
 use crate::config::{Chain as ConfigChain, Config};
 use crate::state::UnifiedStateManager;
@@ -73,10 +73,10 @@ pub fn execute(
 /// Convert CLI Chain enum to core Chain enum
 pub fn to_core_chain(chain: ConfigChain) -> Chain {
     match chain {
-        ConfigChain::Bitcoin => Chain::Bitcoin,
-        ConfigChain::Ethereum => Chain::Ethereum,
-        ConfigChain::Sui => Chain::Sui,
-        ConfigChain::Aptos => Chain::Aptos,
-        ConfigChain::Solana => Chain::Solana,
+        Configbuiltin::Bitcoin => builtin::Bitcoin,
+        Configbuiltin::Ethereum => builtin::Ethereum,
+        Configbuiltin::Sui => builtin::Sui,
+        Configbuiltin::Aptos => builtin::Aptos,
+        Configbuiltin::Solana => builtin::Solana,
     }
 }

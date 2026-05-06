@@ -67,7 +67,7 @@ fn cmd_generate(
     _state: &UnifiedStateManager,
 ) -> Result<()> {
     use csv_adapter::prelude::CsvClient;
-    use csv_core::Chain as AdapterChain;
+    use csv_core::ChainId;
     
     use csv_core::sanad::SanadId;
 
@@ -90,11 +90,11 @@ fn cmd_generate(
 
     // Build CSV client with the chain enabled
     let adapter_chain = match chain {
-        Chain::Bitcoin => AdapterChain::Bitcoin,
-        Chain::Ethereum => AdapterChain::Ethereum,
-        Chain::Sui => AdapterChain::Sui,
-        Chain::Aptos => AdapterChain::Aptos,
-        Chain::Solana => AdapterChain::Solana,
+        builtin::Bitcoin => Adapterbuiltin::Bitcoin,
+        builtin::Ethereum => Adapterbuiltin::Ethereum,
+        builtin::Sui => Adapterbuiltin::Sui,
+        builtin::Aptos => Adapterbuiltin::Aptos,
+        builtin::Solana => Adapterbuiltin::Solana,
     };
 
     output::progress(1, 4, "Initializing CSV client...");
@@ -125,11 +125,11 @@ fn cmd_generate(
         "chain": chain.to_string(),
         "sanad_id": sanad_id,
         "proof_type": match chain {
-            Chain::Bitcoin => "merkle",
-            Chain::Ethereum => "mpt",
-            Chain::Sui => "checkpoint",
-            Chain::Aptos => "ledger",
-            Chain::Solana => "epoch",
+            builtin::Bitcoin => "merkle",
+            builtin::Ethereum => "mpt",
+            builtin::Sui => "checkpoint",
+            builtin::Aptos => "ledger",
+            builtin::Solana => "epoch",
         },
         "block_height": proof_bundle.finality_proof.confirmations,
         "inclusion_proof": hex::encode(&proof_bundle.inclusion_proof.proof_bytes),
@@ -159,7 +159,7 @@ fn cmd_verify(
     _state: &UnifiedStateManager,
 ) -> Result<()> {
     use csv_adapter::prelude::CsvClient;
-    use csv_core::Chain as AdapterChain;
+    use csv_core::ChainId;
     use csv_core::{sanad::SanadId, proof::ProofBundle};
 
     output::header(&format!("Verifying Proof on {}", chain));
@@ -210,11 +210,11 @@ fn cmd_verify(
 
     // Build the CSV client
     let adapter_chain = match chain {
-        Chain::Bitcoin => AdapterChain::Bitcoin,
-        Chain::Ethereum => AdapterChain::Ethereum,
-        Chain::Sui => AdapterChain::Sui,
-        Chain::Aptos => AdapterChain::Aptos,
-        Chain::Solana => AdapterChain::Solana,
+        builtin::Bitcoin => Adapterbuiltin::Bitcoin,
+        builtin::Ethereum => Adapterbuiltin::Ethereum,
+        builtin::Sui => Adapterbuiltin::Sui,
+        builtin::Aptos => Adapterbuiltin::Aptos,
+        builtin::Solana => Adapterbuiltin::Solana,
     };
 
     let client = CsvClient::builder()

@@ -73,7 +73,7 @@ pub enum SuiError {
 
     /// Core adapter error from csv-adapter-core.
     #[error(transparent)]
-    CoreError(#[from] csv_core::AdapterError),
+    CoreError(#[from] csv_core::ProtocolError),
 }
 
 impl SuiError {
@@ -286,30 +286,30 @@ impl From<Box<dyn std::error::Error + Send + Sync>> for SuiError {
     }
 }
 
-impl From<SuiError> for csv_core::AdapterError {
+impl From<SuiError> for csv_core::ProtocolError {
     fn from(err: SuiError) -> Self {
         match err {
             SuiError::CoreError(e) => e,
             SuiError::RpcError(msg) | SuiError::TransactionFailed(msg) => {
-                csv_core::AdapterError::NetworkError(msg)
+                csv_core::ProtocolError::NetworkError(msg)
             }
-            SuiError::ObjectUsed(msg) => csv_core::AdapterError::InvalidSeal(msg),
+            SuiError::ObjectUsed(msg) => csv_core::ProtocolError::InvalidSeal(msg),
             SuiError::StateProofFailed(msg) | SuiError::EventProofFailed(msg) => {
-                csv_core::AdapterError::InclusionProofFailed(msg)
+                csv_core::ProtocolError::InclusionProofFailed(msg)
             }
-            SuiError::CheckpointFailed(msg) => csv_core::AdapterError::NetworkError(msg),
-            SuiError::SerializationError(msg) => csv_core::AdapterError::InvalidSeal(msg),
+            SuiError::CheckpointFailed(msg) => csv_core::ProtocolError::NetworkError(msg),
+            SuiError::SerializationError(msg) => csv_core::ProtocolError::InvalidSeal(msg),
             SuiError::ConfirmationTimeout {
                 tx_digest,
                 timeout_ms,
-            } => csv_core::AdapterError::NetworkError(format!(
+            } => csv_core::ProtocolError::NetworkError(format!(
                 "Timeout waiting for tx {} after {}ms",
                 tx_digest, timeout_ms
             )),
-            SuiError::ReorgDetected { checkpoint } => csv_core::AdapterError::ReorgInvalid(
+            SuiError::ReorgDetected { checkpoint } => csv_core::ProtocolError::ReorgInvalid(
                 format!("Reorg at checkpoint {}", checkpoint),
             ),
-            sui_err => csv_core::AdapterError::NetworkError(format!("{}", sui_err)),
+            sui_err => csv_core::ProtocolError::NetworkError(format!("{}", sui_err)),
         }
     }
 }
@@ -342,10 +342,10 @@ mod tests {
     #[test]
     fn test_error_conversion() {
         let sui_err = SuiError::StateProofFailed("bad proof".to_string());
-        let core_err: csv_core::AdapterError = sui_err.into();
+        let core_err: csv_core::ProtocolError = sui_err.into();
         assert!(matches!(
             core_err,
-            csv_core::AdapterError::InclusionProofFailed(_)
+            csv_core::ProtocolError::InclusionProofFailed(_)
         ));
     }
 }

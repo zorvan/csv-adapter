@@ -4,9 +4,9 @@
 //! proof verification and seal registry operations by 2-5x.
 
 use core::sync::atomic::{AtomicU64, Ordering};
-use std::collections::HashMap;
+use crate::collections::HashMap;
 use std::sync::Arc;
-use std::sync::RwLock;
+use spin::RwLock;
 use std::time::{Duration, Instant};
 
 use crate::hash::Hash;

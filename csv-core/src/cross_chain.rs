@@ -358,7 +358,7 @@ pub trait TransferVerifier {
     ///
     /// # Checks
     /// 1. Inclusion proof is valid (source chain finalized)
-    /// 2. Seal NOT in CrossChainSealRegistry (no double-spend)
+    /// 2. Seal NOT in SealNullifier (no double-spend)
     /// 3. Ownership proof valid (owner signature matches)
     /// 4. Lock event matches expected sanad_id and commitment
     fn verify_transfer_proof(&self, proof: &CrossChainTransferProof)

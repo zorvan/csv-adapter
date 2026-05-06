@@ -84,7 +84,7 @@ pub use csv_core::{
     CommitAnchor, Commitment, Consignment, CrossChainLockEvent, DAGNode, DAGSegment,
     FinalityProof, Genesis, Hash, InclusionProof, OwnedState, OwnershipProof, ProofBundle,
     Sanad, SanadId, Schema, SealPoint, SealProtocol, StateRef, Transition, CONSIGNMENT_VERSION,
-    SCHEMA_VERSION, AdapterError, Result as CoreResult, StoreError,
+    SCHEMA_VERSION, ProtocolError, Result as CoreResult, StoreError,
 };
 
 // Re-export canonical protocol types (🔒 STABLE + 🟡 BETA)

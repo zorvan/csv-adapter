@@ -17,7 +17,7 @@ use std::sync::Mutex;
 
 use csv_core::commitment::Commitment;
 use csv_core::dag::DAGSegment;
-use csv_core::error::AdapterError;
+use csv_core::error::ProtocolError;
 use csv_core::error::Result as CoreResult;
 use csv_core::proof::{FinalityProof, ProofBundle};
 use csv_core::sanad::SanadId;
@@ -165,7 +165,7 @@ impl BitcoinSealProtocol {
     fn derive_next_seal(
         &self,
         value_sat: u64,
-    ) -> Result<(BitcoinSealPoint, crate::wallet::Bip86Path), AdapterError> {
+    ) -> Result<(BitcoinSealPoint, crate::wallet::Bip86Path), ProtocolError> {
         let mut next_index = self
             .next_seal_index
             .lock()
@@ -176,7 +176,7 @@ impl BitcoinSealProtocol {
         let key = self
             .wallet
             .derive_key(&path)
-            .map_err(|e| AdapterError::Generic(format!("Key derivation failed: {}", e)))?;
+            .map_err(|e| ProtocolError::Generic(format!("Key derivation failed: {}", e)))?;
 
         // Create a seal reference from the derived key
         let txid: [u8; 32] = key.output_key.serialize();
@@ -200,10 +200,10 @@ impl BitcoinSealProtocol {
     pub fn fund_seal(
         &self,
         outpoint: bitcoin::OutPoint,
-    ) -> Result<(BitcoinSealPoint, crate::wallet::Bip86Path), AdapterError> {
+    ) -> Result<(BitcoinSealPoint, crate::wallet::Bip86Path), ProtocolError> {
         // Get the UTXO from the wallet
         let utxo = self.wallet.get_utxo(&outpoint).ok_or_else(|| {
-            AdapterError::Generic(format!(
+            ProtocolError::Generic(format!(
                 "UTXO {}:{} not found in wallet - fund the address first",
                 outpoint.txid, outpoint.vout
             ))
@@ -220,7 +220,7 @@ impl BitcoinSealProtocol {
             .unwrap_or_else(|e| e.into_inner())
             .is_seal_used(&seal_ref)
         {
-            return Err(AdapterError::Generic(format!(
+            return Err(ProtocolError::Generic(format!(
                 "Seal {}:{} already used",
                 outpoint.txid, outpoint.vout
             )));
@@ -244,11 +244,11 @@ impl BitcoinSealProtocol {
         &self,
         account: u32,
         gap_limit: usize,
-    ) -> Result<usize, AdapterError> {
+    ) -> Result<usize, ProtocolError> {
         use bitcoin::Address;
 
         let rpc = self.rpc.as_ref().ok_or_else(|| {
-            AdapterError::Generic("No RPC client configured - call with_rpc() first".to_string())
+            ProtocolError::Generic("No RPC client configured - call with_rpc() first".to_string())
         })?;
 
         let wallet = &self.wallet;
@@ -264,7 +264,7 @@ impl BitcoinSealProtocol {
                 account,
                 gap_limit,
             )
-            .map_err(|e| AdapterError::Generic(format!("Failed to scan chain for UTXOs: {}", e)))?;
+            .map_err(|e| ProtocolError::Generic(format!("Failed to scan chain for UTXOs: {}", e)))?;
 
         log::info!(
             "Discovered {} UTXOs on account {}",
@@ -279,7 +279,7 @@ impl BitcoinSealProtocol {
         &self,
         commitment: Hash,
         protocol_id: [u8; 32],
-    ) -> Result<crate::tx_builder::CommitmentData, AdapterError> {
+    ) -> Result<crate::tx_builder::CommitmentData, ProtocolError> {
         let tx_builder = CommitmentTxBuilder::new(protocol_id, 10);
         Ok(tx_builder.build_commitment_data(commitment))
     }
@@ -324,11 +324,11 @@ impl BitcoinSealProtocol {
         &self,
         account: u32,
         index: u32,
-    ) -> Result<bitcoin::Address, AdapterError> {
+    ) -> Result<bitcoin::Address, ProtocolError> {
         let key = self
             .wallet
             .get_funding_address(account, index)
-            .map_err(|e| AdapterError::Generic(format!("Failed to derive address: {}", e)))?;
+            .map_err(|e| ProtocolError::Generic(format!("Failed to derive address: {}", e)))?;
         Ok(key.address)
     }
 
@@ -394,18 +394,18 @@ impl SealProtocol for BitcoinSealProtocol {
 
     fn publish(&self, commitment: Hash, seal: Self::SealPoint) -> CoreResult<Self::CommitAnchor> {
         self.verify_utxo_unspent(&seal)
-            .map_err(AdapterError::from)?;
+            .map_err(ProtocolError::from)?;
 
         // If RPC client is available, use real broadcasting
         if let Some(rpc) = &self.rpc {
             // Find the UTXO matching this seal in the wallet
             let outpoint = bitcoin::OutPoint::new(
                 bitcoin::Txid::from_slice(&seal.txid)
-                    .map_err(|e| AdapterError::Generic(format!("Invalid seal txid: {}", e)))?,
+                    .map_err(|e| ProtocolError::Generic(format!("Invalid seal txid: {}", e)))?,
                 seal.vout,
             );
             let utxo = self.wallet.get_utxo(&outpoint).ok_or_else(|| {
-                AdapterError::PublishFailed(format!(
+                ProtocolError::PublishFailed(format!(
                     "UTXO {}:{} not found in wallet",
                     seal.txid_hex(),
                     seal.vout
@@ -421,13 +421,13 @@ impl SealProtocol for BitcoinSealProtocol {
                     *commitment.as_bytes(),
                     None, // No change path — single UTXO, single output
                 )
-                .map_err(|e| AdapterError::PublishFailed(e.to_string()))?;
+                .map_err(|e| ProtocolError::PublishFailed(e.to_string()))?;
 
             // Broadcast the signed transaction via RPC
             let broadcast_txid =
                 rpc.send_raw_transaction(tx_result.raw_tx.clone())
                     .map_err(|e| {
-                        AdapterError::PublishFailed(format!(
+                        ProtocolError::PublishFailed(format!(
                             "Failed to broadcast transaction: {}",
                             e
                         ))
@@ -450,7 +450,7 @@ impl SealProtocol for BitcoinSealProtocol {
         txid[10..].copy_from_slice(&commitment.as_bytes()[..22]);
 
         let mut registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
-        let _ = registry.mark_seal_used(&seal).map_err(AdapterError::from);
+        let _ = registry.mark_seal_used(&seal).map_err(ProtocolError::from);
 
         let current_height = self.get_current_height();
         Ok(BitcoinCommitAnchor::new(txid, 0, current_height))
@@ -461,7 +461,7 @@ impl SealProtocol for BitcoinSealProtocol {
         if let Some(rpc) = &self.rpc {
             // Get the block containing the anchor transaction
             let block_hash = rpc.get_block_hash(anchor.block_height).map_err(|e| {
-                AdapterError::InclusionProofFailed(format!("Failed to get block hash: {}", e))
+                ProtocolError::InclusionProofFailed(format!("Failed to get block hash: {}", e))
             })?;
 
             // Extract the Merkle proof for the anchor transaction
@@ -493,7 +493,7 @@ impl SealProtocol for BitcoinSealProtocol {
         let proof = BitcoinFinalityProof::new(confirmations, self.config.finality_depth);
 
         if !proof.meets_required_depth {
-            return Err(AdapterError::FinalityNotReached(format!(
+            return Err(ProtocolError::FinalityNotReached(format!(
                 "Only {} confirmations, need {}",
                 confirmations, self.config.finality_depth
             )));
@@ -504,7 +504,7 @@ impl SealProtocol for BitcoinSealProtocol {
 
     fn enforce_seal(&self, seal: Self::SealPoint) -> CoreResult<()> {
         let mut registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
-        registry.mark_seal_used(&seal).map_err(AdapterError::from)
+        registry.mark_seal_used(&seal).map_err(ProtocolError::from)
     }
 
     fn create_seal(&self, value: Option<u64>) -> CoreResult<Self::SealPoint> {
@@ -541,10 +541,10 @@ impl SealProtocol for BitcoinSealProtocol {
         let finality = self.verify_finality(anchor.clone())?;
 
         let seal_ref = CoreSealPoint::new(anchor.txid.to_vec(), Some(0))
-            .map_err(|e| AdapterError::Generic(e.to_string()))?;
+            .map_err(|e| ProtocolError::Generic(e.to_string()))?;
 
         let anchor_ref = CoreCommitAnchor::new(anchor.txid.to_vec(), anchor.block_height, vec![])
-            .map_err(|e| AdapterError::Generic(e.to_string()))?;
+            .map_err(|e| ProtocolError::Generic(e.to_string()))?;
 
         let mut proof_bytes = Vec::new();
         proof_bytes.extend_from_slice(&inclusion.block_hash);
@@ -555,14 +555,14 @@ impl SealProtocol for BitcoinSealProtocol {
             Hash::new(inclusion.block_hash),
             inclusion.tx_index as u64,
         )
-        .map_err(|e| AdapterError::Generic(e.to_string()))?;
+        .map_err(|e| ProtocolError::Generic(e.to_string()))?;
 
         let finality_proof = FinalityProof::new(
             finality.confirmations.to_le_bytes().to_vec(),
             finality.confirmations,
             finality.meets_required_depth,
         )
-        .map_err(|e| AdapterError::Generic(e.to_string()))?;
+        .map_err(|e| ProtocolError::Generic(e.to_string()))?;
 
         ProofBundle::new(
             transition_dag,
@@ -572,13 +572,13 @@ impl SealProtocol for BitcoinSealProtocol {
             inclusion_proof,
             finality_proof,
         )
-        .map_err(|e| AdapterError::Generic(e.to_string()))
+        .map_err(|e| ProtocolError::Generic(e.to_string()))
     }
 
     fn rollback(&self, anchor: Self::CommitAnchor) -> CoreResult<()> {
         let current_height = self.get_current_height();
         if anchor.block_height > current_height {
-            return Err(AdapterError::ReorgInvalid(format!(
+            return Err(ProtocolError::ReorgInvalid(format!(
                 "Block {} is beyond current height {}",
                 anchor.block_height, current_height
             )));

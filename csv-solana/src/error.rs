@@ -116,9 +116,9 @@ impl From<ed25519_dalek::ed25519::Error> for SolanaError {
     }
 }
 
-impl From<SolanaError> for csv_core::error::AdapterError {
+impl From<SolanaError> for csv_core::error::ProtocolError {
     fn from(err: SolanaError) -> Self {
-        csv_core::error::AdapterError::NetworkError(format!("Solana: {}", err))
+        csv_core::error::ProtocolError::NetworkError(format!("Solana: {}", err))
     }
 }
 

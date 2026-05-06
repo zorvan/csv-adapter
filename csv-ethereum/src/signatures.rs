@@ -3,7 +3,7 @@
 //! Ethereum uses ECDSA signatures over the secp256k1 curve.
 //! Signature format: 64 bytes [r (32)] [s (32)] or 65 bytes [recovery_id (1)] [r (32)] [s (32)]
 
-use csv_core::error::AdapterError;
+use csv_core::error::ProtocolError;
 use csv_core::error::Result;
 
 /// Verify an Ethereum ECDSA signature
@@ -22,21 +22,21 @@ pub fn verify_ethereum_signature(
 ) -> Result<()> {
     // Validate inputs
     if message.len() != 32 {
-        return Err(AdapterError::SignatureVerificationFailed(format!(
+        return Err(ProtocolError::SignatureVerificationFailed(format!(
             "Message must be 32 bytes, got {}",
             message.len()
         )));
     }
 
     if signature.len() != 64 && signature.len() != 65 {
-        return Err(AdapterError::SignatureVerificationFailed(format!(
+        return Err(ProtocolError::SignatureVerificationFailed(format!(
             "Invalid signature length: {} (expected 64 or 65)",
             signature.len()
         )));
     }
 
     if public_key.len() != 33 && public_key.len() != 65 {
-        return Err(AdapterError::SignatureVerificationFailed(format!(
+        return Err(ProtocolError::SignatureVerificationFailed(format!(
             "Invalid public key length: {} (expected 33 or 65)",
             public_key.len()
         )));
@@ -45,14 +45,14 @@ pub fn verify_ethereum_signature(
     // Parse the public key
     let pubkey = if public_key.len() == 33 {
         secp256k1::PublicKey::from_slice(public_key).map_err(|e| {
-            AdapterError::SignatureVerificationFailed(format!(
+            ProtocolError::SignatureVerificationFailed(format!(
                 "Invalid compressed public key: {}",
                 e
             ))
         })?
     } else {
         secp256k1::PublicKey::from_slice(public_key).map_err(|e| {
-            AdapterError::SignatureVerificationFailed(format!(
+            ProtocolError::SignatureVerificationFailed(format!(
                 "Invalid uncompressed public key: {}",
                 e
             ))
@@ -70,7 +70,7 @@ pub fn verify_ethereum_signature(
         // Handle recovery ID for Ethereum (v is appended at the END of signature for Ethereum)
         let recovery_id = signature[64];
         if recovery_id > 1 && recovery_id != 27 && recovery_id != 28 {
-            return Err(AdapterError::SignatureVerificationFailed(format!(
+            return Err(ProtocolError::SignatureVerificationFailed(format!(
                 "Invalid recovery ID: {}",
                 recovery_id
             )));
@@ -80,12 +80,12 @@ pub fn verify_ethereum_signature(
 
     // Create Signature from compact format
     let sig = secp256k1::ecdsa::Signature::from_compact(&sig_bytes).map_err(|e| {
-        AdapterError::SignatureVerificationFailed(format!("Invalid signature format: {}", e))
+        ProtocolError::SignatureVerificationFailed(format!("Invalid signature format: {}", e))
     })?;
 
     // Create message
     let msg = secp256k1::Message::from_digest_slice(message).map_err(|e| {
-        AdapterError::SignatureVerificationFailed(format!("Invalid message hash: {}", e))
+        ProtocolError::SignatureVerificationFailed(format!("Invalid message hash: {}", e))
     })?;
 
     // Verify the signature
@@ -94,7 +94,7 @@ pub fn verify_ethereum_signature(
     if context.verify_ecdsa(&msg, &sig, &pubkey).is_ok() {
         Ok(())
     } else {
-        Err(AdapterError::SignatureVerificationFailed(
+        Err(ProtocolError::SignatureVerificationFailed(
             "ECDSA signature verification failed".to_string(),
         ))
     }
@@ -103,14 +103,14 @@ pub fn verify_ethereum_signature(
 /// Verify multiple Ethereum signatures
 pub fn verify_ethereum_signatures(signatures: &[(Vec<u8>, Vec<u8>, Vec<u8>)]) -> Result<()> {
     if signatures.is_empty() {
-        return Err(AdapterError::SignatureVerificationFailed(
+        return Err(ProtocolError::SignatureVerificationFailed(
             "No signatures to verify".to_string(),
         ));
     }
 
     for (i, (sig, pk, msg)) in signatures.iter().enumerate() {
         verify_ethereum_signature(sig, pk, msg).map_err(|e| {
-            AdapterError::SignatureVerificationFailed(format!(
+            ProtocolError::SignatureVerificationFailed(format!(
                 "Signature {} verification failed: {}",
                 i, e
             ))

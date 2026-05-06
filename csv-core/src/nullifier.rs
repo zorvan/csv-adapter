@@ -352,15 +352,15 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "std")]
 pub struct OptimizedSealNullifier {
     /// Map from seal identity to consumption events (HashMap for O(1) lookups)
-    consumed_seals: std::collections::HashMap<Vec<u8>, Vec<SealConsumption>>,
+    consumed_seals: crate::collections::HashMap<Vec<u8>, Vec<SealConsumption>>,
     /// Map from Sanad ID to seals that consumed it
-    sanad_consumption_map: std::collections::HashMap<Hash, Vec<SealConsumption>>,
+    sanad_consumption_map: crate::collections::HashMap<Hash, Vec<SealConsumption>>,
     /// Set of known chain identifiers
     known_chains: BTreeSet<ChainId>,
     /// Bloom filter for fast negative lookups
     bloom_filter: crate::performance::BloomFilter,
     /// Cache for recent seal status checks
-    status_cache: std::collections::HashMap<Vec<u8>, SealStatus>,
+    status_cache: crate::collections::HashMap<Vec<u8>, SealStatus>,
     /// Maximum cache size for status cache
     max_cache_size: usize,
 }
@@ -383,11 +383,11 @@ impl OptimizedSealNullifier {
         let false_positive_rate = false_positive_rate.clamp(0.0001, 0.5); // Valid range
 
         Self {
-            consumed_seals: std::collections::HashMap::with_capacity(capacity),
-            sanad_consumption_map: std::collections::HashMap::with_capacity(capacity),
+            consumed_seals: crate::collections::HashMap::with_capacity(capacity),
+            sanad_consumption_map: crate::collections::HashMap::with_capacity(capacity),
             known_chains: BTreeSet::new(),
             bloom_filter: crate::performance::BloomFilter::new(capacity, false_positive_rate),
-            status_cache: std::collections::HashMap::with_capacity(1000),
+            status_cache: crate::collections::HashMap::with_capacity(1000),
             max_cache_size: 1000,
         }
     }

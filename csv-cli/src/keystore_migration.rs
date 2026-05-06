@@ -9,7 +9,7 @@ use csv_adapter_keystore::{
     keystore::{KeystoreFile, KdfType, create_keystore},
     memory::{Passphrase, SecretKey, Seed},
 };
-use csv_core::Chain;
+use csv_core::ChainId;
 use csv_adapter_store::state::{WalletAccount, WalletConfig, UnifiedStorage};
 use std::path::Path;
 use thiserror::Error;
@@ -186,7 +186,7 @@ impl KeystoreMigration {
 
         // Generate keys for each chain
         let mut accounts = Vec::new();
-        for chain in [Chain::Bitcoin, Chain::Ethereum, Chain::Sui, Chain::Aptos, Chain::Solana] {
+        for chain in [builtin::Bitcoin, builtin::Ethereum, builtin::Sui, builtin::Aptos, builtin::Solana] {
             let key = derive_key(seed.as_bytes(), chain, 0, 0)?;
             
             // Create encrypted keystore
@@ -261,7 +261,7 @@ mod tests {
         // Add plaintext key
         storage.wallet.accounts.push(WalletAccount {
             id: "test".to_string(),
-            chain: Chain::Ethereum,
+            chain: builtin::Ethereum,
             name: "Test".to_string(),
             address: "0x123".to_string(),
             private_key: Some("0x1234567890abcdef".to_string()),
@@ -281,7 +281,7 @@ mod tests {
 
         let mut account = WalletAccount {
             id: "test".to_string(),
-            chain: Chain::Ethereum,
+            chain: builtin::Ethereum,
             name: "Test".to_string(),
             address: "0x123".to_string(),
             private_key: Some("0x0000000000000000000000000000000000000000000000000000000000000001".to_string()),

@@ -21,7 +21,7 @@
 //! When a feature is not enabled, the registry will return `None` for that chain.
 
 use std::any::Any;
-use std::collections::HashMap;
+use crate::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::OnceLock;

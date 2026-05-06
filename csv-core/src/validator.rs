@@ -50,7 +50,7 @@
 //! 2. **Complete Verification**: All 5 validation steps must pass
 //! 3. **No Partial Acceptance**: A consignment is either fully accepted or rejected
 //! 4. **Audit Trail**: Rejected consignments include detailed failure reasons
-//! 5. **Seal Uniqueness**: Double-spend attempts are detected via `CrossChainSealRegistry`
+//! 5. **Seal Uniqueness**: Double-spend attempts are detected via `SealNullifier`
 //!
 //! # Critical Validation Steps
 //!
@@ -65,7 +65,7 @@
 //! # Audit Checklist
 //!
 //! - [ ] All 5 validation steps execute for every consignment
-//! - [ ] Seal consumption check uses `CrossChainSealRegistry`
+//! - [ ] Seal consumption check uses `SealNullifier`
 //! - [ ] No validation step can be bypassed via configuration
 //! - [ ] Failed validations return detailed but safe error messages
 //! - [ ] Validator state doesn't affect validation outcome (deterministic)

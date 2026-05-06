@@ -6,7 +6,7 @@ use crate::config::{Chain, Config};
 use crate::output;
 use crate::state::UnifiedStateManager;
 use anyhow::Result;
-use csv_core::Chain as CoreChain;
+use csv_core::ChainId;
 use serde::{Deserialize, Serialize};
 
 /// Wallet data format compatible with csv-wallet.
@@ -147,17 +147,17 @@ fn import_from_mnemonic(
 
 /// Derive address from mnemonic phrase for a specific chain.
 fn derive_address_from_mnemonic(chain: &Chain, mnemonic: &str) -> Result<String> {
-    use csv_core::Chain as CoreChain;
+    use csv_core::ChainId;
     use csv_adapter_keystore::bip39::Mnemonic;
     use csv_adapter_keystore::bip44::{derive_key, derive_address_from_key};
 
     // Use the keystore crate for derivation
     let core_chain = match chain {
-        Chain::Bitcoin => CoreChain::Bitcoin,
-        Chain::Ethereum => CoreChain::Ethereum,
-        Chain::Sui => CoreChain::Sui,
-        Chain::Aptos => CoreChain::Aptos,
-        Chain::Solana => CoreChain::Solana,
+        builtin::Bitcoin => Corebuiltin::Bitcoin,
+        builtin::Ethereum => Corebuiltin::Ethereum,
+        builtin::Sui => Corebuiltin::Sui,
+        builtin::Aptos => Corebuiltin::Aptos,
+        builtin::Solana => Corebuiltin::Solana,
     };
 
     // Parse mnemonic and derive seed
@@ -251,11 +251,11 @@ fn derive_address_from_private_key(chain: &Chain, private_key: &str) -> Result<S
     let address = derive_address_from_key(
         &key_bytes,
         match *chain {
-            Chain::Bitcoin => CoreChain::Bitcoin,
-            Chain::Ethereum => CoreChain::Ethereum,
-            Chain::Sui => CoreChain::Sui,
-            Chain::Aptos => CoreChain::Aptos,
-            Chain::Solana => CoreChain::Solana,
+            builtin::Bitcoin => Corebuiltin::Bitcoin,
+            builtin::Ethereum => Corebuiltin::Ethereum,
+            builtin::Sui => Corebuiltin::Sui,
+            builtin::Aptos => Corebuiltin::Aptos,
+            builtin::Solana => Corebuiltin::Solana,
         },
     )
     .map_err(|e| anyhow::anyhow!("Failed to derive address: {}", e))?;
@@ -355,11 +355,11 @@ pub fn cmd_import_csv_wallet(
     let mut imported = 0u32;
     for account in &wallet.accounts {
         let chain = match account.chain.to_lowercase().as_str() {
-            "bitcoin" => Chain::Bitcoin,
-            "ethereum" => Chain::Ethereum,
-            "sui" => Chain::Sui,
-            "aptos" => Chain::Aptos,
-            "solana" => Chain::Solana,
+            "bitcoin" => builtin::Bitcoin,
+            "ethereum" => builtin::Ethereum,
+            "sui" => builtin::Sui,
+            "aptos" => builtin::Aptos,
+            "solana" => builtin::Solana,
             _ => {
                 output::warning(&format!("Skipping unknown chain: {}", account.chain));
                 continue;
@@ -402,11 +402,11 @@ pub fn cmd_export_csv_wallet(
     let mut id_counter = 0u32;
 
     for chain in [
-        Chain::Bitcoin,
-        Chain::Ethereum,
-        Chain::Sui,
-        Chain::Aptos,
-        Chain::Solana,
+        builtin::Bitcoin,
+        builtin::Ethereum,
+        builtin::Sui,
+        builtin::Aptos,
+        builtin::Solana,
     ] {
         if let Some(address) = state.get_address(&chain) {
             id_counter += 1;

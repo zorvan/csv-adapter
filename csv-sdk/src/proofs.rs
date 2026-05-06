@@ -73,7 +73,7 @@ impl ProofManager {
 
         // Proof generation requires chain adapter proof provider integration
         // This will be implemented when the chain adapter proof providers are ready
-        Err(CsvError::AdapterError {
+        Err(CsvError::ProtocolError {
             chain,
             message: "Proof generation requires chain adapter ProofProvider trait integration.".to_string()
         })

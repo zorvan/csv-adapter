@@ -31,7 +31,7 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use csv_core::Chain;
+use csv_core::ChainId;
 use csv_core::ChainRegistry;
 #[cfg(feature = "tokio")]
 use tokio::sync::broadcast;
@@ -441,7 +441,7 @@ impl CsvClient {
                 let rpc = std::thread::spawn(move || {
                     Box::new(csv_bitcoin::mempool_rpc::MempoolSignetRpc::with_url(rpc_url)) as Box<dyn csv_bitcoin::rpc::BitcoinRpc + Send + Sync>
                 }).join()
-                .map_err(|e| CsvError::AdapterError { chain, message: format!("Thread panic: {:?}", e) })?;
+                .map_err(|e| CsvError::ProtocolError { chain, message: format!("Thread panic: {:?}", e) })?;
                 _builder.bitcoin_from_config(btc_config, rpc).await.map(Some)
             }
             #[cfg(feature = "ethereum")]
@@ -472,7 +472,7 @@ impl CsvClient {
                 let csv_seal_address = [0u8; 20]; // Default, should be configured
                 let rpc = csv_ethereum::real_rpc::RealEthereumRpc::new(&rpc_url, csv_seal_address)
                     .await
-                    .map_err(|e| CsvError::AdapterError { chain: Chain::Ethereum, message: format!("Failed to create Ethereum RPC client: {}", e) })?;
+                    .map_err(|e| CsvError::ProtocolError { chain: Chain::Ethereum, message: format!("Failed to create Ethereum RPC client: {}", e) })?;
                 _builder.ethereum_from_config(eth_config, Box::new(rpc) as Box<dyn csv_ethereum::rpc::EthereumRpc>, csv_seal_address).await.map(Some)
             }
             #[cfg(feature = "sui")]

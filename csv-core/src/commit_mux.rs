@@ -152,7 +152,7 @@ impl CommitMux {
     /// Build a merkle proof for a specific protocol
     ///
     /// Returns None if the protocol_id is not in this tree.
-    pub fn prove(&self, protocol_id: ProtocolId) -> Option<MpcProof> {
+    pub fn prove(&self, protocol_id: ProtocolId) -> Option<MuxProof> {
         let leaf_index = self
             .leaves
             .iter()
@@ -201,7 +201,7 @@ impl CommitMux {
             idx /= 2;
         }
 
-        Some(MpcProof {
+        Some(MuxProof {
             protocol_id: leaf.protocol_id,
             commitment: leaf.commitment,
             branch,
@@ -361,7 +361,7 @@ mod tests {
     }
 
     // ─────────────────────────────────────────────
-    // MpcProof tests
+    // MuxProof tests
     // ─────────────────────────────────────────────
 
     #[test]
@@ -516,4 +516,4 @@ pub type CommitMux = CommitMux;
 pub type MuxLeaf = MuxLeaf;
 
 #[deprecated(since = "0.4.0", note = "Use MuxProof instead")]
-pub type MpcProof = MuxProof;
+pub type MuxProof = MuxProof;

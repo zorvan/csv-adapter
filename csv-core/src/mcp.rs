@@ -10,7 +10,7 @@
 //! - **Fix suggestions**: Errors include actionable `FixAction` for autonomous resolution
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use crate::collections::HashMap;
 
 /// Trait for types that can provide machine-actionable error suggestions.
 ///

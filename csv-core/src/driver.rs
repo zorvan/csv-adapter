@@ -1,7 +1,7 @@
 //! Chain driver trait for dynamic chain support.
 
 use async_trait::async_trait;
-use std::collections::HashMap;
+use crate::collections::HashMap;
 use thiserror::Error;
 
 use crate::Chain;

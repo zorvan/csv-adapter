@@ -8,7 +8,7 @@
 //! 1. **Pending Commitments Queue**: Commitments are queued instead of immediately published
 //! 2. **MPC Tree Building**: When batch threshold is reached, build CommitMux from leaves
 //! 3. **Single Tapret Publication**: Publish one tapret with the MPC root hash
-//! 4. **Proof Distribution**: Each queued commitment receives its MpcProof
+//! 4. **Proof Distribution**: Each queued commitment receives its MuxProof
 //!
 //! ## Cost Savings
 //!
@@ -28,7 +28,7 @@ use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
 use csv_core::hash::Hash;
-use csv_core::commit_mux::{MuxLeaf, MpcProof, CommitMux};
+use csv_core::commit_mux::{MuxLeaf, MuxProof, CommitMux};
 
 use crate::error::{BitcoinError, BitcoinResult};
 use crate::types::BitcoinSealPoint;
@@ -64,7 +64,7 @@ pub struct BatchedPublication {
     /// MPC root hash that was published
     pub mpc_root: Hash,
     /// Proofs for each commitment in the batch
-    pub proofs: Vec<(String, MpcProof)>, // (request_id, proof)
+    pub proofs: Vec<(String, MuxProof)>, // (request_id, proof)
 }
 
 /// MPC Batcher for Bitcoin commitments
@@ -181,12 +181,12 @@ impl MpcBatcher {
     /// * `commitments` - The pending commitments in the same order as tree leaves
     ///
     /// # Returns
-    /// Vector of (request_id, MpcProof) pairs
+    /// Vector of (request_id, MuxProof) pairs
     pub fn generate_proofs(
         &self,
         tree: &CommitMux,
         commitments: &[PendingCommitment],
-    ) -> BitcoinResult<Vec<(String, MpcProof)>> {
+    ) -> BitcoinResult<Vec<(String, MuxProof)>> {
         let root = tree.root();
         let mut proofs = Vec::new();
 
@@ -197,7 +197,7 @@ impl MpcBatcher {
                     format!("Failed to generate Merkle branch for index {}", index)
                 ))?;
 
-            let proof = MpcProof {
+            let proof = MuxProof {
                 protocol_id: CSV_BTC_PROTOCOL_ID,
                 commitment: commitment.commitment,
                 branch,

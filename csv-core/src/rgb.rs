@@ -164,8 +164,8 @@ impl RgbConsignmentValidator {
         let mut errors = Vec::new();
 
         // Build a map of which transitions produce which states
-        let mut state_producers: std::collections::HashMap<String, usize> =
-            std::collections::HashMap::new();
+        let mut state_producers: crate::collections::HashMap<String, usize> =
+            crate::collections::HashMap::new();
 
         // Genesis produces initial states
         for (i, _assignment) in consignment.genesis.owned_state.iter().enumerate() {
@@ -211,8 +211,8 @@ impl RgbConsignmentValidator {
     /// Validate seal consumption (detect double-spend)
     fn validate_seal_consumption(consignment: &Consignment) -> Vec<RgbValidationError> {
         let mut errors = Vec::new();
-        let mut seal_consumers: std::collections::HashMap<String, usize> =
-            std::collections::HashMap::new();
+        let mut seal_consumers: crate::collections::HashMap<String, usize> =
+            crate::collections::HashMap::new();
 
         // Check seal assignments for duplicates
         for (idx, assignment) in consignment.seal_assignments.iter().enumerate() {

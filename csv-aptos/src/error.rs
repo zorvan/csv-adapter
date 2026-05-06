@@ -68,7 +68,7 @@ pub enum AptosError {
 
     /// Core adapter error from csv-adapter-core.
     #[error(transparent)]
-    CoreError(#[from] csv_core::AdapterError),
+    CoreError(#[from] csv_core::ProtocolError),
 }
 
 impl AptosError {
@@ -271,30 +271,30 @@ impl From<Box<dyn std::error::Error + Send + Sync>> for AptosError {
     }
 }
 
-impl From<AptosError> for csv_core::AdapterError {
+impl From<AptosError> for csv_core::ProtocolError {
     fn from(err: AptosError) -> Self {
         match err {
             AptosError::CoreError(e) => e,
             AptosError::RpcError(msg) | AptosError::TransactionFailed(msg) => {
-                csv_core::AdapterError::NetworkError(msg)
+                csv_core::ProtocolError::NetworkError(msg)
             }
-            AptosError::ResourceUsed(msg) => csv_core::AdapterError::InvalidSeal(msg),
+            AptosError::ResourceUsed(msg) => csv_core::ProtocolError::InvalidSeal(msg),
             AptosError::StateProofFailed(msg) | AptosError::EventProofFailed(msg) => {
-                csv_core::AdapterError::InclusionProofFailed(msg)
+                csv_core::ProtocolError::InclusionProofFailed(msg)
             }
-            AptosError::CheckpointFailed(msg) => csv_core::AdapterError::NetworkError(msg),
-            AptosError::SerializationError(msg) => csv_core::AdapterError::InvalidSeal(msg),
+            AptosError::CheckpointFailed(msg) => csv_core::ProtocolError::NetworkError(msg),
+            AptosError::SerializationError(msg) => csv_core::ProtocolError::InvalidSeal(msg),
             AptosError::ConfirmationTimeout {
                 tx_hash,
                 timeout_ms,
-            } => csv_core::AdapterError::NetworkError(format!(
+            } => csv_core::ProtocolError::NetworkError(format!(
                 "Timeout waiting for tx {} after {}ms",
                 tx_hash, timeout_ms
             )),
-            AptosError::ReorgDetected { version } => csv_core::AdapterError::ReorgInvalid(
+            AptosError::ReorgDetected { version } => csv_core::ProtocolError::ReorgInvalid(
                 format!("Reorg at version {}", version),
             ),
-            aptos_err => csv_core::AdapterError::NetworkError(format!("{}", aptos_err)),
+            aptos_err => csv_core::ProtocolError::NetworkError(format!("{}", aptos_err)),
         }
     }
 }
@@ -326,10 +326,10 @@ mod tests {
     #[test]
     fn test_error_conversion() {
         let aptos_err = AptosError::StateProofFailed("bad proof".to_string());
-        let core_err: csv_core::AdapterError = aptos_err.into();
+        let core_err: csv_core::ProtocolError = aptos_err.into();
         assert!(matches!(
             core_err,
-            csv_core::AdapterError::InclusionProofFailed(_)
+            csv_core::ProtocolError::InclusionProofFailed(_)
         ));
     }
 }

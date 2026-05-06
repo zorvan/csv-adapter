@@ -57,7 +57,7 @@ fn cmd_consignment(file: String, _config: &Config, _state: &UnifiedStateManager)
     // Verify genesis → present linkage
 
     output::progress(3, 4, "Checking seal consumption...");
-    // Check CrossChainSealRegistry for double-spends
+    // Check SealNullifier for double-spends
 
     output::progress(4, 4, "Validating state transitions...");
     // Verify inputs satisfied by prior outputs

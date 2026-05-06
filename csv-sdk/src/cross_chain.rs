@@ -30,7 +30,7 @@ pub enum CrossChainError {
 
     /// Underlying adapter error.
     #[error("Adapter error: {0}")]
-    AdapterError(String),
+    ProtocolError(String),
 }
 
 impl From<CrossChainError> for CsvError {
@@ -87,7 +87,7 @@ pub async fn mint_sanad_on_chain(
                 source_seal_ref,
             )
             .await
-            .map_err(|e| CrossChainError::AdapterError(format!("{:?}", e)))
+            .map_err(|e| CrossChainError::ProtocolError(format!("{:?}", e)))
         }
         
         #[cfg(not(all(feature = "sui", feature = "rpc")))]
@@ -115,7 +115,7 @@ pub async fn mint_sanad_on_chain(
                 source_chain,
                 source_seal_ref,
             )
-            .map_err(|e| CrossChainError::AdapterError(format!("{:?}", e)))
+            .map_err(|e| CrossChainError::ProtocolError(format!("{:?}", e)))
         }
         
         #[cfg(not(feature = "solana"))]

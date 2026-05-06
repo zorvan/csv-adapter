@@ -6,7 +6,7 @@
 //! - Sui/Aptos: Ed25519
 //! - Celestia: ECDSA over secp256k1 (Tendermint style)
 
-use crate::error::{AdapterError, Result};
+use crate::error::{ProtocolError, Result};
 
 /// Signature scheme used by a chain
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -61,27 +61,27 @@ fn verify_secp256k1(signature: &[u8], public_key: &[u8], message: &[u8]) -> Resu
 
     // Validate input sizes
     if message.len() != 32 {
-        return Err(AdapterError::SignatureVerificationFailed(format!(
+        return Err(ProtocolError::SignatureVerificationFailed(format!(
             "Message must be 32 bytes, got {}",
             message.len()
         )));
     }
 
     if public_key.is_empty() {
-        return Err(AdapterError::SignatureVerificationFailed(
+        return Err(ProtocolError::SignatureVerificationFailed(
             "Empty public key".to_string(),
         ));
     }
 
     if signature.is_empty() {
-        return Err(AdapterError::SignatureVerificationFailed(
+        return Err(ProtocolError::SignatureVerificationFailed(
             "Empty signature".to_string(),
         ));
     }
 
     // Validate public key format (33 bytes compressed or 65 bytes uncompressed)
     if public_key.len() != 33 && public_key.len() != 65 {
-        return Err(AdapterError::SignatureVerificationFailed(format!(
+        return Err(ProtocolError::SignatureVerificationFailed(format!(
             "Invalid public key length: {} (expected 33 or 65)",
             public_key.len()
         )));
@@ -89,7 +89,7 @@ fn verify_secp256k1(signature: &[u8], public_key: &[u8], message: &[u8]) -> Resu
 
     // Signature should be 64 bytes (r || s) or 65 bytes (recovery_id || r || s)
     if signature.len() != 64 && signature.len() != 65 {
-        return Err(AdapterError::SignatureVerificationFailed(format!(
+        return Err(ProtocolError::SignatureVerificationFailed(format!(
             "Invalid signature length: {} (expected 64 or 65)",
             signature.len()
         )));
@@ -97,30 +97,30 @@ fn verify_secp256k1(signature: &[u8], public_key: &[u8], message: &[u8]) -> Resu
 
     // Parse public key
     let pubkey = PublicKey::from_slice(public_key).map_err(|e| {
-        AdapterError::SignatureVerificationFailed(format!("Invalid public key: {}", e))
+        ProtocolError::SignatureVerificationFailed(format!("Invalid public key: {}", e))
     })?;
 
     // Parse signature
     let sig = if signature.len() == 64 {
         ecdsa::Signature::from_compact(signature).map_err(|e| {
-            AdapterError::SignatureVerificationFailed(format!("Invalid signature format: {}", e))
+            ProtocolError::SignatureVerificationFailed(format!("Invalid signature format: {}", e))
         })?
     } else {
         // 65 bytes: skip recovery ID
         ecdsa::Signature::from_compact(&signature[1..]).map_err(|e| {
-            AdapterError::SignatureVerificationFailed(format!("Invalid signature format: {}", e))
+            ProtocolError::SignatureVerificationFailed(format!("Invalid signature format: {}", e))
         })?
     };
 
     // Parse message
     let msg = Message::from_digest_slice(message).map_err(|e| {
-        AdapterError::SignatureVerificationFailed(format!("Invalid message: {}", e))
+        ProtocolError::SignatureVerificationFailed(format!("Invalid message: {}", e))
     })?;
 
     // Perform actual cryptographic verification
     let secp = Secp256k1::verification_only();
     secp.verify_ecdsa(&msg, &sig, &pubkey).map_err(|e| {
-        AdapterError::SignatureVerificationFailed(format!("Signature verification failed: {}", e))
+        ProtocolError::SignatureVerificationFailed(format!("Signature verification failed: {}", e))
     })?;
 
     Ok(())
@@ -136,20 +136,20 @@ fn verify_ed25519(signature: &[u8], public_key: &[u8], message: &[u8]) -> Result
 
     // Validate input sizes
     if public_key.is_empty() {
-        return Err(AdapterError::SignatureVerificationFailed(
+        return Err(ProtocolError::SignatureVerificationFailed(
             "Empty public key".to_string(),
         ));
     }
 
     if signature.is_empty() {
-        return Err(AdapterError::SignatureVerificationFailed(
+        return Err(ProtocolError::SignatureVerificationFailed(
             "Empty signature".to_string(),
         ));
     }
 
     // Ed25519 public key must be 32 bytes
     if public_key.len() != 32 {
-        return Err(AdapterError::SignatureVerificationFailed(format!(
+        return Err(ProtocolError::SignatureVerificationFailed(format!(
             "Invalid Ed25519 public key length: {} (expected 32)",
             public_key.len()
         )));
@@ -157,7 +157,7 @@ fn verify_ed25519(signature: &[u8], public_key: &[u8], message: &[u8]) -> Result
 
     // Ed25519 signature must be 64 bytes
     if signature.len() != 64 {
-        return Err(AdapterError::SignatureVerificationFailed(format!(
+        return Err(ProtocolError::SignatureVerificationFailed(format!(
             "Invalid Ed25519 signature length: {} (expected 64)",
             signature.len()
         )));
@@ -165,7 +165,7 @@ fn verify_ed25519(signature: &[u8], public_key: &[u8], message: &[u8]) -> Result
 
     // Parse public key
     let verifying_key = VerifyingKey::from_bytes(public_key.try_into().unwrap()).map_err(|e| {
-        AdapterError::SignatureVerificationFailed(format!("Invalid Ed25519 public key: {}", e))
+        ProtocolError::SignatureVerificationFailed(format!("Invalid Ed25519 public key: {}", e))
     })?;
 
     // Parse signature
@@ -174,7 +174,7 @@ fn verify_ed25519(signature: &[u8], public_key: &[u8], message: &[u8]) -> Result
 
     // Perform actual cryptographic verification
     verifying_key.verify(message, &sig).map_err(|e| {
-        AdapterError::SignatureVerificationFailed(format!(
+        ProtocolError::SignatureVerificationFailed(format!(
             "Ed25519 signature verification failed: {}",
             e
         ))
@@ -186,14 +186,14 @@ fn verify_ed25519(signature: &[u8], public_key: &[u8], message: &[u8]) -> Result
 /// Verify multiple signatures
 pub fn verify_signatures(signatures: &[Signature], scheme: SignatureScheme) -> Result<()> {
     if signatures.is_empty() {
-        return Err(AdapterError::SignatureVerificationFailed(
+        return Err(ProtocolError::SignatureVerificationFailed(
             "No signatures to verify".to_string(),
         ));
     }
 
     for (i, sig) in signatures.iter().enumerate() {
         sig.verify(scheme).map_err(|e| {
-            AdapterError::SignatureVerificationFailed(format!(
+            ProtocolError::SignatureVerificationFailed(format!(
                 "Signature {} verification failed: {}",
                 i, e
             ))

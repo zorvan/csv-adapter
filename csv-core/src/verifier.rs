@@ -42,7 +42,7 @@
 //! here could allow fraudulent proofs to be accepted, leading to
 //! unauthorized state transitions or double-spends.
 
-use crate::error::{AdapterError, Result};
+use crate::error::{ProtocolError, Result};
 use crate::proof::ProofBundle;
 use crate::signature::{verify_signatures, Signature, SignatureScheme};
 
@@ -74,7 +74,7 @@ use crate::signature::{verify_signatures, Signature, SignatureScheme};
 ///
 /// # Returns
 /// - `Ok(())` - Proof bundle is valid and authorized
-/// - `Err(AdapterError)` - Specific error indicating which check failed
+/// - `Err(ProtocolError)` - Specific error indicating which check failed
 ///
 /// # Audit Note
 ///
@@ -132,7 +132,7 @@ pub fn verify_proof(
     bundle
         .transition_dag
         .validate_structure()
-        .map_err(|e| AdapterError::Generic(format!("Invalid DAG structure: {}", e)))?;
+        .map_err(|e| ProtocolError::Generic(format!("Invalid DAG structure: {}", e)))?;
 
     // Step 3: Validate proof timestamp (prevent replay of old proofs)
     validate_proof_timestamp(bundle)?;
@@ -145,7 +145,7 @@ pub fn verify_proof(
 
     // Step 6: Validate seal reference (check for replay)
     if seal_registry(bundle.seal_ref.id.as_ref()) {
-        return Err(AdapterError::SealReplay(format!(
+        return Err(ProtocolError::SealReplay(format!(
             "Seal {:?} has already been used",
             bundle.seal_ref
         )));
@@ -201,7 +201,7 @@ fn validate_proof_bundle_size(bundle: &ProofBundle) -> Result<()> {
     total_size += bundle.finality_proof.finality_data.len();
     
     if total_size > MAX_PROOF_BUNDLE_SIZE {
-        return Err(AdapterError::Generic(format!(
+        return Err(ProtocolError::Generic(format!(
             "Proof bundle too large: {} bytes (max {})",
             total_size, MAX_PROOF_BUNDLE_SIZE
         )));
@@ -225,7 +225,7 @@ fn validate_proof_timestamp(bundle: &ProofBundle) -> Result<()> {
     
     // If the anchor timestamp is 0, the proof is likely malformed
     if anchor_timestamp == 0 {
-        return Err(AdapterError::Generic(
+        return Err(ProtocolError::Generic(
             "Invalid proof timestamp: anchor timestamp is 0".to_string()
         ));
     }
@@ -241,7 +241,7 @@ fn validate_proof_timestamp(bundle: &ProofBundle) -> Result<()> {
 fn validate_domain_separation(bundle: &ProofBundle) -> Result<()> {
     // Check that the seal reference has a valid seal ID
     if bundle.seal_ref.id.is_empty() {
-        return Err(AdapterError::Generic(
+        return Err(ProtocolError::Generic(
             "Invalid seal reference: empty seal ID".to_string()
         ));
     }
@@ -249,7 +249,7 @@ fn validate_domain_separation(bundle: &ProofBundle) -> Result<()> {
     // Verify that seal_id and anchor anchor_id match (consistency check)
     // The seal_id should be consistent with the anchor's anchor_id
     if bundle.seal_ref.id != bundle.anchor_ref.anchor_id {
-        return Err(AdapterError::Generic(
+        return Err(ProtocolError::Generic(
             "Seal reference mismatch: seal ID and anchor ID must match".to_string()
         ));
     }
@@ -257,7 +257,7 @@ fn validate_domain_separation(bundle: &ProofBundle) -> Result<()> {
     // Verify that the anchor reference has valid metadata
     // Anchor metadata should contain the proof data or reference
     if bundle.anchor_ref.metadata.is_empty() && bundle.anchor_ref.block_height == 0 {
-        return Err(AdapterError::Generic(
+        return Err(ProtocolError::Generic(
             "Invalid anchor reference: empty metadata and block height".to_string()
         ));
     }
@@ -273,14 +273,14 @@ fn validate_domain_separation(bundle: &ProofBundle) -> Result<()> {
 fn validate_inclusion_proof(proof: &crate::proof::InclusionProof) -> Result<()> {
     // Check for empty proof
     if proof.proof_bytes.is_empty() {
-        return Err(AdapterError::InclusionProofFailed(
+        return Err(ProtocolError::InclusionProofFailed(
             "Empty inclusion proof".to_string(),
         ));
     }
     
     // Validate proof size (prevent DoS via oversized proofs)
     if proof.proof_bytes.len() > crate::proof::MAX_PROOF_BYTES {
-        return Err(AdapterError::InclusionProofFailed(format!(
+        return Err(ProtocolError::InclusionProofFailed(format!(
             "Inclusion proof too large: {} bytes (max {})",
             proof.proof_bytes.len(),
             crate::proof::MAX_PROOF_BYTES
@@ -289,7 +289,7 @@ fn validate_inclusion_proof(proof: &crate::proof::InclusionProof) -> Result<()> 
     
     // Validate block hash is not zero (indicates malformed proof)
     if proof.block_hash == crate::hash::Hash::zero() {
-        return Err(AdapterError::InclusionProofFailed(
+        return Err(ProtocolError::InclusionProofFailed(
             "Invalid inclusion proof: block hash is zero".to_string()
         ));
     }
@@ -305,7 +305,7 @@ fn validate_inclusion_proof(proof: &crate::proof::InclusionProof) -> Result<()> 
 fn validate_finality_proof(proof: &crate::proof::FinalityProof) -> Result<()> {
     // Enforce minimum confirmation count
     if proof.confirmations < MIN_REQUIRED_CONFIRMATIONS {
-        return Err(AdapterError::FinalityNotReached(format!(
+        return Err(ProtocolError::FinalityNotReached(format!(
             "Insufficient confirmations: {} (minimum required: {})",
             proof.confirmations, MIN_REQUIRED_CONFIRMATIONS
         )));
@@ -313,14 +313,14 @@ fn validate_finality_proof(proof: &crate::proof::FinalityProof) -> Result<()> {
     
     // Validate finality data is present (non-empty for security)
     if proof.finality_data.is_empty() {
-        return Err(AdapterError::FinalityNotReached(
+        return Err(ProtocolError::FinalityNotReached(
             "Empty finality proof".to_string()
         ));
     }
     
     // Validate finality data size
     if proof.finality_data.len() > crate::proof::MAX_FINALITY_DATA {
-        return Err(AdapterError::FinalityNotReached(format!(
+        return Err(ProtocolError::FinalityNotReached(format!(
             "Finality proof too large: {} bytes (max {})",
             proof.finality_data.len(),
             crate::proof::MAX_FINALITY_DATA
@@ -338,14 +338,14 @@ fn validate_finality_proof(proof: &crate::proof::FinalityProof) -> Result<()> {
 fn validate_anchor_reference(bundle: &ProofBundle) -> Result<()> {
     // Verify anchor block height is reasonable (not 0, not absurdly high)
     if bundle.anchor_ref.block_height == 0 {
-        return Err(AdapterError::Generic(
+        return Err(ProtocolError::Generic(
             "Invalid anchor: block height is 0".to_string()
         ));
     }
     
     // Verify anchor_id matches the seal_id (ensures seal is properly anchored)
     if bundle.anchor_ref.anchor_id != bundle.seal_ref.id {
-        return Err(AdapterError::Generic(
+        return Err(ProtocolError::Generic(
             "Invalid anchor: anchor_id does not match seal_id".to_string()
         ));
     }
@@ -389,7 +389,7 @@ fn validate_anchor_reference(bundle: &ProofBundle) -> Result<()> {
 ///
 /// # Returns
 /// - `Ok(())` - All signatures are valid
-/// - `Err(AdapterError::SignatureVerificationFailed)` - If any signature invalid
+/// - `Err(ProtocolError::SignatureVerificationFailed)` - If any signature invalid
 ///
 /// # Audit Note
 ///
@@ -401,7 +401,7 @@ fn validate_anchor_reference(bundle: &ProofBundle) -> Result<()> {
 fn verify_bundle_signatures(bundle: &ProofBundle, scheme: SignatureScheme) -> Result<()> {
     // Check we have signatures
     if bundle.signatures.is_empty() {
-        return Err(AdapterError::SignatureVerificationFailed(
+        return Err(ProtocolError::SignatureVerificationFailed(
             "No signatures in proof bundle".to_string(),
         ));
     }
@@ -419,7 +419,7 @@ fn verify_bundle_signatures(bundle: &ProofBundle, scheme: SignatureScheme) -> Re
     for (i, sig_bytes) in bundle.signatures.iter().enumerate() {
         // Parse signature format: [pk_len (4)] [public_key] [signature]
         if sig_bytes.len() < 4 {
-            return Err(AdapterError::SignatureVerificationFailed(format!(
+            return Err(ProtocolError::SignatureVerificationFailed(format!(
                 "Signature {} too short for header",
                 i
             )));
@@ -430,7 +430,7 @@ fn verify_bundle_signatures(bundle: &ProofBundle, scheme: SignatureScheme) -> Re
             u32::from_le_bytes([sig_bytes[0], sig_bytes[1], sig_bytes[2], sig_bytes[3]]) as usize;
 
         if sig_bytes.len() < 4 + pk_len {
-            return Err(AdapterError::SignatureVerificationFailed(format!(
+            return Err(ProtocolError::SignatureVerificationFailed(format!(
                 "Signature {} too short for public key",
                 i
             )));
@@ -506,15 +506,15 @@ mod tests {
             ),
             vec![signature],
             SealPoint::new(vec![1, 2, 3], Some(42))
-                .map_err(|e| AdapterError::Generic(e.to_string()))?,
+                .map_err(|e| ProtocolError::Generic(e.to_string()))?,
             CommitAnchor::new(vec![4, 5, 6], 100, vec![])
-                .map_err(|e| AdapterError::Generic(e.to_string()))?,
+                .map_err(|e| ProtocolError::Generic(e.to_string()))?,
             InclusionProof::new(vec![0xCD; 32], Hash::new([2u8; 32]), 0)
-                .map_err(|e| AdapterError::Generic(e.to_string()))?,
+                .map_err(|e| ProtocolError::Generic(e.to_string()))?,
             FinalityProof::new(vec![], 6, false)
-                .map_err(|e| AdapterError::Generic(e.to_string()))?,
+                .map_err(|e| ProtocolError::Generic(e.to_string()))?,
         )
-        .map_err(|e| AdapterError::Generic(e.to_string()))?;
+        .map_err(|e| ProtocolError::Generic(e.to_string()))?;
         Ok(bundle)
     }
 

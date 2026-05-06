@@ -22,7 +22,7 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use csv_core::Chain;
+use csv_core::ChainId;
 
 use crate::config::Config;
 use crate::errors::CsvError;

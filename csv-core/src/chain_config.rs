@@ -1,7 +1,7 @@
 //! Chain configuration system for dynamic chain loading.
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use crate::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 /// Chain-specific capabilities and features

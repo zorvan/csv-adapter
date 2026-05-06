@@ -107,7 +107,7 @@ impl ChainFacade {
     /// # Example
     /// ```no_run
     /// use csv_adapter::facade::{ChainFacade, AdapterBuilder, AdapterConfig};
-    /// use csv_core::Chain;
+    /// use csv_core::ChainId;
     ///
     /// let facade = ChainFacade::new(/* client ref */);
     /// let adapter = AdapterBuilder::new()
@@ -135,7 +135,7 @@ impl ChainFacade {
         adapter
             .get_balance(address)
             .await
-            .map_err(|e| CsvError::AdapterError {
+            .map_err(|e| CsvError::ProtocolError {
                 chain,
                 message: format!("Balance query failed: {}", e),
             })
@@ -154,7 +154,7 @@ impl ChainFacade {
         adapter
             .get_transaction(tx_hash)
             .await
-            .map_err(|e| CsvError::AdapterError {
+            .map_err(|e| CsvError::ProtocolError {
                 chain,
                 message: format!("Transaction query failed: {}", e),
             })
@@ -174,7 +174,7 @@ impl ChainFacade {
         adapter
             .sign_transaction(unsigned_tx, key_id)
             .await
-            .map_err(|e| CsvError::AdapterError {
+            .map_err(|e| CsvError::ProtocolError {
                 chain,
                 message: format!("Transaction signing failed: {}", e),
             })
@@ -194,7 +194,7 @@ impl ChainFacade {
         adapter
             .submit_transaction(signed_tx)
             .await
-            .map_err(|e| CsvError::AdapterError {
+            .map_err(|e| CsvError::ProtocolError {
                 chain,
                 message: format!("Transaction broadcast failed: {}", e),
             })
@@ -215,7 +215,7 @@ impl ChainFacade {
         adapter
             .build_inclusion_proof(commitment, block_height)
             .await
-            .map_err(|e| CsvError::AdapterError {
+            .map_err(|e| CsvError::ProtocolError {
                 chain,
                 message: format!("Proof generation failed: {}", e),
             })
@@ -236,7 +236,7 @@ impl ChainFacade {
         adapter
             .deploy_lock_contract(admin_address, config)
             .await
-            .map_err(|e| CsvError::AdapterError {
+            .map_err(|e| CsvError::ProtocolError {
                 chain,
                 message: format!("Contract deployment failed: {}", e),
             })
@@ -255,7 +255,7 @@ impl ChainFacade {
         adapter
             .verify_deployment(contract_address)
             .await
-            .map_err(|e| CsvError::AdapterError {
+            .map_err(|e| CsvError::ProtocolError {
                 chain,
                 message: format!("Deployment verification failed: {}", e),
             })
@@ -277,7 +277,7 @@ impl ChainFacade {
         adapter
             .create_sanad(owner, asset_class, asset_id, metadata)
             .await
-            .map_err(|e| CsvError::AdapterError {
+            .map_err(|e| CsvError::ProtocolError {
                 chain,
                 message: format!("Sanad creation failed: {}", e),
             })
@@ -297,7 +297,7 @@ impl ChainFacade {
         adapter
             .consume_sanad(&sanad_id.into(), owner_key_id)
             .await
-            .map_err(|e| CsvError::AdapterError {
+            .map_err(|e| CsvError::ProtocolError {
                 chain,
                 message: format!("Sanad consumption failed: {}", e),
             })
@@ -318,7 +318,7 @@ impl ChainFacade {
         adapter
             .lock_sanad(&sanad_id.into(), destination_chain, owner_key_id)
             .await
-            .map_err(|e| CsvError::AdapterError {
+            .map_err(|e| CsvError::ProtocolError {
                 chain,
                 message: format!("Sanad lock failed: {}", e),
             })
@@ -352,7 +352,7 @@ impl ChainFacade {
         // Delegate to the adapter's create_seal method
         adapter
             .create_seal(value)
-            .map_err(|e| CsvError::AdapterError {
+            .map_err(|e| CsvError::ProtocolError {
                 chain,
                 message: format!("Seal creation failed: {}", e),
             })
@@ -374,7 +374,7 @@ impl ChainFacade {
         adapter
             .mint_sanad(source_chain, &sanad_id.into(), lock_proof, new_owner)
             .await
-            .map_err(|e| CsvError::AdapterError {
+            .map_err(|e| CsvError::ProtocolError {
                 chain,
                 message: format!("Sanad mint failed: {}", e),
             })
@@ -395,7 +395,7 @@ impl ChainFacade {
         adapter
             .confirm_transaction(tx_hash, required_confirmations, timeout_secs)
             .await
-            .map_err(|e| CsvError::AdapterError {
+            .map_err(|e| CsvError::ProtocolError {
                 chain,
                 message: format!("Transaction confirmation failed: {}", e),
             })
@@ -411,7 +411,7 @@ impl ChainFacade {
         adapter
             .get_fee_estimate()
             .await
-            .map_err(|e| CsvError::AdapterError {
+            .map_err(|e| CsvError::ProtocolError {
                 chain,
                 message: format!("Fee estimate query failed: {}", e),
             })
@@ -429,7 +429,7 @@ impl ChainFacade {
         adapter
             .get_account_nonce(address)
             .await
-            .map_err(|e| CsvError::AdapterError {
+            .map_err(|e| CsvError::ProtocolError {
                 chain,
                 message: format!("Failed to get transaction count: {}", e),
             })
@@ -462,7 +462,7 @@ impl ChainFacade {
     ) -> Result<Vec<u8>, CsvError> {
         let adapter = self.get_adapter(chain).await?;
         adapter.build_contract_call(contract, function, args, from, nonce)
-            .map_err(|e| CsvError::AdapterError {
+            .map_err(|e| CsvError::ProtocolError {
                 chain,
                 message: format!("Contract call encoding failed: {}", e),
             })
@@ -508,7 +508,7 @@ impl ChainFacade {
 
         // Query the chain for the inclusion proof at the latest block
         let block_height = adapter.get_latest_block_height().await.map_err(|e| {
-            CsvError::AdapterError {
+            CsvError::ProtocolError {
                 chain,
                 message: format!("Failed to get latest block height: {}", e),
             }
@@ -521,7 +521,7 @@ impl ChainFacade {
         let inclusion_proof = adapter
             .build_inclusion_proof(&commitment, block_height)
             .await
-            .map_err(|e| CsvError::AdapterError {
+            .map_err(|e| CsvError::ProtocolError {
                 chain,
                 message: format!("Failed to build inclusion proof: {}", e),
             })?;
@@ -539,7 +539,7 @@ impl ChainFacade {
         let finality_proof = adapter
             .build_finality_proof(&tx_hash)
             .await
-            .map_err(|e| CsvError::AdapterError {
+            .map_err(|e| CsvError::ProtocolError {
                 chain,
                 message: format!("Failed to build finality proof: {}", e),
             })?;
@@ -561,19 +561,19 @@ impl ChainFacade {
             dag_segment,
             vec![], // Signatures will be added by the caller
             csv_core::seal::SealPoint::new(seal_id.clone(), None)
-                .map_err(|e| CsvError::AdapterError {
+                .map_err(|e| CsvError::ProtocolError {
                     chain,
                     message: format!("Failed to create seal ref: {}", e),
                 })?,
             csv_core::seal::CommitAnchor::new(seal_id, block_height, inclusion_proof.proof_bytes.clone())
-                .map_err(|e| CsvError::AdapterError {
+                .map_err(|e| CsvError::ProtocolError {
                     chain,
                     message: format!("Failed to create anchor ref: {}", e),
                 })?,
             inclusion_proof,
             finality_proof,
         )
-        .map_err(|e| CsvError::AdapterError {
+        .map_err(|e| CsvError::ProtocolError {
             chain,
             message: format!("Failed to create proof bundle: {}", e),
         })?;
@@ -611,7 +611,7 @@ impl ChainFacade {
         let commitment = csv_core::hash::Hash::new(*sanad_id.as_bytes());
         let inclusion_valid = adapter
             .verify_inclusion_proof(&proof_bundle.inclusion_proof, &commitment)
-            .map_err(|e| CsvError::AdapterError {
+            .map_err(|e| CsvError::ProtocolError {
                 chain,
                 message: format!("Inclusion proof verification failed: {}", e),
             })?;
@@ -625,7 +625,7 @@ impl ChainFacade {
         let tx_hash = hex::encode(sanad_id.as_bytes());
         let finality_valid = adapter
             .verify_finality_proof(&proof_bundle.finality_proof, &tx_hash)
-            .map_err(|e| CsvError::AdapterError {
+            .map_err(|e| CsvError::ProtocolError {
                 chain,
                 message: format!("Finality proof verification failed: {}", e),
             })?;
@@ -763,14 +763,14 @@ impl AdapterBuilder {
 
         // Create the SealProtocol first (this is the protocol primitive)
         let anchor_layer = EthereumSealProtocol::from_config(config, rpc, csv_seal_address)
-            .map_err(|e| CsvError::AdapterError {
+            .map_err(|e| CsvError::ProtocolError {
                 chain: Chain::Ethereum,
                 message: format!("Failed to create Ethereum anchor layer: {}", e),
             })?;
 
         // Create ChainOperations from SealProtocol (this implements ChainBackend)
         let operations = EthereumChainOperations::from_anchor_layer(&anchor_layer)
-            .map_err(|e| CsvError::AdapterError {
+            .map_err(|e| CsvError::ProtocolError {
                 chain: Chain::Ethereum,
                 message: format!("Failed to create Ethereum chain operations: {}", e),
             })?;
@@ -789,13 +789,13 @@ impl AdapterBuilder {
         use csv_sui::adapter::SuiSealProtocol;
 
         let anchor_layer = SuiSealProtocol::from_config(config, rpc)
-            .map_err(|e| CsvError::AdapterError {
+            .map_err(|e| CsvError::ProtocolError {
                 chain: Chain::Sui,
                 message: format!("Failed to create Sui anchor layer: {}", e),
             })?;
 
         let operations = SuiChainOperations::from_anchor_layer(&anchor_layer)
-            .map_err(|e| CsvError::AdapterError {
+            .map_err(|e| CsvError::ProtocolError {
                 chain: Chain::Sui,
                 message: format!("Failed to create Sui chain operations: {}", e),
             })?;
@@ -814,13 +814,13 @@ impl AdapterBuilder {
         use csv_aptos::adapter::AptosSealProtocol;
 
         let anchor_layer = AptosSealProtocol::from_config(config, rpc)
-            .map_err(|e| CsvError::AdapterError {
+            .map_err(|e| CsvError::ProtocolError {
                 chain: Chain::Aptos,
                 message: format!("Failed to create Aptos anchor layer: {}", e),
             })?;
 
         let operations = AptosChainOperations::from_anchor_layer(&anchor_layer)
-            .map_err(|e| CsvError::AdapterError {
+            .map_err(|e| CsvError::ProtocolError {
                 chain: Chain::Aptos,
                 message: format!("Failed to create Aptos chain operations: {}", e),
             })?;
@@ -840,13 +840,13 @@ impl AdapterBuilder {
 
         // Solana now uses from_config() following the standard facade pattern
         let anchor_layer = SolanaSealProtocol::from_config(config, rpc)
-            .map_err(|e| CsvError::AdapterError {
+            .map_err(|e| CsvError::ProtocolError {
                 chain: Chain::Solana,
                 message: format!("Failed to create Solana anchor layer: {}", e),
             })?;
 
         let operations = SolanaChainOperations::from_anchor_layer(&anchor_layer)
-            .map_err(|e| CsvError::AdapterError {
+            .map_err(|e| CsvError::ProtocolError {
                 chain: Chain::Solana,
                 message: format!("Failed to create Solana chain operations: {}", e),
             })?;
@@ -866,13 +866,13 @@ impl AdapterBuilder {
 
         // Bitcoin uses from_config() following the standard facade pattern
         let anchor_layer = BitcoinSealProtocol::from_config(config, rpc)
-            .map_err(|e| CsvError::AdapterError {
+            .map_err(|e| CsvError::ProtocolError {
                 chain: Chain::Bitcoin,
                 message: format!("Failed to create Bitcoin anchor layer: {}", e),
             })?;
 
         let operations = BitcoinBackend::from_anchor_layer(&anchor_layer)
-            .map_err(|e| CsvError::AdapterError {
+            .map_err(|e| CsvError::ProtocolError {
                 chain: Chain::Bitcoin,
                 message: format!("Failed to create Bitcoin chain operations: {}", e),
             })?;

@@ -15,7 +15,7 @@ use std::sync::Mutex;
 
 use csv_core::commitment::Commitment;
 use csv_core::dag::DAGSegment;
-use csv_core::error::AdapterError;
+use csv_core::error::ProtocolError;
 use csv_core::error::Result as CoreResult;
 use csv_core::proof::{FinalityProof, ProofBundle};
 
@@ -488,10 +488,10 @@ impl SuiSealProtocol {
                 async move {
                     EventProofVerifier::verify_event_in_tx(tx_digest, &expected_event_data, rpc.as_ref()).await
                 }
-            }).map_err(|e: SuiError| AdapterError::InclusionProofFailed(e.to_string()))?;
+            }).map_err(|e: SuiError| ProtocolError::InclusionProofFailed(e.to_string()))?;
 
         if !valid {
-            return Err(AdapterError::InclusionProofFailed(
+            return Err(ProtocolError::InclusionProofFailed(
                 "Event verification failed: commitment mismatch".to_string(),
             ));
         }
@@ -514,7 +514,7 @@ impl SealProtocol for SuiSealProtocol {
 
         // Verify seal is available
         self.verify_seal_available(&seal)
-            .map_err(AdapterError::from)?;
+            .map_err(ProtocolError::from)?;
 
         #[cfg(feature = "rpc")]
         {
@@ -532,7 +532,7 @@ impl SealProtocol for SuiSealProtocol {
             let (tx_bytes, signature, public_key) = self
                 .build_and_sign_move_call(&seal, *commitment.as_bytes())
                 .map_err(|e| {
-                    AdapterError::PublishFailed(format!(
+                    ProtocolError::PublishFailed(format!(
                         "Failed to build and sign transaction: {}",
                         e
                     ))
@@ -545,7 +545,7 @@ impl SealProtocol for SuiSealProtocol {
                     .ok_or_else(|| SuiError::RpcError("Transaction not found after submission".to_string()))?;
                 Ok::<_, Box<dyn std::error::Error + Send + Sync>>((tx_digest, block))
             })
-            .map_err(|e| AdapterError::PublishFailed(format!("Transaction failed: {}", e)))?;
+            .map_err(|e| ProtocolError::PublishFailed(format!("Transaction failed: {}", e)))?;
 
             // Verify the emitted event matches the expected commitment
             let valid = self.run_with_rpc(|rpc| {
@@ -554,10 +554,10 @@ impl SealProtocol for SuiSealProtocol {
                 async move {
                     EventProofVerifier::verify_event_in_tx(tx_digest, &event_data, rpc.as_ref()).await
                 }
-            }).map_err(|e: SuiError| AdapterError::InclusionProofFailed(e.to_string()))?;
+            }).map_err(|e: SuiError| ProtocolError::InclusionProofFailed(e.to_string()))?;
 
             if !valid {
-                return Err(AdapterError::PublishFailed(
+                return Err(ProtocolError::PublishFailed(
                     "Event verification failed: commitment mismatch".to_string(),
                 ));
             }
@@ -567,7 +567,7 @@ impl SealProtocol for SuiSealProtocol {
             let mut registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
             registry
                 .mark_seal_used(&seal, checkpoint)
-                .map_err(AdapterError::from)?;
+                .map_err(ProtocolError::from)?;
 
             Ok(SuiCommitAnchor::new(seal.object_id, tx_digest, checkpoint))
         }
@@ -578,7 +578,7 @@ impl SealProtocol for SuiSealProtocol {
             let mut registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
             registry
                 .mark_seal_used(&seal, 0)
-                .map_err(AdapterError::from)?;
+                .map_err(ProtocolError::from)?;
 
             // Build event data for this commitment
             let _event_data = self
@@ -599,9 +599,9 @@ impl SealProtocol for SuiSealProtocol {
 // Fetch checkpoint info from the Sui node
         let checkpoint_info = self.run_with_rpc(|rpc| async move {
             rpc.get_checkpoint(anchor.checkpoint).await
-        }).map_err(|e| AdapterError::InclusionProofFailed(format!("Failed to fetch checkpoint: {}", e)))?
+        }).map_err(|e| ProtocolError::InclusionProofFailed(format!("Failed to fetch checkpoint: {}", e)))?
         .ok_or_else(|| {
-            AdapterError::InclusionProofFailed(format!(
+            ProtocolError::InclusionProofFailed(format!(
                 "Checkpoint {} not found",
                 anchor.checkpoint
             ))
@@ -615,10 +615,10 @@ impl SealProtocol for SuiSealProtocol {
                 async move {
                     verifier.is_checkpoint_certified(cp_seq, rpc.as_ref()).await
                 }
-            }).map_err(|e| AdapterError::InclusionProofFailed(format!("Checkpoint check failed: {}", e)))?;
+            }).map_err(|e| ProtocolError::InclusionProofFailed(format!("Checkpoint check failed: {}", e)))?;
 
             if !is_certified.is_certified {
-                return Err(AdapterError::InclusionProofFailed(format!(
+                return Err(ProtocolError::InclusionProofFailed(format!(
                     "Checkpoint {} is not yet certified",
                     anchor.checkpoint
                 )));
@@ -647,7 +647,7 @@ impl SealProtocol for SuiSealProtocol {
             async move {
                 verifier.is_checkpoint_certified(cp_seq, rpc.as_ref()).await
             }
-        }).map_err(|e| AdapterError::InclusionProofFailed(format!("Finality check failed: {}", e)))?
+        }).map_err(|e| ProtocolError::InclusionProofFailed(format!("Finality check failed: {}", e)))?
         .is_certified;
 
         Ok(SuiFinalityProof::new(anchor.checkpoint, is_certified))
@@ -656,14 +656,14 @@ impl SealProtocol for SuiSealProtocol {
     fn enforce_seal(&self, seal: Self::SealPoint) -> CoreResult<()> {
         let mut registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
         if registry.is_seal_used(&seal) {
-            return Err(AdapterError::SealReplay(format!(
+            return Err(ProtocolError::SealReplay(format!(
                 "Object {} already consumed",
                 format_object_id(seal.object_id)
             )));
         }
         registry
             .mark_seal_used(&seal, 0)
-            .map_err(AdapterError::from)
+            .map_err(ProtocolError::from)
     }
 
     fn create_seal(&self, _value: Option<u64>) -> CoreResult<Self::SealPoint> {
@@ -710,20 +710,20 @@ impl SealProtocol for SuiSealProtocol {
         let finality = self.verify_finality(anchor.clone())?;
 
         let seal_ref = CoreSealPoint::new(anchor.object_id.to_vec(), Some(anchor.checkpoint))
-            .map_err(|e| AdapterError::Generic(e.to_string()))?;
+            .map_err(|e| ProtocolError::Generic(e.to_string()))?;
 
         let anchor_ref = CoreCommitAnchor::new(anchor.object_id.to_vec(), anchor.checkpoint, vec![])
-            .map_err(|e| AdapterError::Generic(e.to_string()))?;
+            .map_err(|e| ProtocolError::Generic(e.to_string()))?;
 
         let inclusion_proof = csv_core::InclusionProof::new(
             inclusion.object_proof,
             Hash::new(inclusion.checkpoint_hash),
             inclusion.checkpoint_number,
         )
-        .map_err(|e| AdapterError::Generic(e.to_string()))?;
+        .map_err(|e| ProtocolError::Generic(e.to_string()))?;
 
         let finality_proof = FinalityProof::new(vec![], finality.checkpoint, finality.is_certified)
-            .map_err(|e| AdapterError::Generic(e.to_string()))?;
+            .map_err(|e| ProtocolError::Generic(e.to_string()))?;
 
         // Extract signatures from DAG nodes
         let signatures: Vec<Vec<u8>> = transition_dag
@@ -740,7 +740,7 @@ impl SealProtocol for SuiSealProtocol {
             inclusion_proof,
             finality_proof,
         )
-        .map_err(|e| AdapterError::Generic(e.to_string()))
+        .map_err(|e| ProtocolError::Generic(e.to_string()))
     }
 
     fn rollback(&self, anchor: Self::CommitAnchor) -> CoreResult<()> {
@@ -750,11 +750,11 @@ impl SealProtocol for SuiSealProtocol {
         );
          let current_checkpoint = self.run_with_rpc(|rpc| async move {
             rpc.get_latest_checkpoint_sequence_number().await
-        }).map_err(|e| AdapterError::NetworkError(e.to_string()))?;
+        }).map_err(|e| ProtocolError::NetworkError(e.to_string()))?;
 
         // If anchor checkpoint is beyond current tip, rollback
         if anchor.checkpoint > current_checkpoint {
-            return Err(AdapterError::ReorgInvalid(format!(
+            return Err(ProtocolError::ReorgInvalid(format!(
                 "Anchor checkpoint {} beyond current tip {}",
                 anchor.checkpoint, current_checkpoint
             )));

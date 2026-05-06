@@ -84,7 +84,7 @@ impl SanadsManager {
     ///
     /// - [`CsvError::ChainNotSupported`] if the chain is not enabled.
     /// - [`CsvError::InsufficientFunds`] if the wallet lacks funds for seal creation.
-    /// - [`CsvError::AdapterError`] if the underlying chain operation fails.
+    /// - [`CsvError::ProtocolError`] if the underlying chain operation fails.
     pub fn create(&self, commitment: Hash, chain: Chain) -> Result<Sanad, CsvError> {
         if !self.client.is_chain_enabled(chain) {
             return Err(CsvError::ChainNotSupported(chain));

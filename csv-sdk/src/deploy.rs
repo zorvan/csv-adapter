@@ -27,7 +27,7 @@ use std::sync::Arc;
 
 use crate::client::ClientRef;
 use crate::errors::CsvError;
-use csv_core::Chain;
+use csv_core::ChainId;
 
 /// Result type for deployment operations.
 pub type DeploymentResult<T> = Result<T, DeploymentError>;

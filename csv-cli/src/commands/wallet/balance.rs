@@ -49,11 +49,11 @@ pub fn cmd_list(_config: &Config, state: &mut UnifiedStateManager) -> Result<()>
     output::header("Wallet Addresses");
 
     let chains = vec![
-        Chain::Bitcoin,
-        Chain::Ethereum,
-        Chain::Sui,
-        Chain::Aptos,
-        Chain::Solana,
+        builtin::Bitcoin,
+        builtin::Ethereum,
+        builtin::Sui,
+        builtin::Aptos,
+        builtin::Solana,
     ];
 
     let mut found_any = false;
@@ -79,15 +79,15 @@ pub fn cmd_list(_config: &Config, state: &mut UnifiedStateManager) -> Result<()>
 /// chain adapter dependencies per Phase 5 of the Production Guarantee Plan.
 async fn query_balance(chain: &Chain, address: &str, config: &Config) -> Result<f64> {
     use csv_adapter::prelude::NetworkType;
-    use csv_core::Chain as CoreChain;
+    use csv_core::ChainId;
 
     // Map CLI Chain to core Chain
     let core_chain = match chain {
-        Chain::Bitcoin => CoreChain::Bitcoin,
-        Chain::Ethereum => CoreChain::Ethereum,
-        Chain::Solana => CoreChain::Solana,
-        Chain::Sui => CoreChain::Sui,
-        Chain::Aptos => CoreChain::Aptos,
+        builtin::Bitcoin => Corebuiltin::Bitcoin,
+        builtin::Ethereum => Corebuiltin::Ethereum,
+        builtin::Solana => Corebuiltin::Solana,
+        builtin::Sui => Corebuiltin::Sui,
+        builtin::Aptos => Corebuiltin::Aptos,
     };
 
     // Build CSV client with the requested chain enabled
@@ -110,7 +110,7 @@ async fn query_balance(chain: &Chain, address: &str, config: &Config) -> Result<
     // Execute async operations using the existing tokio runtime
     let balance_info = async {
         client.init_adapters(network).await.map_err(|e| {
-            csv_adapter::CsvError::AdapterError {
+            csv_adapter::CsvError::ProtocolError {
                 chain: core_chain,
                 message: format!("Failed to initialize adapters: {}", e),
             }
@@ -138,10 +138,10 @@ async fn query_balance(chain: &Chain, address: &str, config: &Config) -> Result<
 /// Get symbol for chain.
 fn chain_symbol(chain: &Chain) -> &'static str {
     match chain {
-        Chain::Bitcoin => "BTC",
-        Chain::Ethereum => "ETH",
-        Chain::Sui => "SUI",
-        Chain::Aptos => "APT",
-        Chain::Solana => "SOL",
+        builtin::Bitcoin => "BTC",
+        builtin::Ethereum => "ETH",
+        builtin::Sui => "SUI",
+        builtin::Aptos => "APT",
+        builtin::Solana => "SOL",
     }
 }

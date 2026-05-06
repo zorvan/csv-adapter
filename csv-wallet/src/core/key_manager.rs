@@ -2,7 +2,7 @@
 //!
 //! Handles key derivation and signing operations for all supported chains.
 
-use csv_core::Chain;
+use csv_core::ChainId;
 use csv_core::mcp::{HasErrorSuggestion, FixAction, error_codes};
 use secp256k1::{Secp256k1, SecretKey, XOnlyPublicKey};
 use ed25519_dalek::{SigningKey, VerifyingKey};

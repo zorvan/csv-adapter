@@ -264,14 +264,14 @@ pub trait ZkVerifier {
 ///
 /// Manages verifier keys for each chain's ZK proof system.
 pub struct ZkVerifierRegistry {
-    verifiers: std::collections::HashMap<crate::protocol_version::ChainId, VerifierKey>,
+    verifiers: crate::collections::HashMap<crate::protocol_version::ChainId, VerifierKey>,
 }
 
 impl ZkVerifierRegistry {
     /// Create a new empty verifier registry
     pub fn new() -> Self {
         Self {
-            verifiers: std::collections::HashMap::new(),
+            verifiers: crate::collections::HashMap::new(),
         }
     }
 

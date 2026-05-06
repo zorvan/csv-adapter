@@ -7,7 +7,7 @@
 use thiserror::Error;
 
 use csv_core::mcp::{error_codes, FixAction, HasErrorSuggestion};
-use csv_core::Chain;
+use csv_core::ChainId;
 
 /// Unified error type for all CSV operations.
 ///
@@ -92,7 +92,7 @@ pub enum CsvError {
 
     /// A chain-specific adapter error wrapped from the underlying crate.
     #[error("Adapter error on {chain}: {message}")]
-    AdapterError {
+    ProtocolError {
         /// Which chain the error occurred on.
         chain: Chain,
         /// Human-readable error message.
@@ -118,7 +118,7 @@ impl CsvError {
     pub fn is_retryable(&self) -> bool {
         matches!(
             self,
-            Self::NetworkError(_) | Self::StoreError(_) | Self::AdapterError { .. }
+            Self::NetworkError(_) | Self::StoreError(_) | Self::ProtocolError { .. }
         )
     }
 
@@ -148,7 +148,7 @@ impl HasErrorSuggestion for CsvError {
             Self::BuilderError(_) => error_codes::CSV_BUILDER_ERROR,
             Self::DeploymentError(_) => error_codes::CSV_DEPLOYMENT_ERROR,
             Self::EventStreamError(_) => error_codes::CSV_EVENT_STREAM_ERROR,
-            Self::AdapterError { .. } => error_codes::CSV_ADAPTER_ERROR,
+            Self::ProtocolError { .. } => error_codes::CSV_ADAPTER_ERROR,
             Self::CapabilityUnavailable { .. } => "CSV_CAPABILITY_UNAVAILABLE",
             Self::Generic(_) => error_codes::CSV_GENERIC,
         }
@@ -248,7 +248,7 @@ impl HasErrorSuggestion for CsvError {
             Self::EventStreamError(_) => {
                 "Event stream error. Check the stream endpoint and retry.".to_string()
             }
-            Self::AdapterError { chain, message } => {
+            Self::ProtocolError { chain, message } => {
                 format!(
                     "Adapter error on {}: {}. Check chain-specific documentation.",
                     chain, message
@@ -303,8 +303,8 @@ impl HasErrorSuggestion for CsvError {
 }
 
 // Conversion from csv-adapter-core errors
-impl From<csv_core::AdapterError> for CsvError {
-    fn from(err: csv_core::AdapterError) -> Self {
+impl From<csv_core::ProtocolError> for CsvError {
+    fn from(err: csv_core::ProtocolError) -> Self {
         CsvError::Generic(err.to_string())
     }
 }

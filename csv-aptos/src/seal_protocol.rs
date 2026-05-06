@@ -18,7 +18,7 @@ use tokio::runtime::Handle;
 
 use csv_core::commitment::Commitment;
 use csv_core::dag::DAGSegment;
-use csv_core::error::AdapterError;
+use csv_core::error::ProtocolError;
 use csv_core::error::Result as CoreResult;
 use csv_core::proof::{FinalityProof, ProofBundle};
 use csv_core::seal::CommitAnchor as CoreCommitAnchor;
@@ -175,7 +175,7 @@ impl AptosSealProtocol {
         #[cfg(not(feature = "rpc"))]
         let exists = Ok(true);
 
-        let exists = exists.map_err(|e: AptosError| AdapterError::from(e))?;
+        let exists = exists.map_err(|e: AptosError| ProtocolError::from(e))?;
 
         if !exists {
             return Err(AptosError::StateProofFailed(format!(
@@ -374,10 +374,10 @@ impl AptosSealProtocol {
             &expected_event_data,
             self.rpc.as_ref(),
         )
-        .map_err(|e: AptosError| AdapterError::InclusionProofFailed(e.to_string()))?;
+        .map_err(|e: AptosError| ProtocolError::InclusionProofFailed(e.to_string()))?;
 
         if !valid {
-            return Err(AdapterError::InclusionProofFailed(
+            return Err(ProtocolError::InclusionProofFailed(
                 "Event verification failed: commitment mismatch".to_string(),
             ));
         }
@@ -424,7 +424,7 @@ impl SealProtocol for AptosSealProtocol {
 
         // Verify seal is available
         self.verify_seal_available(&seal)
-            .map_err(AdapterError::from)?;
+            .map_err(ProtocolError::from)?;
 
         #[cfg(feature = "rpc")]
         {
@@ -432,7 +432,7 @@ impl SealProtocol for AptosSealProtocol {
             let (tx_json, expected_event_data) = self
                 .build_and_sign_entry_function(&seal, *commitment.as_bytes())
                 .map_err(|e| {
-                    AdapterError::PublishFailed(format!(
+                    ProtocolError::PublishFailed(format!(
                         "Failed to build and sign transaction: {}",
                         e
                     ))
@@ -444,7 +444,7 @@ impl SealProtocol for AptosSealProtocol {
                 rt.block_on(async {
                     self.rpc.submit_signed_transaction(tx_json).await
                 })
-            }.map_err(|e| AdapterError::PublishFailed(format!("Failed to submit transaction: {}", e)))?;
+            }.map_err(|e| ProtocolError::PublishFailed(format!("Failed to submit transaction: {}", e)))?;
 
             // Wait for transaction confirmation
             let tx = {
@@ -452,7 +452,7 @@ impl SealProtocol for AptosSealProtocol {
                 rt.block_on(async {
                     self.rpc.wait_for_transaction(submit_result).await
                 })
-            }.map_err(|e| AdapterError::NetworkError(e.to_string()))?;
+            }.map_err(|e| ProtocolError::NetworkError(e.to_string()))?;
 
             // Verify the emitted event matches the expected commitment
             let valid = {
@@ -464,10 +464,10 @@ impl SealProtocol for AptosSealProtocol {
                         self.rpc.as_ref(),
                     ).await
                 })
-            }.map_err(|e: AptosError| AdapterError::InclusionProofFailed(e.to_string()))?;
+            }.map_err(|e: AptosError| ProtocolError::InclusionProofFailed(e.to_string()))?;
 
             if !valid {
-                return Err(AdapterError::PublishFailed(
+                return Err(ProtocolError::PublishFailed(
                     "Event verification failed: commitment mismatch".to_string(),
                 ));
             }
@@ -477,7 +477,7 @@ impl SealProtocol for AptosSealProtocol {
             let mut registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
             registry
                 .mark_seal_used(&seal, version)
-                .map_err(AdapterError::from)?;
+                .map_err(ProtocolError::from)?;
 
             Ok(AptosCommitAnchor::new(version, seal.account_address, version))
         }
@@ -488,7 +488,7 @@ impl SealProtocol for AptosSealProtocol {
             let mut registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
             registry
                 .mark_seal_used(&seal, 0)
-                .map_err(AdapterError::from)?;
+                .map_err(ProtocolError::from)?;
 
             // Build event data for this commitment
             let _event_data = self
@@ -514,11 +514,11 @@ impl SealProtocol for AptosSealProtocol {
                 self.rpc.get_transaction(anchor.version).await
             })
         }
-        .map_err(|e| AdapterError::InclusionProofFailed(format!(
+        .map_err(|e| ProtocolError::InclusionProofFailed(format!(
             "Failed to fetch transaction at version {}: {}",
             anchor.version, e
         )))?
-        .ok_or_else(|| AdapterError::InclusionProofFailed(format!(
+        .ok_or_else(|| ProtocolError::InclusionProofFailed(format!(
             "Transaction at version {} not found",
             anchor.version
         )))?;
@@ -542,7 +542,7 @@ impl SealProtocol for AptosSealProtocol {
 
         // Verify transaction succeeded
         if !tx.success {
-            return Err(AdapterError::InclusionProofFailed(format!(
+            return Err(ProtocolError::InclusionProofFailed(format!(
                 "Transaction at version {} failed: {}",
                 anchor.version, tx.vm_status
             )));
@@ -556,7 +556,7 @@ impl SealProtocol for AptosSealProtocol {
                 self.rpc.get_ledger_info().await
             })
         }
-        .map_err(|e| AdapterError::InclusionProofFailed(format!(
+        .map_err(|e| ProtocolError::InclusionProofFailed(format!(
             "Failed to fetch ledger info: {}", e
         )))?;
 
@@ -573,7 +573,7 @@ impl SealProtocol for AptosSealProtocol {
 
         // Verify the transaction version is within the ledger
         if tx.version > ledger_info.ledger_version {
-            return Err(AdapterError::InclusionProofFailed(format!(
+            return Err(ProtocolError::InclusionProofFailed(format!(
                 "Transaction version {} exceeds latest ledger version {}",
                 tx.version, ledger_info.ledger_version
             )));
@@ -625,14 +625,14 @@ impl SealProtocol for AptosSealProtocol {
     fn enforce_seal(&self, seal: Self::SealPoint) -> CoreResult<()> {
         let mut registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
         if registry.is_seal_used(&seal) {
-            return Err(AdapterError::SealReplay(format!(
+            return Err(ProtocolError::SealReplay(format!(
                 "Resource already consumed at {}",
                 format_address(seal.account_address)
             )));
         }
         registry
             .mark_seal_used(&seal, 0)
-            .map_err(AdapterError::from)
+            .map_err(ProtocolError::from)
     }
 
     fn create_seal(&self, _value: Option<u64>) -> CoreResult<Self::SealPoint> {
@@ -672,20 +672,20 @@ impl SealProtocol for AptosSealProtocol {
         let inclusion = self.verify_inclusion(anchor.clone())?;
         let finality = self.verify_finality(anchor.clone())?;
         let seal_ref = CoreSealPoint::new(anchor.event_handle.to_vec(), Some(anchor.version))
-            .map_err(|e| AdapterError::Generic(e.to_string()))?;
+            .map_err(|e| ProtocolError::Generic(e.to_string()))?;
 
         let anchor_ref = CoreCommitAnchor::new(anchor.event_handle.to_vec(), anchor.version, vec![])
-            .map_err(|e| AdapterError::Generic(e.to_string()))?;
+            .map_err(|e| ProtocolError::Generic(e.to_string()))?;
 
         let inclusion_proof = csv_core::InclusionProof::new(
             inclusion.transaction_proof,
             Hash::zero(),
             inclusion.version,
         )
-        .map_err(|e| AdapterError::Generic(e.to_string()))?;
+        .map_err(|e| ProtocolError::Generic(e.to_string()))?;
 
         let finality_proof = FinalityProof::new(vec![], finality.version, finality.is_certified)
-            .map_err(|e| AdapterError::Generic(e.to_string()))?;
+            .map_err(|e| ProtocolError::Generic(e.to_string()))?;
 
         // Extract signatures from DAG nodes before moving transition_dag
         let signatures: Vec<Vec<u8>> = transition_dag
@@ -702,7 +702,7 @@ impl SealProtocol for AptosSealProtocol {
             inclusion_proof,
             finality_proof,
         )
-        .map_err(|e| AdapterError::Generic(e.to_string()))
+        .map_err(|e| ProtocolError::Generic(e.to_string()))
     }
 
     fn rollback(&self, anchor: Self::CommitAnchor) -> CoreResult<()> {
@@ -717,14 +717,14 @@ impl SealProtocol for AptosSealProtocol {
                 self.rpc.get_latest_version().await
             })
         }
-        .map_err(|e| AdapterError::NetworkError(e.to_string()))?;
+        .map_err(|e| ProtocolError::NetworkError(e.to_string()))?;
 
         #[cfg(not(feature = "rpc"))]
         let current_version = anchor.version;
 
         // If anchor version is beyond current tip, rollback
         if anchor.version > current_version {
-            return Err(AdapterError::ReorgInvalid(format!(
+            return Err(ProtocolError::ReorgInvalid(format!(
                 "Anchor version {} beyond current tip {}",
                 anchor.version, current_version
             )));

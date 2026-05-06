@@ -71,15 +71,15 @@ fn cmd_create(
     // Use the new facade to create the sanad
     use csv_adapter::CsvClient;
     use csv_adapter::StoreBackend;
-    use csv_core::Chain as CoreChain;
+    use csv_core::ChainId;
 
     // Map CLI Chain to core Chain
     let core_chain = match chain {
-        Chain::Bitcoin => CoreChain::Bitcoin,
-        Chain::Ethereum => CoreChain::Ethereum,
-        Chain::Solana => CoreChain::Solana,
-        Chain::Sui => CoreChain::Sui,
-        Chain::Aptos => CoreChain::Aptos,
+        builtin::Bitcoin => Corebuiltin::Bitcoin,
+        builtin::Ethereum => Corebuiltin::Ethereum,
+        builtin::Solana => Corebuiltin::Solana,
+        builtin::Sui => Corebuiltin::Sui,
+        builtin::Aptos => Corebuiltin::Aptos,
     };
 
     // Build CSV client with the requested chain enabled

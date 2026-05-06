@@ -4,7 +4,7 @@
 //! Signature format: 64 bytes (R || S)
 //! Public key format: 32 bytes
 
-use csv_core::error::AdapterError;
+use csv_core::error::ProtocolError;
 use csv_core::error::Result;
 
 /// Verify an Aptos Ed25519 signature
@@ -19,21 +19,21 @@ use csv_core::error::Result;
 pub fn verify_aptos_signature(signature: &[u8], public_key: &[u8], message: &[u8]) -> Result<()> {
     // Validate inputs
     if signature.len() != 64 {
-        return Err(AdapterError::SignatureVerificationFailed(format!(
+        return Err(ProtocolError::SignatureVerificationFailed(format!(
             "Invalid signature length: {} (expected 64)",
             signature.len()
         )));
     }
 
     if public_key.len() != 32 {
-        return Err(AdapterError::SignatureVerificationFailed(format!(
+        return Err(ProtocolError::SignatureVerificationFailed(format!(
             "Invalid public key length: {} (expected 32)",
             public_key.len()
         )));
     }
 
     if message.is_empty() {
-        return Err(AdapterError::SignatureVerificationFailed(
+        return Err(ProtocolError::SignatureVerificationFailed(
             "Message cannot be empty".to_string(),
         ));
     }
@@ -41,23 +41,23 @@ pub fn verify_aptos_signature(signature: &[u8], public_key: &[u8], message: &[u8
     // Parse the public key
     let verifying_key =
         ed25519_dalek::VerifyingKey::from_bytes(public_key.try_into().map_err(|_| {
-            AdapterError::SignatureVerificationFailed("Invalid public key".to_string())
+            ProtocolError::SignatureVerificationFailed("Invalid public key".to_string())
         })?)
         .map_err(|e| {
-            AdapterError::SignatureVerificationFailed(format!("Invalid Ed25519 public key: {}", e))
+            ProtocolError::SignatureVerificationFailed(format!("Invalid Ed25519 public key: {}", e))
         })?;
 
     // Parse the signature
     let sig =
         ed25519_dalek::Signature::from_bytes(signature.try_into().map_err(|_| {
-            AdapterError::SignatureVerificationFailed("Invalid signature".to_string())
+            ProtocolError::SignatureVerificationFailed("Invalid signature".to_string())
         })?);
 
     // Verify the signature
     use ed25519_dalek::Verifier;
 
     verifying_key.verify(message, &sig).map_err(|_| {
-        AdapterError::SignatureVerificationFailed(
+        ProtocolError::SignatureVerificationFailed(
             "Ed25519 signature verification failed".to_string(),
         )
     })
@@ -66,14 +66,14 @@ pub fn verify_aptos_signature(signature: &[u8], public_key: &[u8], message: &[u8
 /// Verify multiple Aptos signatures
 pub fn verify_aptos_signatures(signatures: &[(Vec<u8>, Vec<u8>, Vec<u8>)]) -> Result<()> {
     if signatures.is_empty() {
-        return Err(AdapterError::SignatureVerificationFailed(
+        return Err(ProtocolError::SignatureVerificationFailed(
             "No signatures to verify".to_string(),
         ));
     }
 
     for (i, (sig, pk, msg)) in signatures.iter().enumerate() {
         verify_aptos_signature(sig, pk, msg).map_err(|e| {
-            AdapterError::SignatureVerificationFailed(format!(
+            ProtocolError::SignatureVerificationFailed(format!(
                 "Signature {} verification failed: {}",
                 i, e
             ))
