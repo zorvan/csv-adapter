@@ -89,7 +89,7 @@ pub use csv_core::{
 
 // Re-export canonical protocol types (🔒 STABLE + 🟡 BETA)
 pub use csv_core::protocol_version::{
-    Capabilities, Chain, ErrorCode, ProtocolVersion, SyncStatus, TransferStatus, PROTOCOL_VERSION,
+    Capabilities, ChainId, ErrorCode, ProtocolVersion, SyncStatus, TransferStatus, PROTOCOL_VERSION,
 };
 
 // ===========================================================================

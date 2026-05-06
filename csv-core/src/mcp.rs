@@ -571,20 +571,20 @@ mod tests {
 
     #[test]
     fn test_chain_display() {
-        assert_eq!(Chain::Bitcoin.to_string(), "bitcoin");
-        assert_eq!(Chain::Ethereum.to_string(), "ethereum");
-        assert_eq!(Chain::Sui.to_string(), "sui");
-        assert_eq!(Chain::Aptos.to_string(), "aptos");
-        assert_eq!(Chain::Solana.to_string(), "solana");
+        assert_eq!(builtin::BITCOIN.to_string(), "bitcoin");
+        assert_eq!(builtin::ETHEREUM.to_string(), "ethereum");
+        assert_eq!(builtin::SUI.to_string(), "sui");
+        assert_eq!(builtin::APTOS.to_string(), "aptos");
+        assert_eq!(builtin::SOLANA.to_string(), "solana");
     }
 
     #[test]
     fn test_chain_from_str() {
-        assert_eq!("bitcoin".parse::<Chain>().unwrap(), Chain::Bitcoin);
-        assert_eq!("btc".parse::<Chain>().unwrap(), Chain::Bitcoin);
-        assert_eq!("ETH".parse::<Chain>().unwrap(), Chain::Ethereum);
-        assert_eq!("solana".parse::<Chain>().unwrap(), Chain::Solana);
-        assert_eq!("SOL".parse::<Chain>().unwrap(), Chain::Solana);
+        assert_eq!("bitcoin".parse::<Chain>().unwrap(), builtin::BITCOIN);
+        assert_eq!("btc".parse::<Chain>().unwrap(), builtin::BITCOIN);
+        assert_eq!("ETH".parse::<Chain>().unwrap(), builtin::ETHEREUM);
+        assert_eq!("solana".parse::<Chain>().unwrap(), builtin::SOLANA);
+        assert_eq!("SOL".parse::<Chain>().unwrap(), builtin::SOLANA);
     }
 
     #[test]

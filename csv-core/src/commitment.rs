@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::hash::Hash;
-use crate::commit_mux::MpcTree;
+use crate::commit_mux::CommitMux;
 use crate::seal::SealPoint;
 use crate::tagged_hash::csv_tagged_hash;
 
@@ -120,7 +120,7 @@ impl Commitment {
     /// (e.g., "CSV-BTC-" for Bitcoin, "CSV-ETH-" for Ethereum).
     pub fn new(
         protocol_id: [u8; 32],
-        mpc_tree: &MpcTree,
+        mpc_tree: &CommitMux,
         contract_id: Hash,
         previous_commitment: Hash,
         transition_payload_hash: Hash,
@@ -336,7 +336,7 @@ impl Commitment {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::commit_mux::MpcTree;
+    use crate::commit_mux::CommitMux;
 
     fn test_commitment_commitment() -> Commitment {
         Commitment::simple(
@@ -350,7 +350,7 @@ mod tests {
 
     fn test_mpc_commitment() -> Commitment {
         let protocol_id = [10u8; 32];
-        let mpc_tree = MpcTree::from_pairs(&[
+        let mpc_tree = CommitMux::from_pairs(&[
             (protocol_id, Hash::new([20u8; 32])),
             ([20u8; 32], Hash::new([30u8; 32])),
         ]);
@@ -418,7 +418,7 @@ mod tests {
     #[test]
     fn test_mpc_contains_mpc_root() {
         let protocol_id = [10u8; 32];
-        let mpc_tree = MpcTree::from_pairs(&[
+        let mpc_tree = CommitMux::from_pairs(&[
             (protocol_id, Hash::new([20u8; 32])),
             ([20u8; 32], Hash::new([30u8; 32])),
         ]);
@@ -436,7 +436,7 @@ mod tests {
         );
 
         // The commitment hash should differ from a commitment without this MPC root
-        let different_tree = MpcTree::from_pairs(&[(protocol_id, Hash::new([99u8; 32]))]);
+        let different_tree = CommitMux::from_pairs(&[(protocol_id, Hash::new([99u8; 32]))]);
         let c_different = Commitment::new(
             protocol_id,
             &different_tree,
@@ -452,7 +452,7 @@ mod tests {
 
     #[test]
     fn test_mpc_differs_by_protocol_id() {
-        let mpc_tree = MpcTree::from_pairs(&[([10u8; 32], Hash::new([20u8; 32]))]);
+        let mpc_tree = CommitMux::from_pairs(&[([10u8; 32], Hash::new([20u8; 32]))]);
         let seal = SealPoint::new(vec![4u8; 16], Some(42)).unwrap();
 
         let c1 = Commitment::new(
@@ -551,7 +551,7 @@ mod tests {
         let proto_b = [0xBB; 32];
         let proto_c = [0xCC; 32];
 
-        let mpc_tree = MpcTree::from_pairs(&[
+        let mpc_tree = CommitMux::from_pairs(&[
             (proto_a, Hash::new([1u8; 32])),
             (proto_b, Hash::new([2u8; 32])),
             (proto_c, Hash::new([3u8; 32])),

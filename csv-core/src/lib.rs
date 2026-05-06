@@ -114,13 +114,10 @@ pub mod state_store;
 pub mod validator;
 
 // Chain driver system for dynamic chain support
-pub mod adapter_factory;
 pub mod adapters;
 pub mod driver;
 pub mod driver_registry;
 pub mod chain_config;
-pub mod chain_discovery;
-pub mod chain_plugin;
 
 // RGB protocol compatibility (Sprint 5) - 🧪 EXPERIMENTAL
 #[cfg(feature = "experimental")]
@@ -139,7 +136,8 @@ pub mod zk_proof;
 
 // Protocol version, chain IDs, transfer status, error codes, capabilities
 pub use protocol_version::{
-    Capabilities, Chain, ErrorCode, ProtocolVersion, SyncStatus, TransferStatus, PROTOCOL_VERSION,
+    builtin, Capabilities, ChainId, ErrorCode, ProtocolVersion, SyncStatus, TransferStatus,
+    PROTOCOL_VERSION,
 };
 
 // ===========================================================================
@@ -236,23 +234,16 @@ pub use performance::{
 pub use store::{AnchorRecord, InMemorySealStore, SanadRecord, SanadStore, SealRecord, SealStore, StoreError};
 
 // Chain driver system (Beta API)
-pub use adapter_factory::{create_adapter, is_chain_supported, AdapterFactory};
 pub use driver::{
     ChainDriver, ChainDriverExt, ChainError, ChainRegistry, ChainResult, RpcClient, Wallet,
 };
 pub use chain_config::{AccountModel, ChainCapabilities, ChainConfig, ChainConfigLoader};
-pub use chain_discovery::{ChainDiscovery, ChainInfo};
-pub use chain_plugin::{
-    ChainPlugin, ChainPluginBuildError, ChainPluginBuilder, ChainPluginMetadata,
-    ChainPluginRegistry,
-};
 
 // Unified driver registry (Phase 2)
 pub use driver_registry::{
-    BuiltDriverPlugin, ChainInfo as DriverChainInfo, DriverDiscovery, DriverMetadata,
-    DriverPlugin, DriverPluginBuildError, DriverPluginBuilder, DriverRegistry,
-    create_adapter as create_driver, global_factory, init_global_factory,
-    is_chain_supported as is_driver_supported,
+    BuiltDriverPlugin, DriverDiscovery, DriverMetadata, DriverPlugin, DriverPluginBuildError,
+    DriverPluginBuilder, DriverRegistry, create_adapter as create_driver, global_factory,
+    init_global_factory, is_chain_supported as is_driver_supported,
 };
 
 // ===========================================================================

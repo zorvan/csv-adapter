@@ -87,98 +87,103 @@ impl std::fmt::Display for ProtocolVersion {
 }
 
 // ===========================================================================
-// Chain IDs (Canonical Registry) [🔒 STABLE]
+// Chain IDs (Open Registry) [🔒 STABLE]
 // ===========================================================================
 
-/// Canonical chain identifier.
+/// Open chain identifier — any string is valid.
 ///
-/// This enum is the **single source of truth** for chain IDs across all
-/// protocol consumers. All adapters, CLI output, SDK types, explorer queries,
-/// and wallet operations MUST use this enum.
+/// For the 100-chain goal, chain IDs are plain strings registered at runtime
+/// via `DriverRegistry`. This type is a thin newtype over `String` that
+/// provides ergonomic comparison, display, and serialization.
 ///
 /// ### Adding a new chain
 ///
-/// 1. Add variant here (with doc comment explaining the chain)
-/// 2. Update `Chain::from_str` and `Display` impl
-/// 3. Mirror in `typescript-sdk/src/types.ts`
-/// 4. Update `csv-api.yaml` if applicable
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-#[non_exhaustive]
-pub enum Chain {
-    /// Bitcoin mainnet/testnet (UTXO-based)
-    Bitcoin,
-    /// Ethereum mainnet/testnet (EVM-based)
-    Ethereum,
-    /// Sui mainnet/testnet (Move-based, object-oriented)
-    Sui,
-    /// Aptos mainnet/testnet (Move-based, resource-oriented)
-    Aptos,
-    /// Solana mainnet/devnet (Sealevel-based, account-oriented)
-    Solana,
-}
+/// 1. Create a new `csv-{chain}` crate implementing `ChainDriver`
+/// 2. Register it: `registry.register(NewChainDriver::new())`
+/// 3. The chain ID is whatever `driver.metadata().chain_id` returns
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct ChainId(pub String);
 
-impl Chain {
-    /// Canonical chain ID string (lowercase, kebab-case).
-    pub fn id(&self) -> &'static str {
-        match self {
-            Self::Bitcoin => "bitcoin",
-            Self::Ethereum => "ethereum",
-            Self::Sui => "sui",
-            Self::Aptos => "aptos",
-            Self::Solana => "solana",
-        }
+impl ChainId {
+    /// Create a new ChainId from a string.
+    pub fn new(id: impl Into<String>) -> Self {
+        Self(id.into().to_lowercase())
     }
 
-    /// Human-readable chain name.
-    pub fn name(&self) -> &'static str {
-        match self {
-            Self::Bitcoin => "Bitcoin",
-            Self::Ethereum => "Ethereum",
-            Self::Sui => "Sui",
-            Self::Aptos => "Aptos",
-            Self::Solana => "Solana",
-        }
+    /// Get the raw chain ID string.
+    pub fn as_str(&self) -> &str {
+        &self.0
     }
 
-    /// All supported chains as a slice.
-    pub const fn all() -> &'static [Self] {
-        &[
-            Self::Bitcoin,
-            Self::Ethereum,
-            Self::Sui,
-            Self::Aptos,
-            Self::Solana,
-        ]
+    /// Convert to owned string.
+    pub fn into_string(self) -> String {
+        self.0
     }
 }
 
-impl std::fmt::Display for Chain {
+impl std::fmt::Display for ChainId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.id())
+        write!(f, "{}", self.0)
     }
 }
 
-impl std::str::FromStr for Chain {
-    type Err = String;
+impl std::str::FromStr for ChainId {
+    type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "bitcoin" | "btc" => Ok(Self::Bitcoin),
-            "ethereum" | "eth" => Ok(Self::Ethereum),
-            "sui" => Ok(Self::Sui),
-            "aptos" | "apt" => Ok(Self::Aptos),
-            "solana" | "sol" => Ok(Self::Solana),
-            _ => Err(format!(
-                "Unknown chain: '{}'. Supported: {}",
-                s,
-                Self::all()
-                    .iter()
-                    .map(|c| c.id())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            )),
+        if s.is_empty() {
+            Err(())
+        } else {
+            Ok(Self(s.to_lowercase()))
         }
+    }
+}
+
+impl AsRef<str> for ChainId {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl From<&str> for ChainId {
+    fn from(s: &str) -> Self {
+        Self(s.to_lowercase())
+    }
+}
+
+impl From<String> for ChainId {
+    fn from(s: String) -> Self {
+        Self(s.to_lowercase())
+    }
+}
+
+/// Built-in chain IDs for the five supported chains.
+///
+/// These are convenience constants — the protocol accepts any string ID.
+pub mod builtin {
+    use super::ChainId;
+
+    /// Bitcoin mainnet/testnet (UTXO-based)
+    pub const BITCOIN: ChainId = ChainId(String::from("bitcoin"));
+    /// Ethereum mainnet/testnet (EVM-based)
+    pub const ETHEREUM: ChainId = ChainId(String::from("ethereum"));
+    /// Sui mainnet/testnet (Move-based, object-oriented)
+    pub const SUI: ChainId = ChainId(String::from("sui"));
+    /// Aptos mainnet/testnet (Move-based, resource-oriented)
+    pub const APTOS: ChainId = ChainId(String::from("aptos"));
+    /// Solana mainnet/devnet (Sealevel-based, account-oriented)
+    pub const SOLANA: ChainId = ChainId(String::from("solana"));
+}
+
+impl PartialEq<&str> for ChainId {
+    fn eq(&self, other: &&str) -> bool {
+        self.0 == *other
+    }
+}
+
+impl PartialEq<ChainId> for &str {
+    fn eq(&self, other: &ChainId) -> bool {
+        *self == other.0
     }
 }
 
@@ -589,30 +594,38 @@ mod tests {
 
     #[test]
     fn test_chain_canonical_ids() {
-        assert_eq!(Chain::Bitcoin.id(), "bitcoin");
-        assert_eq!(Chain::Ethereum.id(), "ethereum");
-        assert_eq!(Chain::Sui.id(), "sui");
-        assert_eq!(Chain::Aptos.id(), "aptos");
-        assert_eq!(Chain::Solana.id(), "solana");
+        assert_eq!(builtin::BITCOIN.as_str(), "bitcoin");
+        assert_eq!(builtin::ETHEREUM.as_str(), "ethereum");
+        assert_eq!(builtin::SUI.as_str(), "sui");
+        assert_eq!(builtin::APTOS.as_str(), "aptos");
+        assert_eq!(builtin::SOLANA.as_str(), "solana");
     }
 
     #[test]
     fn test_chain_roundtrip() {
-        for &chain in Chain::all() {
+        let chains = [
+            builtin::BITCOIN.clone(),
+            builtin::ETHEREUM.clone(),
+            builtin::SUI.clone(),
+            builtin::APTOS.clone(),
+            builtin::SOLANA.clone(),
+        ];
+        for chain in &chains {
             let s = chain.to_string();
-            let parsed: Chain = s
+            let parsed: ChainId = s
                 .parse()
                 .unwrap_or_else(|_| panic!("Failed to parse: {}", s));
-            assert_eq!(chain, parsed, "Chain roundtrip failed for {}", s);
+            assert_eq!(chain, &parsed, "Chain roundtrip failed for {}", s);
         }
     }
 
     #[test]
-    fn test_chain_aliases() {
-        assert_eq!("btc".parse::<Chain>().unwrap(), Chain::Bitcoin);
-        assert_eq!("ETH".parse::<Chain>().unwrap(), Chain::Ethereum);
-        assert_eq!("apt".parse::<Chain>().unwrap(), Chain::Aptos);
-        assert_eq!("sol".parse::<Chain>().unwrap(), Chain::Solana);
+    fn test_chain_open_registry() {
+        // Any string is a valid chain ID
+        let arbitrary = ChainId::new("cosmos");
+        assert_eq!(arbitrary.as_str(), "cosmos");
+        let upper = ChainId::new("POLYGON");
+        assert_eq!(upper.as_str(), "polygon");
     }
 
     #[test]

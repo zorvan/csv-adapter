@@ -95,12 +95,12 @@ impl MuxProof {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct CommitMux {
     /// Leaves in deterministic order
-    pub leaves: Vec<MpcLeaf>,
+    pub leaves: Vec<MuxLeaf>,
 }
 
 impl CommitMux {
     /// Create a new MPC tree from leaves
-    pub fn new(leaves: Vec<MpcLeaf>) -> Self {
+    pub fn new(leaves: Vec<MuxLeaf>) -> Self {
         Self { leaves }
     }
 
@@ -108,7 +108,7 @@ impl CommitMux {
     pub fn from_pairs(pairs: &[(ProtocolId, Hash)]) -> Self {
         let leaves = pairs
             .iter()
-            .map(|(pid, comm)| MpcLeaf::new(*pid, *comm))
+            .map(|(pid, comm)| MuxLeaf::new(*pid, *comm))
             .collect();
         Self { leaves }
     }
@@ -221,7 +221,7 @@ impl CommitMux {
 
     /// Add a protocol to the tree
     pub fn push(&mut self, protocol_id: ProtocolId, commitment: Hash) {
-        self.leaves.push(MpcLeaf::new(protocol_id, commitment));
+        self.leaves.push(MuxLeaf::new(protocol_id, commitment));
     }
 }
 
@@ -250,69 +250,69 @@ mod tests {
     }
 
     // ─────────────────────────────────────────────
-    // MpcLeaf tests
+    // MuxLeaf tests
     // ─────────────────────────────────────────────
 
     #[test]
     fn test_leaf_creation() {
-        let leaf = MpcLeaf::new(test_protocol(1), test_commitment(42));
+        let leaf = MuxLeaf::new(test_protocol(1), test_commitment(42));
         assert_eq!(leaf.protocol_id[0], 1);
         assert_eq!(leaf.commitment.as_bytes()[31], 42);
     }
 
     #[test]
     fn test_leaf_hash_deterministic() {
-        let leaf1 = MpcLeaf::new(test_protocol(1), test_commitment(42));
-        let leaf2 = MpcLeaf::new(test_protocol(1), test_commitment(42));
+        let leaf1 = MuxLeaf::new(test_protocol(1), test_commitment(42));
+        let leaf2 = MuxLeaf::new(test_protocol(1), test_commitment(42));
         assert_eq!(leaf1.hash(), leaf2.hash());
     }
 
     #[test]
     fn test_leaf_hash_differs_by_protocol() {
-        let leaf1 = MpcLeaf::new(test_protocol(1), test_commitment(42));
-        let leaf2 = MpcLeaf::new(test_protocol(2), test_commitment(42));
+        let leaf1 = MuxLeaf::new(test_protocol(1), test_commitment(42));
+        let leaf2 = MuxLeaf::new(test_protocol(2), test_commitment(42));
         assert_ne!(leaf1.hash(), leaf2.hash());
     }
 
     #[test]
     fn test_leaf_hash_differs_by_commitment() {
-        let leaf1 = MpcLeaf::new(test_protocol(1), test_commitment(42));
-        let leaf2 = MpcLeaf::new(test_protocol(1), test_commitment(99));
+        let leaf1 = MuxLeaf::new(test_protocol(1), test_commitment(42));
+        let leaf2 = MuxLeaf::new(test_protocol(1), test_commitment(99));
         assert_ne!(leaf1.hash(), leaf2.hash());
     }
 
     // ─────────────────────────────────────────────
-    // MpcTree root tests
+    // CommitMux root tests
     // ─────────────────────────────────────────────
 
     #[test]
     fn test_empty_tree_root() {
-        let tree = MpcTree::new(vec![]);
+        let tree = CommitMux::new(vec![]);
         assert_eq!(tree.root(), Hash::zero());
     }
 
     #[test]
     fn test_single_leaf_tree_root() {
-        let leaf = MpcLeaf::new(test_protocol(1), test_commitment(42));
-        let tree = MpcTree::new(vec![leaf.clone()]);
+        let leaf = MuxLeaf::new(test_protocol(1), test_commitment(42));
+        let tree = CommitMux::new(vec![leaf.clone()]);
         assert_eq!(tree.root(), leaf.hash());
     }
 
     #[test]
     fn test_two_leaf_tree_root() {
-        let leaf_a = MpcLeaf::new(test_protocol(1), test_commitment(1));
-        let leaf_b = MpcLeaf::new(test_protocol(2), test_commitment(2));
-        let tree = MpcTree::new(vec![leaf_a.clone(), leaf_b.clone()]);
+        let leaf_a = MuxLeaf::new(test_protocol(1), test_commitment(1));
+        let leaf_b = MuxLeaf::new(test_protocol(2), test_commitment(2));
+        let tree = CommitMux::new(vec![leaf_a.clone(), leaf_b.clone()]);
         let expected = hash_pair(&leaf_a.hash(), &leaf_b.hash());
         assert_eq!(tree.root(), expected);
     }
 
     #[test]
     fn test_three_leaf_tree_root() {
-        let leaf_a = MpcLeaf::new(test_protocol(1), test_commitment(1));
-        let leaf_b = MpcLeaf::new(test_protocol(2), test_commitment(2));
-        let leaf_c = MpcLeaf::new(test_protocol(3), test_commitment(3));
-        let tree = MpcTree::new(vec![leaf_a.clone(), leaf_b.clone(), leaf_c.clone()]);
+        let leaf_a = MuxLeaf::new(test_protocol(1), test_commitment(1));
+        let leaf_b = MuxLeaf::new(test_protocol(2), test_commitment(2));
+        let leaf_c = MuxLeaf::new(test_protocol(3), test_commitment(3));
+        let tree = CommitMux::new(vec![leaf_a.clone(), leaf_b.clone(), leaf_c.clone()]);
 
         // Level 0: [A, B, C]
         // Level 1: [hash(A,B), C]
@@ -325,9 +325,9 @@ mod tests {
     #[test]
     fn test_four_leaf_tree_root() {
         let leaves: Vec<_> = (1..=4)
-            .map(|i| MpcLeaf::new(test_protocol(i), test_commitment(i)))
+            .map(|i| MuxLeaf::new(test_protocol(i), test_commitment(i)))
             .collect();
-        let tree = MpcTree::new(leaves.clone());
+        let tree = CommitMux::new(leaves.clone());
 
         let ab = hash_pair(&leaves[0].hash(), &leaves[1].hash());
         let cd = hash_pair(&leaves[2].hash(), &leaves[3].hash());
@@ -337,12 +337,12 @@ mod tests {
 
     #[test]
     fn test_tree_root_deterministic() {
-        let tree1 = MpcTree::from_pairs(&[
+        let tree1 = CommitMux::from_pairs(&[
             (test_protocol(1), test_commitment(1)),
             (test_protocol(2), test_commitment(2)),
             (test_protocol(3), test_commitment(3)),
         ]);
-        let tree2 = MpcTree::from_pairs(&[
+        let tree2 = CommitMux::from_pairs(&[
             (test_protocol(1), test_commitment(1)),
             (test_protocol(2), test_commitment(2)),
             (test_protocol(3), test_commitment(3)),
@@ -355,7 +355,7 @@ mod tests {
         let pairs: Vec<_> = (1..=100)
             .map(|i| (test_protocol(i as u8), test_commitment(i as u8)))
             .collect();
-        let tree = MpcTree::from_pairs(&pairs);
+        let tree = CommitMux::from_pairs(&pairs);
         let root = tree.root();
         assert_eq!(root.as_bytes().len(), 32);
     }
@@ -366,15 +366,15 @@ mod tests {
 
     #[test]
     fn test_proof_single_leaf() {
-        let leaf = MpcLeaf::new(test_protocol(1), test_commitment(42));
-        let tree = MpcTree::new(vec![leaf.clone()]);
+        let leaf = MuxLeaf::new(test_protocol(1), test_commitment(42));
+        let tree = CommitMux::new(vec![leaf.clone()]);
         let proof = tree.prove(test_protocol(1)).unwrap();
         assert!(proof.verify(&tree.root()));
     }
 
     #[test]
     fn test_proof_two_leaves() {
-        let tree = MpcTree::from_pairs(&[
+        let tree = CommitMux::from_pairs(&[
             (test_protocol(1), test_commitment(1)),
             (test_protocol(2), test_commitment(2)),
         ]);
@@ -386,7 +386,7 @@ mod tests {
 
     #[test]
     fn test_proof_three_leaves() {
-        let tree = MpcTree::from_pairs(&[
+        let tree = CommitMux::from_pairs(&[
             (test_protocol(1), test_commitment(1)),
             (test_protocol(2), test_commitment(2)),
             (test_protocol(3), test_commitment(3)),
@@ -402,7 +402,7 @@ mod tests {
         let pairs: Vec<_> = (1..=20)
             .map(|i| (test_protocol(i as u8), test_commitment(i as u8)))
             .collect();
-        let tree = MpcTree::from_pairs(&pairs);
+        let tree = CommitMux::from_pairs(&pairs);
         for i in 1..=20 {
             let proof = tree.prove(test_protocol(i as u8)).unwrap();
             assert!(
@@ -415,7 +415,7 @@ mod tests {
 
     #[test]
     fn test_proof_missing_protocol() {
-        let tree = MpcTree::from_pairs(&[
+        let tree = CommitMux::from_pairs(&[
             (test_protocol(1), test_commitment(1)),
             (test_protocol(2), test_commitment(2)),
         ]);
@@ -424,7 +424,7 @@ mod tests {
 
     #[test]
     fn test_proof_wrong_root() {
-        let tree = MpcTree::from_pairs(&[
+        let tree = CommitMux::from_pairs(&[
             (test_protocol(1), test_commitment(1)),
             (test_protocol(2), test_commitment(2)),
         ]);
@@ -434,7 +434,7 @@ mod tests {
 
     #[test]
     fn test_proof_wrong_commitment() {
-        let tree = MpcTree::from_pairs(&[
+        let tree = CommitMux::from_pairs(&[
             (test_protocol(1), test_commitment(1)),
             (test_protocol(2), test_commitment(2)),
         ]);
@@ -446,7 +446,7 @@ mod tests {
 
     #[test]
     fn test_proof_wrong_protocol_id() {
-        let tree = MpcTree::from_pairs(&[
+        let tree = CommitMux::from_pairs(&[
             (test_protocol(1), test_commitment(1)),
             (test_protocol(2), test_commitment(2)),
         ]);
@@ -458,7 +458,7 @@ mod tests {
 
     #[test]
     fn test_proof_branch_tampering() {
-        let tree = MpcTree::from_pairs(&[
+        let tree = CommitMux::from_pairs(&[
             (test_protocol(1), test_commitment(1)),
             (test_protocol(2), test_commitment(2)),
             (test_protocol(3), test_commitment(3)),
@@ -470,12 +470,12 @@ mod tests {
     }
 
     // ─────────────────────────────────────────────
-    // MpcTree utility tests
+    // CommitMux utility tests
     // ─────────────────────────────────────────────
 
     #[test]
     fn test_from_pairs() {
-        let tree = MpcTree::from_pairs(&[
+        let tree = CommitMux::from_pairs(&[
             (test_protocol(1), test_commitment(1)),
             (test_protocol(2), test_commitment(2)),
         ]);
@@ -487,7 +487,7 @@ mod tests {
 
     #[test]
     fn test_push() {
-        let mut tree = MpcTree::from_pairs(&[(test_protocol(1), test_commitment(1))]);
+        let mut tree = CommitMux::from_pairs(&[(test_protocol(1), test_commitment(1))]);
         assert_eq!(tree.protocol_count(), 1);
         tree.push(test_protocol(2), test_commitment(2));
         assert_eq!(tree.protocol_count(), 2);
@@ -496,7 +496,7 @@ mod tests {
 
     #[test]
     fn test_leaf_index_in_proof() {
-        let tree = MpcTree::from_pairs(&[
+        let tree = CommitMux::from_pairs(&[
             (test_protocol(1), test_commitment(1)),
             (test_protocol(2), test_commitment(2)),
             (test_protocol(3), test_commitment(3)),
@@ -510,10 +510,10 @@ mod tests {
 
 // Backward compatibility type aliases
 #[deprecated(since = "0.4.0", note = "Use CommitMux instead")]
-pub type MpcTree = CommitMux;
+pub type CommitMux = CommitMux;
 
 #[deprecated(since = "0.4.0", note = "Use MuxLeaf instead")]
-pub type MpcLeaf = MuxLeaf;
+pub type MuxLeaf = MuxLeaf;
 
 #[deprecated(since = "0.4.0", note = "Use MuxProof instead")]
 pub type MpcProof = MuxProof;

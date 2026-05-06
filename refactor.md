@@ -166,6 +166,7 @@ The `ChainAdapter` trait in `chain_adapter.rs` returns `Box<dyn RpcClient>` and 
 ### Defect A-2: The `rpc.rs` / `real_rpc.rs` Split Is Semantically Wrong
 
 Every chain adapter has:
+
 - `rpc.rs` — defines a trait (`EthereumRpc`, `BitcoinRpc`, etc.)
 - `real_rpc.rs` — implements that trait for production
 
@@ -237,6 +238,7 @@ None of these registries share data or code. A chain registered in `ChainRegistr
 The team is uncertain whether a Runtime is needed. The answer is: **yes, but it should be explicit, not emergent.**
 
 Currently, runtime behavior is distributed across:
+
 - The explorer indexer's `SyncCoordinator` (block polling, re-org detection)
 - The `WalletIndexerBridge` (priority indexing for wallet-owned addresses)
 - `ReorgMonitor` in `csv-adapter-core/src/monitor.rs` (chain re-org tracking)
@@ -335,6 +337,7 @@ pub trait ChainDriverExt: ChainDriver { ... }
 #### Layer 2: `AnchorLayer` → `SealProtocol`
 
 **What it does:** THE core protocol trait. Defines:
+
 - `create_seal()` — open a new single-use seal on-chain
 - `publish()` — anchor a commitment to a seal
 - `verify_inclusion()` — prove commitment is in a block
@@ -372,6 +375,7 @@ struct SolanaAnchorLayer       struct SolanaSealProtocol
 #### Layer 3: `FullChainAdapter` → `ChainBackend`
 
 **What it does:** The complete chain implementation combining:
+
 - `ChainQuery` — read chain state
 - `ChainSigner` — sign transactions
 - `ChainBroadcaster` — submit transactions
@@ -477,6 +481,7 @@ pub struct AptosAnchorRef        pub struct AptosCommitAnchor
 2. `OwnedState` already exists in `state.rs`. The relationship between `Right` and `OwnedState` is unclear when names look unrelated.
 
 **Why "Sanad"?** A property deed (سَنَد) is:
+
 - A legal document proving ownership
 - Exclusive — one title per property
 - Transferable — deeds change hands
@@ -845,6 +850,7 @@ This requires a `csv-celestia` crate implementing the Celestia light client (nam
 `csv-bitcoin/src/zk_prover.rs` and `csv-core/src/zk_proof.rs` exist. The bitcoin zk_prover references SP1 (Succinct's zkVM) in `sp1_guest/`. This is the right choice for a production ZK stack — SP1 generates recursion-friendly STARK proofs from Rust guest programs.
 
 What is missing:
+
 - The SP1 guest program for SPV proof (exists as `sp1_guest/spv.rs` but is a stub)
 - The verifier contract on EVM chains
 - Proof aggregation for batching multiple Sanad transfers
@@ -855,6 +861,7 @@ What is missing:
 ### 100 Chains — Status: Architecturally Possible, Currently Impossible
 
 The current architecture requires, for each new chain:
+
 - New Cargo crate added to workspace
 - New feature flag in `csv-sdk/Cargo.toml`
 - New match arm in `facade.rs` (Defect C-3)
@@ -912,6 +919,7 @@ A DeFi application built on Bitcoin source locking will have a 60-minute settlem
 Execute in this order to keep CI green at each step:
 
 **Step 1 — Crate renames (Cargo.toml only, no code changes)**
+
 - `csv-adapter-core` → `csv-core`
 - `csv-adapter` → `csv-sdk`
 - `csv-adapter-store` → `csv-store`
@@ -921,15 +929,18 @@ Execute in this order to keep CI green at each step:
 - CI must pass after this step alone.
 
 **Step 2 — `SealRef` → `SealPoint` (highest call-site count)**
+
 - Global find-replace: `SealRef` → `SealPoint`, `seal_id` → `id` within `SealPoint` only
 - Fuzz target rename: `fuzz_seal_ref_from_bytes.rs` → `fuzz_seal_point.rs`
 - CI must pass.
 
 **Step 3 — `AnchorRef` → `CommitAnchor`**
+
 - Global find-replace. Fewer call sites than `SealRef`.
 - CI must pass.
 
 **Step 4 — Trait renames (most architecturally impactful)**
+
 - `AnchorLayer` → `SealProtocol`
 - `FullChainAdapter` → `ChainBackend`
 - `ChainAdapter` → `ChainDriver`
@@ -938,21 +949,25 @@ Execute in this order to keep CI green at each step:
 - CI must pass.
 
 **Step 5 — `Right` → `Sanad`**
+
 - `right.rs` → `title.rs`
 - Global find-replace: `Right` → `Sanad`, `RightId` → `SanadId`
 - Wallet: `pages/rights/` → `pages/titles/`, `use_assets` → `use_titles`
 - CI must pass.
 
 **Step 6 — `MpcTree` → `CommitMux`**
+
 - `mpc.rs` → `commit_mux.rs`
 - Global find-replace within file and consumers
 - CI must pass.
 
 **Step 7 — `CrossChainSealRegistry` → `SealNullifier`**
+
 - `seal_registry.rs` → `nullifier.rs`
 - CI must pass.
 
 **Step 8 — Remaining file renames**
+
 - `adapter_factory.rs` → `driver_registry.rs` (merged with `chain_plugin.rs` + `chain_discovery.rs`)
 - `real_rpc.rs` → `node.rs` (across all 5 chain crates)
 - `rgb_compat.rs` → `rgb.rs`
@@ -962,9 +977,11 @@ Execute in this order to keep CI green at each step:
 - CI must pass.
 
 **Step 9 — `scalable_builder.rs` deleted; merged into `builder.rs`**
+
 - CI must pass.
 
 **Step 10 — Repository rename**
+
 - GitHub: `csv-adapter` → `csv-protocol`
 - Update `CODEBASE_OWNERS.md`, README, all docs
 - Update docs.rs links if published
@@ -1038,11 +1055,13 @@ Each step is a single PR. No feature changes in any step. CI is the gate.
 ### Phase 6 — Repository Split (Month 6+)
 
 Crates should be split into separate repositories when:
+
 1. They have a stable, published API (no breaking changes for 3 months)
 2. They have independent release cadences
 3. External teams depend on them directly
 
 Recommended split order:
+
 1. `csv-core` → own repo first (protocol types are the most stable)
 2. `csv-keys` → own repo (useful independent of the full stack)
 3. `csv-{chain}` crates → own repos when chain implementations stabilize

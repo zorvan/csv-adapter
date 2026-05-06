@@ -43,7 +43,7 @@ impl ChainDriver for MockAdapter {
     }
 
     fn to_core_chain(&self) -> Chain {
-        Chain::Bitcoin
+        builtin::BITCOIN
     }
 
     fn default_network(&self) -> &'static str {

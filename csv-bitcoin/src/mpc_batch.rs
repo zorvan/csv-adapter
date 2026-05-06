@@ -6,7 +6,7 @@
 //! ## Architecture
 //!
 //! 1. **Pending Commitments Queue**: Commitments are queued instead of immediately published
-//! 2. **MPC Tree Building**: When batch threshold is reached, build MpcTree from leaves
+//! 2. **MPC Tree Building**: When batch threshold is reached, build CommitMux from leaves
 //! 3. **Single Tapret Publication**: Publish one tapret with the MPC root hash
 //! 4. **Proof Distribution**: Each queued commitment receives its MpcProof
 //!
@@ -28,7 +28,7 @@ use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
 use csv_core::hash::Hash;
-use csv_core::commit_mux::{MpcLeaf, MpcProof, MpcTree};
+use csv_core::commit_mux::{MuxLeaf, MpcProof, CommitMux};
 
 use crate::error::{BitcoinError, BitcoinResult};
 use crate::types::BitcoinSealPoint;
@@ -150,7 +150,7 @@ impl MpcBatcher {
     /// - The list of commitments that were included
     ///
     /// Returns None if there are no pending commitments.
-    pub fn build_mpc_tree(&self) -> Option<(MpcTree, Vec<PendingCommitment>)> {
+    pub fn build_mpc_tree(&self) -> Option<(CommitMux, Vec<PendingCommitment>)> {
         let mut queue = self.pending.lock().unwrap_or_else(|e| e.into_inner());
 
         let queue_len = queue.len();
@@ -164,12 +164,12 @@ impl MpcBatcher {
             queue.drain(..batch_size.min(queue_len)).collect();
 
         // Build MPC leaves
-        let leaves: Vec<MpcLeaf> = to_batch
+        let leaves: Vec<MuxLeaf> = to_batch
             .iter()
-            .map(|p| MpcLeaf::new(CSV_BTC_PROTOCOL_ID, p.commitment))
+            .map(|p| MuxLeaf::new(CSV_BTC_PROTOCOL_ID, p.commitment))
             .collect();
 
-        let tree = MpcTree::new(leaves);
+        let tree = CommitMux::new(leaves);
 
         Some((tree, to_batch))
     }
@@ -184,7 +184,7 @@ impl MpcBatcher {
     /// Vector of (request_id, MpcProof) pairs
     pub fn generate_proofs(
         &self,
-        tree: &MpcTree,
+        tree: &CommitMux,
         commitments: &[PendingCommitment],
     ) -> BitcoinResult<Vec<(String, MpcProof)>> {
         let root = tree.root();
@@ -230,13 +230,13 @@ impl MpcBatcher {
     }
 }
 
-/// Extension trait for MpcTree to generate Merkle branches
+/// Extension trait for CommitMux to generate Merkle branches
 pub trait MpcTreeExt {
     /// Generate the Merkle branch for a leaf at the given index
     fn merkle_branch(&self, leaf_index: usize) -> Option<Vec<csv_core::commit_mux::MerkleBranchNode>>;
 }
 
-impl MpcTreeExt for MpcTree {
+impl MpcTreeExt for CommitMux {
     fn merkle_branch(&self, leaf_index: usize) -> Option<Vec<csv_core::commit_mux::MerkleBranchNode>> {
         if leaf_index >= self.leaves.len() {
             return None;
