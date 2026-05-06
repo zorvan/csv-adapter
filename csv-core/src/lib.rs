@@ -94,8 +94,8 @@ pub mod error;
 pub mod seal_protocol;
 
 // Chain operation traits (Production Guarantee Plan Phase 2) - 🔒 STABLE
-pub mod chain_operations;
-pub mod ops;        // New: refactored chain operations (replaces chain_operations)
+pub mod backend;
+pub mod ops;        // New: refactored chain operations (replaces backend)
 
 // Shared event schemas (Production Guarantee Plan Phase 6) - 🔒 STABLE
 pub mod events;
@@ -113,10 +113,11 @@ pub mod nullifier;
 pub mod state_store;
 pub mod validator;
 
-// Chain adapter system for dynamic chain support
+// Chain driver system for dynamic chain support
 pub mod adapter_factory;
 pub mod adapters;
-pub mod chain_adapter;
+pub mod driver;
+pub mod driver_registry;
 pub mod chain_config;
 pub mod chain_discovery;
 pub mod chain_plugin;
@@ -161,7 +162,7 @@ pub use error::{AdapterError, Result};
 pub use seal_protocol::SealProtocol;
 
 // Chain operations (Production Guarantee Plan Phase 2)
-pub use chain_operations::{
+pub use backend::{
     BalanceInfo, ChainBackend, ChainBroadcaster, ChainCapability, ChainDeployer, ChainOpError,
     ChainOpResult, ChainProofProvider, ChainQuery, ChainSanadOps, ChainSigner, ContractStatus,
     DeploymentStatus, FinalityStatus, SanadOperation, SanadOperationResult, TokenBalance,
@@ -234,9 +235,9 @@ pub use performance::{
 };
 pub use store::{AnchorRecord, InMemorySealStore, SanadRecord, SanadStore, SealRecord, SealStore, StoreError};
 
-// Chain adapter system (Beta API)
+// Chain driver system (Beta API)
 pub use adapter_factory::{create_adapter, is_chain_supported, AdapterFactory};
-pub use chain_adapter::{
+pub use driver::{
     ChainDriver, ChainDriverExt, ChainError, ChainRegistry, ChainResult, RpcClient, Wallet,
 };
 pub use chain_config::{AccountModel, ChainCapabilities, ChainConfig, ChainConfigLoader};
@@ -244,6 +245,14 @@ pub use chain_discovery::{ChainDiscovery, ChainInfo};
 pub use chain_plugin::{
     ChainPlugin, ChainPluginBuildError, ChainPluginBuilder, ChainPluginMetadata,
     ChainPluginRegistry,
+};
+
+// Unified driver registry (Phase 2)
+pub use driver_registry::{
+    BuiltDriverPlugin, ChainInfo as DriverChainInfo, DriverDiscovery, DriverMetadata,
+    DriverPlugin, DriverPluginBuildError, DriverPluginBuilder, DriverRegistry,
+    create_adapter as create_driver, global_factory, init_global_factory,
+    is_chain_supported as is_driver_supported,
 };
 
 // ===========================================================================

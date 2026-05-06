@@ -70,9 +70,9 @@ pub mod client;
 pub mod config;
 pub mod cross_chain;
 pub mod deploy;
-pub mod errors;
+pub mod error;
 pub mod events;
-pub mod facade;
+pub mod runtime;
 pub mod prelude;
 pub mod proofs;
 pub mod titles;
@@ -111,7 +111,7 @@ pub mod experimental {
 }
 
 /// Re-export error types
-pub use errors::CsvError;
+pub use error::CsvError;
 
 /// Re-export client
 pub use client::CsvClient;
@@ -119,8 +119,8 @@ pub use client::CsvClient;
 /// Re-export builder types
 pub use builder::{ClientBuilder, StoreBackend};
 
-/// Re-export facade types
-pub use facade::{ChainFacade, AdapterFacade, AdapterConfig, AdapterBuilder};
+/// Re-export runtime types
+pub use runtime::{ChainFacade, AdapterFacade, AdapterConfig, AdapterBuilder};
 
 /// Re-export deployment types
 pub use deploy::{ContractDeployment, DeploymentError, DeploymentManager, DeploymentResult};

@@ -229,7 +229,7 @@ fn cmd_verify(
         }
         Err(e) => {
             // Query failed, fall back to local state
-            output::warning(&format!("Facade query failed: {}", e));
+            output::warning(&format!("Provider query failed: {}", e));
             output::kv("Chain", &chain.to_string());
             output::kv_hash("Seal", &seal_bytes);
             output::kv("Status", if local_consumed { "Consumed" } else { "Unconsumed" });

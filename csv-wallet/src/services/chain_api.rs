@@ -242,7 +242,7 @@ impl ChainApi {
             .chain_facade()
             .get_balance(chain, address)
             .await
-            .map_err(|e| ChainApiError::AdapterError(format!("Facade error: {}", e)))?;
+            .map_err(|e| ChainApiError::AdapterError(format!("Provider error: {}", e)))?;
 
         // Return raw chain units - display conversion happens at UI layer
         Ok(balance_info.total)

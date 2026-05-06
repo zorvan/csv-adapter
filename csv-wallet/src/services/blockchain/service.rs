@@ -288,7 +288,7 @@ impl BlockchainService {
             match facade.get_transaction_count(chain, address).await {
                 Ok(nonce) => return Ok(nonce),
                 Err(e) => {
-                    web_sys::console::warn_1(&format!("Facade nonce query failed: {}. Using fallback.", e).into());
+                    web_sys::console::warn_1(&format!("Provider nonce query failed: {}. Using fallback.", e).into());
                     // Fall through to capability error for chains that don't support this
                 }
             }
@@ -316,7 +316,7 @@ impl BlockchainService {
             match facade.get_fee_estimate(chain).await {
                 Ok(fee) => return Ok(fee),
                 Err(e) => {
-                    web_sys::console::warn_1(&format!("Facade fee estimate failed: {}. No fallback available.", e).into());
+                    web_sys::console::warn_1(&format!("Provider fee estimate failed: {}. No fallback available.", e).into());
                     // Fall through to error - production code must use real fee estimation
                 }
             }
@@ -448,7 +448,7 @@ impl BlockchainService {
                     });
                 }
                 Err(e) => {
-                    web_sys::console::error_1(&format!("Facade proof generation failed: {}. No fallback available.", e).into());
+                    web_sys::console::error_1(&format!("Provider proof generation failed: {}. No fallback available.", e).into());
                     // No fallback - proof generation requires real adapter
                 }
             }

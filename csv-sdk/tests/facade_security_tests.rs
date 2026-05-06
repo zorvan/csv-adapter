@@ -1,4 +1,4 @@
-//! Adapter Facade Security Tests
+//! Adapter Provider Security Tests
 //!
 //! These tests verify that the adapter facade properly:
 //! 1. Routes all operations through secure channels
@@ -16,7 +16,7 @@ fn test_facade_config_validation() {
     let config = AdapterConfig::default();
     let facade = AdapterFacade::new(config);
 
-    // Facade should be created but not initialized for any chain
+    // Provider should be created but not initialized for any chain
     // (actual behavior depends on implementation)
 }
 
