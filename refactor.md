@@ -1516,6 +1516,23 @@ csv-cli uses `csv_store` types directly with no duplication.
 **Date:** May 2026  
 **Design Principle:** Canonical primitives, types, and traits are the foundation. No duplication.
 
+**Key Achievement:** `csv_core::ChainId` (string-based) is now the canonical chain identifier across csv-core, csv-store, and csv-wallet. This enables 100+ chain extensibility without code changes.
+
+### D7: Chain Enum → String IDs ✅
+
+**Decision:** Extensibility is priority. Convert Chain enum to string IDs.
+
+**Implementation:**
+- csv-core already had `ChainId` (string-based) in `protocol_version.rs`
+- csv-store now uses `csv_core::ChainId` instead of enum
+- All chain references use string IDs: `"bitcoin"`, `"ethereum"`, `"sui"`, `"aptos"`, `"solana"`
+- Extensible to 100+ chains without code changes
+- Backward compatibility: `Chain` type alias deprecated in csv-store
+
+**Canonical Type:** `csv_core::ChainId` is now the single source of truth for chain identification.
+
+### D5: csv-cli Filesystem Keystore ✅
+
 ### D7: Chain Enum → String IDs ✅
 
 **Decision:** Extensibility is priority. Convert Chain enum to string IDs.
@@ -1590,15 +1607,29 @@ csv-cli uses `csv_store` types directly with no duplication.
 - All `Chain` references changed to `ChainId` (string-based)
 - Removed conversion functions between csv_core::Chain and csv_store::Chain
 - Simplified `load_persisted`/`save_persisted` to clone types directly
+- Fixed key_manager.rs, common/mod.rs, transaction_builder.rs match statements
 
-**Remaining:** ~273 errors in csv-wallet pages due to:
-1. **Match statements**: `match chain { Chain::Bitcoin => ... }` must become `match chain.as_str() { "bitcoin" => ... }`
-2. **Field name mismatches**: `from_chain` → `source_chain`, `to_chain` → `dest_chain`
-3. **Missing fields**: SealRecord doesn't have `status`, `sanad_id`; ProofRecord doesn't have `status`, `seal_ref`, `data`, `target_chain`, `verification_tx_hash`, `generated_at`
+**Current Status:** ~248 errors remaining
 
-**Strategy:** The canonical types are in place. Pages need match statement rewrites and field name updates. This is a mechanical but large change.
+**Remaining Errors:**
+1. **Match statements** (~74 errors): `match chain { ChainId::new("bitcoin") => ... }` must become `match chain.as_str() { "bitcoin" => ... }`
+2. **Field name mismatches** (~50 errors): SealRecord/ProofRecord field access
+3. **Type mismatches** (~124 errors): Various csv-wallet page type issues
 
-**Key Insight:** The original csv-wallet code was written against `csv_core::Chain` enum. Now that we're using `ChainId` (string), all match arms must use string comparison. This is the correct behavior for extensibility.
+**Pattern for Fix:**
+```rust
+// Before (wrong):
+match chain {
+    ChainId::new("bitcoin") => ...,
+}
+
+// After (correct):
+match chain.as_str() {
+    "bitcoin" => ...,
+}
+```
+
+**Strategy:** The canonical types are in place. Pages need mechanical match statement rewrites and field name updates. This is straightforward but requires touching ~40 files.
 
 ### D6: csv-runtime Context
 

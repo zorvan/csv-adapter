@@ -89,20 +89,20 @@ pub fn CrossChainTransfer() -> Element {
 
     // Check if destination account has minimum balance for gas (in raw chain units)
     // Sui: ~0.01 SUI = 10_000_000 MIST, Aptos: ~0.01 APT = 1_000_000 octas
-    let min_dest_balance_raw = match *to_chain.read() {
-        ChainId::new("sui") => 10_000_000u64,     // 0.01 SUI in MIST
-        ChainId::new("aptos") => 1_000_000u64,  // 0.01 APT in octas
-        ChainId::new("ethereum") => 1_000_000_000_000_000u64, // ~0.001 ETH in wei
-        ChainId::new("solana") => 1_000_000u64, // ~0.001 SOL in lamports
+    let min_dest_balance_raw = match to_chain.read().as_str() {
+        "sui" => 10_000_000u64,     // 0.01 SUI in MIST
+        "aptos" => 1_000_000u64,  // 0.01 APT in octas
+        "ethereum" => 1_000_000_000_000_000u64, // ~0.001 ETH in wei
+        "solana" => 1_000_000u64, // ~0.001 SOL in lamports
         _ => 0u64,                      // Bitcoin doesn't need pre-funded destination for minting
     };
     let dest_has_enough_balance = *dest_balance_raw.read() >= min_dest_balance_raw;
 
     // Get contracts for source and target chains
-    let source_contracts = wallet_ctx.contracts_for_chain(*from_chain.read());
-    let target_contracts = wallet_ctx.contracts_for_chain(*to_chain.read());
+    let source_contracts = wallet_ctx.contracts_for_chain(from_chain.read().clone());
+    let target_contracts = wallet_ctx.contracts_for_chain(to_chain.read().clone());
     let _has_source_contract =
-        !source_contracts.is_empty() || matches!(*from_chain.read(), ChainId::new("bitcoin"));
+        !source_contracts.is_empty() || from_chain.read().as_str() == "bitcoin";
     let has_target_contract = !target_contracts.is_empty();
 
     // Reset target contract selection when target chain changes
@@ -167,16 +167,16 @@ pub fn CrossChainTransfer() -> Element {
         }
 
         if !dest_has_enough_balance {
-            let min_balance = match *to_chain.read() {
-                ChainId::new("sui") => "0.01 SUI",
-                ChainId::new("aptos") => "0.01 APT",
-                ChainId::new("ethereum") => "0.001 ETH",
-                ChainId::new("solana") => "0.001 SOL",
+            let min_balance = match to_chain.read().as_str() {
+                "sui" => "0.01 SUI",
+                "aptos" => "0.01 APT",
+                "ethereum" => "0.001 ETH",
+                "solana" => "0.001 SOL",
                 _ => "funds",
             };
             error.set(Some(format!(
-                "Destination account on {:?} needs at least {} for gas fees. Please fund your account first.",
-                *to_chain.read(), min_balance
+                "Destination account on {} needs at least {} for gas fees. Please fund your account first.",
+                to_chain.read().as_str(), min_balance
             )));
             return;
         }

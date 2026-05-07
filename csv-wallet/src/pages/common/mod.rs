@@ -6,45 +6,45 @@ use dioxus::prelude::*;
 
 // ===== ChainId Styling Helpers =====
 pub fn chain_color(chain: &ChainId) -> &'static str {
-    match chain {
-        ChainId::new("bitcoin") => "#F7931A",
-        ChainId::new("ethereum") => "#627EEA",
-        ChainId::new("sui") => "#06BDFF",
-        ChainId::new("aptos") => "#2DD8A3",
-        ChainId::new("solana") => "#9945FF",
+    match chain.as_str() {
+        "bitcoin" => "#F7931A",
+        "ethereum" => "#627EEA",
+        "sui" => "#06BDFF",
+        "aptos" => "#2DD8A3",
+        "solana" => "#9945FF",
         _ => "#888888",
     }
 }
 
 pub fn chain_badge_class(chain: &ChainId) -> &'static str {
-    match chain {
-        ChainId::new("bitcoin") => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-orange-400 bg-orange-500/20 border border-orange-500/30",
-        ChainId::new("ethereum") => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-blue-400 bg-blue-500/20 border border-blue-500/30",
-        ChainId::new("sui") => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-cyan-400 bg-cyan-500/20 border border-cyan-500/30",
-        ChainId::new("aptos") => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-emerald-400 bg-emerald-500/20 border border-emerald-500/30",
-        ChainId::new("solana") => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-purple-400 bg-purple-500/20 border border-purple-500/30",
+    match chain.as_str() {
+        "bitcoin" => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-orange-400 bg-orange-500/20 border border-orange-500/30",
+        "ethereum" => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-blue-400 bg-blue-500/20 border border-blue-500/30",
+        "sui" => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-cyan-400 bg-cyan-500/20 border border-cyan-500/30",
+        "aptos" => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-emerald-400 bg-emerald-500/20 border border-emerald-500/30",
+        "solana" => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-purple-400 bg-purple-500/20 border border-purple-500/30",
         _ => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-gray-400 bg-gray-500/20 border border-gray-500/30",
     }
 }
 
 pub fn chain_icon_emoji(chain: &ChainId) -> &'static str {
-    match chain {
-        ChainId::new("bitcoin") => "\u{1F7E0}",
-        ChainId::new("ethereum") => "\u{1F537}",
-        ChainId::new("sui") => "\u{1F30A}",
-        ChainId::new("aptos") => "\u{1F7E2}",
-        ChainId::new("solana") => "\u{25C8}",
+    match chain.as_str() {
+        "bitcoin" => "\u{1F7E0}",
+        "ethereum" => "\u{1F537}",
+        "sui" => "\u{1F30A}",
+        "aptos" => "\u{1F7E2}",
+        "solana" => "\u{25C8}",
         _ => "\u{26AA}",
     }
 }
 
 pub fn chain_name(chain: &ChainId) -> &'static str {
-    match chain {
-        ChainId::new("bitcoin") => "Bitcoin",
-        ChainId::new("ethereum") => "Ethereum",
-        ChainId::new("sui") => "Sui",
-        ChainId::new("aptos") => "Aptos",
-        ChainId::new("solana") => "Solana",
+    match chain.as_str() {
+        "bitcoin" => "Bitcoin",
+        "ethereum" => "Ethereum",
+        "sui" => "Sui",
+        "aptos" => "Aptos",
+        "solana" => "Solana",
         _ => "Unknown",
     }
 }
@@ -155,13 +155,13 @@ pub fn select_class() -> &'static str {
     "w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
 }
 
-pub fn chain_options() -> Vec<(ChainId, &'static str)> {
+pub fn chain_options() -> Vec<(&'static str, &'static str)> {
     vec![
-        (ChainId::new("bitcoin"), "\u{1F7E0} Bitcoin"),
-        (ChainId::new("ethereum"), "\u{1F537} Ethereum"),
-        (ChainId::new("sui"), "\u{1F30A} Sui"),
-        (ChainId::new("aptos"), "\u{1F7E2} Aptos"),
-        (ChainId::new("solana"), "\u{25C8} Solana"),
+        ("bitcoin", "\u{1F7E0} Bitcoin"),
+        ("ethereum", "\u{1F537} Ethereum"),
+        ("sui", "\u{1F30A} Sui"),
+        ("aptos", "\u{1F7E2} Aptos"),
+        ("solana", "\u{25C8} Solana"),
     ]
 }
 

@@ -926,12 +926,12 @@ pub async fn discover_contracts(
 ) -> Result<Vec<crate::services::blockchain::ContractDeployment>, BlockchainError> {
     
     
-    match chain {
-        ChainId::new("ethereum") => discover_ethereum_contracts(address, api_url, filter).await,
-        ChainId::new("solana") => discover_solana_programs(address, api_url, filter).await,
-        ChainId::new("sui") => discover_sui_packages(address, api_url, filter).await,
-        ChainId::new("aptos") => discover_aptos_modules(address, api_url, filter).await,
-        ChainId::new("bitcoin") => Ok(Vec::new()), // Bitcoin doesn't have contracts
+    match chain.as_str() {
+        "ethereum" => discover_ethereum_contracts(address, api_url, filter).await,
+        "solana" => discover_solana_programs(address, api_url, filter).await,
+        "sui" => discover_sui_packages(address, api_url, filter).await,
+        "aptos" => discover_aptos_modules(address, api_url, filter).await,
+        "bitcoin" => Ok(Vec::new()), // Bitcoin doesn't have contracts
         _ => Ok(Vec::new()),
     }
 }
