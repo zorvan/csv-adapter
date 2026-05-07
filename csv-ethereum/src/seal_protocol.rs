@@ -78,10 +78,10 @@ impl EthereumSealProtocol {
         config: EthereumConfig,
         csv_seal_address: [u8; 20],
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-        use crate::node::RealEthereumRpc;
+        use crate::node::EthereumNode;
 
         let rpc: Box<dyn EthereumRpc> =
-            Box::new(RealEthereumRpc::new(&config.rpc_url, csv_seal_address).await?);
+            Box::new(EthereumNode::new(&config.rpc_url, csv_seal_address).await?);
         Self::from_config(config, rpc, csv_seal_address)
             .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
     }
@@ -179,18 +179,18 @@ impl SealProtocol for EthereumSealProtocol {
 
         #[cfg(feature = "rpc")]
         {
-            use crate::node::{publish, verify_seal_consumption_in_receipt, RealEthereumRpc};
+            use crate::node::{publish, verify_seal_consumption_in_receipt, EthereumNode};
             use tokio::runtime::Handle;
 
-            // Downcast to RealEthereumRpc for the publish flow
+            // Downcast to EthereumNode for the publish flow
             let real_rpc = self
                 .rpc
                 .as_ref()
                 .as_any()
-                .and_then(|any| any.downcast_ref::<RealEthereumRpc>())
+                .and_then(|any| any.downcast_ref::<EthereumNode>())
                 .ok_or_else(|| {
                     ProtocolError::PublishFailed(
-                        "publish() requires a RealEthereumRpc instance".to_string(),
+                        "publish() requires an EthereumNode instance".to_string(),
                     )
                 })?;
 
@@ -245,14 +245,14 @@ impl SealProtocol for EthereumSealProtocol {
         #[cfg(feature = "rpc")]
         {
             // Try to get real proof data from RPC
-            use crate::node::RealEthereumRpc;
+            use crate::node::EthereumNode;
             use tokio::runtime::Handle;
 
             if let Some(_real_rpc) = self
                 .rpc
                 .as_ref()
                 .as_any()
-                .and_then(|any| any.downcast_ref::<RealEthereumRpc>())
+                .and_then(|any| any.downcast_ref::<EthereumNode>())
             {
                 let handle = Handle::current();
                 

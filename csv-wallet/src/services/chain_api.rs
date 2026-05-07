@@ -1,4 +1,4 @@
-//! Chain API service module.
+//! Chain API service stub - re-exported for wallet compatibility.
 
 use csv_core::Chain;
 
@@ -14,6 +14,7 @@ pub struct ChainConfig {
 }
 
 impl ChainConfig {
+    /// Get chain config.
     pub fn for_chain(chain: Chain) -> Self {
         let rpc_url = match chain {
             Chain::Bitcoin => "https://bitcoin-rpc.example.com".to_string(),
@@ -30,10 +31,12 @@ impl ChainConfig {
 }
 
 impl ChainApi {
+    /// Create new chain API.
     pub fn new(_config: ChainConfig) -> Self {
         Self
     }
 
+    /// Get balance stub.
     pub async fn get_balance(&self, _address: &str, _chain: Chain) -> Result<String, String> {
         Ok("0".to_string())
     }

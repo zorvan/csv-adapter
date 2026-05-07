@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use async_trait::async_trait;
 
 use csv_core::{
-    AccountModel, AdapterFactory, Chain, ChainDriver, ChainCapabilities, ChainConfig, ChainError,
-    ChainPluginBuilder, ChainResult, RpcClient, Wallet,
+    AccountModel, Chain, ChainDriver, ChainCapabilities, ChainConfig, ChainError,
+    ChainResult, DriverRegistry, RpcClient, Wallet,
 };
 
 #[derive(Debug, Clone)]
@@ -68,37 +68,24 @@ fn example_config() -> ChainConfig {
 }
 
 fn main() {
-    let plugin = ChainPluginBuilder::new("example-chain", "Example Chain")
-        .version(csv_core::PROTOCOL_VERSION)
-        .author("csv-adapter")
-        .description("Example custom chain plugin registered at runtime")
-        .capabilities(ExampleChainDriver.capabilities())
-        .adapter_factory(|config| {
-            if let Some(config) = config {
-                println!(
-                    "Creating adapter for {} on {}",
-                    config.chain_name, config.default_network
-                );
-            }
-            Box::new(ExampleChainDriver)
-        })
-        .config_factory(example_config)
-        .build()
-        .expect("plugin should build");
+    let mut registry = DriverRegistry::new();
+    registry.register("example-chain", || {
+        let config = example_config();
+        println!(
+            "Creating adapter for {} on {}",
+            config.chain_name, config.default_network
+        );
+        Box::new(ExampleChainDriver)
+    });
 
-    let mut factory = AdapterFactory::empty();
-    let mut registry = csv_core::DriverRegistry::new();
-    registry.register(plugin);
-    factory.register_plugins_from_registry(&registry);
-
-    let adapter = factory
-        .create_adapter_with_config("example-chain", Some(example_config()))
-        .expect("custom adapter should be created");
+    let driver = registry
+        .create_driver("example-chain")
+        .expect("custom driver should be created");
 
     println!(
         "Registered {} ({}) with default network {}",
-        adapter.chain_name(),
-        adapter.chain_id(),
-        adapter.default_network()
+        driver.chain_name(),
+        driver.chain_id(),
+        driver.default_network()
     );
 }

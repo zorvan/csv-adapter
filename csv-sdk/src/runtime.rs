@@ -735,7 +735,7 @@ impl Default for RuntimeConfig {
 /// - **Aptos**: Uses `from_config(config, rpc)`
 /// - **Solana**: Uses `from_config(config, rpc)`
 ///
-/// Chain operations are created from anchor layers via `from_anchor_layer(&anchor)`,
+/// Chain operations are created from seal protocols via `from_seal_protocol(&seal)`,
 /// producing `Arc<dyn ChainBackend>` for registration in ChainRuntime.
 ///
 /// The builder methods handle chain-specific configuration internally while
@@ -750,7 +750,7 @@ impl AdapterBuilder {
 
     /// Build an Ethereum adapter from its specific configuration.
     ///
-    /// Uses `EthereumBackend::from_anchor_layer()` internally which creates
+    /// Uses `EthereumBackend::from_seal_protocol()` internally which creates
     /// the ChainBackend implementation from an EthereumSealProtocol.
     #[cfg(feature = "ethereum")]
     pub async fn ethereum_from_config(
@@ -759,18 +759,18 @@ impl AdapterBuilder {
         rpc: Box<dyn csv_ethereum::rpc::EthereumRpc>,
         csv_seal_address: [u8; 20],
     ) -> Result<Arc<dyn ChainBackend>, CsvError> {
-        use csv_ethereum::chain_operations::EthereumBackend;
+        use csv_ethereum::ops::EthereumBackend;
         use csv_ethereum::seal_protocol::EthereumSealProtocol;
 
         // Create the SealProtocol first (this is the protocol primitive)
-        let anchor_layer = EthereumSealProtocol::from_config(config, rpc, csv_seal_address)
+        let seal = EthereumSealProtocol::from_config(config, rpc, csv_seal_address)
             .map_err(|e| CsvError::ProtocolError {
                 chain: Chain::Ethereum,
-                message: format!("Failed to create Ethereum anchor layer: {}", e),
+                message: format!("Failed to create Ethereum seal protocol: {}", e),
             })?;
 
         // Create ChainOperations from SealProtocol (this implements ChainBackend)
-        let operations = EthereumBackend::from_anchor_layer(&anchor_layer)
+        let operations = EthereumBackend::from_seal_protocol(&seal)
             .map_err(|e| CsvError::ProtocolError {
                 chain: Chain::Ethereum,
                 message: format!("Failed to create Ethereum chain operations: {}", e),
@@ -786,16 +786,16 @@ impl AdapterBuilder {
         config: csv_sui::config::SuiConfig,
         rpc: Box<dyn csv_sui::rpc::SuiRpc>,
     ) -> Result<Arc<dyn ChainBackend>, CsvError> {
-        use csv_sui::chain_operations::SuiBackend;
+        use csv_sui::ops::SuiBackend;
         use csv_sui::seal_protocol::SuiSealProtocol;
 
-        let anchor_layer = SuiSealProtocol::from_config(config, rpc)
+        let seal = SuiSealProtocol::from_config(config, rpc)
             .map_err(|e| CsvError::ProtocolError {
                 chain: Chain::Sui,
-                message: format!("Failed to create Sui anchor layer: {}", e),
+                message: format!("Failed to create Sui seal protocol: {}", e),
             })?;
 
-        let operations = SuiBackend::from_anchor_layer(&anchor_layer)
+        let operations = SuiBackend::from_seal_protocol(&seal)
             .map_err(|e| CsvError::ProtocolError {
                 chain: Chain::Sui,
                 message: format!("Failed to create Sui chain operations: {}", e),
@@ -811,16 +811,16 @@ impl AdapterBuilder {
         config: csv_aptos::config::AptosConfig,
         rpc: Box<dyn csv_aptos::rpc::AptosRpc>,
     ) -> Result<Arc<dyn ChainBackend>, CsvError> {
-        use csv_aptos::chain_operations::AptosBackend;
+        use csv_aptos::ops::AptosBackend;
         use csv_aptos::seal_protocol::AptosSealProtocol;
 
-        let anchor_layer = AptosSealProtocol::from_config(config, rpc)
+        let seal = AptosSealProtocol::from_config(config, rpc)
             .map_err(|e| CsvError::ProtocolError {
                 chain: Chain::Aptos,
-                message: format!("Failed to create Aptos anchor layer: {}", e),
+                message: format!("Failed to create Aptos seal protocol: {}", e),
             })?;
 
-        let operations = AptosBackend::from_anchor_layer(&anchor_layer)
+        let operations = AptosBackend::from_seal_protocol(&seal)
             .map_err(|e| CsvError::ProtocolError {
                 chain: Chain::Aptos,
                 message: format!("Failed to create Aptos chain operations: {}", e),
@@ -836,17 +836,17 @@ impl AdapterBuilder {
         config: csv_solana::config::SolanaConfig,
         rpc: Box<dyn csv_solana::rpc::SolanaRpc>,
     ) -> Result<Arc<dyn ChainBackend>, CsvError> {
-        use csv_solana::chain_operations::SolanaBackend;
+        use csv_solana::ops::SolanaBackend;
         use csv_solana::seal_protocol::SolanaSealProtocol;
 
         // Solana now uses from_config() following the standard runtime pattern
-        let anchor_layer = SolanaSealProtocol::from_config(config, rpc)
+        let seal = SolanaSealProtocol::from_config(config, rpc)
             .map_err(|e| CsvError::ProtocolError {
                 chain: Chain::Solana,
-                message: format!("Failed to create Solana anchor layer: {}", e),
+                message: format!("Failed to create Solana seal protocol: {}", e),
             })?;
 
-        let operations = SolanaBackend::from_anchor_layer(&anchor_layer)
+        let operations = SolanaBackend::from_seal_protocol(&seal)
             .map_err(|e| CsvError::ProtocolError {
                 chain: Chain::Solana,
                 message: format!("Failed to create Solana chain operations: {}", e),
@@ -862,17 +862,17 @@ impl AdapterBuilder {
         config: csv_bitcoin::config::BitcoinConfig,
         rpc: Box<dyn csv_bitcoin::rpc::BitcoinRpc + Send + Sync>,
     ) -> Result<Arc<dyn ChainBackend>, CsvError> {
-        use csv_bitcoin::chain_operations::BitcoinBackend;
+        use csv_bitcoin::ops::BitcoinBackend;
         use csv_bitcoin::seal_protocol::BitcoinSealProtocol;
 
         // Bitcoin uses from_config() following the standard runtime pattern
-        let anchor_layer = BitcoinSealProtocol::from_config(config, rpc)
+        let seal = BitcoinSealProtocol::from_config(config, rpc)
             .map_err(|e| CsvError::ProtocolError {
                 chain: Chain::Bitcoin,
-                message: format!("Failed to create Bitcoin anchor layer: {}", e),
+                message: format!("Failed to create Bitcoin seal protocol: {}", e),
             })?;
 
-        let operations = BitcoinBackend::from_anchor_layer(&anchor_layer)
+        let operations = BitcoinBackend::from_seal_protocol(&seal)
             .map_err(|e| CsvError::ProtocolError {
                 chain: Chain::Bitcoin,
                 message: format!("Failed to create Bitcoin chain operations: {}", e),

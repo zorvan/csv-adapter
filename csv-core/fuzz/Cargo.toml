@@ -16,15 +16,15 @@ libfuzzer-sys = "0.4"
 path = ".."
 
 [[bin]]
-name = "fuzz_sanad_from_canonical_bytes"
-path = "fuzz_targets/fuzz_sanad_from_canonical_bytes.rs"
+name = "fuzz_sanad"
+path = "fuzz_targets/fuzz_sanad.rs"
 test = false
 doc = false
 bench = false
 
 [[bin]]
-name = "fuzz_seal_ref_from_bytes"
-path = "fuzz_targets/fuzz_seal_ref_from_bytes.rs"
+name = "fuzz_seal_point"
+path = "fuzz_targets/fuzz_seal_point.rs"
 test = false
 doc = false
 bench = false

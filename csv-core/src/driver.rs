@@ -1,7 +1,7 @@
 //! Chain driver trait for dynamic chain support.
 
 use async_trait::async_trait;
-use crate::collections::HashMap;
+use std::collections::HashMap;
 use thiserror::Error;
 
 use crate::mcp::Chain;
@@ -159,82 +159,11 @@ pub trait Wallet: Send + Sync {
     fn import_from_private_key(&self, private_key: &str) -> ChainResult<()>;
 }
 
-/// Registry for managing chain drivers
-pub struct ChainRegistry {
-    adapters: HashMap<String, Box<dyn ChainDriver>>,
-    capabilities: HashMap<String, ChainCapabilities>,
-}
-
-impl ChainRegistry {
-    /// Create new empty registry
-    pub fn new() -> Self {
-        Self {
-            adapters: HashMap::new(),
-            capabilities: HashMap::new(),
-        }
-    }
-
-    /// Register a new chain driver
-    pub fn register_driver(&mut self, driver: Box<dyn ChainDriver>) {
-        let chain_id = driver.chain_id();
-        let capabilities = driver.capabilities();
-
-        self.adapters.insert(chain_id.to_string(), driver);
-        self.capabilities.insert(chain_id.to_string(), capabilities);
-    }
-
-    /// Get driver by chain ID
-    pub fn get_driver(&self, chain_id: &str) -> Option<&dyn ChainDriver> {
-        self.adapters.get(chain_id).map(|b| b.as_ref())
-    }
-
-    /// Get all supported chain IDs
-    pub fn supported_chains(&self) -> Vec<&str> {
-        self.adapters.keys().map(|k| k.as_str()).collect()
-    }
-
-    /// Get capabilities for a chain
-    pub fn get_capabilities(&self, chain_id: &str) -> Option<&ChainCapabilities> {
-        self.capabilities.get(chain_id)
-    }
-
-    /// Find chains by capability
-    pub fn find_chains_with_capability<F>(&self, capability_check: F) -> Vec<&str>
-    where
-        F: Fn(&ChainCapabilities) -> bool,
-    {
-        self.capabilities
-            .iter()
-            .filter(|(_, cap)| capability_check(cap))
-            .map(|(id, _)| id.as_str())
-            .collect()
-    }
-
-    /// Find chains that support NFTs
-    pub fn nft_supported_chains(&self) -> Vec<&str> {
-        self.find_chains_with_capability(|cap| cap.supports_nfts)
-    }
-
-    /// Find chains that support smart contracts
-    pub fn smart_contract_chains(&self) -> Vec<&str> {
-        self.find_chains_with_capability(|cap| cap.supports_smart_contracts)
-    }
-
-    /// Find chains that support cross-chain transfers
-    pub fn cross_chain_supported_chains(&self) -> Vec<&str> {
-        self.find_chains_with_capability(|cap| cap.supports_cross_chain)
-    }
-}
-
-impl Default for ChainRegistry {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::chain_config::AccountModel;
+    use crate::collections::HashMap;
 
     #[test]
     fn test_chain_capabilities() {
@@ -252,16 +181,5 @@ mod tests {
         assert!(caps.supports_nfts);
         assert!(caps.supports_smart_contracts);
         assert_eq!(caps.confirmation_blocks, 12);
-    }
-
-    #[test]
-    fn test_chain_registry() {
-        let registry = ChainRegistry::new();
-        assert_eq!(registry.supported_chains().len(), 0);
-
-        // Test registration would go here
-        // registry.register_adapter(Box::new(MockAdapter::new()));
-
-        assert_eq!(registry.supported_chains().len(), 0);
     }
 }

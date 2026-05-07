@@ -5,8 +5,8 @@
 //! - **Plugin trait** — `DriverPlugin` creates chain drivers dynamically
 //! - **Driver registry** — `DriverRegistry` merges factory + plugin registry roles
 //! - **Chain discovery** — `DriverDiscovery` loads TOML configs, catalogs chains,
-//!   and builds adapters from registered plugins
-//! - **Global singleton** — `init_global_factory()` / `global_factory()` / `create_adapter()`
+//!   and builds drivers from registered plugins
+//! - **Global singleton** — `init_global_factory()` / `global_factory()` / `create_driver()`
 //!
 //! # Features
 //!
@@ -81,7 +81,7 @@ pub trait DriverPlugin: Send + Sync + Any {
     ///
     /// # Arguments
     /// * `config` - Optional chain configuration
-    fn create_adapter(&self, config: Option<ChainConfig>) -> Box<dyn ChainDriver>;
+    fn create_driver(&self, config: Option<ChainConfig>) -> Box<dyn ChainDriver>;
 
     /// Get default configuration for this chain
     fn default_config(&self) -> ChainConfig;
@@ -278,13 +278,13 @@ impl DriverRegistry {
         &self.plugins
     }
 
-    /// Create an adapter for a registered plugin chain.
-    pub fn create_adapter_from_plugin(
+    /// Create a driver for a registered plugin chain.
+    pub fn create_driver_from_plugin(
         &self,
         chain_id: &str,
         config: Option<ChainConfig>,
     ) -> Option<Box<dyn ChainDriver>> {
-        self.plugins.get(chain_id).map(|p| p.create_adapter(config))
+        self.plugins.get(chain_id).map(|p| p.create_driver(config))
     }
 
     /// Get chains that support a specific feature.
@@ -339,12 +339,12 @@ impl DriverRegistry {
             let plugin = Arc::clone(plugin);
             self.register_with_config(
                 chain_id,
-                Arc::new(move |config| plugin.create_adapter(config)),
+                Arc::new(move |config| plugin.create_driver(config)),
             );
         }
     }
 
-    /// Create an adapter for the specified chain (factory lookup).
+    /// Create a driver for the specified chain (factory lookup).
     ///
     /// # Arguments
     ///
@@ -354,19 +354,19 @@ impl DriverRegistry {
     ///
     /// Returns `Some(Box<dyn ChainDriver>)` if the chain is registered,
     /// or `None` if no factory exists for the chain.
-    pub fn create_adapter(&self, chain_id: &str) -> Option<Box<dyn ChainDriver>> {
-        self.create_adapter_with_config(chain_id, None)
+    pub fn create_driver(&self, chain_id: &str) -> Option<Box<dyn ChainDriver>> {
+        self.create_driver_with_config(chain_id, None)
     }
 
-    /// Create an adapter with a discovered configuration.
-    pub fn create_adapter_with_config(
+    /// Create a driver with a discovered configuration.
+    pub fn create_driver_with_config(
         &self,
         chain_id: &str,
         config: Option<ChainConfig>,
     ) -> Option<Box<dyn ChainDriver>> {
         // First try plugin-based creation
-        if let Some(adapter) = self.create_adapter_from_plugin(chain_id, config.clone()) {
-            return Some(adapter);
+        if let Some(driver) = self.create_driver_from_plugin(chain_id, config.clone()) {
+            return Some(driver);
         }
         // Fall back to direct factory
         self.factories.get(chain_id).map(|factory| factory(config))
@@ -540,23 +540,23 @@ impl DriverDiscovery {
         &self.registry
     }
 
-    /// Create an adapter for a discovered chain using its loaded configuration.
+    /// Create a driver for a discovered chain using its loaded configuration.
     ///
     /// Looks up the chain configuration and asks the appropriate plugin
-    /// to instantiate the adapter.
+    /// to instantiate the driver.
     ///
     /// # Arguments
     /// * `chain_id` — Chain identifier (e.g., "bitcoin")
     ///
     /// # Returns
-    /// * `Some(adapter)` — If a plugin can create an adapter for this chain
+    /// * `Some(driver)` — If a plugin can create a driver for this chain
     /// * `None` — If no plugin is registered for this chain
-    pub fn create_adapter(
+    pub fn create_driver(
         &self,
         chain_id: &str,
     ) -> Option<Box<dyn ChainDriver>> {
         let config = self.get_chain_config(chain_id).cloned();
-        self.registry.create_adapter_with_config(chain_id, config)
+        self.registry.create_driver_with_config(chain_id, config)
     }
 
     /// Build a driver registry from the registered plugins.
@@ -636,16 +636,12 @@ impl Default for DriverDiscovery {
 // Builder (renamed from ChainPluginBuilder)
 // ===========================================================================
 
-/// Type alias for adapter factory functions
-type AdapterFactoryFn = dyn Fn(Option<ChainConfig>) -> Box<dyn ChainDriver> + Send + Sync;
-
 /// Type alias for config factory functions
 type ConfigFactoryFn = dyn Fn() -> ChainConfig + Send + Sync;
 
 /// Builder for creating driver plugins.
 pub struct DriverPluginBuilder {
     metadata: DriverMetadata,
-    adapter_factory: Option<Box<AdapterFactoryFn>>,
     config_factory: Option<Box<ConfigFactoryFn>>,
 }
 
@@ -671,7 +667,6 @@ impl DriverPluginBuilder {
                 description: None,
                 homepage: None,
             },
-            adapter_factory: None,
             config_factory: None,
         }
     }
@@ -706,15 +701,6 @@ impl DriverPluginBuilder {
         self
     }
 
-    /// Set the adapter factory.
-    pub fn adapter_factory<F>(mut self, factory: F) -> Self
-    where
-        F: Fn(Option<ChainConfig>) -> Box<dyn ChainDriver> + Send + Sync + 'static,
-    {
-        self.adapter_factory = Some(Box::new(factory));
-        self
-    }
-
     /// Set the config factory.
     pub fn config_factory<F>(mut self, factory: F) -> Self
     where
@@ -726,16 +712,12 @@ impl DriverPluginBuilder {
 
     /// Build the plugin.
     pub fn build(self) -> Result<Arc<dyn DriverPlugin>, DriverPluginBuildError> {
-        if self.adapter_factory.is_none() {
-            return Err(DriverPluginBuildError::MissingAdapterFactory);
-        }
         if self.config_factory.is_none() {
             return Err(DriverPluginBuildError::MissingConfigFactory);
         }
 
         Ok(Arc::new(BuiltDriverPlugin {
             metadata: self.metadata,
-            adapter_factory: self.adapter_factory.unwrap(),
             config_factory: self.config_factory.unwrap(),
         }))
     }
@@ -744,8 +726,6 @@ impl DriverPluginBuilder {
 /// Errors that can occur when building a plugin.
 #[derive(Debug, Clone, PartialEq)]
 pub enum DriverPluginBuildError {
-    /// Missing adapter factory
-    MissingAdapterFactory,
     /// Missing config factory
     MissingConfigFactory,
 }
@@ -753,7 +733,6 @@ pub enum DriverPluginBuildError {
 impl std::fmt::Display for DriverPluginBuildError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::MissingAdapterFactory => write!(f, "Adapter factory is required"),
             Self::MissingConfigFactory => write!(f, "Config factory is required"),
         }
     }
@@ -764,7 +743,6 @@ impl std::error::Error for DriverPluginBuildError {}
 /// Built driver plugin from builder.
 pub struct BuiltDriverPlugin {
     metadata: DriverMetadata,
-    adapter_factory: Box<dyn Fn(Option<ChainConfig>) -> Box<dyn ChainDriver> + Send + Sync>,
     config_factory: Box<dyn Fn() -> ChainConfig + Send + Sync>,
 }
 
@@ -773,8 +751,12 @@ impl DriverPlugin for BuiltDriverPlugin {
         self.metadata.clone()
     }
 
-    fn create_adapter(&self, config: Option<ChainConfig>) -> Box<dyn ChainDriver> {
-        (self.adapter_factory)(config)
+    fn create_driver(&self, _config: Option<ChainConfig>) -> Box<dyn ChainDriver> {
+        // This should be implemented by the actual plugin
+        // The config_factory is used to provide default config
+        let _config = (self.config_factory)();
+        // Default implementation - should be overridden
+        panic!("create_driver not implemented for BuiltDriverPlugin")
     }
 
     fn default_config(&self) -> ChainConfig {
@@ -810,7 +792,7 @@ pub fn global_factory() -> &'static DriverRegistry {
         .expect("Global driver registry not initialized. Call init_global_factory() first.")
 }
 
-/// Create an adapter using the global registry.
+/// Create a driver using the global registry.
 ///
 /// # Arguments
 ///
@@ -824,8 +806,8 @@ pub fn global_factory() -> &'static DriverRegistry {
 /// # Panics
 ///
 /// Panics if the global registry hasn't been initialized.
-pub fn create_adapter(chain_id: &str) -> Option<Box<dyn ChainDriver>> {
-    global_factory().create_adapter(chain_id)
+pub fn create_driver(chain_id: &str) -> Option<Box<dyn ChainDriver>> {
+    global_factory().create_driver(chain_id)
 }
 
 /// Check if a chain is supported by the global registry.
@@ -864,14 +846,14 @@ mod tests {
     }
 
     #[test]
-    fn test_create_adapter() {
+    fn test_create_driver() {
         let registry = DriverRegistry::new();
 
-        let bitcoin = registry.create_adapter("bitcoin");
+        let bitcoin = registry.create_driver("bitcoin");
         assert!(bitcoin.is_some());
         assert_eq!(bitcoin.unwrap().chain_id(), "bitcoin");
 
-        let unknown = registry.create_adapter("unknown");
+        let unknown = registry.create_driver("unknown");
         assert!(unknown.is_none());
     }
 

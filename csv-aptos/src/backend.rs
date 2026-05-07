@@ -345,7 +345,7 @@ impl ChainDriver for AptosSealProtocol {
 
         #[cfg(feature = "rpc")]
         {
-            use crate::node::AptosRpcClient as RealAptosRpcClient;
+            use crate::node::AptosNode as RealAptosRpcClient;
             let rpc = RealAptosRpcClient::new(rpc_url);
             Ok(Box::new(AptosRpcClient::new(Box::new(rpc))))
         }
@@ -420,10 +420,10 @@ pub fn create_aptos_adapter(config: &ChainConfig) -> ChainResult<AptosSealProtoc
     // When rpc feature is enabled, use real RPC
     #[cfg(all(not(test), feature = "rpc"))]
     {
-        use crate::node::AptosRpcClient;
+        use crate::node::AptosNode;
         let rpc_url = config.rpc_endpoints.first()
             .ok_or_else(|| ChainError::InvalidInput("RPC endpoint required".to_string()))?;
-        let rpc = Box::new(AptosRpcClient::new(rpc_url));
+        let rpc = Box::new(AptosNode::new(rpc_url));
         AptosSealProtocol::from_config(aptos_config, rpc)
             .map_err(|e| ChainError::RpcError(format!("{:?}", e)))
     }

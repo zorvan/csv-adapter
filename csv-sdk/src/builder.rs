@@ -48,7 +48,6 @@ struct BuilderState {
     wallet: Option<Wallet>,
     store_backend: Option<StoreBackend>,
     config: Option<Config>,
-    chain_registry: Option<Arc<csv_core::ChainRegistry>>,
 }
 
 /// Fluent builder for constructing a [`CsvClient`](crate::client::CsvClient).
@@ -188,14 +187,13 @@ impl ClientBuilder {
         let event_tx = ();
 
         // Create the chain runtime
-        // Note: ClientRef initially has no chain_runtime to avoid circular dependency
+       // Note: ClientRef initially has no chain_runtime to avoid circular dependency
         let client_ref = Arc::new(crate::client::ClientRef {
             enabled_chains: self.state.enabled_chains.clone(),
             wallet: self.state.wallet.clone(),
             store: store_arc.clone(),
             config: config.clone(),
             event_tx: event_tx.clone(),
-            chain_registry: self.state.chain_registry.clone(),
             chain_runtime: None,
         });
         let chain_runtime = crate::runtime::ChainRuntime::new(client_ref);
@@ -205,7 +203,6 @@ impl ClientBuilder {
             wallet: self.state.wallet,
             store: store_arc,
             config,
-            chain_registry: self.state.chain_registry.clone(),
             event_tx,
             chain_runtime,
         })

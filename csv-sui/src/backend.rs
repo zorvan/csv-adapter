@@ -380,7 +380,7 @@ impl ChainDriver for SuiSealProtocol {
         // Create the RPC client based on configuration
         #[cfg(feature = "rpc")]
         {
-            use crate::node::SuiRpcClient as RealSuiRpcClient;
+            use crate::node::SuiNode as RealSuiRpcClient;
             let rpc = RealSuiRpcClient::new(rpc_url);
             Ok(Box::new(SuiRpcClient::new(Box::new(rpc))))
         }
@@ -490,10 +490,10 @@ pub fn create_sui_adapter(config: &ChainConfig) -> ChainResult<SuiSealProtocol> 
     // When rpc feature is enabled, use real RPC
     #[cfg(all(not(test), feature = "rpc"))]
     {
-        use crate::node::SuiRpcClient;
+        use crate::node::SuiNode;
         let rpc_url = config.rpc_endpoints.first()
             .ok_or_else(|| ChainError::InvalidInput("RPC endpoint required".to_string()))?;
-        let rpc = Box::new(SuiRpcClient::new(rpc_url));
+        let rpc = Box::new(SuiNode::new(rpc_url));
         SuiSealProtocol::from_config(sui_config, rpc)
             .map_err(|e| ChainError::RpcError(format!("{:?}", e)))
     }

@@ -1,7 +1,7 @@
 //! Seal state hook.
 
 use dioxus::prelude::*;
-use crate::seals::manager::{SealRecord, SealStatus};
+use crate::seals::registry::{SealRecord, SealStatus};
 use csv_core::Chain;
 
 /// Seal state.

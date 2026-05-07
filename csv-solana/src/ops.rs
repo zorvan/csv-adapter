@@ -50,13 +50,13 @@ impl SolanaBackend {
     }
 
     /// Create from SolanaSealProtocol
-    pub fn from_anchor_layer(anchor: &SolanaSealProtocol) -> ChainOpResult<Self> {
-        let rpc = anchor.get_rpc()
+    pub fn from_seal_protocol(seal: &SolanaSealProtocol) -> ChainOpResult<Self> {
+        let rpc = seal.get_rpc()
             .map_err(|e| ChainOpError::RpcError(format!("Failed to get RPC: {}", e)))?;
         Ok(Self {
             rpc: rpc.clone_boxed(),
-            network: anchor.get_network(),
-            domain_separator: anchor.get_domain(),
+            network: seal.get_network(),
+            domain_separator: seal.get_domain(),
         })
     }
 

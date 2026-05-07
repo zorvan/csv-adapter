@@ -18,14 +18,14 @@ pub mod real_rpc {
     type FundingTxResult = Vec<(Txid, u64, u32)>;
 
     /// Real Bitcoin RPC client backed by bitcoincore-rpc
-    pub struct RealBitcoinRpc {
+    pub struct BitcoinNode {
         client: Client,
         network: Network,
         url: String,
         auth: Auth,
     }
 
-    impl RealBitcoinRpc {
+    impl BitcoinNode {
         /// Create a new real RPC client (no auth — for local/public nodes)
         pub fn new(url: &str, network: Network) -> Result<Self, RealRpcError> {
             let client = Client::new(url, Auth::None)?;
@@ -211,7 +211,7 @@ pub mod real_rpc {
         }
     }
 
-    impl BitcoinRpc for RealBitcoinRpc {
+    impl BitcoinRpc for BitcoinNode {
         fn get_block_count(&self) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
             Ok(self.client.get_block_count()?)
         }
@@ -302,9 +302,9 @@ pub mod real_rpc {
         fn clone_boxed(&self) -> Box<dyn BitcoinRpc + Send + Sync> {
             // Note: bitcoincore-rpc Client doesn't implement Clone.
             // The runtime pattern typically uses this for sharing RPC across operations.
-            // For RealBitcoinRpc, the client should be wrapped in Arc or use connection pooling.
+            // For BitcoinNode, the client should be wrapped in Arc or use connection pooling.
             // For now, we create a new client with the same configuration.
-            Box::new(RealBitcoinRpc {
+            Box::new(BitcoinNode {
                 client: Client::new(&self.url, self.auth.clone())
                     .expect("Failed to clone RPC client"),
                 network: self.network,

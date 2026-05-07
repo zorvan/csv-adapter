@@ -29,7 +29,7 @@ mod real_rpc_impl {
     }
 
     /// Real Ethereum RPC client backed by Alloy's HTTP transport
-    pub struct RealEthereumRpc {
+    pub struct EthereumNode {
         client: reqwest::Client,
         rpc_url: String,
         csv_seal_address: Address,
@@ -38,7 +38,7 @@ mod real_rpc_impl {
         seal_store: Option<SqliteSealStore>,
     }
 
-    impl RealEthereumRpc {
+    impl EthereumNode {
         /// Create a new RPC client connecting to the given URL
         pub async fn new(rpc_url: &str, csv_seal_address: [u8; 20]) -> Result<Self, AlloyRpcError> {
             let client = reqwest::Client::new();
@@ -251,7 +251,7 @@ mod real_rpc_impl {
     }
 
     #[async_trait]
-    impl EthereumRpc for RealEthereumRpc {
+    impl EthereumRpc for EthereumNode {
         async fn block_number(&self) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
             self.block_number_raw().await.map_err(|e| e.into())
         }
@@ -419,7 +419,7 @@ mod real_rpc_impl {
         }
 
         fn clone_boxed(&self) -> Box<dyn EthereumRpc> {
-            Box::new(RealEthereumRpc {
+            Box::new(EthereumNode {
                 client: self.client.clone(),
                 rpc_url: self.rpc_url.clone(),
                 csv_seal_address: self.csv_seal_address,
@@ -561,7 +561,7 @@ mod real_rpc_impl {
 
     /// Publishes a seal consumption transaction: builds calldata -> signs -> broadcasts -> returns tx hash.
     pub async fn publish(
-        rpc: &RealEthereumRpc,
+        rpc: &EthereumNode,
         seal: &EthereumSealPoint,
         commitment: [u8; 32],
     ) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>> {
@@ -687,5 +687,5 @@ mod real_rpc_impl {
 #[cfg(feature = "rpc")]
 pub use real_rpc_impl::{
     publish, publish_seal_consumption, verify_seal_consumption_in_receipt, AlloyRpcError,
-    RealEthereumRpc,
+    EthereumNode,
 };

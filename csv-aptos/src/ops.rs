@@ -59,12 +59,12 @@ impl AptosBackend {
     }
 
     /// Create from AptosSealProtocol
-    pub fn from_anchor_layer(anchor: &AptosSealProtocol) -> ChainOpResult<Self> {
-        let (module_addr, event_type) = anchor.event_builder_config();
+    pub fn from_seal_protocol(seal: &AptosSealProtocol) -> ChainOpResult<Self> {
+        let (module_addr, event_type) = seal.event_builder_config();
         Ok(Self {
-            rpc: anchor.rpc().clone_boxed(),
-            network: anchor.network(),
-            domain_separator: anchor.domain(),
+            rpc: seal.rpc().clone_boxed(),
+            network: seal.network(),
+            domain_separator: seal.domain(),
             event_builder: CommitmentEventBuilder::new(module_addr, event_type),
         })
     }

@@ -1,40 +1,38 @@
-//! Blockchain service module.
+//! Blockchain service stubs for wallet compatibility.
+//!
+//! These stubs provide the types needed by wallet code.
+//! The actual chain operations delegate to csv-sdk when available.
 
 use csv_core::Chain;
 
-/// Blockchain configuration.
-#[derive(Debug, Clone, Default)]
-pub struct BlockchainConfig {}
-
-/// Blockchain service stub.
-pub struct BlockchainService {
-    config: BlockchainConfig,
+/// Blockchain error type.
+#[derive(Debug, Clone)]
+pub struct BlockchainError {
+    pub message: String,
+    pub chain: Option<Chain>,
+    pub code: Option<u32>,
 }
 
-impl BlockchainService {
-    pub fn new(config: BlockchainConfig) -> Self {
-        Self { config }
+impl std::fmt::Display for BlockchainError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "BlockchainError: {}", self.message)
     }
+}
 
-    pub async fn transfer_sanad_local(&self, _chain: Chain, _sanad_id: &str, _to: &str) -> Result<TransferResult, BlockchainError> {
-        Ok(TransferResult {
-            transfer_id: String::new(),
-            source_fee: String::new(),
-            dest_fee: String::new(),
-            lock_tx_hash: String::new(),
-            mint_tx_hash: String::new(),
-        })
-    }
+impl std::error::Error for BlockchainError {}
 
-    pub async fn execute_cross_chain_transfer(&self, _from: Chain, _to: Chain, _sanad_id: &str, _dest_addr: &str, _contracts: &std::collections::HashMap<Chain, ContractDeployment>, _signer: &NativeWallet) -> Result<TransferResult, BlockchainError> {
-        Ok(TransferResult {
-            transfer_id: String::new(),
-            source_fee: String::new(),
-            dest_fee: String::new(),
-            lock_tx_hash: String::new(),
-            mint_tx_hash: String::new(),
-        })
-    }
+/// Wallet type enum.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WalletType {
+    MetaMask,
+    Phantom,
+    Petra,
+    Leather,
+    Native,
+    Custom,
+    SuiWallet,
+    AptosWallet,
+    SolanaWallet,
 }
 
 /// Native wallet stub.
@@ -44,10 +42,12 @@ pub struct NativeWallet {
 }
 
 impl NativeWallet {
+    /// Create a new native wallet.
     pub fn new(address: String) -> Self {
         Self { address }
     }
 
+    /// Get the wallet address.
     pub fn address(&self) -> &str {
         &self.address
     }
@@ -60,51 +60,6 @@ pub struct BrowserWallet {
     pub chain: Option<Chain>,
     pub wallet_type: WalletType,
 }
-
-/// Wallet type enum.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum WalletType {
-    MetaMask,
-    Phantom,
-    SuiWallet,
-    Petra,
-    Leather,
-    Native,
-    Custom(String),
-}
-
-/// Wallet connection module.
-pub mod wallet_connection {
-    use super::*;
-
-    pub fn is_metamask_installed() -> bool { false }
-    pub fn is_phantom_installed() -> bool { false }
-    pub async fn connect_metamask() -> Result<BrowserWallet, BlockchainError> {
-        Err(BlockchainError { message: "MetaMask not available".to_string(), chain: None, code: None })
-    }
-    pub fn native_wallet(_account: &str) -> NativeWallet {
-        NativeWallet { address: String::new() }
-    }
-    pub fn recommended_wallet(_chain: Chain) -> WalletType {
-        WalletType::Native
-    }
-}
-
-/// Blockchain error type.
-#[derive(Debug)]
-pub struct BlockchainError {
-    pub message: String,
-    pub chain: Option<Chain>,
-    pub code: Option<i32>,
-}
-
-impl std::fmt::Display for BlockchainError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.message)
-    }
-}
-
-impl std::error::Error for BlockchainError {}
 
 /// Contract type enum.
 #[derive(Debug, Clone, Copy)]
@@ -125,11 +80,54 @@ pub struct ContractDeployment {
     pub deployed_at: u64,
 }
 
-/// Contract deployment result.
-#[derive(Debug, Clone)]
-pub struct DeploymentResult {
-    pub address: String,
-    pub tx_hash: String,
+/// Blockchain service stub.
+#[derive(Debug, Clone, Default)]
+pub struct BlockchainService {
+    _private: (),
+}
+
+impl BlockchainService {
+    /// Create a new blockchain service.
+    pub fn new(_config: BlockchainConfig) -> Self {
+        Self { _private: () }
+    }
+
+    /// Transfer sanad locally (stub).
+    pub async fn transfer_sanad_local(
+        &self,
+        _chain: Chain,
+        _sanad_id: &str,
+        _to: &str,
+    ) -> Result<TransferResult, BlockchainError> {
+        Err(BlockchainError {
+            message: "transfer_sanad_local not implemented".to_string(),
+            chain: Some(_chain),
+            code: Some(501),
+        })
+    }
+
+   /// Execute cross-chain transfer (stub).
+    pub async fn execute_cross_chain_transfer(
+        &self,
+        _from_chain: Chain,
+        _to_chain: Chain,
+        _sanad_id: &str,
+        _to_address: &str,
+        _contracts: &std::collections::HashMap<Chain, ContractDeployment>,
+        _signer: &NativeWallet,
+    ) -> Result<TransferResult, BlockchainError> {
+        Err(BlockchainError {
+            message: "execute_cross_chain_transfer not implemented".to_string(),
+            chain: Some(_from_chain),
+            code: Some(501),
+        })
+    }
+}
+
+/// Blockchain configuration stub.
+#[derive(Debug, Clone, Default)]
+pub struct BlockchainConfig {
+    _private: (),
 }
 
 /// Transfer result stub.
@@ -142,6 +140,37 @@ pub struct TransferResult {
     pub mint_tx_hash: String,
 }
 
-pub mod types {
-    pub use super::{ContractDeployment, ContractType};
+/// Wallet connection utilities stub.
+pub mod wallet_connection {
+    use super::{WalletType, Chain, NativeWallet};
+
+    /// Get recommended wallet type for a chain.
+    pub fn recommended_wallet(_chain: Chain) -> WalletType {
+        WalletType::MetaMask
+    }
+
+    /// Check if MetaMask is installed.
+    pub fn is_metamask_installed() -> bool {
+        false
+    }
+
+    /// Check if Phantom is installed.
+    pub fn is_phantom_installed() -> bool {
+        false
+    }
+
+    /// Connect to MetaMask (stub).
+    pub async fn connect_metamask() -> Result<NativeWallet, String> {
+        Err("MetaMask not available".to_string())
+    }
+
+    /// Create a native wallet from address.
+    pub fn native_wallet(address: &str) -> NativeWallet {
+        NativeWallet::new(address.to_string())
+    }
+
+    /// Check if wallet is installed.
+    pub fn is_wallet_installed(_wallet_type: &WalletType) -> bool {
+        false
+    }
 }

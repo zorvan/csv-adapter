@@ -33,7 +33,6 @@ use std::sync::Arc;
 
 
 use csv_core::Chain;
-use csv_core::ChainRegistry;
 #[cfg(feature = "tokio")]
 use tokio::sync::broadcast;
 
@@ -195,8 +194,6 @@ pub struct CsvClient {
     pub(crate) event_tx: broadcast::Sender<crate::events::Event>,
     #[cfg(not(feature = "tokio"))]
     pub(crate) event_tx: (),
-    /// Chain registry for dynamic chain management.
-    pub(crate) chain_registry: Option<Arc<ChainRegistry>>,
     /// Chain runtime for unified chain operations.
     pub(crate) chain_runtime: ChainRuntime,
 }
@@ -229,14 +226,9 @@ impl CsvClient {
     /// ```no_run
     /// use csv_adapter::prelude::*;
     ///
-    /// let registry = ChainRegistry::new();
-    /// registry.register_chain("bitcoin".to_string(), "Bitcoin".to_string());
-    /// registry.register_chain("ethereum".to_string(), "Ethereum".to_string());
-    ///
-    /// let client = CsvClient::scalable_builder()
-    ///     .with_chain_registry(registry)
-    ///     .with_chain("bitcoin")
-    ///     .with_chain("ethereum")
+    /// let client = CsvClient::builder()
+    ///     .with_chain(Chain::Bitcoin)
+    ///     .with_chain(Chain::Ethereum)
     ///     .build()?;
     /// # Ok::<_, csv_adapter::CsvError>(())
     /// ```
@@ -471,7 +463,7 @@ impl CsvClient {
                     rpc_url: rpc_url.clone(),
                 };
                 let csv_seal_address = [0u8; 20]; // Default, should be configured
-                let rpc = csv_ethereum::node::RealEthereumRpc::new(&rpc_url, csv_seal_address)
+                let rpc = csv_ethereum::node::EthereumNode::new(&rpc_url, csv_seal_address)
                     .await
                     .map_err(|e| CsvError::ProtocolError { chain: Chain::Ethereum, message: format!("Failed to create Ethereum RPC client: {}", e) })?;
                 _builder.ethereum_from_config(eth_config, Box::new(rpc) as Box<dyn csv_ethereum::rpc::EthereumRpc>, csv_seal_address).await.map(Some)
@@ -499,7 +491,7 @@ impl CsvClient {
                 sui_config.rpc_url = rpc_url.clone();
                 // Seal contract package ID is required but not available - using placeholder
                 sui_config.seal_contract.package_id = Some("0x0000000000000000000000000000000000000000000000000000000000000000".to_string());
-                let rpc = csv_sui::node::SuiRpcClient::new(&rpc_url);
+                 let rpc = csv_sui::node::SuiNode::new(&rpc_url);
                 _builder.sui_from_config(sui_config, Box::new(rpc) as Box<dyn csv_sui::rpc::SuiRpc>).await.map(Some)
             }
             #[cfg(feature = "aptos")]
@@ -523,7 +515,7 @@ impl CsvClient {
                     csv_aptos::config::AptosNetwork::Mainnet
                 };
                 aptos_config.rpc_url = rpc_url.clone();
-                let rpc = csv_aptos::node::AptosRpcClient::new(&rpc_url);
+                  let rpc = csv_aptos::node::AptosNode::new(&rpc_url);
                 _builder.aptos_from_config(aptos_config, Box::new(rpc) as Box<dyn csv_aptos::rpc::AptosRpc>).await.map(Some)
             }
             #[cfg(feature = "solana")]
@@ -554,7 +546,7 @@ impl CsvClient {
                     max_retries: 3,
                     timeout_seconds: 30,
                 };
-                let rpc = Box::new(csv_solana::rpc::RealSolanaRpc::new(&rpc_url));
+                  let rpc = Box::new(csv_solana::node::SolanaNode::new(&rpc_url));
                 _builder.solana_from_config(sol_config, rpc).await.map(Some)
             }
             _ => Ok(None), // Skip unsupported chains
@@ -583,8 +575,7 @@ impl CsvClient {
             wallet: self.wallet.clone(),
             store: Arc::clone(&self.store),
             config: self.config.clone(),
-            event_tx: self.event_tx.clone(),
-            chain_registry: self.chain_registry.clone(),
+           event_tx: self.event_tx.clone(),
             chain_runtime: Some(self.chain_runtime.clone()),
         }
     }
@@ -607,8 +598,6 @@ pub(crate) struct ClientRef {
     pub(crate) event_tx: broadcast::Sender<crate::events::Event>,
     #[cfg(not(feature = "tokio"))]
     pub(crate) event_tx: (),
-    #[allow(dead_code)]
-    pub(crate) chain_registry: Option<Arc<ChainRegistry>>,
     /// Chain runtime for unified chain operations.
     #[allow(dead_code)]
     pub(crate) chain_runtime: Option<crate::runtime::ChainRuntime>,
@@ -631,9 +620,8 @@ impl ClientRef {
             store: Arc::new(std::sync::Mutex::new(crate::client::StoreHandle::InMemory(
                 csv_core::InMemorySealStore::new()
             ))),
-            config: Config::default(),
+           config: Config::default(),
             event_tx,
-            chain_registry: None,
             chain_runtime: None,
         }
     }

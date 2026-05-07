@@ -119,7 +119,6 @@ pub mod state_store;
 pub mod validator;
 
 // Chain driver system for dynamic chain support
-pub mod adapters;
 pub mod driver;
 pub mod driver_registry;
 pub mod chain_config;
@@ -227,14 +226,14 @@ pub use store::{AnchorRecord, InMemorySealStore, SanadRecord, SanadStore, SealRe
 
 // Chain driver system (Beta API)
 pub use driver::{
-    ChainDriver, ChainDriverExt, ChainError, ChainRegistry, ChainResult, RpcClient, Wallet,
+    ChainDriver, ChainDriverExt, ChainError, ChainResult, RpcClient, Wallet,
 };
 pub use chain_config::{AccountModel, ChainCapabilities, ChainConfig, ChainConfigLoader};
 
 // Unified driver registry (Phase 2)
 pub use driver_registry::{
     BuiltDriverPlugin, DriverDiscovery, DriverMetadata, DriverPlugin, DriverPluginBuildError,
-    DriverPluginBuilder, DriverRegistry, create_adapter as create_driver, global_factory,
+    DriverPluginBuilder, DriverRegistry, create_driver, global_factory,
     init_global_factory, is_chain_supported as is_driver_supported,
 };
 

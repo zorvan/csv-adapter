@@ -68,12 +68,12 @@ impl EthereumBackend {
     }
 
     /// Create from EthereumSealProtocol
-    pub fn from_anchor_layer(anchor: &EthereumSealProtocol) -> ChainOpResult<Self> {
+    pub fn from_seal_protocol(seal: &EthereumSealProtocol) -> ChainOpResult<Self> {
         Ok(Self {
-            rpc: anchor.rpc().clone_boxed(),
-            config: anchor.config_clone(),
-            domain_separator: anchor.domain(),
-            finality_checker: anchor.finality_checker_clone(),
+            rpc: seal.rpc().clone_boxed(),
+            config: seal.config_clone(),
+            domain_separator: seal.domain(),
+            finality_checker: seal.finality_checker_clone(),
             seal_contract: CsvSealAbi::default(),
             proof_verifier: EventProofVerifier::new(),
             event_builder: CommitmentEventBuilder::new(),

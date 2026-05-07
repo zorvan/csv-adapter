@@ -57,8 +57,8 @@ impl BitcoinChainQuery {
 
     /// Create from a real Bitcoin RPC client
     #[cfg(feature = "rpc")]
-    pub fn from_real_rpc(rpc: crate::node::real_rpc::RealBitcoinRpc, network: Network) -> Self {
-        // RealBitcoinRpc implements BitcoinRpc, so we can box it
+    pub fn from_real_rpc(rpc: crate::node::real_rpc::BitcoinNode, network: Network) -> Self {
+        // BitcoinNode implements BitcoinRpc, so we can box it
         Self::new(Box::new(rpc), network)
     }
 }
@@ -1155,12 +1155,12 @@ impl ChainSanadOps for BitcoinChainSanadOps {
 /// Unified Bitcoin chain operations implementing ChainBackend.
 ///
 /// This is the standard runtime pattern implementation that combines all chain operation
-/// traits into a single type. Created from BitcoinSealProtocol via `from_anchor_layer()`.
+/// traits into a single type. Created from BitcoinSealProtocol via `from_seal_protocol()`.
 ///
 /// # Security
-/// - Preserves BIP-86 HD wallet derivation from the anchor layer
+/// - Preserves BIP-86 HD wallet derivation from the seal protocol
 /// - Maintains domain-separated hashing for all proof operations
-/// - Uses RPC client attached to anchor layer for all chain queries
+/// - Uses RPC client attached to seal protocol for all chain queries
 pub struct BitcoinBackend {
     /// RPC client for chain communication (extracted from anchor layer)
     rpc: Box<dyn BitcoinRpc + Send + Sync>,
@@ -1187,30 +1187,30 @@ impl BitcoinBackend {
     /// Create from BitcoinSealProtocol (standard runtime pattern).
     ///
     /// # Arguments
-    /// * `anchor` - The Bitcoin anchor layer with attached RPC and wallet
+    /// * `seal` - The Bitcoin seal protocol with attached RPC and wallet
     ///
     /// # Security Notes
-    /// - Preserves all BIP-86 derivation settings from the anchor layer
+    /// - Preserves all BIP-86 derivation settings from the seal protocol
     /// - Maintains domain separator for cross-chain replay protection
     /// - Clones RPC client reference for chain operations
-    pub fn from_anchor_layer(anchor: &BitcoinSealProtocol) -> ChainOpResult<Self> {
-        // Extract RPC from anchor layer (must be present for real operations)
-        let rpc = anchor
+    pub fn from_seal_protocol(seal: &BitcoinSealProtocol) -> ChainOpResult<Self> {
+        // Extract RPC from seal protocol (must be present for real operations)
+        let rpc = seal
             .rpc
             .as_ref()
             .ok_or_else(|| ChainOpError::FeatureNotEnabled(
-                "RPC client not attached to anchor layer. Use from_config() to attach RPC.".to_string()
+                "RPC client not attached to seal protocol. Use from_config() to attach RPC.".to_string()
             ))?
             .clone_boxed();
 
-        // Extract network from anchor layer config (preserves BIP-86 coin type settings)
-        let network = anchor.config().network.to_bitcoin_network();
+        // Extract network from seal protocol config (preserves BIP-86 coin type settings)
+        let network = seal.config().network.to_bitcoin_network();
 
-        // Extract domain separator from anchor layer (preserves cross-chain replay protection)
-        let domain_separator = anchor.domain();
+        // Extract domain separator from seal protocol (preserves cross-chain replay protection)
+        let domain_separator = seal.domain();
 
         // Store config for later sanad operations
-        let config = anchor.config().clone();
+        let config = seal.config().clone();
 
         Ok(Self {
             rpc,
@@ -1220,7 +1220,7 @@ impl BitcoinBackend {
         })
     }
 
-    /// Create from anchor layer components (internal use).
+    /// Create from seal protocol components (internal use).
     ///
     /// This is the preferred constructor when you have direct access to the components.
     pub fn new(

@@ -123,9 +123,9 @@ impl AptosSealProtocol {
         csv_seal_address: [u8; 32],
         signing_key: ed25519_dalek::SigningKey,
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-        use crate::node::AptosRpcClient;
+        use crate::node::AptosNode;
 
-        let rpc: Box<dyn AptosRpc> = Box::new(AptosRpcClient::new(&config.rpc_url));
+        let rpc: Box<dyn AptosRpc> = Box::new(AptosNode::new(&config.rpc_url));
         let mut adapter = Self::from_config(config, rpc)
             .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
         adapter.signing_key = Some(signing_key);

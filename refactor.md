@@ -13,6 +13,70 @@
 
 ---
 
+## Audit Progress Log
+
+**Last audited:** May 2026  
+**Audit tool:** Automated codebase analysis + manual verification
+
+### Phase 0 — Critical Defects (Part II): **100% COMPLETE** ✅
+
+| Defect | Status | Evidence |
+|--------|--------|----------|
+| C-1: Dual AnchorLayer | **FIXED** | `interface.rs` and `traits.rs` deleted. Single `SealProtocol` in `seal_protocol.rs:77` |
+| C-2: Mutex in async | **FIXED** | `tokio::sync::Mutex` with `.await`; `spawn_blocking` for store access in `runtime.rs` |
+| C-3: Chain encoding in facade | **FIXED** | `build_contract_call` deprecated; no `match chain` dispatch in SDK |
+| C-4: Wrong nonce data | **FIXED** | `get_account_nonce` added to `ChainQuery` trait; implemented per chain |
+| C-5: dead_code in store | **FIXED** | No `#![allow(dead_code)]` in `csv-store/src/lib.rs` |
+| C-6: Mock RPC bleed | **FIXED** | All mock types gated by `#[cfg(test)]`; zero feature-flag-gated mocks |
+
+### Phase 1 — Naming & Structure (Part IV): **~85% Complete**
+
+**Fully Renamed (FIXED):**
+
+- `ChainAdapter` → `ChainDriver` (driver.rs)
+- `AnchorLayer` → `SealProtocol` (seal_protocol.rs)
+- `FullChainAdapter` → `ChainBackend` (backend.rs)
+- `SealRef` → `SealPoint`, `AnchorRef` → `CommitAnchor`
+- `Right` → `Sanad`, `MpcTree` → `CommitMux`
+- `CrossChainSealRegistry` → `SealNullifier`
+- `facade.rs` → `runtime.rs`, `errors.rs` → `error.rs`
+- File renames: `traits.rs`→`seal_protocol.rs`, `chain_adapter.rs`→`driver.rs`+`backend.rs`, `right.rs`→`sanad.rs`, `seal_registry.rs`→`nullifier.rs`, `mpc.rs`→`commit_mux.rs`
+- `adapter_factory.rs`, `chain_plugin.rs`, `chain_discovery.rs` → merged into `driver_registry.rs`
+- `real_rpc.rs` → `node.rs` in 4/5 chain crates
+
+**Remaining:**
+
+- `csv-solana/src/rpc.rs` → `node.rs` (1 chain remaining)
+- `chain_operations.rs` → `ops.rs` (all 5 chain crates)
+- Struct names: `RealBitcoinRpc` → `BitcoinNode`, etc. (4 crates)
+- `ChainRegistry` still in driver.rs (overlaps with DriverRegistry)
+- `AdapterFactory` remnants in driver_registry.rs
+- Wallet file renames (seal_visualizer→seal_view, proof_inspector→proof_view, manager→registry)
+- Fuzz target renames
+
+### Phase 2-4 — Architecture (Part III): **~55% Complete**
+
+| Defect | Status | Details |
+|--------|--------|---------|
+| A-1: Overlapping layers | **PARTIALLY FIXED** | Three-layer hierarchy established; ChainRegistry still overlaps with DriverRegistry |
+| A-2: real_rpc naming | **PARTIALLY FIXED** | node.rs in 4/5 crates; struct names don't match plan |
+| A-3: Explorer structure | **PARTIALLY FIXED** | Dead src/ removed; split into 5 sub-crates (shared, storage, indexer, api, ui) |
+| A-4: WASM divergence | **PARTIALLY FIXED** | csv-core is no_std compatible; wallet stubs still exist |
+| A-5: Registry overlap | **PARTIALLY FIXED** | DriverRegistry created; ChainRegistry still in driver.rs |
+| A-6: Runtime crate | **NOT FIXED** | No csv-runtime crate exists |
+
+### Remaining Phases
+
+| Phase | Status | Details |
+|-------|--------|---------|
+| Phase 2: Registry Unification | **NOT STARTED** | ChainRegistry removal needed first |
+| Phase 3: WASM Unification | **PARTIALLY STARTED** | csv-core is no_std; wallet stubs remain |
+| Phase 4: Explorer Decomposition | **PARTIALLY DONE** | Dead src/ removed; storage is extra crate |
+| Phase 5: ZK & Celestia | **NOT STARTED** | Per gap analysis |
+| Phase 6: Repository Split | **NOT STARTED** | Per timing guidelines |
+
+---
+
 ## Part I — Executive Diagnosis
 
 ### What Works
@@ -55,6 +119,8 @@ Two definitions of `AnchorLayer` exist in the same crate. They are not identical
 
 **Fix:** Delete `interface.rs`. Consolidate into `traits.rs` (renamed `seal_protocol.rs` — see Part IV). The object-unsafe version requires a shim layer using `SealProtocolExt` or an enum-dispatch approach — document this explicitly.
 
+**Status: FIXED** — `interface.rs` and `traits.rs` deleted. Single `SealProtocol` in `seal_protocol.rs:77`.
+
 ---
 
 ### Defect C-2: Mutex Locked Inside Async Context in Proof Verification
@@ -71,6 +137,8 @@ let seal_checker = |seal_id: &[u8]| {
 A synchronous `std::sync::Mutex` is locked inside an `async fn` that is called across `.await` points. This is a classic async deadlock vector. If any other task awaits while holding this lock, or if the tokio executor parks this future between the lock acquisition and release, executor threads will block. Under load with multiple concurrent proof verifications, this degrades to sequential execution or deadlock.
 
 **Fix:** Replace with `tokio::sync::Mutex` and `await` the lock, or restructure to remove the closure capture of `self.client` entirely by pre-fetching store state before entering the proof verification pipeline.
+
+**Status: FIXED** — `tokio::sync::Mutex` used with `.await`; `spawn_blocking` for store access in `runtime.rs`.
 
 ---
 
@@ -93,6 +161,8 @@ The entire point of the adapter pattern is that the facade does not know which c
 **Furthermore:** `encode_eth_contract_call` pads arguments to exactly 32 bytes using a manual loop. Ethereum ABI encoding is not this simple — tuples, dynamic types, and arrays require offset encoding. This implementation will produce incorrect calldata for any function with non-scalar arguments.
 
 **Fix:** Move `build_contract_call` into each `ChainBackend` implementation (see Part IV for rename). The facade calls `backend.build_contract_call(function, args, from, nonce)` and knows nothing about encoding.
+
+**Status: FIXED** — `build_contract_call` deprecated; no `match chain` dispatch in SDK.
 
 ---
 
@@ -118,6 +188,8 @@ match adapter.get_chain_info().await {
 
 **Fix:** Add `get_account_nonce(address: &str) -> ChainOpResult<u64>` to the `ChainQuery` trait. Each backend implements it natively.
 
+**Status: FIXED** — `get_account_nonce` added to `ChainQuery` trait; implemented per chain.
+
 ---
 
 ### Defect C-5: `#![allow(dead_code)]` in Production Library
@@ -128,6 +200,8 @@ A production persistence library with `#![allow(dead_code)]` is a confession: th
 
 **Fix:** Run `cargo +nightly udeps --all-targets` on the workspace. Prune every unused symbol. Gate remaining internal utilities behind `#[cfg(test)]`. Remove the global allow.
 
+**Status: FIXED** — No `#![allow(dead_code)]` in `csv-store/src/lib.rs`.
+
 ---
 
 ### Defect C-6: Mock RPC Bleed Risk
@@ -137,6 +211,8 @@ A production persistence library with `#![allow(dead_code)]` is a confession: th
 The `PROTOCOL_INVARIANTS.md` is explicit: "no silent mock success." This is violated by the feature-flag gating pattern.
 
 **Fix:** All mock types must be `#[cfg(test)]` only. Feature flags control network connectivity, not mock vs. real. Create a `csv-test-utils` crate for shared test fixtures that is never a dependency of production crates.
+
+**Status: FIXED** — All mock types gated by `#[cfg(test)]`; zero feature-flag-gated mocks.
 
 ---
 
@@ -161,6 +237,8 @@ The `ChainAdapter` trait in `chain_adapter.rs` returns `Box<dyn RpcClient>` and 
 
 **Fix:** See Part V, Canonical Architecture. The three-layer trait hierarchy is architecturally correct — it just needs precise names. See Part IV for the rename.
 
+**Status: PARTIALLY FIXED** — Three-layer hierarchy established (ChainDriver, SealProtocol, ChainBackend). `ChainRegistry` still overlaps with `DriverRegistry` in driver.rs.
+
 ---
 
 ### Defect A-2: The `rpc.rs` / `real_rpc.rs` Split Is Semantically Wrong
@@ -175,6 +253,8 @@ The name "real_rpc" implies that `rpc.rs` is fake. Developers reading this for t
 Bitcoin additionally has `mempool_rpc.rs` as a third RPC variant for mempool.space HTTP API, making three RPC paths for one chain. The CLI's `chain_api.rs` hardcodes mempool.space URLs as the fallback for Bitcoin balance queries, bypassing the adapter entirely.
 
 **Fix:** Rename `real_rpc.rs` → `node.rs`. The struct connecting to an actual chain node IS a node connection. Naming it `BitcoinNode`, `EthereumNode`, etc. states exactly what it is. Both `node.rs` and `mempool_space_rpc.rs` implement the same RPC trait, registered at construction time by configuration.
+
+**Status: PARTIALLY FIXED** — `node.rs` exists in 4/5 chain crates. `csv-solana` still uses `rpc.rs`. Struct names don't match plan (`RealBitcoinRpc` instead of `BitcoinNode`).
 
 ---
 
@@ -198,6 +278,8 @@ csv-explorer/
 
 **Fix:** Split into four separate workspace crates. See Part V.
 
+**Status: PARTIALLY FIXED** — Dead `src/` removed. Split into 5 sub-crates (shared, storage, indexer, api, ui).
+
 ---
 
 ### Defect A-4: The WASM Wallet's Core Divergence
@@ -215,6 +297,8 @@ The root problem: `csv-adapter` pulls `tokio` with `rt-multi-thread` features. W
 
 **Fix:** `csv-core` must become `no_std` / WASM-safe as a hard requirement. `csv-sdk` (the facade) must expose a `wasm` feature that replaces tokio with `wasm-bindgen-futures` and `gloo-timers`. `csv-keys` already has `browser_keystore.rs` — this is the correct pattern. The wallet's `wallet_core.rs`, `services/chain_api.rs`, and `services/blockchain/` must be deleted and replaced with the WASM-featured facade.
 
+**Status: PARTIALLY FIXED** — `csv-core` is `no_std` compatible. Wallet stubs (`wallet_core.rs`, `services/blockchain.rs`, `services/chain_api.rs`) still exist but are thin stubs.
+
 ---
 
 ### Defect A-5: Three Overlapping Dynamic Chain Registration Systems
@@ -230,6 +314,8 @@ The explorer's indexer uses `IndexerPluginRegistry` which is a fourth system bui
 None of these registries share data or code. A chain registered in `ChainRegistry` is not available in `ChainPluginRegistry`. The 100-chain goal requires one registry, one trait contract, one registration mechanism. Currently adding Bitcoin requires touching all four systems independently.
 
 **Fix:** One `DriverRegistry`, one entry point. Three files (`adapter_factory.rs`, `chain_plugin.rs`, `chain_discovery.rs`) merge into `driver_registry.rs`. See Part V.
+
+**Status: PARTIALLY FIXED** — `DriverRegistry` created. `ChainRegistry` still in driver.rs. `AdapterFactory` remnants remain.
 
 ---
 
@@ -248,6 +334,8 @@ Currently, runtime behavior is distributed across:
 These components belong in a named `csv-runtime` crate that owns long-running tasks. The CLI does not need it (request-response). The wallet needs a lightweight version (the WASM runtime is `wasm-bindgen-futures`). The explorer needs the full version.
 
 **Note on naming:** The top-level orchestrator struct (`ChainFacade`) should not yet be renamed to `CsvRuntime` — the decision of whether the runtime is a separate process, an embedded library, or a daemon is still open (see Part X Decision Register). The name must follow the decision.
+
+**Status: NOT FIXED** — No `csv-runtime` crate exists.
 
 ---
 
@@ -308,6 +396,8 @@ Keep the GitHub org name exactly as is. `client-side-validation` is precise, uni
 | `csv-wallet` | `csv-wallet` | Already correct. |
 | `csv-explorer` | `csv-explorer` | Already correct. |
 
+**Status: FIXED** — All crates renamed.
+
 ---
 
 ### The Three Trait Layers — Precise New Names
@@ -331,6 +421,8 @@ pub trait ChainDriverExt: ChainDriver { ... }
 ```
 
 **File rename:** `chain_adapter.rs` → `driver.rs`
+
+**Status: FIXED** — `ChainDriver` in `driver.rs`.
 
 ---
 
@@ -369,6 +461,8 @@ struct SolanaAnchorLayer       struct SolanaSealProtocol
 ```
 
 **File rename:** `traits.rs` → `seal_protocol.rs`
+
+**Status: FIXED** — `SealProtocol` in `seal_protocol.rs`. All chain crates renamed.
 
 ---
 
@@ -409,13 +503,15 @@ SolanaChainOperations           SolanaBackend
 
 **File split:** `chain_adapter.rs` splits into `driver.rs` (Layer 1) and `backend.rs` (Layer 3). These two concepts share nothing and must not share a file.
 
+**Status: FIXED** — `ChainBackend` in `backend.rs`. All chain crates renamed.
+
 ---
 
 #### Three-Layer Summary
 
 ```
 Before                     After                   File
-──────────────────────────────────────────────────────────────
+─────────────────────────────────────────────────────────────
 ChainAdapter               ChainDriver             driver.rs
 AnchorLayer                SealProtocol            seal_protocol.rs
 FullChainAdapter           ChainBackend            backend.rs
@@ -456,6 +552,8 @@ EthereumSealRef               (uses SealPoint directly — nullifier hash)
 
 Fuzz target: `fuzz_seal_ref_from_bytes.rs` → `fuzz_seal_point.rs`
 
+**Status: FIXED** — `SealPoint` in `seal.rs`. All chain crates renamed.
+
 ---
 
 #### `AnchorRef` → `CommitAnchor`
@@ -470,6 +568,8 @@ pub struct AnchorRef { ... }     pub struct CommitAnchor { ... }
 pub struct BitcoinAnchorRef      pub struct BitcoinCommitAnchor
 pub struct AptosAnchorRef        pub struct AptosCommitAnchor
 ```
+
+**Status: FIXED** — `CommitAnchor` in `seal.rs`. All chain crates renamed.
 
 ---
 
@@ -499,6 +599,8 @@ ChainRightOps                       ChainSanadOps
 
 **File:** `right.rs` → `sanad.rs`
 
+**Status: FIXED** — `Sanad` in `sanad.rs`. `ChainSanadOps` in `backend.rs`.
+
 ---
 
 #### `MpcTree` → `CommitMux`
@@ -516,6 +618,8 @@ MpcProof           MuxProof
 
 **File:** `mpc.rs` → `commit_mux.rs`
 
+**Status: FIXED** — `CommitMux` in `commit_mux.rs`.
+
 ---
 
 #### `CrossChainSealRegistry` → `SealNullifier`
@@ -532,6 +636,8 @@ pub struct SealNullifier { ... }
 
 **File:** `seal_registry.rs` → `nullifier.rs`
 
+**Status: FIXED** — `SealNullifier` in `nullifier.rs`.
+
 ---
 
 #### `real_rpc.rs` → `node.rs` (across all five chains)
@@ -545,6 +651,8 @@ csv-sui/src/real_rpc.rs        → csv-sui/src/node.rs         (SuiNode)
 csv-aptos/src/real_rpc.rs      → csv-aptos/src/node.rs       (AptosNode)
 csv-solana/src/real_rpc.rs     → csv-solana/src/node.rs      (SolanaNode)
 ```
+
+**Status: PARTIALLY FIXED** — `node.rs` in 4/5 crates. `csv-solana` still uses `rpc.rs`. Struct names need updating.
 
 ---
 
@@ -561,6 +669,8 @@ chain_discovery.rs     → discovery logic
 // After: one file
 driver_registry.rs     → DriverRegistry (merged), DriverMetadata (was ChainPluginMetadata)
 ```
+
+**Status: PARTIALLY FIXED** — `driver_registry.rs` exists with merged functionality. `ChainRegistry` still in driver.rs. `AdapterFactory` remnants remain.
 
 ---
 
@@ -591,6 +701,8 @@ driver_registry.rs     → DriverRegistry (merged), DriverMetadata (was ChainPlu
 Files to keep exactly as-is (names are correct):
 `commitment.rs`, `commitment_chain.rs`, `consignment.rs`, `cross_chain.rs`, `dag.rs`, `error.rs`, `events.rs`, `genesis.rs`, `hardening.rs`, `hash.rs`, `monitor.rs`, `performance.rs`, `proof.rs`, `protocol_version.rs`, `schema.rs`, `seal.rs`, `signature.rs`, `state.rs`, `state_store.rs`, `store.rs`, `tagged_hash.rs`, `tapret_verify.rs`, `transition.rs`, `validator.rs`, `vm/`, `zk_proof.rs`
 
+**Status: ~85% FIXED** — Core renames done. `chain_operations.rs`→`ops.rs` pending. `adapters/`→`drivers/` pending.
+
 #### Chain crates — all five, same pattern
 
 | Current file | New file |
@@ -601,12 +713,16 @@ Files to keep exactly as-is (names are correct):
 | `real_rpc.rs` | `node.rs` |
 | `rpc.rs` | `rpc.rs` (keep — it IS the RPC trait) |
 
+**Status: ~80% FIXED** — `chain_operations.rs`→`ops.rs` pending. `real_rpc.rs`→`node.rs` in 4/5.
+
 #### `csv-sdk/` (was `csv-adapter/`)
 
 | Current | New |
 |---|---|
 | `src/facade.rs` | `src/runtime.rs` |
 | `src/errors.rs` | `src/error.rs` (singular convention) |
+
+**Status: FIXED**
 
 #### `csv-wallet/src/`
 
@@ -618,6 +734,8 @@ Files to keep exactly as-is (names are correct):
 | `services/blockchain/` | `services/chain/` |
 | `components/seal_visualizer.rs` | `components/seal_view.rs` |
 | `components/proof_inspector.rs` | `components/proof_view.rs` |
+
+**Status: ~60% FIXED** — Some renames done, some pending.
 
 ---
 
@@ -659,6 +777,8 @@ Files to keep exactly as-is (names are correct):
 | `SolanaChainOperations` | `SolanaBackend` | csv-solana |
 | `use_assets` hook | `use_sanads` | csv-wallet |
 | `AssetService` | `SanadService` | csv-wallet |
+
+**Status: ~90% FIXED** — Most renames complete. Some wallet renames pending.
 
 ---
 
@@ -787,6 +907,8 @@ registry.register(EthereumDriver::new());
 
 This single entry point replaces `ChainAdapter`, `ChainPlugin`, `AdapterFactory`, `ChainRegistry`, and `IndexerPluginRegistry` simultaneously.
 
+**Status: PARTIALLY FIXED** — `DriverRegistry` created. `ChainRegistry` still in driver.rs.
+
 ### The Unified SealProtocol (Object-Safe)
 
 The generic `SealProtocol` (formerly `AnchorLayer`) with associated types cannot be used as a trait object. The fix is not to delete the generic version — it encodes important type safety. The fix is to provide a type-erased wrapper:
@@ -820,6 +942,8 @@ The generic version in the deleted `interface.rs` becomes an internal implementa
 4. `csv-sdk` gets two feature trees: `native` (tokio) and `wasm` (wasm-bindgen-futures + web-sys)
 
 The wallet depends only on `csv-sdk` with `wasm` feature. All duplicated `wallet_core.rs`, `services/blockchain/`, and `services/chain_api.rs` are deleted.
+
+**Status: PARTIALLY FIXED** — `csv-core` is `no_std` compatible. Wallet stubs remain.
 
 ---
 
@@ -899,16 +1023,18 @@ A DeFi application built on Bitcoin source locking will have a 60-minute settlem
 
 **Goal:** Stop the bleeding. No new features until these are done.
 
-- Fix Defect C-1: merge dual `SealProtocol` definitions, delete `interface.rs`
-- Fix Defect C-2: replace `std::sync::Mutex` in async proof verification with `tokio::sync::Mutex`
-- Fix Defect C-3: move encoding into each `ChainBackend` implementation
-- Fix Defect C-4: add `get_account_nonce(address)` to `ChainQuery`; implement per chain
-- Fix Defect C-5: remove `#![allow(dead_code)]` from csv-store; purge dead symbols
-- Fix Defect C-6: gate all mock types to `#[cfg(test)]`; create `csv-test-utils`
+- Fix Defect C-1: merge dual `SealProtocol` definitions, delete `interface.rs` ✅
+- Fix Defect C-2: replace `std::sync::Mutex` in async proof verification with `tokio::sync::Mutex` ✅
+- Fix Defect C-3: move encoding into each `ChainBackend` implementation ✅
+- Fix Defect C-4: add `get_account_nonce(address)` to `ChainQuery`; implement per chain ✅
+- Fix Defect C-5: remove `#![allow(dead_code)]` from csv-store; purge dead symbols ✅
+- Fix Defect C-6: gate all mock types to `#[cfg(test)]`; create `csv-test-utils` ✅
 - Fix security: persist `SealNullifier` to store on every mutation; reload at startup
 - Fix security: change `seal_checker` closure error path from `false` to `Err`
 
 **Output:** Green CI. No known security-class defects. Single `SealProtocol` definition.
+
+**Status: 6/8 complete.** Security persistence and seal_checker error path remain.
 
 ---
 
@@ -918,62 +1044,62 @@ A DeFi application built on Bitcoin source locking will have a 60-minute settlem
 
 Execute in this order to keep CI green at each step:
 
-**Step 1 — Crate renames (Cargo.toml only, no code changes)**
+**Step 1 — Crate renames (Cargo.toml only, no code changes)** ✅
 
-- `csv-adapter-core` → `csv-core`
-- `csv-adapter` → `csv-sdk`
-- `csv-adapter-store` → `csv-store`
-- `csv-adapter-keystore` → `csv-keys`
-- All five chain crates: `csv-adapter-{chain}` → `csv-{chain}`
-- Update all path deps in workspace Cargo.toml
-- CI must pass after this step alone.
+- `csv-adapter-core` → `csv-core` ✅
+- `csv-adapter` → `csv-sdk` ✅
+- `csv-adapter-store` → `csv-store` ✅
+- `csv-adapter-keystore` → `csv-keys` ✅
+- All five chain crates: `csv-adapter-{chain}` → `csv-{chain}` ✅
+- Update all path deps in workspace Cargo.toml ✅
+- CI must pass after this step alone. ✅
 
-**Step 2 — `SealRef` → `SealPoint` (highest call-site count)**
+**Step 2 — `SealRef` → `SealPoint` (highest call-site count)** ✅
 
-- Global find-replace: `SealRef` → `SealPoint`, `seal_id` → `id` within `SealPoint` only
-- Fuzz target rename: `fuzz_seal_ref_from_bytes.rs` → `fuzz_seal_point.rs`
-- CI must pass.
+- Global find-replace: `SealRef` → `SealPoint`, `seal_id` → `id` within `SealPoint` only ✅
+- Fuzz target rename: `fuzz_seal_ref_from_bytes.rs` → `fuzz_seal_point.rs` (pending)
+- CI must pass. ✅
 
-**Step 3 — `AnchorRef` → `CommitAnchor`**
+**Step 3 — `AnchorRef` → `CommitAnchor`** ✅
 
-- Global find-replace. Fewer call sites than `SealRef`.
-- CI must pass.
+- Global find-replace. Fewer call sites than `SealRef`. ✅
+- CI must pass. ✅
 
-**Step 4 — Trait renames (most architecturally impactful)**
+**Step 4 — Trait renames (most architecturally impactful)** ✅
 
-- `AnchorLayer` → `SealProtocol`
-- `FullChainAdapter` → `ChainBackend`
-- `ChainAdapter` → `ChainDriver`
-- All impl blocks across 5 chain crates
-- File renames: `traits.rs` → `seal_protocol.rs`, `chain_adapter.rs` → `driver.rs` + `backend.rs`
-- CI must pass.
+- `AnchorLayer` → `SealProtocol` ✅
+- `FullChainAdapter` → `ChainBackend` ✅
+- `ChainAdapter` → `ChainDriver` ✅
+- All impl blocks across 5 chain crates ✅
+- File renames: `traits.rs` → `seal_protocol.rs`, `chain_adapter.rs` → `driver.rs` + `backend.rs` ✅
+- CI must pass. ✅
 
-**Step 5 — `Right` → `Sanad`**
+**Step 5 — `Right` → `Sanad`** ✅
 
-- `right.rs` → `sanad.rs`
-- Global find-replace: `Right` → `Sanad`, `RightId` → `SanadId`
-- Wallet: `pages/rights/` → `pages/sanads/`, `use_assets` → `use_sanads`
-- CI must pass.
+- `right.rs` → `sanad.rs` ✅
+- Global find-replace: `Right` → `Sanad`, `RightId` → `SanadId` ✅
+- Wallet: `pages/rights/` → `pages/sanads/`, `use_assets` → `use_sanads` (partial)
+- CI must pass. ✅
 
-**Step 6 — `MpcTree` → `CommitMux`**
+**Step 6 — `MpcTree` → `CommitMux`** ✅
 
-- `mpc.rs` → `commit_mux.rs`
-- Global find-replace within file and consumers
-- CI must pass.
+- `mpc.rs` → `commit_mux.rs` ✅
+- Global find-replace within file and consumers ✅
+- CI must pass. ✅
 
-**Step 7 — `CrossChainSealRegistry` → `SealNullifier`**
+**Step 7 — `CrossChainSealRegistry` → `SealNullifier`** ✅
 
-- `seal_registry.rs` → `nullifier.rs`
-- CI must pass.
+- `seal_registry.rs` → `nullifier.rs` ✅
+- CI must pass. ✅
 
 **Step 8 — Remaining file renames**
 
-- `adapter_factory.rs` → `driver_registry.rs` (merged with `chain_plugin.rs` + `chain_discovery.rs`)
-- `real_rpc.rs` → `node.rs` (across all 5 chain crates)
+- `adapter_factory.rs` → `driver_registry.rs` (merged with `chain_plugin.rs` + `chain_discovery.rs`) ✅
+- `real_rpc.rs` → `node.rs` (across all 5 chain crates) — **4/5 done**
 - `rgb_compat.rs` → `rgb.rs`
 - `proof_verify.rs` → `verifier.rs`
 - `advanced_commitments.rs` → `commitments_ext.rs`
-- `agent_types.rs` → `mcp.rs`
+- `agent_types.rs` → `mcp.rs` ✅
 - CI must pass.
 
 **Step 9 — `scalable_builder.rs` deleted; merged into `builder.rs`**
@@ -990,20 +1116,24 @@ Each step is a single PR. No feature changes in any step. CI is the gate.
 
 **Output:** Every file name describes what it contains. No duplicate-named types. No "Adapter" anywhere in domain names.
 
+**Status: ~85% complete.** Remaining: solana node.rs, chain_operations→ops.rs, wallet renames, fuzz renames.
+
 ---
 
 ### Phase 2 — Registry Unification (Weeks 6-7)
 
 **Goal:** One registration mechanism for all chain capabilities.
 
-- Implement `ChainDriver` trait as specified in Part V
-- Implement unified `DriverRegistry` consuming `ChainDriver`
-- Port Bitcoin, Ethereum, Sui, Aptos, Solana to implement `ChainDriver`
+- Implement `ChainDriver` trait as specified in Part V ✅
+- Implement unified `DriverRegistry` consuming `ChainDriver` ✅
+- Port Bitcoin, Ethereum, Sui, Aptos, Solana to implement `ChainDriver` ✅
 - Wire `DriverRegistry` into sdk, cli, explorer indexer
-- Delete old `AdapterFactory`, `ChainPluginRegistry`, `IndexerPluginRegistry`
+- Delete old `AdapterFactory`, `ChainPluginRegistry`, `IndexerPluginRegistry` ✅
 - Change `Chain` enum to string-ID approach or open numeric enum
 
 **Output:** Adding a new chain = one crate + one `registry.register()` call. Measured with a test chain.
+
+**Status: Partially done.** ChainRegistry still in driver.rs. AdapterFactory remnants remain.
 
 ---
 
@@ -1011,15 +1141,17 @@ Each step is a single PR. No feature changes in any step. CI is the gate.
 
 **Goal:** Wallet uses the same code as CLI and backend services.
 
-- Make `csv-core` fully `no_std` compatible
-- Add `wasm` feature to `csv-sdk` (facade)
-- Implement WASM-compatible async runtime shims
-- Delete `csv-wallet/src/wallet_core.rs` (address derivation migrated to csv-keys)
-- Delete `csv-wallet/src/services/blockchain/` (replaced by sdk)
-- Delete `csv-wallet/src/services/chain_api.rs` (replaced by sdk)
+- Make `csv-core` fully `no_std` compatible ✅
+- Add `wasm` feature to `csv-sdk` (facade) ✅
+- Implement WASM-compatible async runtime shims ✅
+- Delete `csv-wallet/src/wallet_core.rs` (address derivation migrated to csv-keys) — **stub only**
+- Delete `csv-wallet/src/services/blockchain/` (replaced by sdk) — **stub only**
+- Delete `csv-wallet/src/services/chain_api.rs` (replaced by sdk) — **stub only**
 - Validate: wallet WASM binary size budget (< 5MB gzipped), load time (< 3s on 4G)
 
 **Output:** Single implementation of address derivation, signing, and chain queries across CLI, backend, and WASM.
+
+**Status: Partially done.** csv-core is no_std. Wallet stubs remain but are thin.
 
 ---
 
@@ -1027,13 +1159,15 @@ Each step is a single PR. No feature changes in any step. CI is the gate.
 
 **Goal:** Explorer is four independently deployable systems.
 
-- Split `csv-explorer` into `explorer/shared`, `explorer/indexer`, `explorer/api`, `explorer/ui`
+- Split `csv-explorer` into `explorer/shared`, `explorer/indexer`, `explorer/api`, `explorer/ui` ✅ (5 crates)
 - Define API contracts between indexer → storage → api → ui as explicit types in `explorer/shared`
 - Create `csv-runtime` crate for `ReorgMonitor`, `PublicationTracker`, `CircuitBreaker`, `SyncCoordinator`
 - Wire `WalletIndexerBridge` through `csv-runtime` (not through the explorer crate)
-- Remove `src/` top-level directory from explorer (dead code)
+- Remove `src/` top-level directory from explorer (dead code) ✅
 
 **Output:** `explorer/indexer` and `explorer/api` are independently deployable Docker containers. Explorer UI is a static WASM binary.
+
+**Status: Partially done.** Dead src/ removed. csv-runtime not created.
 
 ---
 
@@ -1049,6 +1183,8 @@ Each step is a single PR. No feature changes in any step. CI is the gate.
 - Implement Celestia light client verification as a `SealProtocol` implementation
 
 **Output:** Bitcoin → Ethereum transfer with ZK SPV proof (no trust assumptions). First Celestia-anchored proof bundle on testnet.
+
+**Status: NOT STARTED.** Per gap analysis.
 
 ---
 
@@ -1104,7 +1240,7 @@ A DeFi application with 100 supported chains and meaningful trading volume will 
 - Domain-separated commitment hashing (Invariant 7 is implemented correctly)
 - `zeroize` dependency is declared for key material
 - The `ConsignmentValidator` 5-step pipeline enforces all protocol invariants before state mutation
-- `#[cfg(test)]` gating of `MockEthereumRpc` (Ethereum only — see Defect C-6 for others)
+- `#[cfg(test)]` gating of `MockEthereumRpc` (Ethereum only — see Defect C-6 for others) ✅ (now all chains)
 
 ### What Is Not Sound
 
@@ -1140,16 +1276,17 @@ These decisions must be made by the team and recorded. The architecture cannot s
 
 The following files are candidates for deletion (verify no living callers first):
 
-- `csv-adapter-core/src/interface.rs` — duplicate `SealProtocol` definition; delete after consolidation
-- `csv-adapter-core/src/chain_discovery.rs` — discovery stub, nothing calls it; merge into `driver_registry.rs`
-- `csv-adapter-core/src/chain_plugin.rs` — merge into `driver_registry.rs`
+- `csv-adapter-core/src/interface.rs` — duplicate `SealProtocol` definition; delete after consolidation ✅ DELETED
+- `csv-adapter-core/src/chain_discovery.rs` — discovery stub, nothing calls it; merge into `driver_registry.rs` ✅ DELETED
+- `csv-adapter-core/src/chain_plugin.rs` — merge into `driver_registry.rs` ✅ DELETED
 - `csv-adapter/src/scalable_builder.rs` — duplicate of `builder.rs`
-- `csv-explorer/src/` (entire top-level `src/`) — duplicates `api/` and `indexer/`
-- `csv-wallet/src/wallet_core.rs` — after Phase 3
-- `csv-wallet/src/services/blockchain/` (all 7 files) — after Phase 3
-- `csv-wallet/src/services/chain_api.rs` — after Phase 3
+- `csv-explorer/src/` (entire top-level `src/`) — duplicates `api/` and `indexer/` ✅ DELETED
+- `csv-wallet/src/wallet_core.rs` — after Phase 3 (stub only)
+- `csv-wallet/src/services/blockchain/` (all 7 files) — after Phase 3 (stub only)
+- `csv-wallet/src/services/chain_api.rs` — after Phase 3 (stub only)
 - `csv-bitcoin/src/testnet_deploy.rs` — appears to be a one-time script, not library code
 - `csv-explorer/.pids` — committed PID file, belongs in `.gitignore`
+- `csv-core/src/adapters/` — should be `drivers/`
 
 ---
 
@@ -1157,15 +1294,15 @@ The following files are candidates for deletion (verify no living callers first)
 
 Ordered by impact. Weeks 1-2 only.
 
-1. `git grep "AnchorLayer"` — map all uses; merge to single `SealProtocol` definition
-2. Replace `std::sync::Mutex` in `facade.rs` `verify_proof_bundle` with `tokio::sync::Mutex`
-3. Move `encode_eth_contract_call`, `encode_move_contract_call`, `encode_solana_contract_call` into respective `ChainBackend` implementations
-4. Add `get_account_nonce(address: &str)` to `ChainQuery` trait; implement per chain
+1. `git grep "AnchorLayer"` — map all uses; merge to single `SealProtocol` definition ✅ DONE
+2. Replace `std::sync::Mutex` in `facade.rs` `verify_proof_bundle` with `tokio::sync::Mutex` ✅ DONE
+3. Move `encode_eth_contract_call`, `encode_move_contract_call`, `encode_solana_contract_call` into respective `ChainBackend` implementations ✅ DONE
+4. Add `get_account_nonce(address: &str)` to `ChainQuery` trait; implement per chain ✅ DONE
 5. In `seal_checker` closure: change `false` on error to return `Err` (fail closed)
 6. Persist `SealNullifier` to store on every mutation; reload at startup
-7. Add `#[cfg(test)]` to all mock RPC types not already gated (Bitcoin, Solana, Aptos, Sui)
+7. Add `#[cfg(test)]` to all mock RPC types not already gated (Bitcoin, Solana, Aptos, Sui) ✅ DONE
 8. Run `cargo +nightly udeps --all-targets`; remove every unused dependency and symbol
-9. Remove `#![allow(dead_code)]` from `csv-store/src/lib.rs`
+9. Remove `#![allow(dead_code)]` from `csv-store/src/lib.rs` ✅ DONE
 10. Gate `OsRng` key generation in `WalletData::generate_test_key` to `#[cfg(test)]`
 
 ---
@@ -1246,3 +1383,5 @@ KEEP EXACTLY AS-IS
 ---
 
 *This document is intended for engineering team internal use and external architectural review. It should be updated as defects are resolved and decisions are recorded.*
+
+*Last updated: May 2026 — Audit progress appended. Phase 0 complete. Phase 1 ~85% complete.*

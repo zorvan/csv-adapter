@@ -15,12 +15,12 @@ use crate::rpc::{
 };
 
 /// Real Sui RPC client using JSON-RPC
-pub struct SuiRpcClient {
+pub struct SuiNode {
     client: Client,
     rpc_url: String,
 }
 
-impl SuiRpcClient {
+impl SuiNode {
     /// Create a new Sui RPC client
     pub fn new(rpc_url: &str) -> Self {
         Self {
@@ -83,7 +83,7 @@ impl SuiRpcClient {
 }
 
 #[async_trait]
-impl SuiRpc for SuiRpcClient {
+impl SuiRpc for SuiNode {
     async fn get_object(
         &self,
         object_id: [u8; 32],
@@ -229,9 +229,9 @@ impl SuiRpc for SuiRpcClient {
 
     async fn sender_address(&self) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>> {
         // This method requires a configured signer with a known address
-        // The SuiRpcClient does not store signing keys - they must be provided externally
+        // The SuiNode does not store signing keys - they must be provided externally
         Err("CapabilityUnavailable: sender_address requires a configured signer. \
-             Use SuiRpcClient with an external key management system or \
+             Use SuiNode with an external key management system or \
              configure a signer address explicitly.".into())
     }
 
@@ -349,7 +349,7 @@ impl SuiRpc for SuiRpcClient {
     }
 
     fn clone_boxed(&self) -> Box<dyn SuiRpc> {
-        Box::new(SuiRpcClient {
+        Box::new(SuiNode {
             client: Client::builder()
                 .timeout(Duration::from_secs(30))
                 .build()

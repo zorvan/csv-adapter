@@ -10,7 +10,7 @@
 pub mod seal_protocol;
 pub mod bip341;
 pub mod backend;
-pub mod chain_operations;
+pub mod ops;
 pub mod config;
 pub mod deploy;
 pub mod error;
@@ -54,14 +54,14 @@ pub use mpc_batch::{
     MpcBatcher, MpcTreeExt, BatchedPublication, PendingCommitment, CSV_BTC_PROTOCOL_ID,
 };
 
-// Chain operations exports
-pub use chain_operations::{
+// Ops exports
+pub use ops::{
     BitcoinBackend, BitcoinChainBroadcaster, BitcoinChainDeployer, BitcoinChainProofProvider, BitcoinChainQuery,
     BitcoinChainSanadOps, BitcoinChainSigner,
 };
 
 #[cfg(feature = "rpc")]
-pub use node::real_rpc::{RealBitcoinRpc, TxInfo};
+pub use node::real_rpc::{BitcoinNode, TxInfo};
 
 #[cfg(feature = "signet-rest")]
 pub use mempool_rpc::MempoolSignetRpc;

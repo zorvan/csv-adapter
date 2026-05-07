@@ -317,9 +317,9 @@ impl SuiSealProtocol {
         _csv_seal_package_id: [u8; 32],
         signing_key: ed25519_dalek::SigningKey,
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-        use crate::node::SuiRpcClient;
+        use crate::node::SuiNode;
 
-        let rpc: Box<dyn SuiRpc> = Box::new(SuiRpcClient::new(&config.rpc_url));
+        let rpc: Box<dyn SuiRpc> = Box::new(SuiNode::new(&config.rpc_url));
         let mut adapter = Self::from_config(config, rpc)
             .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
         adapter.signing_key = Some(signing_key);

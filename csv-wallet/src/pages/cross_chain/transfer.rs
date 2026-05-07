@@ -6,7 +6,7 @@ use crate::context::{
 };
 use crate::pages::common::*;
 use crate::routes::Route;
-use crate::services::blockchain::types::{ContractDeployment, ContractType};
+use crate::services::blockchain::{ContractDeployment, ContractType};
 use csv_core::Chain;
 use dioxus::prelude::*;
 use std::rc::Rc;

@@ -9,7 +9,7 @@
 
 pub mod seal_protocol;
 pub mod backend;
-pub mod chain_operations;
+pub mod ops;
 pub mod config;
 pub mod deploy;
 pub mod error;
@@ -31,8 +31,11 @@ pub use rpc::SolanaRpc;
 pub use types::{SolanaCommitAnchor, SolanaFinalityProof, SolanaInclusionProof, SolanaSealPoint};
 pub use wallet::{ProgramWallet, WalletError};
 
-// Chain operations exports
-pub use chain_operations::SolanaBackend;
+// Ops exports
+pub use ops::SolanaBackend;
 
 #[cfg(feature = "rpc")]
-pub use rpc::RealSolanaRpc;
+pub mod node;
+
+#[cfg(feature = "rpc")]
+pub use node::real_rpc_impl::SolanaNode;

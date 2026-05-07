@@ -87,12 +87,12 @@ impl SuiBackend {
     }
 
     /// Create from SuiSealProtocol
-    pub fn from_anchor_layer(anchor: &SuiSealProtocol) -> ChainOpResult<Self> {
-        let (module_addr, event_type) = anchor.event_builder_config();
+    pub fn from_seal_protocol(seal: &SuiSealProtocol) -> ChainOpResult<Self> {
+        let (module_addr, event_type) = seal.event_builder_config();
         Ok(Self {
-            rpc: anchor.get_rpc().clone_boxed(),
-            config: anchor.config.clone(),
-            domain_separator: anchor.get_domain_separator(),
+            rpc: seal.get_rpc().clone_boxed(),
+            config: seal.config.clone(),
+            domain_separator: seal.get_domain_separator(),
             event_builder: CommitmentEventBuilder::new(module_addr, event_type),
         })
     }

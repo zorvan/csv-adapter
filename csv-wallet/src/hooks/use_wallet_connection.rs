@@ -65,18 +65,22 @@ impl WalletConnectionContext {
             return;
         }
 
-        // Real implementation would call eth_requestAccounts via JS interop
+       // Real implementation would call eth_requestAccounts via JS interop
         // For now, assume success
         match wallet_connection::connect_metamask().await {
-            Ok(wallet) => {
+            Ok(_native_wallet) => {
                 let mut state = self.state.write();
-                state.wallet = Some(wallet);
+                state.wallet = Some(crate::services::blockchain::BrowserWallet {
+                    address: "0x...".to_string(),
+                    chain: Some(Chain::Ethereum),
+                    wallet_type: WalletType::MetaMask,
+                });
                 state.chain = Chain::Ethereum;
                 state.connecting = false;
             }
             Err(e) => {
                 let mut state = self.state.write();
-                state.error = Some(e.message);
+                state.error = Some(e);
                 state.connecting = false;
             }
         }
@@ -227,10 +231,12 @@ fn wallet_type_name(wallet_type: &WalletType) -> String {
         WalletType::MetaMask => "MetaMask".to_string(),
         WalletType::Phantom => "Phantom".to_string(),
         WalletType::SuiWallet => "Sui Wallet".to_string(),
+        WalletType::AptosWallet => "Aptos Wallet".to_string(),
+        WalletType::SolanaWallet => "Solana Wallet".to_string(),
         WalletType::Petra => "Petra".to_string(),
         WalletType::Leather => "Leather".to_string(),
         WalletType::Native => "Native".to_string(),
-        WalletType::Custom(s) => s.clone(),
+        WalletType::Custom => "Custom".to_string(),
     }
 }
 

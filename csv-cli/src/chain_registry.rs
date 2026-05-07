@@ -22,7 +22,7 @@ pub fn chain_id(chain: &Chain) -> &'static str {
 /// Get chain adapter for a Chain enum variant
 pub fn get_adapter(chain: &Chain) -> Option<Box<dyn ChainDriver>> {
     let factory = DriverRegistry::new();
-    factory.create_adapter(chain_id(chain))
+    factory.create_driver(chain_id(chain))
 }
 
 /// Get chain capabilities for a Chain enum variant

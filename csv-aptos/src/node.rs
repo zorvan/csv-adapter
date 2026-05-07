@@ -16,12 +16,12 @@ use crate::rpc::{
 };
 
 /// Real Aptos RPC client using REST API
-pub struct AptosRpcClient {
+pub struct AptosNode {
     client: Client,
     rpc_url: String,
 }
 
-impl AptosRpcClient {
+impl AptosNode {
     /// Create a new Aptos RPC client
     pub fn new(rpc_url: &str) -> Self {
         Self {
@@ -151,7 +151,7 @@ impl AptosRpcClient {
     }
 }
 
-impl AptosRpc for AptosRpcClient {
+impl AptosRpc for AptosNode {
     fn get_ledger_info(&self) -> BoxFuture<'_, Result<AptosLedgerInfo, Box<dyn std::error::Error + Send + Sync>>> {
         Box::pin(async move {
             let result = self.get("/").await?;
@@ -169,7 +169,7 @@ impl AptosRpc for AptosRpcClient {
 
     fn sender_address(&self) -> BoxFuture<'_, Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>>> {
         Box::pin(async move {
-            Err("CapabilityUnavailable: sender_address requires a configured signer.                  Use AptosRpcClient with an external key management system or                  configure a signer address explicitly.".into())
+            Err("CapabilityUnavailable: sender_address requires a configured signer.                  Use AptosNode with an external key management system or                  configure a signer address explicitly.".into())
         })
     }
 
@@ -398,6 +398,6 @@ impl AptosRpc for AptosRpcClient {
     }
 
     fn clone_boxed(&self) -> Box<dyn AptosRpc> {
-        Box::new(AptosRpcClient::new(&self.rpc_url))
+        Box::new(AptosNode::new(&self.rpc_url))
     }
 }

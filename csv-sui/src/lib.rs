@@ -37,7 +37,7 @@
 
 pub mod seal_protocol;
 pub mod backend;
-pub mod chain_operations;
+pub mod ops;
 pub mod checkpoint;
 pub mod config;
 pub mod deploy;
@@ -69,12 +69,12 @@ pub use proofs::{
     TransactionProof,
 };
 #[cfg(feature = "rpc")]
-pub use node::SuiRpcClient;
+pub use node::SuiNode;
 #[cfg(test)]
 pub use rpc::MockSuiRpc;
 pub use rpc::{SuiCheckpoint, SuiEvent, SuiLedgerInfo, SuiObject, SuiRpc, SuiTransactionBlock};
 pub use seal::{SealRecord, SealRegistry, SealStore};
 pub use types::{SuiCommitAnchor, SuiFinalityProof, SuiInclusionProof, SuiSealPoint};
 
-// Chain operations exports
-pub use chain_operations::SuiBackend;
+// Ops exports
+pub use ops::SuiBackend;

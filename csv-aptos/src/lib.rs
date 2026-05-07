@@ -37,7 +37,7 @@
 
 pub mod seal_protocol;
 pub mod backend;
-pub mod chain_operations;
+pub mod ops;
 pub mod checkpoint;
 pub mod config;
 pub mod deploy;
@@ -67,7 +67,7 @@ pub use proofs::{
     TransactionProof,
 };
 #[cfg(feature = "rpc")]
-pub use node::AptosRpcClient;
+pub use node::AptosNode;
 #[cfg(test)]
 pub use rpc::MockAptosRpc;
 pub use rpc::{
@@ -76,5 +76,5 @@ pub use rpc::{
 pub use seal::{SealRecord, SealRegistry, SealStore};
 pub use types::{AptosCommitAnchor, AptosFinalityProof, AptosInclusionProof, AptosSealPoint};
 
-// Chain operations exports
-pub use chain_operations::AptosBackend;
+// Ops exports
+pub use ops::AptosBackend;
