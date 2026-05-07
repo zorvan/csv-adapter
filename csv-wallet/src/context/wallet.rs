@@ -4,7 +4,6 @@ use crate::context::state::AppState;
 use crate::context::types::*;
 use crate::storage::{self, LocalStorageManager, UNIFIED_STORAGE_KEY, WALLET_MNEMONIC_KEY};
 use crate::wallet_core::{ChainAccount, WalletData};
-use csv_core::Chain;
 use dioxus::prelude::*;
 
 /// Wallet context.
@@ -74,75 +73,18 @@ impl WalletContext {
         if let Some(persisted) =
             store.try_load::<csv_store::state::UnifiedStorage>(UNIFIED_STORAGE_KEY)
         {
+            // selected_chain is now ChainId (string) - no conversion needed
             if let Some(c) = persisted.selected_chain {
-                s.selected_chain = convert_chain_from_store(c);
+                s.selected_chain = c;
             }
             s.selected_network = match persisted.selected_network {
                 Some(csv_store::state::Network::Dev) => Network::Dev,
                 Some(csv_store::state::Network::Main) => Network::Main,
                 _ => Network::Test,
             };
-            s.sanads = persisted
-                .sanads
-                .into_iter()
-                .filter_map(|r| {
-                    Some(TrackedSanad {
-                        id: r.id,
-                        chain: convert_chain_from_store(r.chain),
-                        value: r.value,
-                        status: match r.status {
-                            csv_store::state::SanadStatus::Active => SanadStatus::Active,
-                            csv_store::state::SanadStatus::Transferred => {
-                                SanadStatus::Transferred
-                            }
-                            csv_store::state::SanadStatus::Consumed => {
-                                SanadStatus::Consumed
-                            }
-                        },
-                        owner: r.owner,
-                    })
-                })
-                .collect();
-            s.transfers = persisted
-                .transfers
-                .into_iter()
-                .filter_map(|t| {
-                    Some(TrackedTransfer {
-                        id: t.id,
-                        from_chain: convert_chain_from_store(t.source_chain),
-                        to_chain: convert_chain_from_store(t.dest_chain),
-                        sanad_id: t.sanad_id,
-                        dest_owner: t.destination_address.unwrap_or_default(),
-                        status: match t.status {
-                            csv_store::state::TransferStatus::Initiated => {
-                                TransferStatus::Initiated
-                            }
-                            csv_store::state::TransferStatus::Locked => {
-                                TransferStatus::Locked
-                            }
-                            csv_store::state::TransferStatus::Verifying => {
-                                TransferStatus::Verifying
-                            }
-                            csv_store::state::TransferStatus::Minting => {
-                                TransferStatus::Minting
-                            }
-                            csv_store::state::TransferStatus::Completed => {
-                                TransferStatus::Completed
-                            }
-                            csv_store::state::TransferStatus::Failed => {
-                                TransferStatus::Failed
-                            }
-                        },
-                        created_at: t.created_at,
-                        source_tx_hash: t.source_tx_hash,
-                        dest_tx_hash: t.dest_tx_hash,
-                        source_contract: None,
-                        dest_contract: t.destination_contract,
-                        source_fee: None,
-                        dest_fee: None,
-                    })
-                })
-                .collect();
+            // Types are now the same - just clone
+            s.sanads = persisted.sanads;
+            s.transfers = persisted.transfers;
             s.seals = persisted
                 .seals
                 .into_iter()
@@ -155,9 +97,9 @@ impl WalletContext {
                     };
                     Some(SealRecord {
                         seal_ref: s_rec.seal_ref,
-                        chain: convert_chain_from_store(s_rec.chain),
+                        chain: s_rec.chain,
                         value: s_rec.value,
-                        sanad_id: String::new(), // Old format doesn't have this
+                        sanad_id: String::new(),
                         status,
                         created_at: s_rec.created_at,
                         content: None,
@@ -165,53 +107,10 @@ impl WalletContext {
                     })
                 })
                 .collect();
-            s.proofs = persisted
-                .proofs
-                .into_iter()
-                .filter_map(|p| {
-                    // Old format compatibility - use verified flag to determine status
-                    let status = if p.verified {
-                        ProofStatus::Verified
-                    } else {
-                        ProofStatus::Generated
-                    };
-                    // Build ProofData from store record if it's a ZK proof
-                    let data = p.proof_system.as_ref().map(|system| {
-                        crate::context::ProofData::Zk {
-                            proof_system: system.clone(),
-                            proof_bytes: p.proof_data.clone().unwrap_or_default(),
-                            seal_id: p.sanad_id.clone(),
-                            block_hash: String::new(),
-                            block_height: p.block_height.unwrap_or(0),
-                            verifier_key_hash: String::new(),
-                        }
-                    });
-                    Some(ProofRecord {
-                        chain: convert_chain_from_store(p.chain),
-                        sanad_id: p.sanad_id,
-                        seal_ref: String::new(), // Old format doesn't have this
-                        proof_type: p.proof_type,
-                        status,
-                        generated_at: p.created_at,
-                        verified_at: p.verified_at,
-                        data,
-                        target_chain: None,
-                        verification_tx_hash: None,
-                    })
-                })
-                .collect();
-            s.contracts = persisted
-                .contracts
-                .into_iter()
-                .filter_map(|c| {
-                    Some(DeployedContract {
-                        chain: convert_chain_from_store(c.chain),
-                        address: c.address,
-                        tx_hash: c.tx_hash,
-                        deployed_at: c.deployed_at,
-                    })
-                })
-                .collect();
+            // Proofs are now the same type - just clone
+            s.proofs = persisted.proofs;
+            // Contracts are now the same type - just clone
+            s.contracts = persisted.contracts;
         }
 
         // Load wallet data (per-chain accounts)
@@ -239,114 +138,25 @@ impl WalletContext {
         let Some(store) = &self.store else { return };
         let s = self.state.read();
 
-        // Convert local types to unified storage types
-        use csv_store::state::{ContractRecord, SanadRecord, TransferRecord, WalletConfig};
-
         let persisted = csv_store::state::UnifiedStorage {
             version: 1,
             initialized: !s.wallet.is_empty(),
-            selected_chain: Some(convert_chain_to_store(s.selected_chain.clone())),
+            // selected_chain is now ChainId (string) - no conversion needed
+            selected_chain: Some(s.selected_chain.clone()),
             selected_network: Some(match s.selected_network {
                 Network::Dev => csv_store::state::Network::Dev,
                 Network::Test => csv_store::state::Network::Test,
                 Network::Main => csv_store::state::Network::Main,
             }),
-            sanads: s
-                .sanads
-                .iter()
-                .map(|r| SanadRecord {
-                    id: r.id.clone(),
-                    chain: convert_chain_to_store(r.chain.clone()),
-                    seal_ref: String::new(), // Field populated when seal is linked to sanad
-                    owner: r.owner.clone(),
-                    value: r.value,
-                    commitment: r.id.clone(), // Using sanad ID as commitment reference
-                    nullifier: None,
-                    status: match r.status {
-                        SanadStatus::Active => csv_store::state::SanadStatus::Active,
-                        SanadStatus::Transferred => {
-                            csv_store::state::SanadStatus::Transferred
-                        }
-                        SanadStatus::Consumed => csv_store::state::SanadStatus::Consumed,
-                    },
-                    created_at: 0, // Creation time tracking to be implemented
-                })
-                .collect(),
-            transfers: s
-                .transfers
-                .iter()
-                .map(|t| TransferRecord {
-                    id: t.id.clone(),
-                    source_chain: convert_chain_to_store(t.from_chain.clone()),
-                    dest_chain: convert_chain_to_store(t.to_chain.clone()),
-                    sanad_id: t.sanad_id.clone(),
-                    sender_address: None, // Sender address from wallet context
-                    destination_address: Some(t.dest_owner.clone()),
-                    source_tx_hash: t.source_tx_hash.clone(),
-                    source_fee: None,
-                    dest_tx_hash: t.dest_tx_hash.clone(),
-                    dest_fee: None,
-                    destination_contract: t.dest_contract.clone(),
-                    proof: None,
-                    status: match t.status {
-                        TransferStatus::Initiated => {
-                            csv_store::state::TransferStatus::Initiated
-                        }
-                        TransferStatus::Locked => csv_store::state::TransferStatus::Locked,
-                        TransferStatus::Verifying => {
-                            csv_store::state::TransferStatus::Verifying
-                        }
-                        TransferStatus::Minting => {
-                            csv_store::state::TransferStatus::Minting
-                        }
-                        TransferStatus::Completed => {
-                            csv_store::state::TransferStatus::Completed
-                        }
-                        TransferStatus::Failed => csv_store::state::TransferStatus::Failed,
-                    },
-                    created_at: t.created_at,
-                    completed_at: None, // Completion time set when transfer finalized
-                })
-                .collect(),
-            seals: s
-                .seals
-                .iter()
-                .map(|s_rec| csv_store::state::SealRecord {
-                    seal_ref: s_rec.seal_ref.clone(),
-                    chain: convert_chain_to_store(s_rec.chain.clone()),
-                    value: s_rec.value,
-                    consumed: s_rec.status == SealStatus::Consumed,
-                    created_at: s_rec.created_at,
-                })
-                .collect(),
-            proofs: s
-                .proofs
-                .iter()
-                .map(|p| csv_store::state::ProofRecord {
-                    chain: convert_chain_to_store(p.chain.clone()),
-                    sanad_id: p.sanad_id.clone(),
-                    proof_type: p.proof_type.clone(),
-                    proof_system: p.data.as_ref().and_then(|d| d.zk_proof_system().map(|s| s.to_string())),
-                    verified: p.status == ProofStatus::Verified,
-                    proof_data: None,
-                    block_height: None,
-                    created_at: p.generated_at,
-                    verified_at: p.verified_at,
-                })
-                .collect(),
-            contracts: s
-                .contracts
-                .iter()
-                .map(|c| ContractRecord {
-                    chain: convert_chain_to_store(c.chain.clone()),
-                    address: c.address.clone(),
-                    tx_hash: c.tx_hash.clone(),
-                    deployed_at: c.deployed_at,
-                })
-                .collect(),
+            // Types are now the same - just clone
+            sanads: s.sanads.iter().cloned().collect(),
+            transfers: s.transfers.iter().cloned().collect(),
+            seals: s.seals.iter().cloned().collect(),
+            proofs: s.proofs.iter().cloned().collect(),
+            contracts: s.contracts.iter().cloned().collect(),
             // Default/empty fields
             chains: std::collections::HashMap::new(),
-            wallet: WalletConfig::default(),
+            wallet: csv_store::state::WalletConfig::default(),
             faucets: std::collections::HashMap::new(),
             transactions: Vec::new(),
             gas_accounts: Vec::new(),
@@ -894,29 +704,6 @@ pub fn WalletProvider(children: Element) -> Element {
 
     rsx! {
         {children}
-    }
-}
-
-/// Convert csv_core::Chain to csv_store::Chain
-fn convert_chain_to_store(chain: csv_core::Chain) -> csv_store::state::Chain {
-    match chain {
-        csv_core::Chain::Bitcoin => csv_store::state::Chain::Bitcoin,
-        csv_core::Chain::Ethereum => csv_store::state::Chain::Ethereum,
-        csv_core::Chain::Sui => csv_store::state::Chain::Sui,
-        csv_core::Chain::Aptos => csv_store::state::Chain::Aptos,
-        csv_core::Chain::Solana => csv_store::state::Chain::Solana,
-        _ => csv_store::state::Chain::Bitcoin, // fallback for any future chains
-    }
-}
-
-/// Convert csv_store::Chain to csv_core::Chain
-fn convert_chain_from_store(chain: csv_store::state::Chain) -> csv_core::Chain {
-    match chain {
-        csv_store::state::Chain::Bitcoin => csv_core::Chain::Bitcoin,
-        csv_store::state::Chain::Ethereum => csv_core::Chain::Ethereum,
-        csv_store::state::Chain::Sui => csv_core::Chain::Sui,
-        csv_store::state::Chain::Aptos => csv_core::Chain::Aptos,
-        csv_store::state::Chain::Solana => csv_core::Chain::Solana,
     }
 }
 

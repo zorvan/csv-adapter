@@ -302,3 +302,59 @@ pub struct TransactionRecord {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub explorer_url: Option<String>,
 }
+
+/// Seal status - shows lifecycle state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SealStatus {
+    /// Seal created, protecting a Sanad
+    Active,
+    /// Sanad locked, seal holding the value
+    Locked,
+    /// Seal consumed, value released
+    Consumed,
+    /// Seal was used in a cross-chain transfer
+    Transferred,
+}
+
+impl std::fmt::Display for SealStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SealStatus::Active => write!(f, "active"),
+            SealStatus::Locked => write!(f, "locked"),
+            SealStatus::Consumed => write!(f, "consumed"),
+            SealStatus::Transferred => write!(f, "transferred"),
+        }
+    }
+}
+
+/// A test result.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TestResult {
+    pub id: String,
+    pub from_chain: ChainId,
+    pub to_chain: ChainId,
+    pub status: TestStatus,
+    pub message: String,
+}
+
+/// Test status.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TestStatus {
+    Pending,
+    Running,
+    Passed,
+    Failed,
+}
+
+impl std::fmt::Display for TestStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TestStatus::Pending => write!(f, "pending"),
+            TestStatus::Running => write!(f, "running"),
+            TestStatus::Passed => write!(f, "passed"),
+            TestStatus::Failed => write!(f, "failed"),
+        }
+    }
+}

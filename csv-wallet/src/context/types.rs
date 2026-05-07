@@ -3,10 +3,9 @@
 //! Re-exports canonical types from csv-store to avoid duplication.
 //! csv-wallet uses csv-store types directly for all domain records.
 //!
+//! Canonical chain identifier: `csv_core::ChainId` (string-based, extensible).
 //! Wallet-specific types (NFT, SealContent) that don't exist in csv-store
 //! are defined locally.
-
-use csv_core::Chain;
 
 /// Network type (csv-wallet local).
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
@@ -49,6 +48,9 @@ pub use csv_store::state::wallet::{FaucetConfig, GasAccount, WalletAccount, Wall
 
 // Re-export status enums from csv-store.
 pub use csv_store::state::domain::{SanadStatus, SealStatus};
+
+// Canonical chain identifier.
+pub use csv_core::ChainId;
 
 /// Proof status - shows verification state (wallet-specific alias).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -173,7 +175,7 @@ impl std::fmt::Display for NftStatus {
 #[derive(Clone, Debug, PartialEq)]
 pub struct NftRecord {
     pub id: String,
-    pub chain: Chain,
+    pub chain: ChainId,
     pub collection_id: Option<String>,
     pub name: String,
     pub symbol: Option<String>,
@@ -191,7 +193,7 @@ pub struct NftRecord {
 #[derive(Clone, Debug, PartialEq)]
 pub struct NftCollection {
     pub id: String,
-    pub chain: Chain,
+    pub chain: ChainId,
     pub name: String,
     pub symbol: String,
     pub description: Option<String>,

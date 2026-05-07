@@ -2,13 +2,12 @@
 
 use crate::context::types::*;
 use crate::wallet_core::WalletData;
-use csv_core::Chain;
 
 /// Application state.
 #[derive(Clone)]
 pub struct AppState {
     pub wallet: WalletData,
-    pub selected_chain: Chain,
+    pub selected_chain: ChainId,
     pub selected_network: Network,
     pub sanads: Vec<TrackedSanad>,
     pub transfers: Vec<TrackedTransfer>,
@@ -26,7 +25,7 @@ impl Default for AppState {
     fn default() -> Self {
         Self {
             wallet: WalletData::default(),
-            selected_chain: Chain::Bitcoin,
+            selected_chain: csv_core::ChainId::BITCOIN.clone(),
             selected_network: Network::Test,
             sanads: Vec::new(),
             transfers: Vec::new(),

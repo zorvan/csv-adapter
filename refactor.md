@@ -1484,16 +1484,16 @@ csv-cli uses `csv_store` types directly with no duplication.
 
 ## Design Decisions Needed to Proceed
 
-| # | Decision | Options | Recommendation | Impact |
-|---|----------|---------|----------------|--------|
-| D1 | **Storage sync between wallet and CLI** | Shared backend, export/import, cloud sync | Export/import for Phase 1; cloud for Phase 3 | HIGH — affects all user workflows |
-| D2 | **External wallet integration scope** | DApp connectors, signer abstraction, phased | Signer abstraction + Ethereum/MetaMask first | HIGH — determines wallet UX |
-| D3 | **Contract deployment in csv-wallet** | Wire to csv-sdk, remove UI, or keep mock | Wire to csv-sdk for Ethereum; defer others | MEDIUM — UI vs CLI value prop |
-| D4 | **csv-wallet type unification** | Remove parallel types, use csv_store directly | Remove parallel types immediately | MEDIUM — reduces maintenance |
-| D5 | **csv-cli keystore for desktop** | Filesystem keystore, OS keychain, or none | Filesystem keystore (consistent with browser) | MEDIUM — security posture |
-| D6 | **csv-runtime crate** | Embedded library, separate daemon, per-surface | Embedded library (`csv-runtime`) composed per surface | HIGH — affects architecture |
-| D7 | **Chain enum vs string IDs** | Keep closed enum, open with string IDs | String IDs for 100-chain goal | HIGH — affects extensibility |
-| D8 | **csv-store dead code** | Remove unused symbols, add tests | Remove unused, add tests | LOW — cleanup |
+| # | Decision | Options | Recommendation | Impact | Status |
+|---|----------|---------|----------------|--------|--------|
+| D1 | **Storage sync between wallet and CLI** | Shared backend, export/import, cloud sync | Manual export/import of mnemonics (same keys/addresses) | HIGH | ✅ DONE |
+| D2 | **External wallet integration scope** | DApp connectors, signer abstraction, phased | Wire browser wallet for Cross-Chain Sanad Transfer | HIGH | Pending |
+| D3 | **Contract deployment in csv-wallet** | Wire to csv-sdk, remove UI, or keep mock | Remove from UI; csv-cli must be reliable | HIGH | ✅ DONE |
+| D4 | **csv-wallet type unification** | Remove parallel types, use csv_store directly | Clean code priority — use canonical types | MEDIUM | In Progress |
+| D5 | **csv-cli keystore for desktop** | Filesystem keystore, OS keychain, or none | Filesystem keystore (consistent with browser) | HIGH | ✅ DONE |
+| D6 | **csv-runtime crate** | Embedded library, separate daemon, per-surface | See D6 context below | HIGH | Pending |
+| D7 | **Chain enum vs string IDs** | Keep closed enum, open with string IDs | String IDs for 100-chain goal | HIGH | ✅ DONE |
+| D8 | **csv-store dead code** | Remove unused symbols, add tests | Remove unused, add tests | LOW | ✅ DONE |
 
 ---
 
@@ -1511,6 +1511,100 @@ csv-cli uses `csv_store` types directly with no duplication.
 
 ---
 
+## Session Log — Canonical Types & Primitives Migration
+
+**Date:** May 2026  
+**Design Principle:** Canonical primitives, types, and traits are the foundation. No duplication.
+
+### D5: csv-cli Filesystem Keystore ✅
+
+**Created:** `csv-keys/src/file_keystore.rs`
+
+- File-based encrypted keystore at `~/.csv/keystore/`
+- AES-256-GCM encryption with Scrypt KDF (consistent with browser_keystore)
+- Session caching, key export/import, passphrase verification
+- Each key stored as individual ETH-compatible keystore JSON file
+- Metadata registry in `meta.json`
+
+**Integration:**
+- `csv wallet init` now prompts for passphrase, encrypts all 5 chain keys
+- `csv wallet import` validates mnemonic, derives keys, encrypts and stores
+- `csv wallet export` displays mnemonic (with security warnings)
+
+### D1: Mnemonic Export/Import ✅
+
+**Decision:** No sync needed. Manual two-way export/import of mnemonics that leads to the same private keys and addresses.
+
+**Implementation:**
+- `csv wallet export` — displays stored mnemonic phrase
+- `csv wallet import "12 words..."` — validates, derives all 5 chains, encrypts keys
+- Same mnemonic → same seed → same private keys → same addresses on any device
+- Keys encrypted in file keystore (D5), mnemonic stored in unified storage
+
+### D3: Remove Deployment UI from csv-wallet ✅
+
+**Removed:**
+- `csv-wallet/src/pages/contracts/deploy.rs`
+- `DeployContract` route from `routes.rs`
+- Contracts link from sidebar (Developer mode)
+- Updated `contracts/mod.rs` and `pages/mod.rs`
+
+**Rationale:** csv-wallet deployment was mock/preview only. csv-cli has working Ethereum deployment. No value in keeping a broken UI.
+
+### D7: Chain Enum → String IDs ✅
+
+**Decision:** Extensibility is priority. Convert Chain enum to string IDs.
+
+**Implementation:**
+- csv-core already had `ChainId` (string-based) in `protocol_version.rs`
+- csv-store now uses `csv_core::ChainId` instead of enum
+- All chain references use string IDs: `"bitcoin"`, `"ethereum"`, `"sui"`, `"aptos"`, `"solana"`
+- Extensible to 100+ chains without code changes
+- Backward compatibility: `Chain` type alias deprecated in csv-store
+
+**Canonical Type:** `csv_core::ChainId` is now the single source of truth for chain identification.
+
+### D4: csv-wallet Type Unification (In Progress)
+
+**Goal:** csv-wallet uses csv-store types directly. No parallel types.
+
+**Progress:**
+- `csv-wallet/src/context/types.rs` updated to re-export csv-store domain types
+- `TrackedSanad` → `SanadRecord` (csv-store)
+- `TrackedTransfer` → `TransferRecord` (csv-store)
+- `DeployedContract` → `ContractRecord` (csv-store)
+- Added local aliases: `SanadStatus`, `TransferStatus`, `SealStatus`, `ProofStatus`, `ProofData`
+
+**Remaining:** ~307 errors in csv-wallet pages due to field name changes:
+- `from_chain` → `source_chain`, `to_chain` → `dest_chain`
+- `status` → `verified` (for ProofRecord)
+- `seal_ref`, `sanad_id` field restructuring
+- `generated_at` → `created_at`, `data` → `proof_data`
+
+**Strategy:** Fix type mismatches first, then update page logic.
+
+### D6: csv-runtime Context
+
+**Question:** What is csv-runtime and does it make the architecture cleaner?
+
+**Current State:**
+- csv-core has `driver_registry.rs` with `DriverRegistry`, `DriverPlugin`, `create_driver`
+- csv-core has `chain_config.rs` with `ChainConfig`, `ChainConfigLoader`
+- csv-core has `backend.rs` with `ChainBackend` trait
+- csv-core has `driver.rs` with `ChainDriver` trait
+
+**Answer:** csv-runtime would be an embedded library (not a separate daemon) that composes:
+- DriverRegistry (dynamic chain support)
+- ChainBackend implementations (per-chain operations)
+- SealProtocol implementations (seal lifecycle)
+- Storage backend abstraction
+
+**Benefit:** Single entry point for all chain operations. CLI, wallet, and any future surface use the same runtime.
+
+**Decision:** Defer to Phase 2. Focus on canonical types first (D4), then runtime composition.
+
+---
+
 *This document is intended for engineering team internal use and external architectural review. It should be updated as defects are resolved and decisions are recorded.*
 
-*Last updated: May 2026 — Wiring audit completed. Private key flow fixed. Address derivation unified. Design decisions D1-D8 documented.*
+*Last updated: May 2026 — D1 (export/import), D3 (remove deploy UI), D5 (cli keystore), D7 (string chain IDs), D8 (dead code) completed. D4 (type unification) in progress. Canonical types principle applied throughout.*
