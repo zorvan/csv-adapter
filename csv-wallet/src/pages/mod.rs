@@ -53,7 +53,7 @@ pub use proofs::{GenerateProof, ProofBundlePage, Proofs, VerifyCrossChainProof, 
 pub use cross_chain::{CrossChain, CrossChainRetry, CrossChainStatus, CrossChainTransfer};
 
 // Re-exports from contracts module
-pub use contracts::{AddContract, ContractStatus, Contracts, DeployContract};
+pub use contracts::{AddContract, ContractStatus, Contracts};
 
 // Re-exports from seals module
 pub use seals::{ConsumeSeal, CreateSeal, SealRegistry, Seals, VerifySeal};

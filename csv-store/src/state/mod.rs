@@ -8,7 +8,7 @@
 //! ```
 //! state/
 //! ├── mod.rs       # Re-exports
-//! ├── core.rs      # Chain, Network, ChainConfig
+//! ├── core.rs      # ChainId, Network, ChainConfig
 //! ├── wallet.rs    # WalletAccount, WalletConfig
 //! ├── domain.rs    # Sanads, transfers, contracts, seals, proofs
 //! ├── storage.rs   # StateStorage (main storage struct)
@@ -43,7 +43,8 @@ pub mod wallet;
 #[cfg(all(not(target_arch = "wasm32"), feature = "file-storage"))]
 pub use backend::FileStorage;
 pub use backend::{StorageBackend, StorageError};
-pub use core::{Chain, ChainConfig, Network};
+pub use core::{ChainConfig, Network};
+pub use csv_core::ChainId;
 pub use domain::{
     ContractRecord, ProofRecord, SanadRecord, SanadStatus, SealRecord, TransactionRecord,
     TransactionStatus, TransactionType, TransferRecord, TransferStatus,
@@ -55,3 +56,7 @@ pub use wallet::{FaucetConfig, GasAccount, WalletAccount, WalletConfig};
 
 /// Version of the state format.
 pub const STATE_VERSION: u32 = 1;
+
+/// Backward compatibility: Chain is now ChainId.
+#[deprecated(since = "0.5.0", note = "Use ChainId instead")]
+pub type Chain = ChainId;

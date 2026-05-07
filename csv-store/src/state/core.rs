@@ -1,7 +1,11 @@
 //! Core types: Chains and Networks.
 //!
 //! Defines the supported blockchain networks and their configurations.
+//!
+//! Chain IDs are strings for extensibility (100+ chains without code changes).
+//! Uses csv_core::ChainId as the canonical type.
 
+pub use csv_core::ChainId;
 use serde::{Deserialize, Serialize};
 
 /// Network environment.
@@ -48,48 +52,7 @@ impl std::str::FromStr for Network {
     }
 }
 
-/// Supported blockchain chains.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Chain {
-    /// Bitcoin (UTXO-based, uses Taproot for CSV).
-    Bitcoin,
-    /// Ethereum (EVM, uses smart contracts for CSV).
-    Ethereum,
-    /// Sui (Move VM, uses objects for CSV).
-    Sui,
-    /// Aptos (Move VM, uses resources for CSV).
-    Aptos,
-    /// Solana (BPF VM, uses accounts for CSV).
-    Solana,
-}
 
-impl std::fmt::Display for Chain {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Chain::Bitcoin => write!(f, "bitcoin"),
-            Chain::Ethereum => write!(f, "ethereum"),
-            Chain::Sui => write!(f, "sui"),
-            Chain::Aptos => write!(f, "aptos"),
-            Chain::Solana => write!(f, "solana"),
-        }
-    }
-}
-
-impl std::str::FromStr for Chain {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "bitcoin" => Ok(Chain::Bitcoin),
-            "ethereum" => Ok(Chain::Ethereum),
-            "sui" => Ok(Chain::Sui),
-            "aptos" => Ok(Chain::Aptos),
-            "solana" => Ok(Chain::Solana),
-            _ => Err(format!("Unknown chain: {}", s)),
-        }
-    }
-}
 
 /// Chain-specific configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -110,9 +73,9 @@ pub struct ChainConfig {
 
 impl ChainConfig {
     /// Create default configuration for a chain and network.
-    pub fn default_for(chain: &Chain, network: &Network) -> Self {
-        match chain {
-            Chain::Bitcoin => Self {
+    pub fn default_for(chain: &ChainId, network: &Network) -> Self {
+        match chain.as_str() {
+            "bitcoin" => Self {
                 rpc_url: match network {
                     Network::Dev => "http://localhost:18443".to_string(),
                     Network::Test => "https://mempool.space/signet/api/".to_string(),
@@ -124,7 +87,7 @@ impl ChainConfig {
                 finality_depth: 6,
                 default_fee: Some(10),
             },
-            Chain::Ethereum => Self {
+            "ethereum" => Self {
                 rpc_url: match network {
                     Network::Dev => "http://localhost:8545".to_string(),
                     Network::Test => "https://ethereum-sepolia-rpc.publicnode.com".to_string(),
@@ -140,7 +103,7 @@ impl ChainConfig {
                 finality_depth: 12,
                 default_fee: Some(20_000_000_000),
             },
-            Chain::Sui => Self {
+            "sui" => Self {
                 rpc_url: match network {
                     Network::Dev => "http://localhost:9000".to_string(),
                     Network::Test => "https://fullnode.testnet.sui.io:443".to_string(),
@@ -152,7 +115,7 @@ impl ChainConfig {
                 finality_depth: 1,
                 default_fee: Some(1000),
             },
-            Chain::Aptos => Self {
+            "aptos" => Self {
                 rpc_url: match network {
                     Network::Dev => "http://localhost:8080".to_string(),
                     Network::Test => "https://fullnode.testnet.aptoslabs.com/v1".to_string(),
@@ -164,7 +127,7 @@ impl ChainConfig {
                 finality_depth: 100,
                 default_fee: Some(100),
             },
-            Chain::Solana => Self {
+            "solana" => Self {
                 rpc_url: match network {
                     Network::Dev => "http://localhost:8899".to_string(),
                     Network::Test => "https://api.devnet.solana.com".to_string(),
@@ -175,6 +138,14 @@ impl ChainConfig {
                 chain_id: None,
                 finality_depth: 32,
                 default_fee: Some(5000),
+            },
+            _ => Self {
+                rpc_url: String::new(),
+                network: *network,
+                contract_address: None,
+                chain_id: None,
+                finality_depth: 1,
+                default_fee: None,
             },
         }
     }

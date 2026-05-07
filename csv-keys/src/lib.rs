@@ -46,6 +46,7 @@ pub mod bip39;
 pub mod bip44;
 #[cfg(feature = "wasm")]
 pub mod browser_keystore;
+pub mod file_keystore;
 pub mod keystore;
 pub mod memory;
 

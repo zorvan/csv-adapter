@@ -12,7 +12,7 @@ pub struct AppState {
     pub selected_network: Network,
     pub sanads: Vec<TrackedSanad>,
     pub transfers: Vec<TrackedTransfer>,
-    pub contracts: Vec<DeployedContract>,
+    pub contracts: Vec<ContractRecord>,
     pub seals: Vec<SealRecord>,
     pub proofs: Vec<ProofRecord>,
     pub transactions: Vec<TransactionRecord>,

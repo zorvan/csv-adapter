@@ -3,7 +3,8 @@
 //! Defines wallet account structures that reference (but don't store)
 //! private keys. Keys are stored in `csv-adapter-keystore`.
 
-use super::core::{Chain, Network};
+use super::core::ChainId;
+use super::core::Network;
 use serde::{Deserialize, Serialize};
 
 /// Wallet account configuration.
@@ -15,7 +16,7 @@ pub struct WalletAccount {
     /// Account ID (UUID or derived from public key).
     pub id: String,
     /// Chain this account belongs to.
-    pub chain: Chain,
+    pub chain: ChainId,
     /// Human-readable name.
     pub name: String,
     /// Public address.
@@ -36,7 +37,7 @@ impl WalletAccount {
     /// Create a new wallet account.
     pub fn new(
         id: impl Into<String>,
-        chain: Chain,
+        chain: ChainId,
         name: impl Into<String>,
         address: impl Into<String>,
     ) -> Self {
@@ -95,12 +96,12 @@ impl WalletConfig {
     }
 
     /// Get account for a specific chain.
-    pub fn get_account(&self, chain: &Chain) -> Option<&WalletAccount> {
+    pub fn get_account(&self, chain: &ChainId) -> Option<&WalletAccount> {
         self.accounts.iter().find(|a| &a.chain == chain)
     }
 
     /// Get mutable account for a specific chain.
-    pub fn get_account_mut(&mut self, chain: &Chain) -> Option<&mut WalletAccount> {
+    pub fn get_account_mut(&mut self, chain: &ChainId) -> Option<&mut WalletAccount> {
         self.accounts.iter_mut().find(|a| &a.chain == chain)
     }
 }
@@ -116,31 +117,38 @@ pub struct FaucetConfig {
 
 impl FaucetConfig {
     /// Default faucet configuration for a chain and network.
-    pub fn default_for(chain: &Chain, network: &Network) -> Option<Self> {
+    pub fn default_for(chain: &ChainId, network: &Network) -> Option<Self> {
         match network {
             Network::Main => None, // No faucets for mainnet
-            _ => Some(match chain {
-                Chain::Bitcoin => Self {
-                    url: "https://signet.bc-2.jp".to_string(),
-                    amount: Some(100_000),
-                },
-                Chain::Ethereum => Self {
-                    url: "https://sepoliafaucet.com".to_string(),
-                    amount: Some(100_000_000_000_000_000), // 0.1 ETH
-                },
-                Chain::Sui => Self {
-                    url: "https://faucet.testnet.sui.io/v1/gas".to_string(),
-                    amount: Some(10_000_000_000),
-                },
-                Chain::Aptos => Self {
-                    url: "https://faucet.testnet.aptoslabs.com".to_string(),
-                    amount: Some(100_000_000),
-                },
-                Chain::Solana => Self {
-                    url: "https://faucet.devnet.solana.com".to_string(),
-                    amount: Some(1_000_000_000),
-                },
-            }),
+            _ => {
+                let (url, amount) = match chain.as_str() {
+                    "bitcoin" => (
+                        "https://signet.bc-2.jp",
+                        Some(100_000u64),
+                    ),
+                    "ethereum" => (
+                        "https://sepoliafaucet.com",
+                        Some(100_000_000_000_000_000u64),
+                    ),
+                    "sui" => (
+                        "https://faucet.testnet.sui.io/v1/gas",
+                        Some(10_000_000_000u64),
+                    ),
+                    "aptos" => (
+                        "https://faucet.testnet.aptoslabs.com/v1",
+                        Some(100_000_000u64),
+                    ),
+                    "solana" => (
+                        "https://faucet.devnet.solana.com",
+                        Some(1_000_000_000u64),
+                    ),
+                    _ => return None,
+                };
+                Some(Self {
+                    url: url.to_string(),
+                    amount,
+                })
+            }
         }
     }
 }
@@ -149,7 +157,7 @@ impl FaucetConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GasAccount {
     /// Chain for this gas account.
-    pub chain: Chain,
+    pub chain: ChainId,
     /// Address to use for gas payment.
     pub address: String,
 }

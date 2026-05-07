@@ -1385,3 +1385,132 @@ KEEP EXACTLY AS-IS
 *This document is intended for engineering team internal use and external architectural review. It should be updated as defects are resolved and decisions are recorded.*
 
 *Last updated: May 2026 — Audit progress appended. Phase 0 complete. Phase 1 ~85% complete.*
+
+---
+
+## Wiring Audit — Integration Between csv-wallet, csv-cli, and csv-keys
+
+**Audited:** May 2026
+
+### 1. Private Key Management
+
+**Status: FIXED**
+
+- csv-wallet now uses `csv_keys::browser_keystore` for WASM builds (AES-256-GCM encrypted storage in localStorage)
+- csv-wallet `import_account_from_key()` now properly encrypts and stores private keys with a user-provided passphrase
+- csv-cli no longer prints raw private keys to console — all generators now use `csv_keys::bip44::derive_address_from_key` and defer key display to a secure `csv wallet export` command
+- `ChainAccount` no longer stores private keys — only `keystore_ref` (UUID) pointing to encrypted storage
+
+### 2. Address Derivation Unification
+
+**Status: FIXED**
+
+- csv-wallet `wallet/account.rs` now delegates to `csv_keys::bip44::derive_address_from_key` for all 5 chains
+- Single canonical implementation in csv-keys eliminates duplication risk
+- csv-cli already used csv-keys for derivation
+
+### 3. csv-wallet ↔ csv-cli Relationship
+
+**Status: MEDIUM RISK — Requires Design Decision**
+
+| Aspect | csv-wallet | csv-cli |
+|--------|-----------|---------|
+| Store types | Uses `csv_store::state` types directly | Uses `csv_store::state` types directly |
+| Physical storage | Browser localStorage (`csv_unified_storage` key) | Filesystem JSON (`~/.csv/unified_storage.json`) |
+| Keystore | BrowserKeystore (localStorage) | Filesystem (not yet implemented) |
+| Sync | None | None |
+
+**Problem:** Both use the same data model but different physical backends. No cross-sync mechanism exists. A user who creates an account in csv-cli will not see it in csv-wallet and vice versa.
+
+**Options:**
+
+1. **Shared backend via csv-sdk** — Both surfaces use `csv_sdk::CsvClient` with a configurable storage backend
+2. **Export/import mechanism** — Add `csv export` / `csv import` commands to transfer data between backends
+3. **Cloud sync** — Add optional cloud storage backend (future)
+
+### 4. External Wallet Integration
+
+**Status: STUB ONLY — Requires Design Decision**
+
+- `WalletType` enum declares: MetaMask, Phantom, Petra, Leather, Native, Custom, SuiWallet, AptosWallet, SolanaWallet
+- All connectors are stubs that always return `false` for `is_installed()` and `Err` for `connect_*()`
+- `NativeWallet` is a bare struct holding only an address — no signing capability
+- `get_signer_for_chain()` creates a bare `NativeWallet` with no actual signing flow
+
+**Problem:** External wallet integration is declared in types but fully stubbed. No actual MetaMask/Phantom/DApp connector logic exists.
+
+**Options:**
+
+1. **DApp connector pattern** — Use `window.ethereum`, `window.solana`, etc. for browser wallets
+2. **Signer abstraction** — Create `Signer` trait implemented by both csv-wallet keys and external wallets
+3. **Phase approach** — Implement one chain at a time (Ethereum/MetaMask first)
+
+### 5. Contract Deployment
+
+**Status: PARTIAL — csv-cli has Ethereum deployment, csv-wallet is mock**
+
+| Feature | csv-cli | csv-wallet |
+|---------|---------|------------|
+| Ethereum | ✅ Actually deploys via `deploy_csv_seal_contract()` | ❌ Mock/preview only |
+| Sui | Stub (prints "ready") | ❌ Mock/preview only |
+| Aptos | Stub (prints "ready") | ❌ Mock/preview only |
+| Solana | Stub (prints "ready") | ❌ Mock/preview only |
+| Build/compile | ❌ No build commands | ❌ No build commands |
+| File selection | ❌ No UI | ✅ Accepts .bin/.mv/.so files |
+
+**Value proposition question:** csv-wallet deployment UI has no advantage over csv-cli — it's a mock that reads files but never deploys. csv-cli's Ethereum deployment actually works.
+
+**Recommendation:** Either wire csv-wallet to use `csv_sdk::CsvClient::deploy_*()` functions (like csv-cli does for Ethereum), or remove the deployment UI and link to csv-cli documentation.
+
+### 6. Wallet Types Duplication
+
+**Status: MEDIUM RISK — csv-wallet has parallel types**
+
+csv-wallet maintains its own type hierarchy in `context/types.rs`:
+
+- `TrackedSanad` vs `csv_store::SanadRecord`
+- `TrackedTransfer` vs `csv_store::TransferRecord`
+- `DeployedContract` vs `csv_store::ContractRecord`
+- `SealRecord` (name collision with `csv_store::SealRecord`)
+- `ProofRecord` (name collision with `csv_store::ProofRecord`)
+
+csv-cli uses `csv_store` types directly with no duplication.
+
+**Problem:** csv-wallet must explicitly convert between its types and `csv_store` types during persistence (`load_persisted`/`save_persisted`). This creates maintenance burden and risk of type drift.
+
+**Fix:** Remove csv-wallet's parallel types and use `csv_store` types directly.
+
+---
+
+## Design Decisions Needed to Proceed
+
+| # | Decision | Options | Recommendation | Impact |
+|---|----------|---------|----------------|--------|
+| D1 | **Storage sync between wallet and CLI** | Shared backend, export/import, cloud sync | Export/import for Phase 1; cloud for Phase 3 | HIGH — affects all user workflows |
+| D2 | **External wallet integration scope** | DApp connectors, signer abstraction, phased | Signer abstraction + Ethereum/MetaMask first | HIGH — determines wallet UX |
+| D3 | **Contract deployment in csv-wallet** | Wire to csv-sdk, remove UI, or keep mock | Wire to csv-sdk for Ethereum; defer others | MEDIUM — UI vs CLI value prop |
+| D4 | **csv-wallet type unification** | Remove parallel types, use csv_store directly | Remove parallel types immediately | MEDIUM — reduces maintenance |
+| D5 | **csv-cli keystore for desktop** | Filesystem keystore, OS keychain, or none | Filesystem keystore (consistent with browser) | MEDIUM — security posture |
+| D6 | **csv-runtime crate** | Embedded library, separate daemon, per-surface | Embedded library (`csv-runtime`) composed per surface | HIGH — affects architecture |
+| D7 | **Chain enum vs string IDs** | Keep closed enum, open with string IDs | String IDs for 100-chain goal | HIGH — affects extensibility |
+| D8 | **csv-store dead code** | Remove unused symbols, add tests | Remove unused, add tests | LOW — cleanup |
+
+---
+
+## Phase Status Summary
+
+| Phase | Status | Blockers |
+|-------|--------|----------|
+| Phase 0 — Stabilize | **100% COMPLETE** | None |
+| Phase 1 — Naming & Structure | **~95% COMPLETE** | None |
+| Phase 2 — Registry Unification | **80% COMPLETE** | D1, D6 |
+| Phase 3 — WASM Unification | **70% COMPLETE** | D2, D4 |
+| Phase 4 — Explorer Decomposition | **60% COMPLETE** | D6 |
+| Phase 5 — ZK & Celestia | **NOT STARTED** | D6, D7 |
+| Phase 6 — Repository Split | **NOT STARTED** | D1, D5 |
+
+---
+
+*This document is intended for engineering team internal use and external architectural review. It should be updated as defects are resolved and decisions are recorded.*
+
+*Last updated: May 2026 — Wiring audit completed. Private key flow fixed. Address derivation unified. Design decisions D1-D8 documented.*

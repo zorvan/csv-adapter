@@ -2,7 +2,7 @@
 //!
 //! These types represent the core CSV (Client-Side Validation) domain model.
 
-use super::core::Chain;
+use super::core::ChainId;
 use serde::{Deserialize, Serialize};
 
 /// Status of a Sanad.
@@ -33,7 +33,7 @@ pub struct SanadRecord {
     /// Sanad ID (hash).
     pub id: String,
     /// Chain where this Sanad is anchored.
-    pub chain: Chain,
+    pub chain: ChainId,
     /// Seal reference (chain-specific bytes, base64 encoded for JSON).
     pub seal_ref: String,
     /// Current owner address.
@@ -88,9 +88,9 @@ pub struct TransferRecord {
     /// Transfer ID (hash of source seal + dest chain).
     pub id: String,
     /// Source chain.
-    pub source_chain: Chain,
+    pub source_chain: ChainId,
     /// Destination chain.
-    pub dest_chain: Chain,
+    pub dest_chain: ChainId,
     /// Sanad ID being transferred.
     pub sanad_id: String,
     /// Sender address on source chain.
@@ -130,7 +130,7 @@ pub struct TransferRecord {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContractRecord {
     /// Chain where contract is deployed.
-    pub chain: Chain,
+    pub chain: ChainId,
     /// Contract address.
     pub address: String,
     /// Deployment transaction hash.
@@ -145,7 +145,7 @@ pub struct SealRecord {
     /// Seal reference (base64 encoded).
     pub seal_ref: String,
     /// Chain where seal is anchored.
-    pub chain: Chain,
+    pub chain: ChainId,
     /// Value associated with seal.
     pub value: u64,
     /// Whether seal has been consumed.
@@ -161,7 +161,7 @@ pub struct SealRecord {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProofRecord {
     /// Chain where proof is valid.
-    pub chain: Chain,
+    pub chain: ChainId,
     /// Sanad ID this proof is for.
     pub sanad_id: String,
     /// Proof type (e.g., "inclusion", "exclusion", "transition", "zk_seal").
@@ -188,7 +188,7 @@ pub struct ProofRecord {
 impl ProofRecord {
     /// Create a new ZK proof record.
     pub fn new_zk_proof(
-        chain: Chain,
+        chain: ChainId,
         sanad_id: String,
         proof_system: &str,
         proof_data: Vec<u8>,
@@ -272,7 +272,7 @@ pub struct TransactionRecord {
     /// Transaction ID.
     pub id: String,
     /// Chain where transaction occurred.
-    pub chain: Chain,
+    pub chain: ChainId,
     /// Transaction hash.
     pub tx_hash: String,
     /// Transaction type.

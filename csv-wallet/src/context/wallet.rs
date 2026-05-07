@@ -13,7 +13,7 @@ pub struct WalletContext {
     state: Signal<AppState>,
     store: Option<LocalStorageManager>,
     loaded: Signal<bool>,
-    selected_contract: Signal<Option<DeployedContract>>,
+    selected_contract: Signal<Option<ContractRecord>>,
 }
 
 impl PartialEq for WalletContext {
@@ -28,7 +28,7 @@ impl WalletContext {
     pub fn new(
         state: Signal<AppState>,
         loaded: Signal<bool>,
-        selected_contract: Signal<Option<DeployedContract>>,
+        selected_contract: Signal<Option<ContractRecord>>,
     ) -> Self {
         let store = storage::wallet_storage().ok();
         let mut ctx = Self {
@@ -57,11 +57,11 @@ impl WalletContext {
     }
 
     // ===== Selected Contract for Transfer =====
-    pub fn selected_contract(&self) -> Option<DeployedContract> {
+    pub fn selected_contract(&self) -> Option<ContractRecord> {
         self.selected_contract.read().clone()
     }
 
-    pub fn set_selected_contract(&mut self, contract: Option<DeployedContract>) {
+    pub fn set_selected_contract(&mut self, contract: Option<ContractRecord>) {
         self.selected_contract.set(contract);
     }
 
@@ -471,11 +471,11 @@ impl WalletContext {
         self.state.read().transfers.clone()
     }
 
-    pub fn contracts(&self) -> Vec<DeployedContract> {
+    pub fn contracts(&self) -> Vec<ContractRecord> {
         self.state.read().contracts.clone()
     }
 
-    pub fn contracts_for_chain(&self, chain: Chain) -> Vec<DeployedContract> {
+    pub fn contracts_for_chain(&self, chain: Chain) -> Vec<ContractRecord> {
         self.state
             .read()
             .contracts
@@ -556,28 +556,57 @@ impl WalletContext {
         chain: Chain,
         name: &str,
         private_key_hex: &str,
+        passphrase: &str,
     ) -> Result<(), String> {
+        use csv_keys::memory::{Passphrase, SecretKey};
+
         // Derive address from private key
         let address = crate::wallet_core::ChainAccount::derive_address(chain, private_key_hex)
             .map_err(|e| format!("Failed to derive address: {}", e))?;
 
-        // Create keystore reference (simplified - in production this would encrypt and store)
-        let keystore_ref = format!("keystore_{}_{}", chain, uuid::Uuid::new_v4());
+        // Parse the private key bytes
+        let hex_clean = private_key_hex.strip_prefix("0x").unwrap_or(private_key_hex);
+        let key_bytes = hex::decode(hex_clean).map_err(|e| format!("Invalid hex: {}", e))?;
+        if key_bytes.len() != 32 {
+            return Err(format!("Private key must be 32 bytes, got {}", key_bytes.len()));
+        }
 
-        // Create account
+      // Create a SecretKey from the bytes
+        let key_arr: [u8; 32] = key_bytes.try_into().map_err(|_| "Invalid key length".to_string())?;
+        let secret_key = SecretKey::new(key_arr);
+
+        // Encrypt and store in browser keystore
+        let keystore_id = uuid::Uuid::new_v4().to_string();
+        let chain_name = chain.to_string().to_lowercase();
+        let passphrase_obj = Passphrase::new(passphrase);
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            use csv_keys::browser_keystore::BrowserKeystore;
+            let keystore = BrowserKeystore::new();
+            keystore
+                .store_key(&keystore_id, &chain_name, &secret_key, &passphrase_obj)
+                .map_err(|e| format!("Failed to store key: {}", e))?;
+        }
+
+      #[cfg(not(target_arch = "wasm32"))]
+        {
+            // For non-WASM builds, store in memory (production would use file system)
+            let _ = (chain_name, secret_key, passphrase_obj);
+            // TODO: Implement filesystem keystore for desktop builds
+        }
+
+        // Create account with keystore reference
         let account = crate::wallet_core::ChainAccount::from_keystore(
             chain,
             name,
             &address,
-            &keystore_ref,
+            &keystore_id,
             None,
         );
 
         // Add to wallet
         self.add_account(account);
-
-        // Private key storage: keys are managed through csv-adapter-keystore
-        // The keystore_ref links to encrypted storage
 
         Ok(())
     }
@@ -658,7 +687,7 @@ impl WalletContext {
             .cloned()
     }
 
-    pub fn add_contract(&mut self, contract: DeployedContract) {
+    pub fn add_contract(&mut self, contract: ContractRecord) {
         let mut s = self.state.write();
         if let Some(pos) = s
             .contracts

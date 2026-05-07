@@ -29,6 +29,8 @@ pub enum WalletAction {
         #[arg(long, default_value = "0")]
         account: u32,
     },
+    /// Export mnemonic phrase for backup or migration
+    Export,
     /// Generate wallet for specific chain
     Generate {
         /// Chain name

@@ -1,6 +1,7 @@
 //! Wallet management commands — encrypted mnemonic management only.
 
 pub mod balance;
+pub mod export;
 pub mod generate;
 pub mod import;
 pub mod types;
@@ -26,6 +27,7 @@ pub async fn execute(
         WalletAction::Import { phrase, network, account } => {
             import::cmd_import(&phrase, network, account, config, state)
         }
+        WalletAction::Export => export::cmd_export(config, state),
         WalletAction::Generate { chain, network } => {
             generate::cmd_generate(chain, network, config, state)
         }

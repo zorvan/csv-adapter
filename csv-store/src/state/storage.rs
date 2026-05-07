@@ -3,7 +3,8 @@
 //! This module defines `StateStorage` (formerly `UnifiedStorage`),
 //! the central data structure for CSV application state.
 
-use super::core::{Chain, ChainConfig, Network};
+use super::core::{ChainConfig, Network};
+use super::core::ChainId;
 use super::domain::{
     ContractRecord, ProofRecord, SanadRecord, SealRecord, TransactionRecord, TransferRecord,
 };
@@ -32,7 +33,7 @@ pub struct StateStorage {
 
     /// Chain configurations (RPC endpoints, etc.).
     #[serde(default)]
-    pub chains: HashMap<Chain, ChainConfig>,
+    pub chains: HashMap<ChainId, ChainConfig>,
 
     /// Wallet configuration with accounts.
     #[serde(default)]
@@ -40,7 +41,7 @@ pub struct StateStorage {
 
     /// Faucet configurations (mainly for CLI testnet usage).
     #[serde(default)]
-    pub faucets: HashMap<Chain, FaucetConfig>,
+    pub faucets: HashMap<ChainId, FaucetConfig>,
 
     /// Tracked sanads (both CLI and Wallet).
     #[serde(default)]
@@ -72,7 +73,7 @@ pub struct StateStorage {
 
     /// Selected chain (UI state - mainly Wallet).
     #[serde(default)]
-    pub selected_chain: Option<Chain>,
+    pub selected_chain: Option<ChainId>,
 
     /// Selected network (UI state - mainly Wallet).
     #[serde(default)]
@@ -100,21 +101,21 @@ impl StateStorage {
     pub fn with_defaults(mut self) -> Self {
         self.chains = Self::default_chains();
         self.faucets = Self::default_faucets();
-        self.selected_chain = Some(Chain::Bitcoin);
+        self.selected_chain = Some(csv_core::builtin::BITCOIN.clone());
         self.selected_network = Some(Network::Test);
         self
     }
 
     /// Get default chain configurations.
-    fn default_chains() -> HashMap<Chain, ChainConfig> {
+    fn default_chains() -> HashMap<ChainId, ChainConfig> {
         let mut chains = HashMap::new();
 
         for chain in [
-            Chain::Bitcoin,
-            Chain::Ethereum,
-            Chain::Sui,
-            Chain::Aptos,
-            Chain::Solana,
+            csv_core::builtin::BITCOIN.clone(),
+            csv_core::builtin::ETHEREUM.clone(),
+            csv_core::builtin::SUI.clone(),
+            csv_core::builtin::APTOS.clone(),
+            csv_core::builtin::SOLANA.clone(),
         ] {
             chains.insert(
                 chain.clone(),
@@ -126,15 +127,15 @@ impl StateStorage {
     }
 
     /// Get default faucet configurations.
-    fn default_faucets() -> HashMap<Chain, FaucetConfig> {
+    fn default_faucets() -> HashMap<ChainId, FaucetConfig> {
         let mut faucets = HashMap::new();
 
         for chain in [
-            Chain::Bitcoin,
-            Chain::Ethereum,
-            Chain::Sui,
-            Chain::Aptos,
-            Chain::Solana,
+            csv_core::builtin::BITCOIN.clone(),
+            csv_core::builtin::ETHEREUM.clone(),
+            csv_core::builtin::SUI.clone(),
+            csv_core::builtin::APTOS.clone(),
+            csv_core::builtin::SOLANA.clone(),
         ] {
             if let Some(config) = FaucetConfig::default_for(&chain, &Network::Test) {
                 faucets.insert(chain, config);
@@ -176,7 +177,7 @@ impl StateStorage {
     // ===== Contract operations =====
 
     /// Get contracts for a chain.
-    pub fn get_contracts(&self, chain: &Chain) -> Vec<&ContractRecord> {
+    pub fn get_contracts(&self, chain: &ChainId) -> Vec<&ContractRecord> {
         self.contracts
             .iter()
             .filter(|c| &c.chain == chain)
@@ -191,7 +192,7 @@ impl StateStorage {
     // ===== Wallet/Account operations =====
 
     /// Get account for a chain.
-    pub fn get_account(&self, chain: &Chain) -> Option<&WalletAccount> {
+    pub fn get_account(&self, chain: &ChainId) -> Option<&WalletAccount> {
         self.wallet.get_account(chain)
     }
 
@@ -201,12 +202,12 @@ impl StateStorage {
     }
 
     /// Get address for a chain.
-    pub fn get_address(&self, chain: &Chain) -> Option<&str> {
+    pub fn get_address(&self, chain: &ChainId) -> Option<&str> {
         self.get_account(chain).map(|a| a.address.as_str())
     }
 
     /// Store address for a chain.
-    pub fn store_address(&mut self, chain: Chain, address: String) {
+    pub fn store_address(&mut self, chain: ChainId, address: String) {
         let account = WalletAccount::new(
             format!("{}_{}", chain, address),
             chain.clone(),
@@ -219,7 +220,7 @@ impl StateStorage {
     /// Store address with derivation path.
     pub fn store_address_with_derivation(
         &mut self,
-        chain: Chain,
+        chain: ChainId,
         address: String,
         derivation_path: Option<String>,
     ) {
@@ -238,7 +239,7 @@ impl StateStorage {
     // ===== Gas account operations =====
 
     /// Get gas account for a chain.
-    pub fn get_gas_account(&self, chain: &Chain) -> Option<&str> {
+    pub fn get_gas_account(&self, chain: &ChainId) -> Option<&str> {
         self.gas_accounts
             .iter()
             .find(|g| &g.chain == chain)

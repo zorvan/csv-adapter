@@ -213,6 +213,7 @@ fn AddAccountTab() -> Element {
     let mut selected_chain = use_signal(|| ChainDisplay(Chain::Bitcoin));
     let mut pk_input = use_signal(String::new);
     let mut name_input = use_signal(String::new);
+    let mut passphrase_input = use_signal(String::new);
     let mut message = use_signal(|| Option::<String>::None);
     let mut error = use_signal(|| Option::<String>::None);
 
@@ -250,13 +251,24 @@ fn AddAccountTab() -> Element {
                         }
                     }
 
-                    div {
+                   div {
                         label { class: "block text-sm font-medium text-gray-300 mb-2", "Private Key (hex)" }
                         textarea {
                             value: "{pk_input.read()}",
                             oninput: move |evt| { pk_input.set(evt.value()); error.set(None); },
                             class: "w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-sm text-gray-100 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none",
                             rows: 3,
+                        }
+                    }
+
+                    div {
+                        label { class: "block text-sm font-medium text-gray-300 mb-2", "Encryption Passphrase" }
+                        input {
+                            value: "{passphrase_input.read()}",
+                            oninput: move |evt| { passphrase_input.set(evt.value()); error.set(None); },
+                            class: "w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500",
+                            r#type: "password",
+                            placeholder: "Enter a passphrase to encrypt your private key",
                         }
                         button {
                             onclick: move |_| {
@@ -284,7 +296,7 @@ fn AddAccountTab() -> Element {
                         }
                     }
 
-                    button {
+               button {
                         onclick: move |_| {
                             let chain = selected_chain.read().0;
                             let name = {
@@ -292,8 +304,13 @@ fn AddAccountTab() -> Element {
                                 if n.is_empty() { format!("{:?}", chain) } else { n }
                             };
                             let pk = pk_input.read().clone();
+                            let passphrase = passphrase_input.read().clone();
+                            if passphrase.is_empty() {
+                                error.set(Some("Passphrase is required".to_string()));
+                                return;
+                            }
                             // Create account from private key via keystore
-                            match wallet_ctx.import_account_from_key(chain, &name, &pk) {
+                            match wallet_ctx.import_account_from_key(chain, &name, &pk, &passphrase) {
                                 Ok(_) => {
                                     message.set(Some(format!("Account added for {}!", chain)));
                                     pk_input.set(String::new());

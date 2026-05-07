@@ -75,6 +75,9 @@ js-sys = { version = "0.3", optional = true }
 # Error handling
 thiserror = "1.0"
 
+# Directory resolution for file keystore
+dirs = "5.0"
+
 [features]
 default = ["bip44", "secp256k1"]
 bip44 = ["bip32", "secp256k1", "ed25519-dalek", "bitcoin", "blake2", "bs58"]
