@@ -102,15 +102,15 @@ pub fn CreateSeal() -> Element {
                                 chain: selected_chain.read().clone(),
                                 value: sanad.value,
                                 consumed: false,
-                                sanad_id: sanad.id.clone(),
+                                sanad_id: Some(sanad.id.clone()),
                                 status: SealStatus::Active,
                                 created_at: now,
-                                content: Some(SealContent {
+                                content: Some(serde_json::to_string(&SealContent {
                                     content_hash: format!("0x{}", &sanad.id[..40.min(sanad.id.len())]),
                                     owner: sanad.owner.clone(),
                                     block_number: None,
                                     lock_tx_hash: None,
-                                }),
+                                }).unwrap_or_default()),
                                 proof_ref: None,
                             };
                             wallet_ctx.add_seal(seal);

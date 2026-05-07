@@ -286,6 +286,19 @@ pub fn derive_address_from_key(key_bytes: &[u8], chain: Chain) -> Result<String,
     }
 }
 
+/// Derive an address from a raw 32-byte private key for a specific chain (using ChainId).
+pub fn derive_address_from_chain_id(key_bytes: &[u8], chain_id: &ChainId) -> Result<String, Bip44Error> {
+    let chain = match chain_id.as_str() {
+        "bitcoin" => Chain::Bitcoin,
+        "ethereum" => Chain::Ethereum,
+        "sui" => Chain::Sui,
+        "aptos" => Chain::Aptos,
+        "solana" => Chain::Solana,
+        _ => return Err(Bip44Error::UnsupportedChain(Chain::Bitcoin)),
+    };
+    derive_address_from_key(key_bytes, chain)
+}
+
 fn derive_bitcoin_address_from_key(key_bytes: &[u8]) -> Result<String, Bip44Error> {
     use bitcoin::key::TapTweak;
     use bitcoin::Address;

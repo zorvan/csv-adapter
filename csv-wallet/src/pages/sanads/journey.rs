@@ -308,7 +308,7 @@ fn seal_details_section(seal: &SealRecord) -> Element {
                     }
                     div {
                         p { class: "text-xs text-gray-500", "Protects Sanad" }
-                        p { class: "text-sm font-mono", "{truncate_address(&seal.sanad_id, 12)}" }
+                        p { class: "text-sm font-mono", "{truncate_address(seal.sanad_id.as_deref().unwrap_or("N/A"), 12)}" }
                     }
                     div {
                         p { class: "text-xs text-gray-500", "Value Locked" }
@@ -399,7 +399,7 @@ fn proof_card(proof: &ProofRecord) -> Element {
                 }
                 div {
                     p { class: "text-xs text-gray-500", "For Seal" }
-                    p { class: "font-mono", "{truncate_address(&proof.seal_ref, 8)}" }
+                    p { class: "font-mono", "{truncate_address(proof.seal_ref.as_deref().unwrap_or("N/A"), 8)}" }
                 }
                 div {
                     p { class: "text-xs text-gray-500", "Generated" }
@@ -407,10 +407,16 @@ fn proof_card(proof: &ProofRecord) -> Element {
                 }
             }
 
-            if let Some(ref data) = proof.proof_data {
+            if let Some(ref data_json) = proof.proof_data {
                 div { class: "mt-3 pt-3 border-t border-gray-700",
                     p { class: "text-xs text-gray-500 mb-2", "Cryptographic Data" }
-                    {proof_data_display(data)}
+                    {
+                        if let Ok(data) = serde_json::from_str::<crate::context::ProofData>(data_json) {
+                            proof_data_display(&data)
+                        } else {
+                            rsx! { p { class: "text-gray-400 text-sm", "Invalid data" } }
+                        }
+                    }
                 }
             }
 
@@ -704,8 +710,9 @@ fn build_commitment_chain_from_proofs(proofs: &[ProofRecord]) -> Vec<CommitmentN
 
     // For each proof, create a commitment node
     for proof in proofs {
-        let hash = format!("commitment-{}", &proof.seal_ref);
-        let previous_hash = format!("prev-{}", &proof.seal_ref[..8.min(proof.seal_ref.len())]);
+        let seal_ref = proof.seal_ref.as_deref().unwrap_or("unknown");
+        let hash = format!("commitment-{}", seal_ref);
+        let previous_hash = format!("prev-{}", &seal_ref[..8.min(seal_ref.len())]);
 
         chain.push(CommitmentNode {
             hash,

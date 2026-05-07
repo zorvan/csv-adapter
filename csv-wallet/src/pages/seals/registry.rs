@@ -149,12 +149,12 @@ fn seal_row(seal: &SealRecord) -> Element {
                 }
             }
             td { class: "px-4 py-3",
-                if seal.sanad_id.is_empty() {
+                if seal.sanad_id.as_deref().map_or(true, |s| s.is_empty()) {
                     span { class: "text-gray-500", "-" }
                 } else {
-                    Link { to: Route::SanadJourney { id: seal.sanad_id.clone() },
+                    Link { to: Route::SanadJourney { id: seal.sanad_id.clone().unwrap_or_default() },
                         class: "font-mono text-xs text-blue-400 hover:underline",
-                        "{truncate_address(&seal.sanad_id, 8)}"
+                        "{truncate_address(seal.sanad_id.as_deref().unwrap_or("N/A"), 8)}"
                     }
                 }
             }

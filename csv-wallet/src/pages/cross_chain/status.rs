@@ -77,7 +77,7 @@ pub fn CrossChainStatus() -> Element {
                                 }
                                 div { class: "flex justify-between",
                                     span { class: "text-sm text-gray-400", "Destination Owner" }
-                                    span { class: "text-sm font-mono text-gray-300", "{truncate_address(&t.destination_address, 12)}" }
+                                    span { class: "text-sm font-mono text-gray-300", "{truncate_address(t.destination_address.as_deref().unwrap_or("N/A"), 12)}" }
                                 }
                                 div { class: "flex justify-between",
                                     span { class: "text-sm text-gray-400", "Status" }

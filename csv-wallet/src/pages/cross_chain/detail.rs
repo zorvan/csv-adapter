@@ -73,10 +73,10 @@ pub fn TransferDetail(id: String) -> Element {
                     }
 
                     // Destination Owner
-                    div { class: "flex justify-between items-start",
-                        span { class: "text-sm text-gray-400", "Destination Owner" }
-                        p { class: "font-mono text-sm text-gray-200 break-all max-w-md", "{t.destination_address}" }
-                    }
+               div { class: "flex justify-between items-start",
+                    span { class: "text-sm text-gray-400", "Destination Owner" }
+                    p { class: "font-mono text-sm text-gray-200 break-all max-w-md", "{t.destination_address.as_deref().unwrap_or("N/A")}" }
+                }
 
                     // Created At
                     div { class: "flex justify-between items-center",

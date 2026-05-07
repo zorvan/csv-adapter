@@ -92,7 +92,7 @@ fn proof_overview_section(proof: &ProofRecord) -> Element {
             div { class: "grid grid-cols-2 gap-4",
                 div { class: "space-y-1",
                     label { class: "text-xs text-gray-500 uppercase", "Proof ID" }
-                    p { class: "font-mono text-sm", "{&proof.seal_ref}" }
+                    p { class: "font-mono text-sm", "{proof.seal_ref.as_deref().unwrap_or("N/A")}" }
                 }
                 div { class: "space-y-1",
                     label { class: "text-xs text-gray-500 uppercase", "ChainId" }
@@ -166,7 +166,7 @@ fn seal_section(proof: &ProofRecord) -> Element {
             div { class: "space-y-4",
                 div { class: "p-3 bg-gray-800/50 rounded-lg",
                     p { class: "text-xs text-gray-500 mb-1", "Seal ID (ChainId-Native)" }
-                    p { class: "font-mono text-sm break-all", "{&proof.seal_ref}" }
+                    p { class: "font-mono text-sm break-all", "{proof.seal_ref.as_deref().unwrap_or("N/A")}" }
                 }
 
                 div { class: "p-3 bg-gray-800/50 rounded-lg",
@@ -195,59 +195,65 @@ fn inclusion_proof_section(proof: &ProofRecord) -> Element {
                 "Inclusion Proof"
             }
 
-            if let Some(ref data) = proof.proof_data {
+            if let Some(ref data_json) = proof.proof_data {
                 div { class: "space-y-4",
-                    {match data {
-                        crate::context::ProofData::Merkle { root, path, leaf_index } => rsx! {
-                            div { class: "p-3 bg-gray-800/50 rounded-lg",
-                                p { class: "text-xs text-gray-500 mb-1", "Merkle Root" }
-                                p { class: "font-mono text-sm break-all", "{root}" }
+                    {
+                        if let Ok(data) = serde_json::from_str::<crate::context::ProofData>(data_json) {
+                            match data {
+                                crate::context::ProofData::Merkle { root, path, leaf_index } => rsx! {
+                                    div { class: "p-3 bg-gray-800/50 rounded-lg",
+                                        p { class: "text-xs text-gray-500 mb-1", "Merkle Root" }
+                                        p { class: "font-mono text-sm break-all", "{root}" }
+                                    }
+                                    div { class: "p-3 bg-gray-800/50 rounded-lg",
+                                        p { class: "text-xs text-gray-500 mb-1", "Proof Path Depth" }
+                                        p { class: "font-medium", "{path.len()} siblings" }
+                                    }
+                                    div { class: "p-3 bg-gray-800/50 rounded-lg",
+                                        p { class: "text-xs text-gray-500 mb-1", "Leaf Index" }
+                                        p { class: "font-medium", "{leaf_index}" }
+                                    }
+                                },
+                                crate::context::ProofData::Mpt { root, .. } => rsx! {
+                                    div { class: "p-3 bg-gray-800/50 rounded-lg",
+                                        p { class: "text-xs text-gray-500 mb-1", "MPT Root" }
+                                        p { class: "font-mono text-sm break-all", "{root}" }
+                                    }
+                                },
+                                crate::context::ProofData::Checkpoint { sequence, digest, .. } => rsx! {
+                                    div { class: "p-3 bg-gray-800/50 rounded-lg",
+                                        p { class: "text-xs text-gray-500 mb-1", "Checkpoint" }
+                                        p { class: "font-medium", "#{sequence}" }
+                                        p { class: "font-mono text-xs break-all mt-1", "{digest}" }
+                                    }
+                                },
+                                crate::context::ProofData::Ledger { version, .. } => rsx! {
+                                    div { class: "p-3 bg-gray-800/50 rounded-lg",
+                                        p { class: "text-xs text-gray-500 mb-1", "Ledger Version" }
+                                        p { class: "font-medium", "{version}" }
+                                    }
+                                },
+                                crate::context::ProofData::Solana { slot, .. } => rsx! {
+                                    div { class: "p-3 bg-gray-800/50 rounded-lg",
+                                        p { class: "text-xs text-gray-500 mb-1", "Slot" }
+                                        p { class: "font-medium", "{slot}" }
+                                    }
+                                },
+                                crate::context::ProofData::Zk { proof_system, block_height, .. } => rsx! {
+                                    div { class: "p-3 bg-gray-800/50 rounded-lg",
+                                        p { class: "text-xs text-gray-500 mb-1", "ZK Proof System" }
+                                        p { class: "font-medium", "{proof_system}" }
+                                    }
+                                    div { class: "p-3 bg-gray-800/50 rounded-lg",
+                                        p { class: "text-xs text-gray-500 mb-1", "Block Height" }
+                                        p { class: "font-medium", "{block_height}" }
+                                    }
+                                },
                             }
-                            div { class: "p-3 bg-gray-800/50 rounded-lg",
-                                p { class: "text-xs text-gray-500 mb-1", "Proof Path Depth" }
-                                p { class: "font-medium", "{path.len()} siblings" }
-                            }
-                            div { class: "p-3 bg-gray-800/50 rounded-lg",
-                                p { class: "text-xs text-gray-500 mb-1", "Leaf Index" }
-                                p { class: "font-medium", "{leaf_index}" }
-                            }
-                        },
-                        crate::context::ProofData::Mpt { root, .. } => rsx! {
-                            div { class: "p-3 bg-gray-800/50 rounded-lg",
-                                p { class: "text-xs text-gray-500 mb-1", "MPT Root" }
-                                p { class: "font-mono text-sm break-all", "{root}" }
-                            }
-                        },
-                        crate::context::ProofData::Checkpoint { sequence, digest, .. } => rsx! {
-                            div { class: "p-3 bg-gray-800/50 rounded-lg",
-                                p { class: "text-xs text-gray-500 mb-1", "Checkpoint" }
-                                p { class: "font-medium", "#{sequence}" }
-                                p { class: "font-mono text-xs break-all mt-1", "{digest}" }
-                            }
-                        },
-                        crate::context::ProofData::Ledger { version, .. } => rsx! {
-                            div { class: "p-3 bg-gray-800/50 rounded-lg",
-                                p { class: "text-xs text-gray-500 mb-1", "Ledger Version" }
-                                p { class: "font-medium", "{version}" }
-                            }
-                        },
-                        crate::context::ProofData::Solana { slot, .. } => rsx! {
-                            div { class: "p-3 bg-gray-800/50 rounded-lg",
-                                p { class: "text-xs text-gray-500 mb-1", "Slot" }
-                                p { class: "font-medium", "{slot}" }
-                            }
-                        },
-                        crate::context::ProofData::Zk { proof_system, block_height, .. } => rsx! {
-                            div { class: "p-3 bg-gray-800/50 rounded-lg",
-                                p { class: "text-xs text-gray-500 mb-1", "ZK Proof System" }
-                                p { class: "font-medium", "{proof_system}" }
-                            }
-                            div { class: "p-3 bg-gray-800/50 rounded-lg",
-                                p { class: "text-xs text-gray-500 mb-1", "Block Height" }
-                                p { class: "font-medium", "{block_height}" }
-                            }
-                        },
-                    }}
+                        } else {
+                            p { class: "text-gray-400 text-sm", "Invalid proof data format" }
+                        }
+                    }
 
                     // Inclusion proof explanation
                     div { class: "p-3 bg-green-900/20 border border-green-500/30 rounded-lg",

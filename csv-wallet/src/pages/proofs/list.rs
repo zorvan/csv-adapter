@@ -50,12 +50,12 @@ pub fn Proofs() -> Element {
                                     tr { key: "{idx}-{proof.chain}-{proof.sanad_id}-{proof.proof_type}", class: "hover:bg-gray-800/50 transition-colors",
                                         td { class: "px-4 py-3", span { class: "{chain_badge_class(&proof.chain)}", "{chain_icon_emoji(&proof.chain)} {chain_name(&proof.chain)}" } }
                                         td { class: "px-4 py-3 font-mono text-xs",
-                                            Link { to: Route::SanadJourney { id: proof.sanad_id.clone() }, class: "text-purple-400 hover:text-purple-300",
-                                                "{truncate_address(&proof.sanad_id, 8)}"
+                                            Link { to: Route::SanadJourney { id: proof.sanad_id.clone().unwrap_or_default() }, class: "text-purple-400 hover:text-purple-300",
+                                                "{truncate_address(proof.sanad_id.as_deref().unwrap_or("N/A"), 8)}"
                                             }
                                         }
                                         td { class: "px-4 py-3 font-mono text-xs",
-                                            "{truncate_address(&proof.seal_ref, 8)}"
+                                            "{truncate_address(proof.seal_ref.as_deref().unwrap_or("N/A"), 8)}"
                                         }
                                         td { class: "px-4 py-3 text-xs", "{proof.proof_type}" }
                                         td { class: "px-4 py-3",
@@ -115,14 +115,14 @@ pub fn Proofs() -> Element {
                                     div { class: "space-y-2",
                                         p { class: "text-sm text-gray-400", "Sanad ID" }
                                         p { class: "text-sm font-mono break-all",
-                                            Link { to: Route::SanadJourney { id: proof.sanad_id.clone() }, class: "text-purple-400 hover:text-purple-300",
-                                                "{&proof.sanad_id}"
+                                            Link { to: Route::SanadJourney { id: proof.sanad_id.clone().unwrap_or_default() }, class: "text-purple-400 hover:text-purple-300",
+                                                "{proof.sanad_id.as_deref().unwrap_or("N/A")}"
                                             }
                                         }
                                     }
                                     div { class: "space-y-2",
                                         p { class: "text-sm text-gray-400", "Seal Reference" }
-                                        p { class: "text-sm font-mono break-all", "{&proof.seal_ref}" }
+                                        p { class: "text-sm font-mono break-all", "{proof.seal_ref.as_deref().unwrap_or("N/A")}" }
                                     }
                                     div { class: "space-y-2",
                                         p { class: "text-sm text-gray-400", "Proof Type" }
@@ -174,8 +174,8 @@ pub fn Proofs() -> Element {
                                         "Are you sure you want to delete this proof? This action cannot be undone."
                                     }
                                     div { class: "bg-gray-800/50 rounded-lg p-3",
-                                        p { class: "text-xs text-gray-500", "Sanad ID: {truncate_address(&proof.sanad_id, 20)}" }
-                                        p { class: "text-xs text-gray-500", "Seal: {truncate_address(&proof.seal_ref, 12)}" }
+                                        p { class: "text-xs text-gray-500", "Sanad ID: {truncate_address(proof.sanad_id.as_deref().unwrap_or("N/A"), 20)}" }
+                                        p { class: "text-xs text-gray-500", "Seal: {truncate_address(proof.seal_ref.as_deref().unwrap_or("N/A"), 12)}" }
                                         p { class: "text-xs text-gray-500", "ChainId: {chain_name(&proof.chain)}" }
                                         p { class: "text-xs text-gray-500", "Status: {proof.status}" }
                                     }
