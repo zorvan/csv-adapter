@@ -35,7 +35,7 @@ pub fn build_transaction(
         Chain::Solana => {
             return Err(BlockchainError {
                 message: "Solana transactions require a recent blockhash. Use build_solana_transaction_with_blockhash() with a blockhash from Solana RPC.".to_string(),
-                chain: Chain::Solana,
+                chain: Some(Chain::Solana),
                 code: Some(400),
             })
         }
@@ -79,13 +79,13 @@ fn build_eth_transaction_data(
     let to_bytes = hex::decode(to.trim_start_matches("0x"))
         .map_err(|e| BlockchainError {
             message: format!("Invalid to address: {}", e),
-            chain: Chain::Ethereum,
+            chain: Some(Chain::Ethereum),
             code: Some(400),
         })?;
     if to_bytes.len() != 20 {
         return Err(BlockchainError {
             message: "Ethereum address must be 20 bytes".to_string(),
-            chain: Chain::Ethereum,
+            chain: Some(Chain::Ethereum),
             code: Some(400),
         });
     }
@@ -598,7 +598,7 @@ pub fn build_solana_transaction_with_blockhash(
     if !recent_blockhash.is_valid() {
         return Err(BlockchainError {
             message: "Blockhash has expired. Fetch a new recent blockhash.".to_string(),
-            chain: Chain::Solana,
+            chain: Some(Chain::Solana),
             code: Some(400),
         });
     }
@@ -607,13 +607,13 @@ pub fn build_solana_transaction_with_blockhash(
     let fee_payer_bytes = bs58::decode(fee_payer).into_vec()
         .map_err(|e| BlockchainError {
             message: format!("Invalid fee payer address: {}", e),
-            chain: Chain::Solana,
+            chain: Some(Chain::Solana),
             code: Some(400),
         })?;
     if fee_payer_bytes.len() != 32 {
         return Err(BlockchainError {
             message: "Solana fee payer must be 32 bytes".to_string(),
-            chain: Chain::Solana,
+            chain: Some(Chain::Solana),
             code: Some(400),
         });
     }
@@ -669,14 +669,14 @@ pub async fn fetch_solana_blockhash(rpc_url: &str) -> Result<SolanaBlockhash, Bl
         .await
         .map_err(|e| BlockchainError {
             message: format!("Failed to fetch blockhash: {}", e),
-            chain: Chain::Solana,
+            chain: Some(Chain::Solana),
             code: Some(500),
         })?;
 
     let rpc_response: serde_json::Value = response.json().await
         .map_err(|e| BlockchainError {
             message: format!("Failed to parse blockhash response: {}", e),
-            chain: Chain::Solana,
+            chain: Some(Chain::Solana),
             code: Some(500),
         })?;
 
@@ -687,14 +687,14 @@ pub async fn fetch_solana_blockhash(rpc_url: &str) -> Result<SolanaBlockhash, Bl
         .and_then(|h| h.as_str())
         .ok_or_else(|| BlockchainError {
             message: "Failed to extract blockhash from response".to_string(),
-            chain: Chain::Solana,
+            chain: Some(Chain::Solana),
             code: Some(500),
         })?;
 
     let blockhash_bytes = bs58::decode(blockhash_str).into_vec()
         .map_err(|e| BlockchainError {
             message: format!("Invalid blockhash encoding: {}", e),
-            chain: Chain::Solana,
+            chain: Some(Chain::Solana),
             code: Some(500),
         })?;
 
@@ -816,7 +816,7 @@ fn build_solana_transaction_data(
         message: "build_solana_transaction_data is deprecated. Use build_solana_transaction_with_blockhash \
                  with a real blockhash obtained from Solana RPC getRecentBlockhash. \
                  Transactions with placeholder blockhashes are invalid and will be rejected.".to_string(),
-        chain: Chain::Solana,
+        chain: Some(Chain::Solana),
         code: Some(400),
     })
 }
@@ -967,13 +967,13 @@ reqwest::Client::new();
         .await
         .map_err(|e| BlockchainError {
             message: format!("Failed to query block number: {}", e),
-            chain: Chain::Ethereum,
+            chain: Some(Chain::Ethereum),
             code: Some(500),
         })?;
 
     let result: serde_json::Value = response.json().await.map_err(|e| BlockchainError {
         message: format!("Failed to parse response: {}", e),
-        chain: Chain::Ethereum,
+        chain: Some(Chain::Ethereum),
         code: Some(500),
     })?;
 
@@ -982,7 +982,7 @@ reqwest::Client::new();
         16
     ).unwrap_or(0);
 
-    let default_filter_type = filter.map(|f| match f.to_lowercase().as_str() {
+   let default_filter_type = filter.map(|f| match f.to_lowercase().as_str() {
         "registry" => ContractType::Registry,
         "bridge" => ContractType::Bridge,
         "lock" => ContractType::Lock,
@@ -1011,11 +1011,11 @@ reqwest::Client::new();
                             if let Some(tx_hash) = tx["hash"].as_str() {
                                 if let Some(contract_addr) = tx["contractAddress"].as_str() {
                                     // Use filter type or default to Registry
-                                    let contract_type = default_filter_type.unwrap_or(ContractType::Registry);
+                                    let contract_type = default_filter_type.unwrap_or_else(|| ContractType::Registry);
 
                                     deployments.push(ContractDeployment {
                                         address: contract_addr.to_string(),
-                                        chain: Chain::Ethereum,
+                                        chain: Some(Chain::Ethereum),
                                         contract_address: contract_addr.to_string(),
                                         contract_type,
                                         deployed_at: block_num,
@@ -1058,7 +1058,7 @@ async fn discover_solana_programs(
     let client =
 reqwest::Client::new();
 
-    let default_contract_type = filter.map(|f| match f.to_lowercase().as_str() {
+let default_contract_type = filter.map(|f| match f.to_lowercase().as_str() {
         "registry" => ContractType::Registry,
         "bridge" => ContractType::Bridge,
         "lock" => ContractType::Lock,
@@ -1093,13 +1093,13 @@ reqwest::Client::new();
         .await
         .map_err(|e| BlockchainError {
             message: format!("Failed to query programs: {}", e),
-            chain: Chain::Solana,
+            chain: Some(Chain::Solana),
             code: Some(500),
         })?;
 
     let result: serde_json::Value = response.json().await.map_err(|e| BlockchainError {
         message: format!("Failed to parse response: {}", e),
-        chain: Chain::Solana,
+        chain: Some(Chain::Solana),
         code: Some(500),
     })?;
 
@@ -1119,7 +1119,7 @@ reqwest::Client::new();
                 if is_executable || account_data.is_some() {
                     deployments.push(ContractDeployment {
                         address: pubkey.to_string(),
-                        chain: Chain::Solana,
+                        chain: Some(Chain::Solana),
                         contract_address: pubkey.to_string(),
                         contract_type: default_contract_type,
                         deployed_at: 0, // Solana doesn't have block numbers in the same way

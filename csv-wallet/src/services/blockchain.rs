@@ -62,7 +62,7 @@ pub struct BrowserWallet {
 }
 
 /// Wallet type enum.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum WalletType {
     MetaMask,
     Phantom,
@@ -107,7 +107,7 @@ impl std::fmt::Display for BlockchainError {
 impl std::error::Error for BlockchainError {}
 
 /// Contract type enum.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum ContractType {
     Registry,
     Bridge,

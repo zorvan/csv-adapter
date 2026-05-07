@@ -23,40 +23,6 @@ It is intentionally opinionated:
 
 ---
 
-## Current Position
-
-The repository already has substantial foundations:
-
-- `csv-adapter-core` contains protocol primitives for sanads, seals, commitments, proofs, transitions, registries, and cross-chain abstractions.
-- Chain adapter crates exist for Bitcoin, Ethereum, Sui, Aptos, and Solana.
-- `csv-adapter` provides a unified Rust runtime, though not every consumer uses it consistently yet.
-- `csv-cli`, `csv-wallet`, and `csv-explorer` exist as working surfaces.
-- Contracts/programs exist for Ethereum, Sui, Aptos, and Solana.
-- The contracts are moving toward shared lifecycle names and shared metadata for tokens, NFTs, and advanced proofs.
-
-The repository has reached production-candidate status. Per the [Production Evaluation](PRODUCTION_EVALUATION.md):
-
-**Completed:**
-
-- ✅ Strong protocol center in `csv-adapter-core` with canonical types
-- ✅ Clean adapter boundaries via `SealProtocol` and `ChainBackend` traits
-- ✅ Native SDK compliance across all chains (Bitcoin, Ethereum, Sui, Aptos, Solana)
-- ✅ Unified runtime (`ChainRuntime`) for CLI, wallet, and explorer
-- ✅ Event schema standardization with shared `CsvEvent` types
-- ✅ CI guarantee gates (8 phases) enforcing production standards
-
-**Remaining Work (Non-Blocking):**
-
-- ✅ CLI/wallet runtime convergence audit - 100% runtime usage verified
-- ✅ Example cleanup - All 4 examples created
-- ✅ Explorer indexer chain plugins - All 5 chains registered
-- ⚠️ Testnet integration test execution (tests exist, need testnet runs)
-- ⚠️ WASM wallet optimization (pending)
-
-The production bar is defined in [Production Guarantee Plan](PRODUCTION_GUARANTEE_PLAN.md). This blueprint explains what the project should become; the guarantee plan explains how to prove it. The [Production Evaluation](PRODUCTION_EVALUATION.md) provides the comprehensive assessment leading to production-candidate status.
-
----
-
 ## Product Direction
 
 CSV Adapter should become the default stack for applications that need portable sanads across chains.
@@ -83,7 +49,7 @@ The core promise:
 
 ### 1. Protocol First
 
-`csv-adapter-core` is the conceptual source of truth. It should define:
+`csv-core` is the conceptual source of truth. It should define:
 
 - canonical sanads and seal semantics
 - chain trait contracts
@@ -154,10 +120,10 @@ Planning fragments should not multiply.
 ## Target Architecture
 
 ```text
-csv-adapter-core
+csv-core
   Protocol types, traits, canonical schemas, validation logic, crypto policy.
 
-csv-adapter-{chain}
+csv-{chain}
   The only place for chain-specific implementation:
   - native SDK/RPC clients
   - transaction construction
@@ -178,11 +144,11 @@ csv-adapter
 
 csv-cli
   Command parsing, config, and output.
-  Calls csv-adapter runtime only.
+  Calls csv-sdk runtime only.
 
 csv-wallet
   UI, local session state, and human approval flows.
-  Calls wasm-compatible csv-adapter runtime only.
+  Calls wasm-compatible csv-sdk runtime only.
 
 csv-explorer
   Indexing orchestration, storage, REST/GraphQL/WebSocket APIs, UI.
@@ -595,8 +561,6 @@ The docs should follow a simple split:
 Immediate documentation cleanup:
 
 - keep this blueprint as the only roadmap-style file
-- keep `CSV_DETAILED_PLAN.md` as a dated recovery diagnosis until its tasks are either completed or migrated
-- keep `PRODUCTION_GUARANTEE_PLAN.md` as the hard acceptance checklist
 - remove stale planning fragments when their content is absorbed
 - avoid status claims like "complete" unless CI and acceptance gates prove them
 

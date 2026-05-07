@@ -19,35 +19,34 @@ impl ExplorerConfig {
     /// Get explorer config for a chain (testnet by default).
     pub fn for_chain(chain: Chain) -> Option<Self> {
         match chain {
-            builtin::Bitcoin => Some(Self {
+            Chain::Bitcoin => Some(Self {
                 base_url: "https://mempool.space/testnet".to_string(),
                 tx_url_template: "https://mempool.space/testnet/tx/{}".to_string(),
                 address_url_template: "https://mempool.space/testnet/address/{}".to_string(),
             }),
-            builtin::Ethereum => Some(Self {
+            Chain::Ethereum => Some(Self {
                 base_url: "https://sepolia.etherscan.io".to_string(),
                 tx_url_template: "https://sepolia.etherscan.io/tx/{}".to_string(),
                 address_url_template: "https://sepolia.etherscan.io/address/{}".to_string(),
             }),
-            builtin::Sui => Some(Self {
+            Chain::Sui => Some(Self {
                 base_url: "https://suiscan.xyz/testnet".to_string(),
                 tx_url_template: "https://suiscan.xyz/testnet/tx/{}".to_string(),
                 address_url_template: "https://suiscan.xyz/testnet/address/{}".to_string(),
             }),
-            builtin::Aptos => Some(Self {
+            Chain::Aptos => Some(Self {
                 base_url: "https://explorer.aptoslabs.com/testnet".to_string(),
                 tx_url_template: "https://explorer.aptoslabs.com/txn/{}?network=testnet"
                     .to_string(),
                 address_url_template: "https://explorer.aptoslabs.com/account/{}?network=testnet"
                     .to_string(),
             }),
-            builtin::Solana => Some(Self {
+            Chain::Solana => Some(Self {
                 base_url: "https://explorer.solana.com".to_string(),
                 tx_url_template: "https://explorer.solana.com/tx/{}?cluster=devnet".to_string(),
                 address_url_template: "https://explorer.solana.com/address/{}?cluster=devnet"
                     .to_string(),
             }),
-            _ => None,
         }
     }
 

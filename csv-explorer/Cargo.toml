@@ -8,6 +8,12 @@ members = [
 ]
 resolver = "2"
 
+[workspace.package]
+version = "0.4.0"
+authors = ["Amin Razavi"]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
 [workspace.dependencies]
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "sync", "time"] }
 tokio-tungstenite = "0.20"

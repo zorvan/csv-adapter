@@ -73,11 +73,13 @@ pub fn CrossChainTransfer() -> Element {
             if let Some(addr) = &dest_addr {
                 dest_balance_loading.set(true);
                 let addr = addr.clone();
-                spawn(async move {
+               spawn(async move {
                     use crate::services::chain_api::ChainApi;
                     let api = ChainApi::default();
-                    if let Ok(balance) = api.get_balance(to_chain_val, &addr).await {
-                        dest_balance_raw.set(balance);
+                    if let Ok(balance_str) = api.get_balance(&addr, to_chain_val).await {
+                        if let Ok(balance) = balance_str.parse::<u64>() {
+                            dest_balance_raw.set(balance);
+                        }
                     }
                     dest_balance_loading.set(false);
                 });
@@ -251,11 +253,11 @@ pub fn CrossChainTransfer() -> Element {
                 let signer = NativeWallet::new(account.address.clone());
                 let service = BlockchainService::new(BlockchainConfig::default());
 
-                // Determine destination owner (default to same address)
-                let dest_addr = if dest.is_empty() {
-                    signer.address()
+               // Determine destination owner (default to same address)
+                let dest_addr: String = if dest.is_empty() {
+                    signer.address().to_string()
                 } else {
-                    dest
+                    dest.to_string()
                 };
 
                 // Step 1: Lock sanad on source chain
@@ -268,12 +270,12 @@ pub fn CrossChainTransfer() -> Element {
                 // Add source chain contract (needed for locking)
                 let source_contracts = wallet_ctx.contracts_for_chain(from);
                 if !source_contracts.is_empty() {
-                    if let Some(contract) = source_contracts.first() {
+                 if let Some(contract) = source_contracts.first() {
                         contracts.insert(
                             from,
                             ContractDeployment {
                                 address: contract.address.clone(),
-                                chain: from,
+                                chain: Some(from),
                                 contract_address: contract.address.clone(),
                                 tx_hash: contract.tx_hash.clone(),
                                 deployed_at: contract.deployed_at,
@@ -292,7 +294,7 @@ pub fn CrossChainTransfer() -> Element {
                             to,
                             ContractDeployment {
                                 address: contract.address.clone(),
-                                chain: to,
+                                chain: Some(to),
                                 contract_address: contract.address.clone(),
                                 tx_hash: contract.tx_hash.clone(),
                                 deployed_at: contract.deployed_at,
@@ -316,10 +318,13 @@ pub fn CrossChainTransfer() -> Element {
                             contracts.get(&from).map(|c| c.contract_address.clone());
                         let dest_contract = contracts.get(&to).map(|c| c.contract_address.clone());
 
-                        // Format fees with appropriate chain units
-                        let source_fee_str =
-                            transfer_result.source_fee.map(|fee| format_fee(fee, from));
-                        let dest_fee_str = transfer_result.dest_fee.map(|fee| format_fee(fee, to));
+                  // Format fees with appropriate chain units
+                        let source_fee_str = Some(
+                            format_fee(transfer_result.source_fee.parse::<u64>().unwrap_or(0), from)
+                        );
+                        let dest_fee_str = Some(
+                            format_fee(transfer_result.dest_fee.parse::<u64>().unwrap_or(0), to)
+                        );
 
                         // Create linked Seal record
                         let seal_ref = format!("seal_{}", &transfer_id[..16]);
@@ -389,7 +394,7 @@ pub fn CrossChainTransfer() -> Element {
                             _ => "merkle",
                         };
 
-                        let proof = ProofRecord {
+                      let proof = ProofRecord {
                             chain: from,
                             sanad_id: sanad.clone(),
                             seal_ref: seal_ref.clone(),
@@ -398,7 +403,7 @@ pub fn CrossChainTransfer() -> Element {
                             generated_at: now,
                             verified_at: Some(now),
                             data: Some(proof_data),
-                            target_chain: to,
+                            target_chain: Some(to),
                             verification_tx_hash: Some(transfer_result.mint_tx_hash.clone()),
                         };
                         wallet_ctx.add_proof(proof);

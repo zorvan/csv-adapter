@@ -96,9 +96,9 @@ impl WalletConnectionContext {
             return;
         }
 
-        // Real implementation would call phantom.solana.connect()
+      // Real implementation would call phantom.solana.connect()
         let wallet = BrowserWallet {
-            chain: Chain::Solana,
+            chain: Some(Chain::Solana),
             address: String::new(), // Would come from wallet
             wallet_type: WalletType::Phantom,
         };

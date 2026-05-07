@@ -60,9 +60,9 @@ pub fn ZkVerifyProof() -> Element {
                             let input = proof_input.read().clone();
                             let verify_result = verify_zk_proof(&input);
 
-                            if let Ok((proof, valid)) = verify_result {
+                          if let Ok((proof, valid)) = verify_result {
                                 // Clone proof fields before moving proof
-                                let chain = proof.public_inputs.source_chain;
+                                let chain = proof.public_inputs.source_chain.clone();
                                 let timestamp = proof.public_inputs.timestamp;
                                 let seal_id = proof.public_inputs.seal_ref.id.clone();
 
@@ -82,10 +82,10 @@ pub fn ZkVerifyProof() -> Element {
                                     ],
                                 }));
 
-                                // If valid, save to wallet
+                               // If valid, save to wallet
                                 if valid {
                                     let proof_record = ProofRecord {
-                                        chain,
+                                        chain: chain.into(),
                                         sanad_id: hex::encode(&seal_id[..8.min(seal_id.len())]),
                                         seal_ref: hex::encode(&seal_id),
                                         proof_type: "zk_verified".to_string(),

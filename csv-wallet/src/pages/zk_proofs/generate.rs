@@ -296,7 +296,7 @@ fn generate_ethereum_zk_proof(_seal_ref: &str, _sanad_id: &str) -> Result<ZkSeal
         .map_err(|e| format!("Invalid seal: {}", e))?;
 
     let verifier_key = VerifierKey::new(
-        Chain::Ethereum,
+        csv_core::ChainId::new("ethereum"),
         vec![0u8; 64],
         ProofSystem::Groth16,
         1,
@@ -306,7 +306,7 @@ fn generate_ethereum_zk_proof(_seal_ref: &str, _sanad_id: &str) -> Result<ZkSeal
         seal_ref: seal.clone(),
         block_hash: Hash::new([0x01; 32]),
         commitment: Hash::new([0x02; 32]),
-        source_chain: Chain::Ethereum,
+        source_chain: csv_core::ChainId::new("ethereum"),
         block_height: 19_000_000,
         timestamp: js_sys::Date::now() as u64 / 1000,
     };

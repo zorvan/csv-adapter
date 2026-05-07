@@ -20,13 +20,30 @@ pub struct ExtendedWallet {
     pub metadata: WalletMetadata,
     /// Mnemonic phrase
     pub mnemonic: String,
-    /// Seed bytes
+    /// Seed bytes (serialized as hex)
+    #[serde(serialize_with = "serialize_seed", deserialize_with = "deserialize_seed")]
     pub seed: [u8; 64],
     /// Whether the wallet is locked (encrypted)
     pub is_locked: bool,
     /// Bitcoin network to use
     #[serde(default)]
     pub bitcoin_network: BitcoinNetwork,
+}
+
+fn serialize_seed<S: serde::Serializer>(seed: &[u8; 64], s: S) -> Result<S::Ok, S::Error> {
+    use serde::ser::Error;
+    let hex = hex::encode(seed);
+    s.serialize_str(&hex)
+}
+
+fn deserialize_seed<'de, D: serde::Deserializer<'de>>(d: D) -> Result<[u8; 64], D::Error> {
+    use serde::de::Error;
+    let hex = String::deserialize(d)?;
+    hex::decode(&hex).map_err(D::Error::custom).and_then(|v| {
+        let mut arr = [0u8; 64];
+        arr.copy_from_slice(&v);
+        Ok(arr)
+    })
 }
 
 impl ExtendedWallet {
@@ -88,11 +105,12 @@ impl ExtendedWallet {
 
     /// Derive a proper Taproot (P2TR) address using BIP-86
     fn derive_taproot_address(&self, account_index: u32, address_index: u32) -> Result<String, String> {
-        use secp256k1::{Secp256k1, SecretKey, XOnlyPublicKey};
+        use secp256k1::{Secp256k1, SecretKey};
         use bitcoin::{
             bip32::{DerivationPath, ExtendedPrivKey},
             Address, Network as BitcoinNetworkType,
             key::TapTweak,
+            secp256k1::XOnlyPublicKey,
         };
 
         // Map our network to Bitcoin network type
@@ -128,11 +146,12 @@ impl ExtendedWallet {
             .derive_priv(&secp, &path)
             .map_err(|e| format!("Key derivation failed: {}", e))?;
 
-        // Get the secret key and create XOnlyPublicKey
+      // Get the secret key and create XOnlyPublicKey via keypair
         let secret_key = child_key.private_key;
-        let secret_key = SecretKey::from_slice(secret_key.as_ref())
+        let secret_key = bitcoin::secp256k1::SecretKey::from_slice(secret_key.as_ref())
             .map_err(|e| format!("Invalid secret key: {}", e))?;
-        let xonly = XOnlyPublicKey::from_secret_key(&secp, &secret_key);
+        let keypair = bitcoin::secp256k1::Keypair::from_secret_key(&secp, &secret_key);
+        let (xonly, _parity) = bitcoin::secp256k1::XOnlyPublicKey::from_keypair(&keypair);
 
         // Apply taproot tweak
         let (tweaked_pk, _parity) = xonly.tap_tweak(&secp, None);
@@ -183,11 +202,13 @@ impl ExtendedWallet {
         sui_key.copy_from_slice(&self.seed[..32]);
         let sui_signing = SigningKey::from_bytes(&sui_key);
         let sui_verifying: ed25519_dalek::VerifyingKey = sui_signing.verifying_key();
-        let mut hasher = Blake2b::new();
-        hasher.update(&[0x00]);
-        hasher.update(sui_verifying.as_bytes());
-        let hash = hasher.finalize();
-        addresses.push((Chain::Sui, format!("0x{}", hex::encode(&hash[..]))));
+        let hash: [u8; 32] = {
+            let mut hasher = Blake2b::new();
+            hasher.update(&[0x00]);
+            hasher.update(sui_verifying.as_bytes());
+            hasher.finalize().into()
+        };
+        addresses.push((Chain::Sui, format!("0x{}", hex::encode(&hash))));
 
         // Aptos
         let mut aptos_key = [0u8; 32];

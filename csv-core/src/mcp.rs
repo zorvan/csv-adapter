@@ -565,6 +565,12 @@ impl std::str::FromStr for Chain {
     }
 }
 
+impl From<crate::protocol_version::ChainId> for Chain {
+    fn from(id: crate::protocol_version::ChainId) -> Self {
+        id.0.parse().unwrap_or(Chain::Bitcoin)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -42,13 +42,13 @@ pub fn Dashboard() -> Element {
                 let mut balances = HashMap::new();
 
                 for account in accounts_to_fetch {
-                    let balance_result = api.get_balance(account.chain, &account.address).await;
+                    let balance_result = api.get_balance(&account.address, account.chain).await;
 
-                    let balance_raw = match balance_result {
-                        Ok(b) => b,
-                        Err(_) => 0u64,
+                    let balance_raw = match &balance_result {
+                        Ok(b) => b.parse::<u64>().unwrap_or(0),
+                        Err(_) => 0,
                     };
-                    let error = balance_result.err().map(|e| e.to_string());
+                    let error = balance_result.as_ref().err().map(|e| e.to_string());
 
                     let balance_data = AccountBalance {
                         account_id: account.id.clone(),

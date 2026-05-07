@@ -530,8 +530,7 @@ impl WalletContext {
         use crate::services::blockchain::wallet_connection;
         self.accounts_for_chain(chain)
             .first()
-            .cloned()
-            .map(|account| wallet_connection::native_wallet(account))
+            .map(|account| wallet_connection::native_wallet(&account.address))
     }
 
     /// Refresh sanads list from blockchain
