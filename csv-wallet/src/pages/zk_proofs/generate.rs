@@ -97,12 +97,12 @@ pub fn ZkGenerateProof() -> Element {
                         }
 
                         let seal = seal_opt.unwrap();
-                        let chain = *selected_chain.read();
+                        let chain = selected_chain.read().clone();
 
                         // Generate ZK proof based on chain
-                        let proof_result = match chain {
-                            ChainId::new("bitcoin") => generate_bitcoin_zk_proof(&seal.seal_ref, &sanad_id_str),
-                            ChainId::new("ethereum") => generate_ethereum_zk_proof(&seal.seal_ref, &sanad_id_str),
+                        let proof_result = match chain.as_str() {
+                            "bitcoin" => generate_bitcoin_zk_proof(&seal.seal_ref, &sanad_id_str),
+                            "ethereum" => generate_ethereum_zk_proof(&seal.seal_ref, &sanad_id_str),
                             _ => Err("ZK proofs not yet available for this chain".to_string()),
                         };
 
@@ -112,12 +112,15 @@ pub fn ZkGenerateProof() -> Element {
                                 let proof_record = ProofRecord {
                                     chain,
                                     sanad_id: sanad_id_str.clone(),
-                                    seal_ref: seal.seal_ref.clone(),
+                                    seal_ref: Some(seal.seal_ref.clone()),
                                     proof_type: "zk".to_string(),
-                                    status: ProofStatus::Generated,
-                                    generated_at: js_sys::Date::now() as u64 / 1000,
+                                    proof_system: Some("zk".to_string()),
+                                    verified: false,
+                                    proof_data: None, // ZK proof stored separately
+                                    block_height: None,
+                                    created_at: js_sys::Date::now() as u64 / 1000,
                                     verified_at: None,
-                                    data: None, // ZK proof stored separately
+                                    status: ProofStatus::Generated,
                                     target_chain: None,
                                     verification_tx_hash: None,
                                 };

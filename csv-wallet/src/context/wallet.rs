@@ -99,7 +99,8 @@ impl WalletContext {
                         seal_ref: s_rec.seal_ref,
                         chain: s_rec.chain,
                         value: s_rec.value,
-                        sanad_id: String::new(),
+                        consumed: false,
+                        sanad_id: None,
                         status,
                         created_at: s_rec.created_at,
                         content: None,
@@ -533,7 +534,7 @@ impl WalletContext {
         let mut s = self.state.write();
         if let Some(seal) = s.seals.iter_mut().find(|s| s.seal_ref == seal_ref) {
             seal.status = SealStatus::Locked;
-            seal.content = Some(content);
+            seal.content = Some(serde_json::to_string(&content).unwrap_or_default());
             drop(s);
             self.save_persisted();
             true
@@ -548,7 +549,7 @@ impl WalletContext {
             .read()
             .seals
             .iter()
-            .find(|s| s.sanad_id == sanad_id)
+            .find(|s| s.sanad_id.as_deref() == Some(sanad_id))
             .cloned()
     }
 
@@ -607,7 +608,7 @@ impl WalletContext {
             .read()
             .proofs
             .iter()
-            .find(|p| p.seal_ref == seal_ref)
+            .find(|p| p.seal_ref.as_deref() == Some(seal_ref))
             .cloned()
     }
 

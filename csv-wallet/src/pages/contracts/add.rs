@@ -1,6 +1,6 @@
 //! Add contract page.
 
-use crate::context::{generate_id, use_wallet_context, DeployedContract};
+use crate::context::{generate_id, use_wallet_context, ContractRecord};
 use crate::pages::common::*;
 use crate::routes::Route;
 use csv_store::state::ChainId;
@@ -38,7 +38,7 @@ pub fn AddContract() -> Element {
                         selected_chain.set(c);
                         error.set(None);
                     }
-                }, *selected_chain.read()))}
+                }, selected_chain.read().clone()))}
 
                 {form_field("Contract Address / Package ID", rsx! {
                     input {
@@ -78,7 +78,7 @@ pub fn AddContract() -> Element {
                             return;
                         }
                         // Only require 0x prefix for non-Solana chains (Solana uses base58)
-                        let chain = *selected_chain.read();
+                        let chain = selected_chain.read().clone();
                         if chain != ChainId::new("solana") && !addr.starts_with("0x") {
                             error.set(Some("Address must start with 0x".to_string()));
                             return;
@@ -87,14 +87,14 @@ pub fn AddContract() -> Element {
                         let tx = tx_hash.read().trim().to_string();
                         let tx = if tx.is_empty() { generate_id() } else { tx };
 
-                        wallet_ctx.add_contract(DeployedContract {
-                            chain: *selected_chain.read(),
+                        wallet_ctx.add_contract(ContractRecord {
+                            chain: selected_chain.read().clone(),
                             address: addr.clone(),
                             tx_hash: tx,
                             deployed_at: js_sys::Date::now() as u64 / 1000,
                         });
 
-                        result.set(Some(format!("Contract added for {:?}", *selected_chain.read())));
+                        result.set(Some(format!("Contract added for {:?}", selected_chain.read().clone())));
                         contract_address.set(String::new());
                         tx_hash.set(String::new());
                     },

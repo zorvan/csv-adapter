@@ -12,7 +12,7 @@ pub fn ContractStatus() -> Element {
     let wallet_ctx = use_wallet_context();
     let mut selected_chain = use_signal(|| ChainId::new("ethereum"));
 
-    let contracts = wallet_ctx.contracts_for_chain(*selected_chain.read());
+    let contracts = wallet_ctx.contracts_for_chain(selected_chain.read().clone());
 
     rsx! {
         div { class: "max-w-2xl space-y-6",
@@ -24,7 +24,7 @@ pub fn ContractStatus() -> Element {
             div { class: "{card_class()} p-6 space-y-5",
                 {form_field("ChainId", chain_select(move |v: Rc<FormData>| {
                     if let Ok(c) = v.value().parse::<ChainId>() { selected_chain.set(c); }
-                }, *selected_chain.read()))}
+                }, selected_chain.read().clone()))}
 
                 if contracts.is_empty() {
                     div { class: "bg-gray-800/50 rounded-lg p-4 border border-gray-700 text-center",

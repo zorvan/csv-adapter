@@ -22,7 +22,7 @@ pub fn CreateSeal() -> Element {
 
     // Get active sanads for the selected chain
     let sanads_for_chain: Vec<_> = wallet_ctx
-        .sanads_for_chain(*selected_chain.read())
+        .sanads_for_chain(selected_chain.read().clone())
         .into_iter()
         .filter(|r| r.status == SanadStatus::Active)
         .collect();
@@ -50,7 +50,7 @@ pub fn CreateSeal() -> Element {
                         selected_chain.set(c);
                         selected_sanad_index.set(0); // Reset selection when chain changes
                     }
-                }, *selected_chain.read()))}
+                }, selected_chain.read().clone()))}
 
                 // Sanad selection
                 {form_field("Sanad to Seal", rsx! {
@@ -99,8 +99,9 @@ pub fn CreateSeal() -> Element {
 
                             let seal = SealRecord {
                                 seal_ref: seal_ref.clone(),
-                                chain: *selected_chain.read(),
+                                chain: selected_chain.read().clone(),
                                 value: sanad.value,
+                                consumed: false,
                                 sanad_id: sanad.id.clone(),
                                 status: SealStatus::Active,
                                 created_at: now,

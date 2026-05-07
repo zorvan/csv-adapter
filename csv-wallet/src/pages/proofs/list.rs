@@ -142,7 +142,7 @@ pub fn Proofs() -> Element {
                                             p { class: "text-sm", span { class: "{chain_badge_class(target)}", "{chain_icon_emoji(target)} {chain_name(target)}" } }
                                         }
                                     }
-                                    if let Some(ref data) = proof.data {
+                                    if let Some(ref data) = proof.proof_data {
                                         div { class: "space-y-2 border-t border-gray-700 pt-3 mt-3",
                                             p { class: "text-sm text-gray-400", "Cryptographic Data" }
                                             {proof_data_summary(data)}

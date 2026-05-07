@@ -42,7 +42,7 @@ pub fn CreateSanadForm() -> Element {
 
             {form_field("ChainId", chain_select(move |v: Rc<FormData>| {
                 if let Ok(c) = v.value().parse::<ChainId>() { selected_chain.set(c); }
-            }, *selected_chain.read()))}
+            }, selected_chain.read().clone()))}
 
             {form_field("Value (optional)", rsx! {
                 input {
@@ -66,10 +66,10 @@ pub fn CreateSanadForm() -> Element {
                             onclick: move |_| {
                                 let sanad = TrackedSanad {
                                     id: sanad_id.clone(),
-                                    chain: *selected_chain.read(),
+                                    chain: selected_chain.read().clone(),
                                     value: value.read().parse().unwrap_or(0),
                                     status: SanadStatus::Active,
-                                    owner: wallet_ctx.address_for_chain(*selected_chain.read()).unwrap_or_default(),
+                                    owner: wallet_ctx.address_for_chain(selected_chain.read().clone()).unwrap_or_default(),
                                 };
                                 wallet_ctx.add_sanad(sanad);
                                 result.set(None);

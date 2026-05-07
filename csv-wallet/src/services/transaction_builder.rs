@@ -27,12 +27,12 @@ pub fn build_transaction(
 ) -> Result<Vec<u8>, BlockchainError> {
     // Build transaction data using the chain runtime
     // For simple transfers, we construct the transaction data directly
-    match chain {
-        ChainId::new("ethereum") => build_eth_transaction_data(to, value, data, nonce, gas_price, gas_limit),
-        ChainId::new("bitcoin") => build_btc_transaction_data(to, value, data),
-        ChainId::new("sui") => build_sui_transaction_data_simple(from, to, data),
-        ChainId::new("aptos") => build_aptos_transaction_data_simple(from, to, data, nonce),
-        ChainId::new("solana") => {
+    match chain.as_str() {
+        "ethereum" => build_eth_transaction_data(to, value, data, nonce, gas_price, gas_limit),
+        "bitcoin" => build_btc_transaction_data(to, value, data),
+        "sui" => build_sui_transaction_data_simple(from, to, data),
+        "aptos" => build_aptos_transaction_data_simple(from, to, data, nonce),
+        "solana" => {
             return Err(BlockchainError {
                 message: "Solana transactions require a recent blockhash. Use build_solana_transaction_with_blockhash() with a blockhash from Solana RPC.".to_string(),
                 chain: Some(ChainId::new("solana")),
@@ -40,8 +40,8 @@ pub fn build_transaction(
             })
         }
         _ => Err(BlockchainError {
-            message: format!("Transaction building not supported for chain: {:?}", chain),
-            chain: Some(chain),
+            message: format!("Transaction building not supported for chain: {}", chain),
+            chain: Some(chain.clone()),
             code: Some(400),
         }),
     }

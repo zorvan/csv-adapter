@@ -4,7 +4,8 @@
 //! helping users understand the relationship between these concepts.
 
 use crate::context::{
-    use_wallet_context, ProofRecord, ProofStatus, SanadStatus, SealRecord, SealStatus, TrackedSanad,
+    use_wallet_context, ProofRecord, ProofStatus, SanadStatus, SealContent, SealRecord, SealStatus,
+    TrackedSanad,
 };
 use crate::pages::common::*;
 use crate::routes::Route;
@@ -315,28 +316,34 @@ fn seal_details_section(seal: &SealRecord) -> Element {
                     }
                 }
 
-                if let Some(ref content) = seal.content {
+                if let Some(ref content_json) = seal.content {
                     div { class: "border-t border-gray-700 pt-4",
                         p { class: "text-xs text-gray-500 mb-2", "Cryptographic Content" }
                         div { class: "space-y-2",
-                            div {
-                                p { class: "text-xs text-gray-600", "Content Hash" }
-                                p { class: "text-xs font-mono break-all", "{&content.content_hash}" }
-                            }
-                            div {
-                                p { class: "text-xs text-gray-600", "Owner" }
-                                p { class: "text-xs font-mono", "{truncate_address(&content.owner, 12)}" }
-                            }
-                            if let Some(block) = content.block_number {
-                                div {
-                                    p { class: "text-xs text-gray-600", "Block Number" }
-                                    p { class: "text-xs font-mono", "{block}" }
-                                }
-                            }
-                            if let Some(ref tx) = content.lock_tx_hash {
-                                div {
-                                    p { class: "text-xs text-gray-600", "Lock Transaction" }
-                                    p { class: "text-xs font-mono break-all", "{tx}" }
+                            {
+                                if let Ok(content) = serde_json::from_str::<SealContent>(content_json) {
+                                    div {
+                                        p { class: "text-xs text-gray-600", "Content Hash" }
+                                        p { class: "text-xs font-mono break-all", "{&content.content_hash}" }
+                                    }
+                                    div {
+                                        p { class: "text-xs text-gray-600", "Owner" }
+                                        p { class: "text-xs font-mono", "{truncate_address(&content.owner, 12)}" }
+                                    }
+                                    if let Some(block) = content.block_number {
+                                        div {
+                                            p { class: "text-xs text-gray-600", "Block Number" }
+                                            p { class: "text-xs font-mono", "{block}" }
+                                        }
+                                    }
+                                    if let Some(ref tx) = content.lock_tx_hash {
+                                        div {
+                                            p { class: "text-xs text-gray-600", "Lock Transaction" }
+                                            p { class: "text-xs font-mono break-all", "{tx}" }
+                                        }
+                                    }
+                                } else {
+                                    p { class: "text-xs text-gray-500", "Content unavailable" }
                                 }
                             }
                         }
@@ -396,11 +403,11 @@ fn proof_card(proof: &ProofRecord) -> Element {
                 }
                 div {
                     p { class: "text-xs text-gray-500", "Generated" }
-                    p { class: "font-mono", "{format_timestamp(proof.generated_at)}" }
+                    p { class: "font-mono", "{format_timestamp(proof.created_at)}" }
                 }
             }
 
-            if let Some(ref data) = proof.data {
+            if let Some(ref data) = proof.proof_data {
                 div { class: "mt-3 pt-3 border-t border-gray-700",
                     p { class: "text-xs text-gray-500 mb-2", "Cryptographic Data" }
                     {proof_data_display(data)}
@@ -705,7 +712,7 @@ fn build_commitment_chain_from_proofs(proofs: &[ProofRecord]) -> Vec<CommitmentN
             previous_hash,
             chain: proof.chain.clone(),
             anchor_tx: proof.verification_tx_hash.clone(),
-            timestamp: Some(proof.generated_at),
+            timestamp: Some(proof.created_at),
         });
     }
 

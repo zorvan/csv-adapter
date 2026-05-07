@@ -47,11 +47,11 @@ pub fn RunTests() -> Element {
                     div { class: "grid grid-cols-2 gap-4",
                         {form_field("From ChainId", chain_select(move |v: Rc<FormData>| {
                             if let Ok(c) = v.value().parse::<ChainId>() { selected_from.set(c); }
-                        }, *selected_from.read()))}
+                        }, selected_from.read().clone()))}
 
                         {form_field("To ChainId", chain_select(move |v: Rc<FormData>| {
                             if let Ok(c) = v.value().parse::<ChainId>() { selected_to.set(c); }
-                        }, *selected_to.read()))}
+                        }, selected_to.read().clone()))}
                     }
                 }
 
@@ -88,7 +88,7 @@ pub fn RunTests() -> Element {
                                 (ChainId::new("sui"), ChainId::new("ethereum")),
                             ]
                         } else {
-                            vec![(*selected_from.read(), *selected_to.read())]
+                            vec![(selected_from.read().clone(), selected_to.read().clone())]
                         };
 
                         for (from, to) in &pairs {

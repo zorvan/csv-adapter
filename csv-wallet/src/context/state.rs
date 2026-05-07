@@ -25,7 +25,7 @@ impl Default for AppState {
     fn default() -> Self {
         Self {
             wallet: WalletData::default(),
-            selected_chain: csv_core::ChainId::BITCOIN.clone(),
+            selected_chain: csv_core::ChainId::new("bitcoin"),
             selected_network: Network::Test,
             sanads: Vec::new(),
             transfers: Vec::new(),

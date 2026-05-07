@@ -1,7 +1,7 @@
 //! Seal state hook.
 
 use dioxus::prelude::*;
-use crate::seals::registry::{SealRecord, SealStatus};
+use csv_store::state::domain::{SealRecord, SealStatus};
 use csv_store::state::ChainId;
 
 /// Seal state.
@@ -22,10 +22,9 @@ impl SealContext {
         self.state.write().seals.push(seal);
     }
 
-    pub fn update_seal(&mut self, seal_id: &str, status: SealStatus) {
-        if let Some(seal) = self.state.write().seals.iter_mut().find(|s| s.id == seal_id) {
+    pub fn update_seal(&mut self, seal_ref: &str, status: SealStatus) {
+        if let Some(seal) = self.state.write().seals.iter_mut().find(|s| s.seal_ref == seal_ref) {
             seal.status = status;
-            seal.updated_at = chrono::Utc::now();
         }
     }
 

@@ -87,12 +87,15 @@ pub fn ZkVerifyProof() -> Element {
                                     let proof_record = ProofRecord {
                                         chain: chain.into(),
                                         sanad_id: hex::encode(&seal_id[..8.min(seal_id.len())]),
-                                        seal_ref: hex::encode(&seal_id),
+                                        seal_ref: Some(hex::encode(&seal_id)),
                                         proof_type: "zk_verified".to_string(),
-                                        status: ProofStatus::Verified,
-                                        generated_at: timestamp,
+                                        proof_system: Some("zk".to_string()),
+                                        verified: true,
+                                        proof_data: None, // ZK proof stored in wallet context separately
+                                        block_height: None,
+                                        created_at: timestamp,
                                         verified_at: Some(js_sys::Date::now() as u64 / 1000),
-                                        data: None, // ZK proof stored in wallet context separately
+                                        status: ProofStatus::Verified,
                                         target_chain: None,
                                         verification_tx_hash: None,
                                     };

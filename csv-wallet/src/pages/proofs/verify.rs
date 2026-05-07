@@ -22,7 +22,7 @@ pub fn VerifyProof() -> Element {
             div { class: "{card_class()} p-6 space-y-5",
                 {form_field("Destination ChainId", chain_select(move |v: Rc<FormData>| {
                     if let Ok(c) = v.value().parse::<ChainId>() { selected_chain.set(c); }
-                }, *selected_chain.read()))}
+                }, selected_chain.read().clone()))}
 
                 {form_field("Proof JSON", rsx! {
                     textarea {
@@ -40,7 +40,7 @@ pub fn VerifyProof() -> Element {
 
                 button {
                     onclick: move |_| {
-                        result.set(Some(format!("Proof verified on {:?}", *selected_chain.read())));
+                        result.set(Some(format!("Proof verified on {:?}", selected_chain.read().clone())));
                     },
                     class: "{btn_full_primary_class()}",
                     "Verify Proof"

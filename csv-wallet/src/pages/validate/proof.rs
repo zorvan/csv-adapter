@@ -21,7 +21,7 @@ pub fn ValidateProof() -> Element {
             div { class: "{card_class()} p-6 space-y-5",
                 {form_field("ChainId", chain_select(move |v: Rc<FormData>| {
                     if let Ok(c) = v.value().parse::<ChainId>() { selected_chain.set(c); }
-                }, *selected_chain.read()))}
+                }, selected_chain.read().clone()))}
 
                 {form_field("Proof File", rsx! {
                     input {

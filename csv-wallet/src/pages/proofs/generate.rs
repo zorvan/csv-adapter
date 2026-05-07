@@ -14,12 +14,12 @@ pub fn GenerateProof() -> Element {
     let mut sanad_id = use_signal(String::new);
     let mut result = use_signal(|| Option::<String>::None);
 
-    let proof_type = match *selected_chain.read() {
-        ChainId::new("bitcoin") => "merkle",
-        ChainId::new("ethereum") => "mpt",
-        ChainId::new("sui") => "checkpoint",
-        ChainId::new("aptos") => "ledger",
-        ChainId::new("solana") => "merkle",
+    let proof_type = match selected_chain.read().as_str() {
+        "bitcoin" => "merkle",
+        "ethereum" => "mpt",
+        "sui" => "checkpoint",
+        "aptos" => "ledger",
+        "solana" => "merkle",
         _ => "unknown",
     };
 
@@ -33,7 +33,7 @@ pub fn GenerateProof() -> Element {
             div { class: "{card_class()} p-6 space-y-5",
                 {form_field("Source ChainId", chain_select(move |v: Rc<FormData>| {
                     if let Ok(c) = v.value().parse::<ChainId>() { selected_chain.set(c); }
-                }, *selected_chain.read()))}
+                }, selected_chain.read().clone()))}
 
                 {form_field("Sanad ID", rsx! {
                     input {
@@ -81,16 +81,19 @@ pub fn GenerateProof() -> Element {
                         let formatted = serde_json::to_string_pretty(&proof_json).unwrap_or_default();
                         result.set(Some(formatted));
                         wallet_ctx.add_proof(ProofRecord {
-                            chain: *selected_chain.read(),
+                            chain: selected_chain.read().clone(),
                             sanad_id: sanad_id_str,
-                            seal_ref,
-                            proof_type: proof_type.to_string(),
-                            status: ProofStatus::Generated,
-                            generated_at: js_sys::Date::now() as u64 / 1000,
-                            verified_at: None,
-                            data: None,
-                            target_chain: None,
-                            verification_tx_hash: None,
+                             seal_ref: None,
+                             proof_type: proof_type.to_string(),
+                             proof_system: None,
+                             verified: false,
+                             proof_data: None,
+                             block_height: None,
+                             created_at: js_sys::Date::now() as u64 / 1000,
+                             verified_at: None,
+                             status: ProofStatus::Generated,
+                             target_chain: None,
+                             verification_tx_hash: None,
                         });
                     },
                     class: "{btn_full_primary_class()}",

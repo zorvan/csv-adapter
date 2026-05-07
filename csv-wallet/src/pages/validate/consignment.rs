@@ -178,7 +178,7 @@ fn validate_consignment_json(json: &str) -> Result<Vec<ValidationStepUI>, String
 
     // Run validation
     let validator = ConsignmentValidator::new();
-    let report = validator.validate_consignment(&consignment, csv_core::nullifier::ChainId::new("bitcoin"));
+    let report = validator.validate_consignment(&consignment, csv_core::nullifier::ChainId::Bitcoin);
 
     // Convert report to UI format
     let steps: Vec<ValidationStepUI> = report

@@ -26,7 +26,7 @@ pub fn CrossChainTransfer() -> Element {
     let mut selected_target_contract_index = use_signal(|| 0usize);
 
     // Get sanads for the source chain (filtered to active only)
-    let from_chain_val = *from_chain.read();
+    let from_chain_val = from_chain.read().clone();
     let sanads_for_source: Vec<_> = wallet_ctx
         .sanads_for_chain(from_chain_val)
         .into_iter()
@@ -50,7 +50,7 @@ pub fn CrossChainTransfer() -> Element {
     });
 
     // Get accounts for the source chain
-    let accounts = wallet_ctx.accounts_for_chain(*from_chain.read());
+    let accounts = wallet_ctx.accounts_for_chain(from_chain.read().clone());
     let has_account = !accounts.is_empty();
 
     // Check if selected account is watch-only (can't sign)
@@ -58,7 +58,7 @@ pub fn CrossChainTransfer() -> Element {
     let is_watch_only = selected_account.map(|a| a.is_watch_only()).unwrap_or(false);
 
     // Get accounts for the destination chain (needed for gas payment)
-    let dest_accounts = wallet_ctx.accounts_for_chain(*to_chain.read());
+    let dest_accounts = wallet_ctx.accounts_for_chain(to_chain.read().clone());
     let has_dest_account = !dest_accounts.is_empty();
 
     // Track fetched destination balance (in raw chain units: satoshis, lamports, MIST, octas, wei)
@@ -67,7 +67,7 @@ pub fn CrossChainTransfer() -> Element {
 
     // Fetch destination balance when chain or account changes
     use_effect({
-        let to_chain_val = *to_chain.read();
+        let to_chain_val = to_chain.read().clone();
         let dest_addr = dest_accounts.first().map(|a| a.address.clone());
         move || {
             if let Some(addr) = &dest_addr {
@@ -145,7 +145,7 @@ pub fn CrossChainTransfer() -> Element {
         if !_has_source_contract {
             error.set(Some(format!(
                 "No contract deployed on {:?}. Deploy a contract first.",
-                *from_chain.read()
+                from_chain.read().clone()
             )));
             return;
         }
@@ -153,7 +153,7 @@ pub fn CrossChainTransfer() -> Element {
         if !has_target_contract {
             error.set(Some(format!(
                 "No contract deployed on {:?}. Deploy a contract first.",
-                *to_chain.read()
+                to_chain.read().clone()
             )));
             return;
         }
@@ -161,7 +161,7 @@ pub fn CrossChainTransfer() -> Element {
         if !has_dest_account {
             error.set(Some(format!(
                 "No account available for destination chain {:?}. Please add an account first.",
-                *to_chain.read()
+                to_chain.read().clone()
             )));
             return;
         }
@@ -184,7 +184,7 @@ pub fn CrossChainTransfer() -> Element {
         if !has_account {
             error.set(Some(format!(
                 "No account available for {:?}. Please add an account first.",
-                *from_chain.read()
+                from_chain.read().clone()
             )));
             return;
         }
@@ -192,7 +192,7 @@ pub fn CrossChainTransfer() -> Element {
         if !has_sanads {
             error.set(Some(format!(
                 "No active sanads available for {:?}. Create a sanad first.",
-                *from_chain.read()
+                from_chain.read().clone()
             )));
             return;
         }
@@ -203,8 +203,8 @@ pub fn CrossChainTransfer() -> Element {
         // - Sui: BCS encoding via sdk_tx
         // - Aptos: BCS encoding via sdk_tx (planned)
 
-        let from = *from_chain.read();
-        let to = *to_chain.read();
+        let from = from_chain.read().clone();
+        let to = to_chain.read().clone();
 
         executing.set(true);
         error.set(None);
@@ -319,12 +319,8 @@ pub fn CrossChainTransfer() -> Element {
                         let dest_contract = contracts.get(&to).map(|c| c.contract_address.clone());
 
                   // Format fees with appropriate chain units
-                        let source_fee_str = Some(
-                            format_fee(transfer_result.source_fee.parse::<u64>().unwrap_or(0), from)
-                        );
-                        let dest_fee_str = Some(
-                            format_fee(transfer_result.dest_fee.parse::<u64>().unwrap_or(0), to)
-                        );
+                        let source_fee_str = Some(transfer_result.source_fee.parse::<u64>().unwrap_or(0));
+                        let dest_fee_str = Some(transfer_result.dest_fee.parse::<u64>().unwrap_or(0));
 
                         // Create linked Seal record
                         let seal_ref = format!("seal_{}", &transfer_id[..16]);
@@ -341,27 +337,28 @@ pub fn CrossChainTransfer() -> Element {
                                 .get(*selected_sanad_index.read())
                                 .map(|r| r.value)
                                 .unwrap_or(0),
-                            sanad_id: sanad.clone(),
+                            consumed: false,
+                            sanad_id: Some(sanad.clone()),
                             status: SealStatus::Locked,
                             created_at: now,
-                            content: Some(seal_content),
+                            content: Some(serde_json::to_string(&seal_content).unwrap_or_default()),
                             proof_ref: None,
                         };
                         wallet_ctx.add_seal(seal);
 
                         // Create linked Proof record
-                        let proof_data = match from {
-                            ChainId::new("bitcoin") => ProofData::Merkle {
+                        let proof_data = match from.as_str() {
+                            "bitcoin" => ProofData::Merkle {
                                 root: format!("0x{}", &transfer_result.lock_tx_hash[..40]),
                                 path: vec![format!("0x{}", &sanad[..40])],
                                 leaf_index: 0,
                             },
-                            ChainId::new("ethereum") => ProofData::Mpt {
+                            "ethereum" => ProofData::Mpt {
                                 root: format!("0x{}", &transfer_result.lock_tx_hash[..40]),
                                 account_proof: vec![format!("0x{}", &sanad[..40])],
                                 storage_proof: vec![format!("0x{}", &transfer_id[..40])],
                             },
-                            ChainId::new("sui") => ProofData::Checkpoint {
+                            "sui" => ProofData::Checkpoint {
                                 sequence: now,
                                 digest: transfer_result.lock_tx_hash.clone(),
                                 signatures: vec![
@@ -369,11 +366,11 @@ pub fn CrossChainTransfer() -> Element {
                                     "validator_2".to_string(),
                                 ],
                             },
-                            ChainId::new("aptos") => ProofData::Ledger {
+                            "aptos" => ProofData::Ledger {
                                 version: now,
                                 proof: format!("0x{}", &transfer_result.lock_tx_hash[..40]),
                             },
-                            ChainId::new("solana") => ProofData::Solana {
+                            "solana" => ProofData::Solana {
                                 slot: now,
                                 bank_hash: format!("0x{}", &transfer_result.lock_tx_hash[..40]),
                                 merkle_proof: vec![format!("0x{}", &sanad[..40])],
@@ -385,24 +382,27 @@ pub fn CrossChainTransfer() -> Element {
                             },
                         };
 
-                        let proof_type = match from {
-                            ChainId::new("bitcoin") => "merkle",
-                            ChainId::new("ethereum") => "mpt",
-                            ChainId::new("sui") => "checkpoint",
-                            ChainId::new("aptos") => "ledger",
-                            ChainId::new("solana") => "solana",
+                        let proof_type = match from.as_str() {
+                            "bitcoin" => "merkle",
+                            "ethereum" => "mpt",
+                            "sui" => "checkpoint",
+                            "aptos" => "ledger",
+                            "solana" => "solana",
                             _ => "merkle",
                         };
 
                       let proof = ProofRecord {
                             chain: from,
                             sanad_id: sanad.clone(),
-                            seal_ref: seal_ref.clone(),
+                            seal_ref: Some(seal_ref.clone()),
                             proof_type: proof_type.to_string(),
-                            status: ProofStatus::Verified,
-                            generated_at: now,
+                            proof_system: None,
+                            verified: true,
+                            proof_data: Some(serde_json::to_string(&proof_data).unwrap_or_default()),
+                            block_height: None,
+                            created_at: now,
                             verified_at: Some(now),
-                            data: Some(proof_data),
+                            status: ProofStatus::Verified,
                             target_chain: Some(to),
                             verification_tx_hash: Some(transfer_result.mint_tx_hash.clone()),
                         };
@@ -417,18 +417,20 @@ pub fn CrossChainTransfer() -> Element {
                         // Record the transfer with full details
                         wallet_ctx.add_transfer(TrackedTransfer {
                             id: transfer_id.clone(),
-                            from_chain: from,
-                            to_chain: to,
+                            source_chain: from,
+                            dest_chain: to,
                             sanad_id: sanad.clone(),
-                            dest_owner: dest_addr.clone(),
+                            sender_address: Some(dest_addr.clone()),
+                            destination_address: Some(dest_addr.clone()),
                             status: TransferStatus::Completed,
                             created_at: now,
                             source_tx_hash: Some(transfer_result.lock_tx_hash.clone()),
                             dest_tx_hash: Some(transfer_result.mint_tx_hash.clone()),
-                            source_contract,
-                            dest_contract,
+                            destination_contract: dest_contract,
                             source_fee: source_fee_str,
                             dest_fee: dest_fee_str,
+                            proof: None,
+                            completed_at: None,
                         });
 
                         result_signal.set(Some(format!(
@@ -464,7 +466,7 @@ pub fn CrossChainTransfer() -> Element {
                     h3 { class: "text-sm font-medium text-gray-300 mb-3", "1. Select Source Account" }
                     if accounts.is_empty() {
                         div { class: "text-sm text-red-400",
-                            {format!("No accounts available for {:?}. Please add an account first.", *from_chain.read())}
+                            {format!("No accounts available for {:?}. Please add an account first.", from_chain.read().clone())}
                         }
                     } else {
                         select {
@@ -494,11 +496,11 @@ pub fn CrossChainTransfer() -> Element {
                             from_chain.set(c);
                             selected_account_index.set(0); // Reset account selection
                         }
-                    }, *from_chain.read()))}
+                    }, from_chain.read().clone()))}
 
                     {form_field("To ChainId", chain_select(move |v: Rc<FormData>| {
                         if let Ok(c) = v.value().parse::<ChainId>() { to_chain.set(c); }
-                    }, *to_chain.read()))}
+                    }, to_chain.read().clone()))}
                 }
 
                 // ChainId compatibility note
@@ -519,9 +521,9 @@ pub fn CrossChainTransfer() -> Element {
                     div { class: "grid grid-cols-2 gap-4",
                         // Source chain contracts
                         div {
-                            p { class: "text-xs text-gray-500 mb-1", {format!("Source ({:?})", *from_chain.read())} }
+                            p { class: "text-xs text-gray-500 mb-1", {format!("Source ({:?})", from_chain.read().clone())} }
                             if source_contracts.is_empty() {
-                                if matches!(*from_chain.read(), ChainId::new("bitcoin")) {
+                                if matches!(from_chain.read().as_str(), "bitcoin") {
                                     p { class: "text-xs text-green-400", "✓ UTXO chain - no contract needed" }
                                 } else {
                                     p { class: "text-xs text-red-400", "✗ No contract deployed" }
@@ -536,7 +538,7 @@ pub fn CrossChainTransfer() -> Element {
                         }
                         // Target chain contracts
                         div {
-                            p { class: "text-xs text-gray-500 mb-1", {format!("Target ({:?})", *to_chain.read())} }
+                            p { class: "text-xs text-gray-500 mb-1", {format!("Target ({:?})", to_chain.read().clone())} }
                             if target_contracts.is_empty() {
                                 p { class: "text-xs text-red-400", "✗ No contract deployed" }
                             } else if target_contracts.len() == 1 {
@@ -691,27 +693,27 @@ pub fn CrossChainTransfer() -> Element {
                 }
                 if !has_sanads {
                     p { class: "text-xs text-red-500 mt-2",
-                        {format!("Note: Create a Sanad on {:?} source chain first", *from_chain.read())}
+                        {format!("Note: Create a Sanad on {:?} source chain first", from_chain.read().clone())}
                     }
                 }
                 if !has_target_contract {
                     p { class: "text-xs text-red-500 mt-2",
-                        {format!("Note: Deploy a CSV contract on {:?} target chain first", *to_chain.read())}
+                        {format!("Note: Deploy a CSV contract on {:?} target chain first", to_chain.read().clone())}
                     }
                 }
                 if !has_dest_account {
                     p { class: "text-xs text-red-500 mt-2",
-                        {format!("Note: Add an account for {:?} destination chain to pay gas fees", *to_chain.read())}
+                        {format!("Note: Add an account for {:?} destination chain to pay gas fees", to_chain.read().clone())}
                     }
                 } else if !dest_has_enough_balance {
                     p { class: "text-xs text-red-500 mt-2",
-                        {format!("Note: Destination account on {:?} needs gas funds (min: {})",
-                            *to_chain.read(),
-                            match *to_chain.read() {
-                                ChainId::new("sui") => "0.01 SUI",
-                                ChainId::new("aptos") => "0.01 APT",
-                                ChainId::new("ethereum") => "0.001 ETH",
-                                ChainId::new("solana") => "0.001 SOL",
+                        {format!("Note: Destination account on {} needs gas funds (min: {})",
+                            to_chain.read().clone(),
+                            match to_chain.read().clone().as_str() {
+                                "sui" => "0.01 SUI",
+                                "aptos" => "0.01 APT",
+                                "ethereum" => "0.001 ETH",
+                                "solana" => "0.001 SOL",
                                 _ => "0.0",
                             }
                         )}
@@ -723,25 +725,25 @@ pub fn CrossChainTransfer() -> Element {
 }
 
 /// Format fee amount for display with appropriate chain units.
-fn format_fee(fee: u64, chain: ChainId) -> String {
-    match chain {
-        ChainId::new("bitcoin") => {
+fn format_fee(fee: u64, chain: &ChainId) -> String {
+    match chain.as_str() {
+        "bitcoin" => {
             // Bitcoin fees are in satoshis
             format!("{:.8} BTC", fee as f64 / 100_000_000.0)
         }
-        ChainId::new("ethereum") => {
+        "ethereum" => {
             // Ethereum fees are in wei
             format!("{:.6} ETH", fee as f64 / 1_000_000_000_000_000_000.0)
         }
-        ChainId::new("sui") => {
+        "sui" => {
             // Sui fees are in MIST (10^-9 SUI)
             format!("{:.6} SUI", fee as f64 / 1_000_000_000.0)
         }
-        ChainId::new("aptos") => {
+        "aptos" => {
             // Aptos fees are in octas (10^-8 APT)
             format!("{:.6} APT", fee as f64 / 100_000_000.0)
         }
-        ChainId::new("solana") => {
+        "solana" => {
             // Solana fees are in lamports (10^-9 SOL)
             format!("{:.6} SOL", fee as f64 / 1_000_000_000.0)
         }

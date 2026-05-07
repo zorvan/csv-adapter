@@ -1,12 +1,12 @@
 //! Contract detail modal component.
 
-use crate::context::DeployedContract;
+use crate::context::ContractRecord;
 use crate::pages::common::*;
 use dioxus::prelude::*;
 
 #[component]
 pub fn ContractDetailModal(
-    contract: DeployedContract,
+    contract: ContractRecord,
     on_close: EventHandler<()>,
     on_use_in_transfer: EventHandler<()>,
 ) -> Element {

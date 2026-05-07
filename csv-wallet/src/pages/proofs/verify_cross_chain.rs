@@ -23,11 +23,11 @@ pub fn VerifyCrossChainProof() -> Element {
             div { class: "{card_class()} p-6 space-y-5",
                 {form_field("Source ChainId", chain_select(move |v: Rc<FormData>| {
                     if let Ok(c) = v.value().parse::<ChainId>() { selected_source.set(c); }
-                }, *selected_source.read()))}
+                }, selected_source.read().clone()))}
 
                 {form_field("Destination ChainId", chain_select(move |v: Rc<FormData>| {
                     if let Ok(c) = v.value().parse::<ChainId>() { selected_dest.set(c); }
-                }, *selected_dest.read()))}
+                }, selected_dest.read().clone()))}
 
                 {form_field("Cross-ChainId Proof", rsx! {
                     textarea {
@@ -46,8 +46,8 @@ pub fn VerifyCrossChainProof() -> Element {
                 button {
                     onclick: move |_| {
                         result.set(Some(format!("Cross-chain proof verified between {:?} and {:?}",
-                            *selected_source.read(),
-                            *selected_dest.read()
+                            selected_source.read().clone(),
+                            selected_dest.read().clone()
                         )));
                     },
                     class: "{btn_full_primary_class()}",

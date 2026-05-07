@@ -195,7 +195,7 @@ fn inclusion_proof_section(proof: &ProofRecord) -> Element {
                 "Inclusion Proof"
             }
 
-            if let Some(ref data) = proof.data {
+            if let Some(ref data) = proof.proof_data {
                 div { class: "space-y-4",
                     {match data {
                         crate::context::ProofData::Merkle { root, path, leaf_index } => rsx! {

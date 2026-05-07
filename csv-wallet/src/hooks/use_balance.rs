@@ -73,24 +73,24 @@ pub fn use_balance() -> BalanceContext {
 /// Format raw balance for display with appropriate precision.
 /// Takes raw chain units (satoshis, lamports, etc.) and returns human-readable string.
 pub fn format_balance_display(balance_raw: u64, chain: ChainId) -> String {
-    match chain {
-        ChainId::new("bitcoin") => {
+    match chain.as_str() {
+        "bitcoin" => {
             let btc = balance_raw as f64 / 100_000_000.0;
             format!("{:.8} BTC", btc)
         }
-        ChainId::new("ethereum") => {
+        "ethereum" => {
             let eth = balance_raw as f64 / 1e18;
             format!("{:.6} ETH", eth)
         }
-        ChainId::new("sui") => {
+        "sui" => {
             let sui = balance_raw as f64 / 1e9;
             format!("{:.4} SUI", sui)
         }
-        ChainId::new("aptos") => {
+        "aptos" => {
             let apt = balance_raw as f64 / 1e8;
             format!("{:.4} APT", apt)
         }
-        ChainId::new("solana") => {
+        "solana" => {
             let sol = balance_raw as f64 / 1e9;
             format!("{:.4} SOL", sol)
         }
@@ -106,12 +106,12 @@ pub fn format_balance(balance: f64, chain: ChainId) -> String {
 
 /// Get chain symbol.
 pub fn chain_symbol(chain: ChainId) -> &'static str {
-    match chain {
-        ChainId::new("bitcoin") => "BTC",
-        ChainId::new("ethereum") => "ETH",
-        ChainId::new("sui") => "SUI",
-        ChainId::new("aptos") => "APT",
-        ChainId::new("solana") => "SOL",
+    match chain.as_str() {
+        "bitcoin" => "BTC",
+        "ethereum" => "ETH",
+        "sui" => "SUI",
+        "aptos" => "APT",
+        "solana" => "SOL",
         _ => "",
     }
 }

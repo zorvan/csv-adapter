@@ -9,12 +9,12 @@ pub struct ChainDisplay(pub ChainId);
 
 impl std::fmt::Display for ChainDisplay {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.0 {
-            ChainId::new("bitcoin") => write!(f, "\u{1F7E0} Bitcoin"),
-            ChainId::new("ethereum") => write!(f, "\u{1F537} Ethereum"),
-            ChainId::new("sui") => write!(f, "\u{1F30A} Sui"),
-            ChainId::new("aptos") => write!(f, "\u{1F7E2} Aptos"),
-            ChainId::new("solana") => write!(f, "\u{2600} Solana"),
+        match self.0.as_str() {
+            "bitcoin" => write!(f, "\u{1F7E0} Bitcoin"),
+            "ethereum" => write!(f, "\u{1F537} Ethereum"),
+            "sui" => write!(f, "\u{1F30A} Sui"),
+            "aptos" => write!(f, "\u{1F7E2} Aptos"),
+            "solana" => write!(f, "\u{2600} Solana"),
             _ => write!(f, "Unknown"),
         }
     }

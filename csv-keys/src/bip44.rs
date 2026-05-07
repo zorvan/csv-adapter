@@ -4,7 +4,7 @@
 //! following BIP-44 standards with chain-specific paths.
 
 use crate::memory::SecretKey;
-use csv_core::Chain;
+use csv_core::{Chain, ChainId};
 use thiserror::Error;
 
 /// Error type for BIP-44 operations.
@@ -134,6 +134,24 @@ pub fn derive_key(
     derive_key_from_path(seed, &path, chain)
 }
 
+/// Derive a key from a chain name string.
+pub fn derive_key_from_name(
+    seed: &[u8; 64],
+    chain_name: &str,
+    account: u32,
+    address_index: u32,
+) -> Result<SecretKey, Bip44Error> {
+    let chain = match chain_name {
+        "bitcoin" => Chain::Bitcoin,
+        "ethereum" => Chain::Ethereum,
+        "sui" => Chain::Sui,
+        "aptos" => Chain::Aptos,
+        "solana" => Chain::Solana,
+        _ => return Err(Bip44Error::InvalidPath(format!("Unknown chain: {}", chain_name))),
+    };
+    derive_key(seed, chain, account, address_index)
+}
+
 /// Derive a key from a specific derivation path.
 ///
 /// This uses SLIP-10 for Ed25519 chains (Sui, Aptos, Solana) and
@@ -226,18 +244,19 @@ pub fn generate_addresses(
 pub fn derive_all_chain_keys(
     seed: &[u8; 64],
     account: u32,
-) -> std::collections::HashMap<Chain, SecretKey> {
+) -> std::collections::HashMap<ChainId, SecretKey> {
     let mut keys = std::collections::HashMap::new();
 
-    for chain in [
-        Chain::Bitcoin,
-        Chain::Ethereum,
-        Chain::Sui,
-        Chain::Aptos,
-        Chain::Solana,
+    for chain_id in [
+        ChainId::new("bitcoin"),
+        ChainId::new("ethereum"),
+        ChainId::new("sui"),
+        ChainId::new("aptos"),
+        ChainId::new("solana"),
     ] {
-        if let Ok(key) = derive_key(seed, chain, account, 0) {
-            keys.insert(chain, key);
+        let chain_name = chain_id.as_str();
+        if let Ok(key) = derive_key_from_name(seed, chain_name, account, 0) {
+            keys.insert(chain_id, key);
         }
     }
 

@@ -56,12 +56,12 @@ pub fn TransferDetail(id: String) -> Element {
                     div { class: "flex justify-between items-center",
                         span { class: "text-sm text-gray-400", "Direction" }
                         div { class: "flex items-center gap-2",
-                            span { class: "{chain_badge_class(&t.from_chain)}",
-                                "{chain_icon_emoji(&t.from_chain)} {chain_name(&t.from_chain)}"
+                            span { class: "{chain_badge_class(&t.source_chain)}",
+                                "{chain_icon_emoji(&t.source_chain)} {chain_name(&t.source_chain)}"
                             }
                             span { class: "text-gray-500", "\u{2192}" }
-                            span { class: "{chain_badge_class(&t.to_chain)}",
-                                "{chain_icon_emoji(&t.to_chain)} {chain_name(&t.to_chain)}"
+                            span { class: "{chain_badge_class(&t.dest_chain)}",
+                                "{chain_icon_emoji(&t.dest_chain)} {chain_name(&t.dest_chain)}"
                             }
                         }
                     }
@@ -75,7 +75,7 @@ pub fn TransferDetail(id: String) -> Element {
                     // Destination Owner
                     div { class: "flex justify-between items-start",
                         span { class: "text-sm text-gray-400", "Destination Owner" }
-                        p { class: "font-mono text-sm text-gray-200 break-all max-w-md", "{t.dest_owner}" }
+                        p { class: "font-mono text-sm text-gray-200 break-all max-w-md", "{t.destination_address}" }
                     }
 
                     // Created At
@@ -89,8 +89,8 @@ pub fn TransferDetail(id: String) -> Element {
             // Source ChainId (Lock) Details
             div { class: "{card_class()} p-6",
                 div { class: "flex items-center gap-2 mb-4",
-                    span { class: "{chain_badge_class(&t.from_chain)}",
-                        "{chain_icon_emoji(&t.from_chain)}"
+                    span { class: "{chain_badge_class(&t.source_chain)}",
+                        "{chain_icon_emoji(&t.source_chain)}"
                     }
                     h2 { class: "text-lg font-semibold", "Source ChainId (Lock)" }
                 }
@@ -102,7 +102,7 @@ pub fn TransferDetail(id: String) -> Element {
                         div { class: "text-sanad",
                             if let Some(ref hash) = t.source_tx_hash {
                                 p { class: "font-mono text-sm text-gray-200 break-all max-w-md", "{hash}" }
-                                if let Some(url) = wallet_ctx.get_explorer_url(t.from_chain, hash) {
+                                if let Some(url) = wallet_ctx.get_explorer_url(t.source_chain, hash) {
                                     a {
                                         href: "{url}",
                                         target: "_blank",
@@ -119,7 +119,7 @@ pub fn TransferDetail(id: String) -> Element {
                     // Contract Address
                     div { class: "flex justify-between items-start",
                         span { class: "text-sm text-gray-400", "Contract Address" }
-                        if let Some(ref addr) = t.source_contract {
+                        if let Some(ref addr) = t.destination_contract {
                             p { class: "font-mono text-sm text-gray-200 break-all max-w-md", "{addr}" }
                         } else {
                             span { class: "text-sm text-gray-500", "N/A" }
@@ -141,8 +141,8 @@ pub fn TransferDetail(id: String) -> Element {
             // Destination ChainId (Mint) Details
             div { class: "{card_class()} p-6",
                 div { class: "flex items-center gap-2 mb-4",
-                    span { class: "{chain_badge_class(&t.to_chain)}",
-                        "{chain_icon_emoji(&t.to_chain)}"
+                    span { class: "{chain_badge_class(&t.dest_chain)}",
+                        "{chain_icon_emoji(&t.dest_chain)}"
                     }
                     h2 { class: "text-lg font-semibold", "Destination ChainId (Mint)" }
                 }
@@ -154,7 +154,7 @@ pub fn TransferDetail(id: String) -> Element {
                         div { class: "text-sanad",
                             if let Some(ref hash) = t.dest_tx_hash {
                                 p { class: "font-mono text-sm text-gray-200 break-all max-w-md", "{hash}" }
-                                if let Some(url) = wallet_ctx.get_explorer_url(t.to_chain, hash) {
+                                if let Some(url) = wallet_ctx.get_explorer_url(t.dest_chain, hash) {
                                     a {
                                         href: "{url}",
                                         target: "_blank",
@@ -171,7 +171,7 @@ pub fn TransferDetail(id: String) -> Element {
                     // Contract Address
                     div { class: "flex justify-between items-start",
                         span { class: "text-sm text-gray-400", "Contract Address" }
-                        if let Some(ref addr) = t.dest_contract {
+                        if let Some(ref addr) = t.destination_contract {
                             p { class: "font-mono text-sm text-gray-200 break-all max-w-md", "{addr}" }
                         } else {
                             span { class: "text-sm text-gray-500", "N/A" }

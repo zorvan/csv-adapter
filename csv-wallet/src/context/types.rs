@@ -38,42 +38,16 @@ impl std::fmt::Display for Network {
 
 // Re-export canonical domain types from csv-store (no duplicates).
 pub use csv_store::state::domain::{
-    ContractRecord, ProofRecord, SanadRecord as TrackedSanad, SealRecord, TestResult, TestStatus,
-    TransactionRecord, TransactionStatus, TransactionType,
+    ContractRecord, ProofRecord, ProofStatus, SanadRecord as TrackedSanad, SanadStatus, SealRecord,
+    SealStatus, TestResult, TestStatus, TransactionRecord, TransactionStatus, TransactionType,
     TransferRecord as TrackedTransfer, TransferStatus,
 };
 
 // Re-export wallet account types.
 pub use csv_store::state::wallet::{FaucetConfig, GasAccount, WalletAccount, WalletConfig};
 
-// Re-export status enums from csv-store.
-pub use csv_store::state::domain::{SanadStatus, SealStatus};
-
 // Canonical chain identifier.
 pub use csv_core::ChainId;
-
-/// Proof status - shows verification state (wallet-specific alias).
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum ProofStatus {
-    /// Proof generated but not verified
-    Generated,
-    /// Proof submitted for verification
-    Pending,
-    /// Proof verified successfully
-    Verified,
-    /// Proof verification failed
-    Invalid,
-}
-
-impl ProofStatus {
-    pub fn from_verified(verified: bool) -> Self {
-        if verified {
-            ProofStatus::Verified
-        } else {
-            ProofStatus::Generated
-        }
-    }
-}
 
 /// Specific proof data based on chain type (wallet-specific).
 #[derive(Clone, Debug, PartialEq)]
@@ -206,7 +180,7 @@ pub struct NftCollection {
 }
 
 /// The cryptographic content sealed for verification (wallet-specific).
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct SealContent {
     /// Hash of the sealed sanad data
     pub content_hash: String,

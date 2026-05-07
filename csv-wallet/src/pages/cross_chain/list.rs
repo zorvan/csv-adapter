@@ -46,8 +46,8 @@ pub fn CrossChain() -> Element {
                                                 "{truncate_address(&t.id, 6)}"
                                             }
                                         }
-                                        td { class: "px-4 py-3", span { class: "{chain_badge_class(&t.from_chain)}", "{chain_icon_emoji(&t.from_chain)}" } }
-                                        td { class: "px-4 py-3", span { class: "{chain_badge_class(&t.to_chain)}", "{chain_icon_emoji(&t.to_chain)}" } }
+                                        td { class: "px-4 py-3", span { class: "{chain_badge_class(&t.source_chain)}", "{chain_icon_emoji(&t.source_chain)}" } }
+                                        td { class: "px-4 py-3", span { class: "{chain_badge_class(&t.dest_chain)}", "{chain_icon_emoji(&t.dest_chain)}" } }
                                         td { class: "px-4 py-3 font-mono text-xs", "{truncate_address(&t.sanad_id, 8)}" }
                                         td { class: "px-4 py-3",
                                             span { class: "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {transfer_status_class(&t.status)}",

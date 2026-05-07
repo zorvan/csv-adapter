@@ -12,10 +12,10 @@ pub fn Sanads() -> Element {
     let sanads = wallet_ctx.sanads();
     let mut filter_chain = use_signal(|| Option::<ChainId>::None);
 
-    let filtered = match *filter_chain.read() {
+    let filtered = match filter_chain.read().as_ref() {
         Some(c) => sanads
             .iter()
-            .filter(|r| r.chain == c)
+            .filter(|r| r.chain == *c)
             .cloned()
             .collect::<Vec<_>>(),
         None => sanads,
@@ -39,8 +39,8 @@ pub fn Sanads() -> Element {
                 for chain in [ChainId::new("bitcoin"), ChainId::new("ethereum"), ChainId::new("sui"), ChainId::new("aptos"), ChainId::new("solana")] {
                     button {
                         key: "sanad-filter-{chain:?}",
-                        onclick: move |_| filter_chain.set(Some(chain)),
-                        class: if matches!(*filter_chain.read(), Some(c) if c == chain) { "{chain_badge_class(&chain)} cursor-pointer" } else { "{chain_badge_class(&chain)} opacity-50 cursor-pointer" },
+                        onclick: move |_| filter_chain.set(Some(chain.clone())),
+                        class: if matches!(filter_chain.read().as_ref(), Some(c) if c == &chain) { "{chain_badge_class(&chain)} cursor-pointer" } else { "{chain_badge_class(&chain)} opacity-50 cursor-pointer" },
                         "{chain_icon_emoji(&chain)} {chain_name(&chain)}"
                     }
                 }

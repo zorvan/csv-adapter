@@ -18,30 +18,30 @@ pub struct ExplorerConfig {
 impl ExplorerConfig {
     /// Get explorer config for a chain (testnet by default).
     pub fn for_chain(chain: ChainId) -> Option<Self> {
-        match chain {
-            ChainId::new("bitcoin") => Some(Self {
+        match chain.as_str() {
+            "bitcoin" => Some(Self {
                 base_url: "https://mempool.space/testnet".to_string(),
                 tx_url_template: "https://mempool.space/testnet/tx/{}".to_string(),
                 address_url_template: "https://mempool.space/testnet/address/{}".to_string(),
             }),
-            ChainId::new("ethereum") => Some(Self {
+            "ethereum" => Some(Self {
                 base_url: "https://sepolia.etherscan.io".to_string(),
                 tx_url_template: "https://sepolia.etherscan.io/tx/{}".to_string(),
                 address_url_template: "https://sepolia.etherscan.io/address/{}".to_string(),
             }),
-            ChainId::new("sui") => Some(Self {
+            "sui" => Some(Self {
                 base_url: "https://suiscan.xyz/testnet".to_string(),
                 tx_url_template: "https://suiscan.xyz/testnet/tx/{}".to_string(),
                 address_url_template: "https://suiscan.xyz/testnet/address/{}".to_string(),
             }),
-            ChainId::new("aptos") => Some(Self {
+            "aptos" => Some(Self {
                 base_url: "https://explorer.aptoslabs.com/testnet".to_string(),
                 tx_url_template: "https://explorer.aptoslabs.com/txn/{}?network=testnet"
                     .to_string(),
                 address_url_template: "https://explorer.aptoslabs.com/account/{}?network=testnet"
                     .to_string(),
             }),
-            ChainId::new("solana") => Some(Self {
+            "solana" => Some(Self {
                 base_url: "https://explorer.solana.com".to_string(),
                 tx_url_template: "https://explorer.solana.com/tx/{}?cluster=devnet".to_string(),
                 address_url_template: "https://explorer.solana.com/address/{}?cluster=devnet"

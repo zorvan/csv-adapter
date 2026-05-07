@@ -139,6 +139,31 @@ pub struct ContractRecord {
     pub deployed_at: u64,
 }
 
+/// Status of a seal.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SealStatus {
+    /// Seal is active and can be used.
+    Active,
+    /// Seal has been locked for a transfer.
+    Locked,
+    /// Seal has been consumed.
+    Consumed,
+    /// Seal has been transferred.
+    Transferred,
+}
+
+impl std::fmt::Display for SealStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SealStatus::Active => write!(f, "active"),
+            SealStatus::Locked => write!(f, "locked"),
+            SealStatus::Consumed => write!(f, "consumed"),
+            SealStatus::Transferred => write!(f, "transferred"),
+        }
+    }
+}
+
 /// Seal record (single-use seal for CSV).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SealRecord {
@@ -150,8 +175,64 @@ pub struct SealRecord {
     pub value: u64,
     /// Whether seal has been consumed.
     pub consumed: bool,
+    /// Seal status.
+    pub status: SealStatus,
     /// Creation timestamp.
     pub created_at: u64,
+    /// Sanad ID this seal is associated with (optional).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sanad_id: Option<String>,
+    /// Sealed content hash (optional).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content: Option<String>,
+    /// Proof reference (optional).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proof_ref: Option<String>,
+}
+
+impl SealRecord {
+    /// Create a new active seal record.
+    pub fn new(seal_ref: String, chain: ChainId, value: u64, created_at: u64) -> Self {
+        Self {
+            seal_ref,
+            chain,
+            value,
+            consumed: false,
+            status: SealStatus::Active,
+            created_at,
+            sanad_id: None,
+            content: None,
+            proof_ref: None,
+        }
+    }
+}
+
+/// Status of a proof.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ProofStatus {
+    /// Proof generated but not yet submitted for verification.
+    Generated,
+    /// Proof is pending verification.
+    Pending,
+    /// Proof has been verified.
+    Verified,
+    /// Proof verification failed.
+    Failed,
+    /// Proof is invalid or could not be verified.
+    Invalid,
+}
+
+impl std::fmt::Display for ProofStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ProofStatus::Generated => write!(f, "generated"),
+            ProofStatus::Pending => write!(f, "pending"),
+            ProofStatus::Verified => write!(f, "verified"),
+            ProofStatus::Failed => write!(f, "failed"),
+            ProofStatus::Invalid => write!(f, "invalid"),
+        }
+    }
 }
 
 /// Proof record (cryptographic proofs for CSV).
@@ -183,6 +264,17 @@ pub struct ProofRecord {
     /// Timestamp when proof was verified (if applicable).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub verified_at: Option<u64>,
+    /// Proof status.
+    pub status: ProofStatus,
+    /// Seal reference this proof is for (optional).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub seal_ref: Option<String>,
+    /// Target chain where proof will be verified (optional).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_chain: Option<ChainId>,
+    /// Verification transaction hash (optional).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verification_tx_hash: Option<String>,
 }
 
 impl ProofRecord {
@@ -206,6 +298,10 @@ impl ProofRecord {
             block_height: Some(block_height),
             created_at: 0, // Should be set by caller
             verified_at: None,
+            status: ProofStatus::Pending,
+            seal_ref: None,
+            target_chain: None,
+            verification_tx_hash: None,
         }
     }
 
@@ -254,6 +350,22 @@ pub enum TransactionType {
     CrossChainMint,
 }
 
+impl std::fmt::Display for TransactionType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TransactionType::Transfer => write!(f, "Transfer"),
+            TransactionType::ContractDeployment => write!(f, "Contract Deployment"),
+            TransactionType::ContractCall => write!(f, "Contract Call"),
+            TransactionType::SanadCreation => write!(f, "Sanad Creation"),
+            TransactionType::SanadTransfer => write!(f, "Sanad Transfer"),
+            TransactionType::SealCreation => write!(f, "Seal Creation"),
+            TransactionType::SealConsumption => write!(f, "Seal Consumption"),
+            TransactionType::CrossChainLock => write!(f, "Cross-Chain Lock"),
+            TransactionType::CrossChainMint => write!(f, "Cross-Chain Mint"),
+        }
+    }
+}
+
 /// Transaction status.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -264,6 +376,16 @@ pub enum TransactionStatus {
     Confirmed,
     /// Transaction failed.
     Failed,
+}
+
+impl std::fmt::Display for TransactionStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TransactionStatus::Pending => write!(f, "pending"),
+            TransactionStatus::Confirmed => write!(f, "confirmed"),
+            TransactionStatus::Failed => write!(f, "failed"),
+        }
+    }
 }
 
 /// A transaction record.
@@ -301,31 +423,6 @@ pub struct TransactionRecord {
     /// Explorer URL (optional).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub explorer_url: Option<String>,
-}
-
-/// Seal status - shows lifecycle state.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum SealStatus {
-    /// Seal created, protecting a Sanad
-    Active,
-    /// Sanad locked, seal holding the value
-    Locked,
-    /// Seal consumed, value released
-    Consumed,
-    /// Seal was used in a cross-chain transfer
-    Transferred,
-}
-
-impl std::fmt::Display for SealStatus {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SealStatus::Active => write!(f, "active"),
-            SealStatus::Locked => write!(f, "locked"),
-            SealStatus::Consumed => write!(f, "consumed"),
-            SealStatus::Transferred => write!(f, "transferred"),
-        }
-    }
 }
 
 /// A test result.

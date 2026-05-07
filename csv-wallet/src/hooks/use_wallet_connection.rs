@@ -191,14 +191,14 @@ pub fn WalletConnectButton(chain: ChainId) -> Element {
                     if is_connected {
                         wallet_ctx.disconnect();
                     } else if is_installed {
-                        match chain {
-                            ChainId::new("ethereum") => {
+                        match chain.as_str() {
+                            "ethereum" => {
                                 let mut ctx = wallet_ctx.clone();
                                 spawn(async move {
                                     ctx.connect_metamask().await;
                                 });
                             }
-                            ChainId::new("solana") => {
+                            "solana" => {
                                 let mut ctx = wallet_ctx.clone();
                                 spawn(async move {
                                     ctx.connect_phantom().await;

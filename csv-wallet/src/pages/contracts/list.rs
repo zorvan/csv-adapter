@@ -1,6 +1,6 @@
 //! Contracts list page.
 
-use crate::context::{use_wallet_context, DeployedContract};
+use crate::context::{use_wallet_context, ContractRecord};
 use crate::pages::common::*;
 use crate::pages::contracts::ContractDetailModal;
 use crate::routes::Route;
@@ -18,7 +18,7 @@ pub fn Contracts() -> Element {
     let accounts_for_discovery = accounts.clone();
 
     // Use global selected contract from context
-    let selected_contract_for_modal = use_signal(|| None::<DeployedContract>);
+    let selected_contract_for_modal = use_signal(|| None::<ContractRecord>);
     // Clone for use in closures
     let accounts_empty = accounts.is_empty();
     let mut selected_contract_modal_clone = selected_contract_for_modal.clone();
@@ -46,11 +46,11 @@ pub fn Contracts() -> Element {
                                 let mut total_found = 0;
 
                                 for account in &accounts_clone {
-                                    if matches!(account.chain, ChainId::new("bitcoin")) {
+                                    if matches!(account.chain.as_str(), "bitcoin") {
                                         continue;
                                     }
 
-                                    let config = ChainConfig::for_chain(account.chain);
+                                    let config = ChainConfig::for_chain(&account.chain);
 
                                     match discover_contracts(account.chain, &account.address, &config.api_url, None).await {
                                         Ok(contracts) => {
@@ -58,7 +58,7 @@ pub fn Contracts() -> Element {
                                                 let c_addr = c.contract_address.clone();
                                                 // Use a deterministic tx_hash based on address
                                                 let tx_hash = format!("discovered_{}_{}", account.chain, &c_addr[..20.min(c_addr.len())]);
-                                                let contract = DeployedContract {
+                                                let contract = ContractRecord {
                                                     chain: account.chain,
                                                     address: c_addr,
                                                     tx_hash,

@@ -47,7 +47,7 @@ pub fn CrossChainStatus() -> Element {
                                     key: "{transfer.id}",
                                     value: "{transfer.id}",
                                     selected: transfer.id == *selected_transfer_id.read(),
-                                    "{chain_icon_emoji(&transfer.from_chain)} {chain_name(&transfer.from_chain)} \u{2192} {chain_icon_emoji(&transfer.to_chain)} {chain_name(&transfer.to_chain)} - {truncate_address(&transfer.id, 12)}"
+                                    "{chain_icon_emoji(&transfer.source_chain)} {chain_name(&transfer.source_chain)} \u{2192} {chain_icon_emoji(&transfer.dest_chain)} {chain_name(&transfer.dest_chain)} - {truncate_address(&transfer.id, 12)}"
                                 }
                             }
                         }
@@ -65,11 +65,11 @@ pub fn CrossChainStatus() -> Element {
                                 }
                                 div { class: "flex justify-between",
                                     span { class: "text-sm text-gray-400", "Source" }
-                                    span { class: "{chain_badge_class(&t.from_chain)}", "{chain_icon_emoji(&t.from_chain)} {chain_name(&t.from_chain)}" }
+                                    span { class: "{chain_badge_class(&t.source_chain)}", "{chain_icon_emoji(&t.source_chain)} {chain_name(&t.source_chain)}" }
                                 }
                                 div { class: "flex justify-between",
                                     span { class: "text-sm text-gray-400", "Destination" }
-                                    span { class: "{chain_badge_class(&t.to_chain)}", "{chain_icon_emoji(&t.to_chain)} {chain_name(&t.to_chain)}" }
+                                    span { class: "{chain_badge_class(&t.dest_chain)}", "{chain_icon_emoji(&t.dest_chain)} {chain_name(&t.dest_chain)}" }
                                 }
                                 div { class: "flex justify-between",
                                     span { class: "text-sm text-gray-400", "Sanad ID" }
@@ -77,7 +77,7 @@ pub fn CrossChainStatus() -> Element {
                                 }
                                 div { class: "flex justify-between",
                                     span { class: "text-sm text-gray-400", "Destination Owner" }
-                                    span { class: "text-sm font-mono text-gray-300", "{truncate_address(&t.dest_owner, 12)}" }
+                                    span { class: "text-sm font-mono text-gray-300", "{truncate_address(&t.destination_address, 12)}" }
                                 }
                                 div { class: "flex justify-between",
                                     span { class: "text-sm text-gray-400", "Status" }

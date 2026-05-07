@@ -15,13 +15,14 @@ pub struct ChainConfig {
 
 impl ChainConfig {
     /// Get chain config.
-    pub fn for_chain(chain: ChainId) -> Self {
-        let rpc_url = match chain {
-            ChainId::new("bitcoin") => "https://bitcoin-rpc.example.com".to_string(),
-            ChainId::new("ethereum") => "https://ethereum-rpc.example.com".to_string(),
-            ChainId::new("sui") => "https://sui-rpc.example.com".to_string(),
-            ChainId::new("aptos") => "https://aptos-rpc.example.com".to_string(),
-            ChainId::new("solana") => "https://solana-rpc.example.com".to_string(),
+    pub fn for_chain(chain: &ChainId) -> Self {
+        let rpc_url = match chain.as_str() {
+            "bitcoin" => "https://bitcoin-rpc.example.com".to_string(),
+            "ethereum" => "https://ethereum-rpc.example.com".to_string(),
+            "sui" => "https://sui-rpc.example.com".to_string(),
+            "aptos" => "https://aptos-rpc.example.com".to_string(),
+            "solana" => "https://solana-rpc.example.com".to_string(),
+            _ => "https://unknown-rpc.example.com".to_string(),
         };
         Self {
             rpc_url: rpc_url.clone(),
