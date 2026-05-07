@@ -64,7 +64,7 @@ pub fn TransferSanad() -> Element {
                         p { class: "text-xs text-gray-400 mb-2", "Selected Sanad Details:" }
                         div { class: "grid grid-cols-2 gap-2 text-xs",
                             div { span { class: "text-gray-500", "ID: " }, span { class: "font-mono text-gray-300", "{truncate_address(&sanad.id, 10)}" } }
-                            div { span { class: "text-gray-500", "Chain: " }, span { class: "{chain_badge_class(&sanad.chain)}", "{chain_icon_emoji(&sanad.chain)} {chain_name(&sanad.chain)}" } }
+                            div { span { class: "text-gray-500", "ChainId: " }, span { class: "{chain_badge_class(&sanad.chain)}", "{chain_icon_emoji(&sanad.chain)} {chain_name(&sanad.chain)}" } }
                             div { span { class: "text-gray-500", "Value: " }, span { class: "font-mono text-gray-300", "{sanad.value}" } }
                             div { span { class: "text-gray-500", "Status: " }, span { class: "{sanad_status_class(&sanad.status)}", "{sanad.status}" } }
                             div { span { class: "text-gray-500", "Owner: " }, span { class: "font-mono text-gray-300", "{truncate_address(&sanad.owner, 8)}" } }

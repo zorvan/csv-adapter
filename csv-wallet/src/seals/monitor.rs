@@ -3,7 +3,7 @@
 //! Monitors seals on-chain and updates their status.
 
 use super::manager::{SealRecord, SealStatus};
-use csv_core::Chain;
+use csv_store::state::ChainId;
 
 /// Seal monitor for checking on-chain status.
 pub struct SealMonitor;
@@ -17,11 +17,11 @@ impl SealMonitor {
     /// Check the on-chain status of a seal.
     pub async fn check_seal_status(&self, seal: &SealRecord) -> Result<SealStatus, String> {
         match seal.chain {
-            Chain::Bitcoin => self.check_bitcoin_seal(seal).await,
-            Chain::Ethereum => self.check_ethereum_seal(seal).await,
-            Chain::Sui => self.check_sui_seal(seal).await,
-            Chain::Aptos => self.check_aptos_seal(seal).await,
-            Chain::Solana => self.check_solana_seal(seal).await,
+            ChainId::new("bitcoin") => self.check_bitcoin_seal(seal).await,
+            ChainId::new("ethereum") => self.check_ethereum_seal(seal).await,
+            ChainId::new("sui") => self.check_sui_seal(seal).await,
+            ChainId::new("aptos") => self.check_aptos_seal(seal).await,
+            ChainId::new("solana") => self.check_solana_seal(seal).await,
         }
     }
 

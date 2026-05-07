@@ -5,7 +5,7 @@ use crate::context::use_wallet_context;
 use crate::hooks::{format_balance_display, AccountBalance};
 use crate::pages::common::*;
 use crate::routes::Route;
-pub use csv_core::Chain;
+pub use csv_store::state::ChainId;
 use dioxus::prelude::*;
 use std::collections::HashMap;
 
@@ -106,7 +106,7 @@ pub fn Dashboard() -> Element {
                 {stat_card("Network", "Testnet", "\u{1F310}")}
             }
 
-            // Chain Addresses Section with Balances
+            // ChainId Addresses Section with Balances
             if !accounts.is_empty() {
                 div { class: "{card_class()} p-5",
                     div { class: "flex items-center justify-between mb-4",
@@ -131,7 +131,7 @@ pub fn Dashboard() -> Element {
                                             } else if let Some(ref error) = balance_data.error {
                                                 p { class: "text-xs text-red-400", "Error fetching balance" }
                                                 // Show detailed error for Bitcoin debugging
-                                                if account.chain == Chain::Bitcoin {
+                                                if account.chain == ChainId::new("bitcoin") {
                                                     p { class: "text-[10px] text-gray-500 max-w-[200px] truncate", "{error}" }
                                                 }
                                             } else if balance_data.balance_raw > 0 {
@@ -168,7 +168,7 @@ pub fn Dashboard() -> Element {
                 Link { to: Route::CrossChainTransfer {}, class: "{card_class()} p-5 block",
                     div { class: "flex items-center gap-3",
                         span { class: "text-2xl", "\u{21C4}" },
-                        h3 { class: "font-semibold text-sm", "Cross-Chain" }
+                        h3 { class: "font-semibold text-sm", "Cross-ChainId" }
                     }
                 }
                 Link { to: Route::GenerateProof {}, class: "{card_class()} p-5 block",

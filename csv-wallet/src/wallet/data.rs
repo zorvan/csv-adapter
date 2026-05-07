@@ -1,7 +1,7 @@
 //! Wallet data - collection of per-chain accounts.
 
 use crate::wallet::account::ChainAccount;
-use csv_core::Chain;
+use csv_store::state::ChainId;
 use serde::{Deserialize, Serialize};
 
 /// Complete wallet data — collection of per-chain accounts.
@@ -27,19 +27,19 @@ impl WalletData {
     }
 
     /// Get accounts for a specific chain.
-    pub fn accounts_for_chain(&self, chain: Chain) -> Vec<&ChainAccount> {
+    pub fn accounts_for_chain(&self, chain: ChainId) -> Vec<&ChainAccount> {
         self.accounts.iter().filter(|a| a.chain == chain).collect()
     }
 
     /// Get the gas account address for a chain (first account for now).
-    pub fn get_gas_account(&self, chain: &Chain) -> Option<String> {
+    pub fn get_gas_account(&self, chain: &ChainId) -> Option<String> {
         self.accounts_for_chain(*chain)
             .first()
             .map(|a| a.address.clone())
     }
 
     /// Get accounts count for a chain.
-    pub fn account_count_for_chain(&self, chain: Chain) -> usize {
+    pub fn account_count_for_chain(&self, chain: ChainId) -> usize {
         self.accounts.iter().filter(|a| a.chain == chain).count()
     }
 
@@ -69,7 +69,7 @@ impl WalletData {
     }
 
     /// Refresh/update an account address.
-    pub fn refresh_address(&mut self, chain: Chain, old_address: &str, new_address: String) {
+    pub fn refresh_address(&mut self, chain: ChainId, old_address: &str, new_address: String) {
         if let Some(account) = self
             .accounts
             .iter_mut()

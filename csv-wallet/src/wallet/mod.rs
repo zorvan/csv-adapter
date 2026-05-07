@@ -2,7 +2,7 @@
 //!
 //! This module combines:
 //! - HD wallet generation and metadata (from core/wallet.rs)
-//! - Chain account management (from wallet_core.rs)
+//! - ChainId account management (from wallet_core.rs)
 //! - UI context with persistence (from context/wallet.rs)
 //! - Storage management (from storage.rs)
 

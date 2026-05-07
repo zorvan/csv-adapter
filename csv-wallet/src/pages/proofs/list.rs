@@ -37,7 +37,7 @@ pub fn Proofs() -> Element {
                         table { class: "w-full text-sm",
                             thead {
                                 tr { class: "text-left text-gray-400 border-b border-gray-800",
-                                    th { class: "px-4 py-2 font-medium", "Chain" }
+                                    th { class: "px-4 py-2 font-medium", "ChainId" }
                                     th { class: "px-4 py-2 font-medium", "Sanad ID" }
                                     th { class: "px-4 py-2 font-medium", "Seal" }
                                     th { class: "px-4 py-2 font-medium", "Type" }
@@ -109,7 +109,7 @@ pub fn Proofs() -> Element {
                                 }
                                 div { class: "p-4 space-y-4",
                                     div { class: "space-y-2",
-                                        p { class: "text-sm text-gray-400", "Chain" }
+                                        p { class: "text-sm text-gray-400", "ChainId" }
                                         p { class: "text-sm", span { class: "{chain_badge_class(&proof.chain)}", "{chain_icon_emoji(&proof.chain)} {chain_name(&proof.chain)}" } }
                                     }
                                     div { class: "space-y-2",
@@ -138,7 +138,7 @@ pub fn Proofs() -> Element {
                                     }
                                     if let Some(ref target) = proof.target_chain {
                                         div { class: "space-y-2",
-                                            p { class: "text-sm text-gray-400", "Target Chain" }
+                                            p { class: "text-sm text-gray-400", "Target ChainId" }
                                             p { class: "text-sm", span { class: "{chain_badge_class(target)}", "{chain_icon_emoji(target)} {chain_name(target)}" } }
                                         }
                                     }
@@ -176,7 +176,7 @@ pub fn Proofs() -> Element {
                                     div { class: "bg-gray-800/50 rounded-lg p-3",
                                         p { class: "text-xs text-gray-500", "Sanad ID: {truncate_address(&proof.sanad_id, 20)}" }
                                         p { class: "text-xs text-gray-500", "Seal: {truncate_address(&proof.seal_ref, 12)}" }
-                                        p { class: "text-xs text-gray-500", "Chain: {chain_name(&proof.chain)}" }
+                                        p { class: "text-xs text-gray-500", "ChainId: {chain_name(&proof.chain)}" }
                                         p { class: "text-xs text-gray-500", "Status: {proof.status}" }
                                     }
                                     div { class: "flex gap-3",

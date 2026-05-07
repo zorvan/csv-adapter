@@ -2,7 +2,7 @@
 
 use crate::context::{generate_id, use_wallet_context, SanadStatus, TrackedSanad};
 use crate::pages::common::*;
-use csv_core::Chain;
+use csv_store::state::ChainId;
 use dioxus::prelude::*;
 use std::rc::Rc;
 
@@ -29,7 +29,7 @@ pub fn CreateSanad() -> Element {
 #[component]
 pub fn CreateSanadForm() -> Element {
     let mut wallet_ctx = use_wallet_context();
-    let mut selected_chain = use_signal(|| Chain::Bitcoin);
+    let mut selected_chain = use_signal(|| ChainId::new("bitcoin"));
     let mut value = use_signal(String::new);
     let mut result = use_signal(|| Option::<String>::None);
     let mut error = use_signal(|| Option::<String>::None);
@@ -40,8 +40,8 @@ pub fn CreateSanadForm() -> Element {
                 h2 { class: "font-semibold text-sm", "Create New Sanad" }
             }
 
-            {form_field("Chain", chain_select(move |v: Rc<FormData>| {
-                if let Ok(c) = v.value().parse::<Chain>() { selected_chain.set(c); }
+            {form_field("ChainId", chain_select(move |v: Rc<FormData>| {
+                if let Ok(c) = v.value().parse::<ChainId>() { selected_chain.set(c); }
             }, *selected_chain.read()))}
 
             {form_field("Value (optional)", rsx! {

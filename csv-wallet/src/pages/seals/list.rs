@@ -3,7 +3,7 @@
 use crate::context::{use_wallet_context, SealRecord, SealStatus};
 use crate::pages::common::*;
 use crate::routes::Route;
-use csv_core::Chain;
+use csv_store::state::ChainId;
 use dioxus::prelude::*;
 
 // ===== Seals Pages =====
@@ -11,7 +11,7 @@ use dioxus::prelude::*;
 pub fn Seals() -> Element {
     let wallet_ctx = use_wallet_context();
     let seals = wallet_ctx.seals();
-    let mut filter_chain = use_signal(|| Option::<Chain>::None);
+    let mut filter_chain = use_signal(|| Option::<ChainId>::None);
     let mut selected_seal = use_signal(|| None::<SealRecord>);
     let mut show_delete_confirm = use_signal(|| None::<SealRecord>);
 
@@ -43,7 +43,7 @@ pub fn Seals() -> Element {
                     class: if filter_chain.read().is_none() { "{btn_primary_class()}" } else { "{btn_secondary_class()}" },
                     "All"
                 }
-                for chain in [Chain::Bitcoin, Chain::Ethereum, Chain::Sui, Chain::Aptos, Chain::Solana] {
+                for chain in [ChainId::new("bitcoin"), ChainId::new("ethereum"), ChainId::new("sui"), ChainId::new("aptos"), ChainId::new("solana")] {
                     button {
                         key: "seal-filter-{chain:?}",
                         onclick: move |_| filter_chain.set(Some(chain)),
@@ -67,7 +67,7 @@ pub fn Seals() -> Element {
                                 tr { class: "text-left text-gray-400 border-b border-gray-800",
                                     th { class: "px-4 py-2 font-medium", "#" }
                                     th { class: "px-4 py-2 font-medium", "Seal Ref" }
-                                    th { class: "px-4 py-2 font-medium", "Chain" }
+                                    th { class: "px-4 py-2 font-medium", "ChainId" }
                                     th { class: "px-4 py-2 font-medium", "Protects Sanad" }
                                     th { class: "px-4 py-2 font-medium", "Value" }
                                     th { class: "px-4 py-2 font-medium", "Status" }
@@ -153,7 +153,7 @@ pub fn Seals() -> Element {
                                         p { class: "text-sm font-mono break-all", "{seal.seal_ref}" }
                                     }
                                     div { class: "space-y-2",
-                                        p { class: "text-sm text-gray-400", "Chain" }
+                                        p { class: "text-sm text-gray-400", "ChainId" }
                                         p { class: "text-sm", span { class: "{chain_badge_class(&seal.chain)}", "{chain_icon_emoji(&seal.chain)} {chain_name(&seal.chain)}" } }
                                     }
                                     div { class: "space-y-2",
@@ -209,7 +209,7 @@ pub fn Seals() -> Element {
                                     }
                                     div { class: "bg-gray-800/50 rounded-lg p-3",
                                         p { class: "text-xs text-gray-500", "Seal Ref: {truncate_address(&seal.seal_ref, 20)}" }
-                                        p { class: "text-xs text-gray-500", "Chain: {chain_name(&seal.chain)}" }
+                                        p { class: "text-xs text-gray-500", "ChainId: {chain_name(&seal.chain)}" }
                                         p { class: "text-xs text-gray-500", "Status: {seal.status}" }
                                         p { class: "text-xs text-gray-500", "Sanad: {truncate_address(&seal.sanad_id, 12)}" }
                                     }

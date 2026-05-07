@@ -52,7 +52,7 @@ pub fn TransferDetail(id: String) -> Element {
                         }
                     }
 
-                    // Chain direction
+                    // ChainId direction
                     div { class: "flex justify-between items-center",
                         span { class: "text-sm text-gray-400", "Direction" }
                         div { class: "flex items-center gap-2",
@@ -86,13 +86,13 @@ pub fn TransferDetail(id: String) -> Element {
                 }
             }
 
-            // Source Chain (Lock) Details
+            // Source ChainId (Lock) Details
             div { class: "{card_class()} p-6",
                 div { class: "flex items-center gap-2 mb-4",
                     span { class: "{chain_badge_class(&t.from_chain)}",
                         "{chain_icon_emoji(&t.from_chain)}"
                     }
-                    h2 { class: "text-lg font-semibold", "Source Chain (Lock)" }
+                    h2 { class: "text-lg font-semibold", "Source ChainId (Lock)" }
                 }
 
                 div { class: "space-y-3",
@@ -138,13 +138,13 @@ pub fn TransferDetail(id: String) -> Element {
                 }
             }
 
-            // Destination Chain (Mint) Details
+            // Destination ChainId (Mint) Details
             div { class: "{card_class()} p-6",
                 div { class: "flex items-center gap-2 mb-4",
                     span { class: "{chain_badge_class(&t.to_chain)}",
                         "{chain_icon_emoji(&t.to_chain)}"
                     }
-                    h2 { class: "text-lg font-semibold", "Destination Chain (Mint)" }
+                    h2 { class: "text-lg font-semibold", "Destination ChainId (Mint)" }
                 }
 
                 div { class: "space-y-3",

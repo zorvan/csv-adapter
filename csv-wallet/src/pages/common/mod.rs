@@ -1,50 +1,50 @@
 //! Common UI helpers and styling functions for pages.
 
 use crate::context::types::{SanadStatus, SealStatus, TestStatus, TransferStatus};
-use csv_core::Chain;
+use csv_store::state::ChainId;
 use dioxus::prelude::*;
 
-// ===== Chain Styling Helpers =====
-pub fn chain_color(chain: &Chain) -> &'static str {
+// ===== ChainId Styling Helpers =====
+pub fn chain_color(chain: &ChainId) -> &'static str {
     match chain {
-        Chain::Bitcoin => "#F7931A",
-        Chain::Ethereum => "#627EEA",
-        Chain::Sui => "#06BDFF",
-        Chain::Aptos => "#2DD8A3",
-        Chain::Solana => "#9945FF",
+        ChainId::new("bitcoin") => "#F7931A",
+        ChainId::new("ethereum") => "#627EEA",
+        ChainId::new("sui") => "#06BDFF",
+        ChainId::new("aptos") => "#2DD8A3",
+        ChainId::new("solana") => "#9945FF",
         _ => "#888888",
     }
 }
 
-pub fn chain_badge_class(chain: &Chain) -> &'static str {
+pub fn chain_badge_class(chain: &ChainId) -> &'static str {
     match chain {
-        Chain::Bitcoin => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-orange-400 bg-orange-500/20 border border-orange-500/30",
-        Chain::Ethereum => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-blue-400 bg-blue-500/20 border border-blue-500/30",
-        Chain::Sui => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-cyan-400 bg-cyan-500/20 border border-cyan-500/30",
-        Chain::Aptos => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-emerald-400 bg-emerald-500/20 border border-emerald-500/30",
-        Chain::Solana => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-purple-400 bg-purple-500/20 border border-purple-500/30",
+        ChainId::new("bitcoin") => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-orange-400 bg-orange-500/20 border border-orange-500/30",
+        ChainId::new("ethereum") => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-blue-400 bg-blue-500/20 border border-blue-500/30",
+        ChainId::new("sui") => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-cyan-400 bg-cyan-500/20 border border-cyan-500/30",
+        ChainId::new("aptos") => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-emerald-400 bg-emerald-500/20 border border-emerald-500/30",
+        ChainId::new("solana") => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-purple-400 bg-purple-500/20 border border-purple-500/30",
         _ => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-gray-400 bg-gray-500/20 border border-gray-500/30",
     }
 }
 
-pub fn chain_icon_emoji(chain: &Chain) -> &'static str {
+pub fn chain_icon_emoji(chain: &ChainId) -> &'static str {
     match chain {
-        Chain::Bitcoin => "\u{1F7E0}",
-        Chain::Ethereum => "\u{1F537}",
-        Chain::Sui => "\u{1F30A}",
-        Chain::Aptos => "\u{1F7E2}",
-        Chain::Solana => "\u{25C8}",
+        ChainId::new("bitcoin") => "\u{1F7E0}",
+        ChainId::new("ethereum") => "\u{1F537}",
+        ChainId::new("sui") => "\u{1F30A}",
+        ChainId::new("aptos") => "\u{1F7E2}",
+        ChainId::new("solana") => "\u{25C8}",
         _ => "\u{26AA}",
     }
 }
 
-pub fn chain_name(chain: &Chain) -> &'static str {
+pub fn chain_name(chain: &ChainId) -> &'static str {
     match chain {
-        Chain::Bitcoin => "Bitcoin",
-        Chain::Ethereum => "Ethereum",
-        Chain::Sui => "Sui",
-        Chain::Aptos => "Aptos",
-        Chain::Solana => "Solana",
+        ChainId::new("bitcoin") => "Bitcoin",
+        ChainId::new("ethereum") => "Ethereum",
+        ChainId::new("sui") => "Sui",
+        ChainId::new("aptos") => "Aptos",
+        ChainId::new("solana") => "Solana",
         _ => "Unknown",
     }
 }
@@ -155,13 +155,13 @@ pub fn select_class() -> &'static str {
     "w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
 }
 
-pub fn chain_options() -> Vec<(Chain, &'static str)> {
+pub fn chain_options() -> Vec<(ChainId, &'static str)> {
     vec![
-        (Chain::Bitcoin, "\u{1F7E0} Bitcoin"),
-        (Chain::Ethereum, "\u{1F537} Ethereum"),
-        (Chain::Sui, "\u{1F30A} Sui"),
-        (Chain::Aptos, "\u{1F7E2} Aptos"),
-        (Chain::Solana, "\u{25C8} Solana"),
+        (ChainId::new("bitcoin"), "\u{1F7E0} Bitcoin"),
+        (ChainId::new("ethereum"), "\u{1F537} Ethereum"),
+        (ChainId::new("sui"), "\u{1F30A} Sui"),
+        (ChainId::new("aptos"), "\u{1F7E2} Aptos"),
+        (ChainId::new("solana"), "\u{25C8} Solana"),
     ]
 }
 
@@ -176,7 +176,7 @@ pub fn network_options() -> Vec<(crate::context::Network, &'static str)> {
 
 pub fn chain_select(
     mut onchange: impl FnMut(std::rc::Rc<FormData>) + 'static,
-    value: Chain,
+    value: ChainId,
 ) -> Element {
     rsx! {
         select {

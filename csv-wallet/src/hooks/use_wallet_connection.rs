@@ -1,7 +1,7 @@
 //! Browser wallet connection hook.
 
 use crate::services::blockchain::{wallet_connection, BrowserWallet, WalletType};
-use csv_core::Chain;
+use csv_store::state::ChainId;
 use dioxus::prelude::*;
 
 /// Wallet connection state.
@@ -10,7 +10,7 @@ pub struct WalletConnectionState {
     pub wallet: Option<BrowserWallet>,
     pub connecting: bool,
     pub error: Option<String>,
-    pub chain: Chain,
+    pub chain: ChainId,
 }
 
 impl Default for WalletConnectionState {
@@ -19,7 +19,7 @@ impl Default for WalletConnectionState {
             wallet: None,
             connecting: false,
             error: None,
-            chain: Chain::Ethereum,
+            chain: ChainId::new("ethereum"),
         }
     }
 }
@@ -72,10 +72,10 @@ impl WalletConnectionContext {
                 let mut state = self.state.write();
                 state.wallet = Some(crate::services::blockchain::BrowserWallet {
                     address: "0x...".to_string(),
-                    chain: Some(Chain::Ethereum),
+                    chain: Some(ChainId::new("ethereum")),
                     wallet_type: WalletType::MetaMask,
                 });
-                state.chain = Chain::Ethereum;
+                state.chain = ChainId::new("ethereum");
                 state.connecting = false;
             }
             Err(e) => {
@@ -102,14 +102,14 @@ impl WalletConnectionContext {
 
       // Real implementation would call phantom.solana.connect()
         let wallet = BrowserWallet {
-            chain: Some(Chain::Solana),
+            chain: Some(ChainId::new("solana")),
             address: String::new(), // Would come from wallet
             wallet_type: WalletType::Phantom,
         };
 
         let mut state = self.state.write();
         state.wallet = Some(wallet);
-        state.chain = Chain::Solana;
+        state.chain = ChainId::new("solana");
         state.connecting = false;
     }
 
@@ -120,7 +120,7 @@ impl WalletConnectionContext {
     }
 
     /// Get recommended wallet type for a chain.
-    pub fn recommended_wallet(&self, chain: Chain) -> WalletType {
+    pub fn recommended_wallet(&self, chain: ChainId) -> WalletType {
         wallet_connection::recommended_wallet(chain)
     }
 
@@ -151,7 +151,7 @@ pub fn use_wallet_connection() -> WalletConnectionContext {
 
 /// Component to show wallet connection button.
 #[component]
-pub fn WalletConnectButton(chain: Chain) -> Element {
+pub fn WalletConnectButton(chain: ChainId) -> Element {
     let mut wallet_ctx = use_wallet_connection();
     let state = wallet_ctx.state;
 
@@ -192,13 +192,13 @@ pub fn WalletConnectButton(chain: Chain) -> Element {
                         wallet_ctx.disconnect();
                     } else if is_installed {
                         match chain {
-                            Chain::Ethereum => {
+                            ChainId::new("ethereum") => {
                                 let mut ctx = wallet_ctx.clone();
                                 spawn(async move {
                                     ctx.connect_metamask().await;
                                 });
                             }
-                            Chain::Solana => {
+                            ChainId::new("solana") => {
                                 let mut ctx = wallet_ctx.clone();
                                 spawn(async move {
                                     ctx.connect_phantom().await;

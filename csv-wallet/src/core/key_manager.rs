@@ -201,13 +201,13 @@ impl KeyManager {
     }
 
     /// Sign a message with the appropriate key for the given chain.
-    pub fn sign(&self, chain: Chain, message: &[u8; 32]) -> Result<Vec<u8>, KeyError> {
+    pub fn sign(&self, chain: ChainId, message: &[u8; 32]) -> Result<Vec<u8>, KeyError> {
         match chain {
-            Chain::Bitcoin => self.sign_bitcoin(message),
-            Chain::Ethereum => self.sign_ethereum(message),
-            Chain::Sui => self.sign_sui(message),
-            Chain::Aptos => self.sign_aptos(message),
-            Chain::Solana => self.sign_solana(message),
+            ChainId::new("bitcoin") => self.sign_bitcoin(message),
+            ChainId::new("ethereum") => self.sign_ethereum(message),
+            ChainId::new("sui") => self.sign_sui(message),
+            ChainId::new("aptos") => self.sign_aptos(message),
+            ChainId::new("solana") => self.sign_solana(message),
         }
     }
 
@@ -252,9 +252,9 @@ impl KeyManager {
     }
 
     /// Format address for display.
-    pub fn format_address(&self, chain: Chain) -> Result<String, KeyError> {
+    pub fn format_address(&self, chain: ChainId) -> Result<String, KeyError> {
         match chain {
-            Chain::Bitcoin => {
+            ChainId::new("bitcoin") => {
                 let (_, xonly_pubkey) = self.derive_bitcoin_keys()?;
                 // Build proper Taproot (P2TR) address using bech32m encoding
                 // Taproot address: bc1p<xonly_pubkey>
@@ -275,11 +275,11 @@ impl KeyManager {
 
                 Ok(address.to_string())
             }
-            Chain::Ethereum => {
+            ChainId::new("ethereum") => {
                 let (_, address) = self.derive_ethereum_keys()?;
                 Ok(format!("0x{}", hex::encode(address)))
             }
-            Chain::Sui => {
+            ChainId::new("sui") => {
                 let (_, verifying_key) = self.derive_sui_keys()?;
                 // Sui address: BLAKE2b-256(0x00 || public_key)
                 let mut hasher = Blake2b::new();
@@ -288,7 +288,7 @@ impl KeyManager {
                 let hash = hasher.finalize();
                 Ok(format!("0x{}", hex::encode(&hash[..])))
             }
-            Chain::Aptos => {
+            ChainId::new("aptos") => {
                 let (_, verifying_key) = self.derive_aptos_keys()?;
                 // Aptos address: SHA3-256(public_key || 0x00)
                 let mut hasher = sha3::Sha3_256::new();
@@ -297,7 +297,7 @@ impl KeyManager {
                 let hash = hasher.finalize();
                 Ok(format!("0x{}", hex::encode(&hash[..])))
             }
-            Chain::Solana => {
+            ChainId::new("solana") => {
                 let (_, verifying_key) = self.derive_solana_keys()?;
                 // Solana address is the base58-encoded public key
                 Ok(bs58::encode(verifying_key.as_bytes()).into_string())

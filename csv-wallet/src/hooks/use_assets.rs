@@ -2,7 +2,7 @@
 
 use dioxus::prelude::*;
 use crate::assets::tracker::AssetRecord;
-use csv_core::Chain;
+use csv_store::state::ChainId;
 
 /// Asset state.
 #[derive(Clone, PartialEq)]
@@ -31,7 +31,7 @@ impl AssetContext {
         }
     }
 
-    pub fn get_assets_by_chain(&self, chain: Chain) -> Vec<AssetRecord> {
+    pub fn get_assets_by_chain(&self, chain: ChainId) -> Vec<AssetRecord> {
         self.state.read().assets.iter()
             .filter(|a| a.chain == chain)
             .cloned()

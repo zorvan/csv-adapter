@@ -1,6 +1,6 @@
 //! Network configuration service.
 
-use csv_core::Chain;
+use csv_store::state::ChainId;
 
 /// Network type (testnet or mainnet).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -20,23 +20,23 @@ impl NetworkType {
 
 /// Network configuration for a chain.
 pub struct NetworkConfig {
-    networks: std::collections::HashMap<Chain, NetworkType>,
+    networks: std::collections::HashMap<ChainId, NetworkType>,
 }
 
 impl NetworkConfig {
     /// Create default network configuration.
     pub fn new() -> Self {
         let mut networks = std::collections::HashMap::new();
-        networks.insert(Chain::Bitcoin, NetworkType::Testnet);
-        networks.insert(Chain::Ethereum, NetworkType::Testnet);
-        networks.insert(Chain::Sui, NetworkType::Testnet);
-        networks.insert(Chain::Aptos, NetworkType::Testnet);
-        networks.insert(Chain::Solana, NetworkType::Testnet);
+        networks.insert(ChainId::new("bitcoin"), NetworkType::Testnet);
+        networks.insert(ChainId::new("ethereum"), NetworkType::Testnet);
+        networks.insert(ChainId::new("sui"), NetworkType::Testnet);
+        networks.insert(ChainId::new("aptos"), NetworkType::Testnet);
+        networks.insert(ChainId::new("solana"), NetworkType::Testnet);
         Self { networks }
     }
 
     /// Get network for a chain.
-    pub fn get_network(&self, chain: Chain) -> NetworkType {
+    pub fn get_network(&self, chain: ChainId) -> NetworkType {
         self.networks
             .get(&chain)
             .copied()
@@ -44,12 +44,12 @@ impl NetworkConfig {
     }
 
     /// Set network for a chain.
-    pub fn set_network(&mut self, chain: Chain, network: NetworkType) {
+    pub fn set_network(&mut self, chain: ChainId, network: NetworkType) {
         self.networks.insert(chain, network);
     }
 
     /// Check if chain is on testnet.
-    pub fn is_testnet(&self, chain: Chain) -> bool {
+    pub fn is_testnet(&self, chain: ChainId) -> bool {
         self.get_network(chain).is_testnet()
     }
 }

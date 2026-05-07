@@ -36,9 +36,9 @@ pub fn Header(sidebar_open: bool, on_sidebar_toggle: EventHandler<()>) -> Elemen
 
                     // Sanad: chain selector, network selector, wallet info
                     div { class: "flex items-center gap-3",
-                        // Chain selector
+                        // ChainId selector
                         div { class: "flex items-center gap-2",
-                            span { class: "text-xs text-gray-400", "Chain:" }
+                            span { class: "text-xs text-gray-400", "ChainId:" }
                             div { class: "w-40",
                                 Dropdown {
                                     options: all_chain_displays(),

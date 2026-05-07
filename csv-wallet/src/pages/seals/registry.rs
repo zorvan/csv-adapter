@@ -12,9 +12,9 @@
 //! - Cross-chain replay attack detection
 //! - Forensic analysis of consumption patterns
 //!
-//! ## Seal Types by Chain
+//! ## Seal Types by ChainId
 //!
-//! | Chain | Seal Type | Enforcement |
+//! | ChainId | Seal Type | Enforcement |
 //! |-------|-----------|-------------|
 //! | Bitcoin | UTXO spend | Structural (output consumed) |
 //! | Sui | Object deletion | Structural (object deleted) |
@@ -93,7 +93,7 @@ pub fn SealRegistry() -> Element {
                             thead { class: "bg-gray-800/50",
                                 tr {
                                     th { class: "px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase", "Seal Reference" }
-                                    th { class: "px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase", "Chain" }
+                                    th { class: "px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase", "ChainId" }
                                     th { class: "px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase", "Status" }
                                     th { class: "px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase", "Sanad" }
                                     th { class: "px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase", "Value" }
@@ -193,9 +193,9 @@ fn security_info_section() -> Element {
                     }
                 }
 
-                // Cross-Chain Detection
+                // Cross-ChainId Detection
                 div { class: "space-y-2",
-                    h3 { class: "font-medium text-blue-400", "✓ Cross-Chain Detection" }
+                    h3 { class: "font-medium text-blue-400", "✓ Cross-ChainId Detection" }
                     p { class: "text-sm text-gray-400",
                         "The registry detects attempts to use the same seal on different chains:"
                     }
@@ -216,7 +216,7 @@ fn security_info_section() -> Element {
                     ul { class: "text-sm text-gray-400 list-disc list-inside space-y-1",
                         li { "At-most-once consumption guarantee" }
                         li { "Immutable consumption history" }
-                        li { "Chain-agnostic seal comparison" }
+                        li { "ChainId-agnostic seal comparison" }
                         li { "Forensic tracking of attempts" }
                     }
                 }
@@ -231,7 +231,7 @@ fn security_info_section() -> Element {
                         li { "Creation timestamp and block" }
                         li { "Consumption transaction hash" }
                         li { "Sanad ID that consumed the seal" }
-                        li { "Chain where consumption occurred" }
+                        li { "ChainId where consumption occurred" }
                     }
                 }
             }
@@ -253,7 +253,7 @@ fn security_info_section() -> Element {
                         p { class: "text-green-400 mb-2", "CSV Protocol" }
                         ul { class: "space-y-1 text-green-300",
                             li { "• Cryptographic single-use seals" }
-                            li { "• Chain-native enforcement" }
+                            li { "• ChainId-native enforcement" }
                             li { "• Transparent registry" }
                             li { "• Immutable audit trail" }
                         }

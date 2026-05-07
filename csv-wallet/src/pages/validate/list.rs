@@ -22,7 +22,7 @@ pub fn Validate() -> Element {
                     div { class: "flex items-center gap-3", span { class: "text-2xl", "\u{1F512}" }, div { h3 { class: "font-semibold", "Seal" } p { class: "text-sm text-gray-400", "Validate seal consumption" } } }
                 }
                 Link { to: Route::ValidateCommitmentChain {}, class: "{card_class()} p-6 hover:bg-gray-800/50 transition-colors block",
-                    div { class: "flex items-center gap-3", span { class: "text-2xl", "\u{1F517}" }, div { h3 { class: "font-semibold", "Commitment Chain" } p { class: "text-sm text-gray-400", "Validate commitment chain integrity" } } }
+                    div { class: "flex items-center gap-3", span { class: "text-2xl", "\u{1F517}" }, div { h3 { class: "font-semibold", "Commitment ChainId" } p { class: "text-sm text-gray-400", "Validate commitment chain integrity" } } }
                 }
             }
         }

@@ -1,6 +1,6 @@
 //! Aptos chain integration.
 
-use csv_core::Chain;
+use csv_store::state::ChainId;
 
 /// Format Aptos address.
 pub fn format_address(hash_bytes: &[u8]) -> String {
@@ -8,6 +8,6 @@ pub fn format_address(hash_bytes: &[u8]) -> String {
 }
 
 /// Get chain type.
-pub fn chain() -> Chain {
-    Chain::Aptos
+pub fn chain() -> ChainId {
+    ChainId::new("aptos")
 }

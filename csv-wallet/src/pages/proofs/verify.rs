@@ -2,13 +2,13 @@
 
 use crate::pages::common::*;
 use crate::routes::Route;
-use csv_core::Chain;
+use csv_store::state::ChainId;
 use dioxus::prelude::*;
 use std::rc::Rc;
 
 #[component]
 pub fn VerifyProof() -> Element {
-    let mut selected_chain = use_signal(|| Chain::Bitcoin);
+    let mut selected_chain = use_signal(|| ChainId::new("bitcoin"));
     let mut proof_input = use_signal(String::new);
     let mut result = use_signal(|| Option::<String>::None);
 
@@ -20,8 +20,8 @@ pub fn VerifyProof() -> Element {
             }
 
             div { class: "{card_class()} p-6 space-y-5",
-                {form_field("Destination Chain", chain_select(move |v: Rc<FormData>| {
-                    if let Ok(c) = v.value().parse::<Chain>() { selected_chain.set(c); }
+                {form_field("Destination ChainId", chain_select(move |v: Rc<FormData>| {
+                    if let Ok(c) = v.value().parse::<ChainId>() { selected_chain.set(c); }
                 }, *selected_chain.read()))}
 
                 {form_field("Proof JSON", rsx! {

@@ -1,12 +1,12 @@
-//! Chain API service stub - re-exported for wallet compatibility.
+//! ChainId API service stub - re-exported for wallet compatibility.
 
-use csv_core::Chain;
+use csv_store::state::ChainId;
 
-/// Chain API stub.
+/// ChainId API stub.
 #[derive(Debug, Clone, Default)]
 pub struct ChainApi;
 
-/// Chain configuration.
+/// ChainId configuration.
 #[derive(Debug, Clone)]
 pub struct ChainConfig {
     pub rpc_url: String,
@@ -15,13 +15,13 @@ pub struct ChainConfig {
 
 impl ChainConfig {
     /// Get chain config.
-    pub fn for_chain(chain: Chain) -> Self {
+    pub fn for_chain(chain: ChainId) -> Self {
         let rpc_url = match chain {
-            Chain::Bitcoin => "https://bitcoin-rpc.example.com".to_string(),
-            Chain::Ethereum => "https://ethereum-rpc.example.com".to_string(),
-            Chain::Sui => "https://sui-rpc.example.com".to_string(),
-            Chain::Aptos => "https://aptos-rpc.example.com".to_string(),
-            Chain::Solana => "https://solana-rpc.example.com".to_string(),
+            ChainId::new("bitcoin") => "https://bitcoin-rpc.example.com".to_string(),
+            ChainId::new("ethereum") => "https://ethereum-rpc.example.com".to_string(),
+            ChainId::new("sui") => "https://sui-rpc.example.com".to_string(),
+            ChainId::new("aptos") => "https://aptos-rpc.example.com".to_string(),
+            ChainId::new("solana") => "https://solana-rpc.example.com".to_string(),
         };
         Self {
             rpc_url: rpc_url.clone(),
@@ -37,7 +37,7 @@ impl ChainApi {
     }
 
     /// Get balance stub.
-    pub async fn get_balance(&self, _address: &str, _chain: Chain) -> Result<String, String> {
+    pub async fn get_balance(&self, _address: &str, _chain: ChainId) -> Result<String, String> {
         Ok("0".to_string())
     }
 }

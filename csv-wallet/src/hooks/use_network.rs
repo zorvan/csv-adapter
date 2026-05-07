@@ -2,13 +2,13 @@
 
 use crate::chains::supported_wallet_chains;
 use crate::services::network::NetworkType;
-use csv_core::Chain;
+use csv_store::state::ChainId;
 use dioxus::prelude::*;
 
 /// Network state.
 #[derive(Clone, PartialEq)]
 pub struct NetworkState {
-    pub networks: std::collections::HashMap<Chain, NetworkType>,
+    pub networks: std::collections::HashMap<ChainId, NetworkType>,
 }
 
 /// Network context.
@@ -18,7 +18,7 @@ pub struct NetworkContext {
 }
 
 impl NetworkContext {
-    pub fn get_network(&self, chain: Chain) -> NetworkType {
+    pub fn get_network(&self, chain: ChainId) -> NetworkType {
         self.state
             .read()
             .networks
@@ -27,11 +27,11 @@ impl NetworkContext {
             .unwrap_or(NetworkType::Testnet)
     }
 
-    pub fn set_network(&mut self, chain: Chain, network: NetworkType) {
+    pub fn set_network(&mut self, chain: ChainId, network: NetworkType) {
         self.state.write().networks.insert(chain, network);
     }
 
-    pub fn is_testnet(&self, chain: Chain) -> bool {
+    pub fn is_testnet(&self, chain: ChainId) -> bool {
         self.get_network(chain).is_testnet()
     }
 }

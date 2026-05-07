@@ -3,13 +3,13 @@
 //! These stubs provide the types needed by wallet code.
 //! The actual chain operations delegate to csv-sdk when available.
 
-use csv_core::Chain;
+use csv_store::state::ChainId;
 
 /// Blockchain error type.
 #[derive(Debug, Clone)]
 pub struct BlockchainError {
     pub message: String,
-    pub chain: Option<Chain>,
+    pub chain: Option<ChainId>,
     pub code: Option<u32>,
 }
 
@@ -57,7 +57,7 @@ impl NativeWallet {
 #[derive(Debug, Clone, PartialEq)]
 pub struct BrowserWallet {
     pub address: String,
-    pub chain: Option<Chain>,
+    pub chain: Option<ChainId>,
     pub wallet_type: WalletType,
 }
 
@@ -74,7 +74,7 @@ pub enum ContractType {
 pub struct ContractDeployment {
     pub address: String,
     pub tx_hash: String,
-    pub chain: Option<Chain>,
+    pub chain: Option<ChainId>,
     pub contract_address: String,
     pub contract_type: ContractType,
     pub deployed_at: u64,
@@ -95,7 +95,7 @@ impl BlockchainService {
     /// Transfer sanad locally (stub).
     pub async fn transfer_sanad_local(
         &self,
-        _chain: Chain,
+        _chain: ChainId,
         _sanad_id: &str,
         _to: &str,
     ) -> Result<TransferResult, BlockchainError> {
@@ -109,11 +109,11 @@ impl BlockchainService {
    /// Execute cross-chain transfer (stub).
     pub async fn execute_cross_chain_transfer(
         &self,
-        _from_chain: Chain,
-        _to_chain: Chain,
+        _from_chain: ChainId,
+        _to_chain: ChainId,
         _sanad_id: &str,
         _to_address: &str,
-        _contracts: &std::collections::HashMap<Chain, ContractDeployment>,
+        _contracts: &std::collections::HashMap<ChainId, ContractDeployment>,
         _signer: &NativeWallet,
     ) -> Result<TransferResult, BlockchainError> {
         Err(BlockchainError {
@@ -142,10 +142,10 @@ pub struct TransferResult {
 
 /// Wallet connection utilities stub.
 pub mod wallet_connection {
-    use super::{WalletType, Chain, NativeWallet};
+    use super::{WalletType, ChainId, NativeWallet};
 
     /// Get recommended wallet type for a chain.
-    pub fn recommended_wallet(_chain: Chain) -> WalletType {
+    pub fn recommended_wallet(_chain: ChainId) -> WalletType {
         WalletType::MetaMask
     }
 

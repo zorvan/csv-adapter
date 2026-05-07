@@ -271,7 +271,7 @@ fn WelcomeStep(props: WelcomeStepProps) -> Element {
             div { class: "feature-highlights",
                 div { class: "feature-item",
                     span { class: "feature-icon", "🔗" }
-                    h4 { "Cross-Chain" }
+                    h4 { "Cross-ChainId" }
                     p { "Transfer assets between any supported blockchains" }
                 }
                 div { class: "feature-item",
@@ -604,7 +604,7 @@ fn CompleteStep(props: CompleteStepProps) -> Element {
                 }
                 div { class: "action-card",
                     span { class: "action-icon", "🔗" }
-                    h4 { "Transfer Cross-Chain" }
+                    h4 { "Transfer Cross-ChainId" }
                     p { "Move assets between blockchains" }
                 }
                 div { class: "action-card",

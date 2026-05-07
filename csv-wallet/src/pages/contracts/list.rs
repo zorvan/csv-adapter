@@ -4,7 +4,7 @@ use crate::context::{use_wallet_context, DeployedContract};
 use crate::pages::common::*;
 use crate::pages::contracts::ContractDetailModal;
 use crate::routes::Route;
-use csv_core::Chain;
+use csv_store::state::ChainId;
 use dioxus::prelude::*;
 
 #[component]
@@ -46,7 +46,7 @@ pub fn Contracts() -> Element {
                                 let mut total_found = 0;
 
                                 for account in &accounts_clone {
-                                    if matches!(account.chain, Chain::Bitcoin) {
+                                    if matches!(account.chain, ChainId::new("bitcoin")) {
                                         continue;
                                     }
 
@@ -91,7 +91,7 @@ pub fn Contracts() -> Element {
                                 "Discovering..."
                             }
                         } else {
-                            span { "\u{1F50D} Discover from Chain" }
+                            span { "\u{1F50D} Discover from ChainId" }
                         }
                     }
                     Link { to: Route::AddContract {}, class: "{btn_secondary_class()}", "+ Add Existing" }
@@ -118,7 +118,7 @@ pub fn Contracts() -> Element {
                         table { class: "w-full text-sm",
                             thead {
                                 tr { class: "text-left text-gray-400 border-b border-gray-800",
-                                    th { class: "px-4 py-2 font-medium", "Chain" }
+                                    th { class: "px-4 py-2 font-medium", "ChainId" }
                                     th { class: "px-4 py-2 font-medium", "Address" }
                                     th { class: "px-4 py-2 font-medium", "TX Hash" }
                                     th { class: "px-4 py-2 font-medium", "Action" }

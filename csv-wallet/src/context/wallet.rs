@@ -189,7 +189,7 @@ impl WalletContext {
         self.state.read().wallet.all_accounts()
     }
 
-    pub fn accounts_for_chain(&self, chain: Chain) -> Vec<ChainAccount> {
+    pub fn accounts_for_chain(&self, chain: ChainId) -> Vec<ChainAccount> {
         self.state
             .read()
             .wallet
@@ -199,11 +199,11 @@ impl WalletContext {
             .collect()
     }
 
-    pub fn selected_chain(&self) -> Chain {
+    pub fn selected_chain(&self) -> ChainId {
         self.state.read().selected_chain
     }
 
-    pub fn set_selected_chain(&mut self, chain: Chain) {
+    pub fn set_selected_chain(&mut self, chain: ChainId) {
         self.state.write().selected_chain = chain;
     }
 
@@ -216,7 +216,7 @@ impl WalletContext {
     }
 
     /// Get the first address for a chain.
-    pub fn address_for_chain(&self, chain: Chain) -> Option<String> {
+    pub fn address_for_chain(&self, chain: ChainId) -> Option<String> {
         self.state
             .read()
             .wallet
@@ -226,7 +226,7 @@ impl WalletContext {
     }
 
     /// Get the gas payment account for a chain (falls back to regular address).
-    pub fn get_gas_account(&self, chain: Chain) -> Option<String> {
+    pub fn get_gas_account(&self, chain: ChainId) -> Option<String> {
         // Prefer a dedicated gas account if set, otherwise use the regular address.
         self.state
             .read()
@@ -267,7 +267,7 @@ impl WalletContext {
         self.state.read().sanads.clone()
     }
 
-    pub fn sanads_for_chain(&self, chain: Chain) -> Vec<TrackedSanad> {
+    pub fn sanads_for_chain(&self, chain: ChainId) -> Vec<TrackedSanad> {
         self.state
             .read()
             .sanads
@@ -285,7 +285,7 @@ impl WalletContext {
         self.state.read().contracts.clone()
     }
 
-    pub fn contracts_for_chain(&self, chain: Chain) -> Vec<ContractRecord> {
+    pub fn contracts_for_chain(&self, chain: ChainId) -> Vec<ContractRecord> {
         self.state
             .read()
             .contracts
@@ -320,13 +320,13 @@ impl WalletContext {
         self.state.read().test_results.clone()
     }
 
-    pub fn get_explorer_url(&self, chain: Chain, tx_hash: &str) -> Option<String> {
+    pub fn get_explorer_url(&self, chain: ChainId, tx_hash: &str) -> Option<String> {
         use crate::services::explorer::ExplorerConfig;
         let explorer = ExplorerConfig::for_chain(chain)?;
         Some(explorer.tx_url(tx_hash))
     }
 
-    pub fn get_address_explorer_url(&self, chain: Chain, address: &str) -> Option<String> {
+    pub fn get_address_explorer_url(&self, chain: ChainId, address: &str) -> Option<String> {
         use crate::services::explorer::ExplorerConfig;
         let explorer = ExplorerConfig::for_chain(chain)?;
         Some(explorer.address_url(address))
@@ -335,7 +335,7 @@ impl WalletContext {
     /// Get signer for a specific chain
     pub fn get_signer_for_chain(
         &self,
-        chain: Chain,
+        chain: ChainId,
     ) -> Option<crate::services::blockchain::NativeWallet> {
         use crate::services::blockchain::wallet_connection;
         self.accounts_for_chain(chain)
@@ -363,7 +363,7 @@ impl WalletContext {
     /// Import an account from a private key.
     pub fn import_account_from_key(
         &mut self,
-        chain: Chain,
+        chain: ChainId,
         name: &str,
         private_key_hex: &str,
         passphrase: &str,
@@ -421,7 +421,7 @@ impl WalletContext {
         Ok(())
     }
 
-    pub fn remove_account(&mut self, chain: Chain, address: &str) -> bool {
+    pub fn remove_account(&mut self, chain: ChainId, address: &str) -> bool {
         // Find the account ID by chain and address
         let account_id = self
             .state
@@ -443,7 +443,7 @@ impl WalletContext {
         }
     }
 
-    pub fn refresh_address(&mut self, chain: Chain, address: &str, new_address: String) {
+    pub fn refresh_address(&mut self, chain: ChainId, address: &str, new_address: String) {
         self.state
             .write()
             .wallet

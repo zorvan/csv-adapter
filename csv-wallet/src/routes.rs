@@ -39,7 +39,7 @@ pub enum Route {
     #[route("/proofs/verify-cross-chain")]
     VerifyCrossChainProof {},
 
-    // Cross-Chain
+    // Cross-ChainId
     #[route("/cross-chain")]
     CrossChain {},
     #[route("/cross-chain/transfer")]

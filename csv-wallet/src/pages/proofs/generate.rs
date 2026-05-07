@@ -3,23 +3,23 @@
 use crate::context::{use_wallet_context, ProofRecord, ProofStatus};
 use crate::pages::common::*;
 use crate::routes::Route;
-use csv_core::Chain;
+use csv_store::state::ChainId;
 use dioxus::prelude::*;
 use std::rc::Rc;
 
 #[component]
 pub fn GenerateProof() -> Element {
     let mut wallet_ctx = use_wallet_context();
-    let mut selected_chain = use_signal(|| Chain::Bitcoin);
+    let mut selected_chain = use_signal(|| ChainId::new("bitcoin"));
     let mut sanad_id = use_signal(String::new);
     let mut result = use_signal(|| Option::<String>::None);
 
     let proof_type = match *selected_chain.read() {
-        Chain::Bitcoin => "merkle",
-        Chain::Ethereum => "mpt",
-        Chain::Sui => "checkpoint",
-        Chain::Aptos => "ledger",
-        Chain::Solana => "merkle",
+        ChainId::new("bitcoin") => "merkle",
+        ChainId::new("ethereum") => "mpt",
+        ChainId::new("sui") => "checkpoint",
+        ChainId::new("aptos") => "ledger",
+        ChainId::new("solana") => "merkle",
         _ => "unknown",
     };
 
@@ -31,8 +31,8 @@ pub fn GenerateProof() -> Element {
             }
 
             div { class: "{card_class()} p-6 space-y-5",
-                {form_field("Source Chain", chain_select(move |v: Rc<FormData>| {
-                    if let Ok(c) = v.value().parse::<Chain>() { selected_chain.set(c); }
+                {form_field("Source ChainId", chain_select(move |v: Rc<FormData>| {
+                    if let Ok(c) = v.value().parse::<ChainId>() { selected_chain.set(c); }
                 }, *selected_chain.read()))}
 
                 {form_field("Sanad ID", rsx! {

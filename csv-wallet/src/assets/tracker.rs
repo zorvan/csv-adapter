@@ -15,7 +15,7 @@
 //! - Lazy loading with cursor-based iteration
 //! - Connection pooling for database access
 
-use csv_core::{Chain, Sanad, SanadId, OwnershipProof};
+use csv_core::{ChainId, Sanad, SanadId, OwnershipProof};
 use indexed_db_futures::prelude::*;
 use serde::{Serialize, Deserialize};
 use std::sync::Arc;
@@ -38,8 +38,8 @@ const CHAIN_INDEX: &str = "by_chain";
 pub struct AssetRecord {
     /// Sanad ID (primary key)
     pub sanad_id: SanadId,
-    /// Chain where the seal is anchored
-    pub chain: Chain,
+    /// ChainId where the seal is anchored
+    pub chain: ChainId,
     /// Commitment hash (hex encoded)
     pub commitment: String,
     /// Owner proof with cryptographic verification data
@@ -393,11 +393,11 @@ impl AssetTracker {
     /// Uses the chain index for O(log n) lookup instead of full scan.
     ///
     /// # Arguments
-    /// * `chain` - Chain to filter by
+    /// * `chain` - ChainId to filter by
     ///
     /// # Returns
     /// * `Ok(Vec<AssetRecord>)` containing matching assets
-    pub async fn get_assets_by_chain(&self, chain: Chain) -> Result<Vec<AssetRecord>, AssetTrackerError> {
+    pub async fn get_assets_by_chain(&self, chain: ChainId) -> Result<Vec<AssetRecord>, AssetTrackerError> {
         // Get database reference
         let db_guard = self.db.read().await;
         let db = db_guard

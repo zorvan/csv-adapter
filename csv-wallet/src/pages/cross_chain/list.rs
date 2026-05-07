@@ -13,7 +13,7 @@ pub fn CrossChain() -> Element {
     rsx! {
         div { class: "space-y-6",
             div { class: "flex items-center justify-between",
-                h1 { class: "text-2xl font-bold", "Cross-Chain Transfers" }
+                h1 { class: "text-2xl font-bold", "Cross-ChainId Transfers" }
                 Link { to: Route::CrossChainTransfer {}, class: "{btn_primary_class()}", "+ New Transfer" }
             }
 

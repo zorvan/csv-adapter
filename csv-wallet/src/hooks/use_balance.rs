@@ -1,6 +1,6 @@
 //! Balance fetching hook.
 
-use csv_core::Chain;
+use csv_store::state::ChainId;
 use dioxus::prelude::*;
 use std::collections::HashMap;
 
@@ -8,7 +8,7 @@ use std::collections::HashMap;
 #[derive(Clone, Debug, PartialEq)]
 pub struct AccountBalance {
     pub account_id: String,
-    pub chain: Chain,
+    pub chain: ChainId,
     pub address: String,
     /// Balance in raw chain units (satoshis, lamports, MIST, octas, wei).
     /// Use `format_balance_display()` for human-readable display.
@@ -35,7 +35,7 @@ impl BalanceContext {
     }
 
     /// Get total raw balance for a chain (in chain-native units).
-    pub fn chain_total_raw(&self, chain: Chain) -> u64 {
+    pub fn chain_total_raw(&self, chain: ChainId) -> u64 {
         self.balances
             .read()
             .values()
@@ -72,25 +72,25 @@ pub fn use_balance() -> BalanceContext {
 
 /// Format raw balance for display with appropriate precision.
 /// Takes raw chain units (satoshis, lamports, etc.) and returns human-readable string.
-pub fn format_balance_display(balance_raw: u64, chain: Chain) -> String {
+pub fn format_balance_display(balance_raw: u64, chain: ChainId) -> String {
     match chain {
-        Chain::Bitcoin => {
+        ChainId::new("bitcoin") => {
             let btc = balance_raw as f64 / 100_000_000.0;
             format!("{:.8} BTC", btc)
         }
-        Chain::Ethereum => {
+        ChainId::new("ethereum") => {
             let eth = balance_raw as f64 / 1e18;
             format!("{:.6} ETH", eth)
         }
-        Chain::Sui => {
+        ChainId::new("sui") => {
             let sui = balance_raw as f64 / 1e9;
             format!("{:.4} SUI", sui)
         }
-        Chain::Aptos => {
+        ChainId::new("aptos") => {
             let apt = balance_raw as f64 / 1e8;
             format!("{:.4} APT", apt)
         }
-        Chain::Solana => {
+        ChainId::new("solana") => {
             let sol = balance_raw as f64 / 1e9;
             format!("{:.4} SOL", sol)
         }
@@ -100,18 +100,18 @@ pub fn format_balance_display(balance_raw: u64, chain: Chain) -> String {
 
 /// Legacy alias for backward compatibility - prefer format_balance_display.
 #[deprecated(since = "0.4.0", note = "Use format_balance_display with raw u64 instead")]
-pub fn format_balance(balance: f64, chain: Chain) -> String {
+pub fn format_balance(balance: f64, chain: ChainId) -> String {
     format_balance_display(balance as u64, chain)
 }
 
 /// Get chain symbol.
-pub fn chain_symbol(chain: Chain) -> &'static str {
+pub fn chain_symbol(chain: ChainId) -> &'static str {
     match chain {
-        Chain::Bitcoin => "BTC",
-        Chain::Ethereum => "ETH",
-        Chain::Sui => "SUI",
-        Chain::Aptos => "APT",
-        Chain::Solana => "SOL",
+        ChainId::new("bitcoin") => "BTC",
+        ChainId::new("ethereum") => "ETH",
+        ChainId::new("sui") => "SUI",
+        ChainId::new("aptos") => "APT",
+        ChainId::new("solana") => "SOL",
         _ => "",
     }
 }

@@ -263,7 +263,7 @@ fn SealTimelineView(mut props: SealTimelineViewProps) -> Element {
                         }
                         if let Some(ref chain) = event.chain {
                             div { class: "detail-row",
-                                span { class: "detail-label", "Chain: " }
+                                span { class: "detail-label", "ChainId: " }
                                 span { class: "detail-value", "{chain}" }
                             }
                         }
@@ -359,7 +359,7 @@ struct TransferViewProps {
 fn TransferView(props: TransferViewProps) -> Element {
     rsx! {
         div { class: "seal-transfer-view",
-            h4 { class: "transfer-title", "Cross-Chain Transfer" }
+            h4 { class: "transfer-title", "Cross-ChainId Transfer" }
 
             div { class: "transfer-flow",
                 // Source chain

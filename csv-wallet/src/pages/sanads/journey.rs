@@ -252,7 +252,7 @@ fn sanad_details_section(sanad: &TrackedSanad) -> Element {
                         p { class: "text-sm font-mono break-all", "{&sanad.id}" }
                     }
                     div {
-                        p { class: "text-xs text-gray-500", "Chain" }
+                        p { class: "text-xs text-gray-500", "ChainId" }
                         p { class: "text-sm", span { class: "{chain_badge_class(&sanad.chain)}", "{chain_icon_emoji(&sanad.chain)} {chain_name(&sanad.chain)}" } }
                     }
                     div {
@@ -381,12 +381,12 @@ fn proof_card(proof: &ProofRecord) -> Element {
 
             div { class: "grid grid-cols-2 gap-3 text-sm",
                 div {
-                    p { class: "text-xs text-gray-500", "Source Chain" }
+                    p { class: "text-xs text-gray-500", "Source ChainId" }
                     p { class: "font-mono", "{chain_name(&proof.chain)}" }
                 }
                 if let Some(target) = proof.target_chain {
                     div {
-                        p { class: "text-xs text-gray-500", "Target Chain" }
+                        p { class: "text-xs text-gray-500", "Target ChainId" }
                         p { class: "font-mono", "{chain_name(&target)}" }
                     }
                 }
@@ -518,7 +518,7 @@ fn destination_section(sanad: &TrackedSanad) -> Element {
                         p { class: "text-sm font-mono break-all", "{&sanad.id}" }
                     }
                     div {
-                        p { class: "text-xs text-gray-500", "Chain" }
+                        p { class: "text-xs text-gray-500", "ChainId" }
                         p { class: "text-sm", span { class: "{chain_badge_class(&sanad.chain)}", "{chain_icon_emoji(&sanad.chain)} {chain_name(&sanad.chain)}" } }
                     }
                     div {
@@ -539,7 +539,7 @@ fn destination_section(sanad: &TrackedSanad) -> Element {
     }
 }
 
-/// Commitment chain section - Phase 1.3: Make Commitment Chain Walkable in UI
+/// Commitment chain section - Phase 1.3: Make Commitment ChainId Walkable in UI
 ///
 /// This section visualizes the cryptographic commitment chain that proves
 /// the provenance of the Sanad. This is the primary UI proof that CSV works
@@ -552,7 +552,7 @@ fn commitment_chain_section(_sanad: &TrackedSanad, proofs: &[ProofRecord]) -> El
     rsx! {
         div { class: "{card_class()}",
             div { class: "{card_header_class()}",
-                h2 { class: "font-semibold", "\u{1F517} Commitment Chain" }
+                h2 { class: "font-semibold", "\u{1F517} Commitment ChainId" }
                 p { class: "text-xs text-gray-400 mt-1",
                     "Cryptographic provenance chain linking all state transitions"
                 }
@@ -565,10 +565,10 @@ fn commitment_chain_section(_sanad: &TrackedSanad, proofs: &[ProofRecord]) -> El
                         }
                     }
                 } else {
-                    // Chain statistics
+                    // ChainId statistics
                     div { class: "flex items-center gap-4 text-sm",
                         div { class: "flex items-center gap-2",
-                            span { class: "text-gray-400", "Chain length:" }
+                            span { class: "text-gray-400", "ChainId length:" }
                             span { class: "font-mono", "{chain.len()}" }
                         }
                         div { class: "flex items-center gap-2",
@@ -685,7 +685,7 @@ fn commitment_node(node: &CommitmentNode, index: usize, is_genesis: bool, is_lat
 struct CommitmentNode {
     hash: String,
     previous_hash: String,
-    chain: csv_core::Chain,
+    chain: csv_core::ChainId,
     anchor_tx: Option<String>,
     timestamp: Option<u64>,
 }

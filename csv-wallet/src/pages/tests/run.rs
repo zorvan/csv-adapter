@@ -3,15 +3,15 @@
 use crate::context::{use_wallet_context, TestResult, TestStatus};
 use crate::pages::common::*;
 use crate::routes::Route;
-use csv_core::Chain;
+use csv_store::state::ChainId;
 use dioxus::prelude::*;
 use std::rc::Rc;
 
 #[component]
 pub fn RunTests() -> Element {
     let mut wallet_ctx = use_wallet_context();
-    let mut selected_from = use_signal(|| Chain::Bitcoin);
-    let mut selected_to = use_signal(|| Chain::Sui);
+    let mut selected_from = use_signal(|| ChainId::new("bitcoin"));
+    let mut selected_to = use_signal(|| ChainId::new("sui"));
     let mut run_all = use_signal(|| false);
     let mut running = use_signal(|| false);
     let mut current_step = use_signal(|| 0);
@@ -45,12 +45,12 @@ pub fn RunTests() -> Element {
 
                 if !*run_all.read() {
                     div { class: "grid grid-cols-2 gap-4",
-                        {form_field("From Chain", chain_select(move |v: Rc<FormData>| {
-                            if let Ok(c) = v.value().parse::<Chain>() { selected_from.set(c); }
+                        {form_field("From ChainId", chain_select(move |v: Rc<FormData>| {
+                            if let Ok(c) = v.value().parse::<ChainId>() { selected_from.set(c); }
                         }, *selected_from.read()))}
 
-                        {form_field("To Chain", chain_select(move |v: Rc<FormData>| {
-                            if let Ok(c) = v.value().parse::<Chain>() { selected_to.set(c); }
+                        {form_field("To ChainId", chain_select(move |v: Rc<FormData>| {
+                            if let Ok(c) = v.value().parse::<ChainId>() { selected_to.set(c); }
                         }, *selected_to.read()))}
                     }
                 }
@@ -83,9 +83,9 @@ pub fn RunTests() -> Element {
                         // Simulate test steps
                         let pairs = if *run_all.read() {
                             vec![
-                                (Chain::Bitcoin, Chain::Sui),
-                                (Chain::Bitcoin, Chain::Ethereum),
-                                (Chain::Sui, Chain::Ethereum),
+                                (ChainId::new("bitcoin"), ChainId::new("sui")),
+                                (ChainId::new("bitcoin"), ChainId::new("ethereum")),
+                                (ChainId::new("sui"), ChainId::new("ethereum")),
                             ]
                         } else {
                             vec![(*selected_from.read(), *selected_to.read())]

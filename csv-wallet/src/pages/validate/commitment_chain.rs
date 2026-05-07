@@ -12,11 +12,11 @@ pub fn ValidateCommitmentChain() -> Element {
         div { class: "max-w-2xl space-y-6",
             div { class: "flex items-center gap-3",
                 Link { to: Route::Validate {}, class: "{btn_secondary_class()}", "\u{2190} Back" }
-                h1 { class: "text-xl font-bold", "Validate Commitment Chain" }
+                h1 { class: "text-xl font-bold", "Validate Commitment ChainId" }
             }
 
             div { class: "{card_class()} p-6 space-y-5",
-                {form_field("Commitment Chain File", rsx! {
+                {form_field("Commitment ChainId File", rsx! {
                     input {
                         class: "{input_class()}",
                         r#type: "file",

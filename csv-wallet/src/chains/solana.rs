@@ -2,7 +2,7 @@
 //!
 //! Handles Solana wallet operations and address derivation.
 
-use csv_core::Chain;
+use csv_store::state::ChainId;
 
 /// Format Solana address.
 pub fn format_address(pubkey_bytes: &[u8]) -> String {
@@ -11,6 +11,6 @@ pub fn format_address(pubkey_bytes: &[u8]) -> String {
 }
 
 /// Get chain type.
-pub fn chain() -> Chain {
-    Chain::Solana
+pub fn chain() -> ChainId {
+    ChainId::new("solana")
 }

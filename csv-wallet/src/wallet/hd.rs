@@ -4,7 +4,7 @@
 //! for multiple chains from a single seed.
 
 use crate::wallet::metadata::WalletMetadata;
-use csv_core::Chain;
+use csv_store::state::ChainId;
 use bip32::Mnemonic;
 use serde::{Serialize, Deserialize};
 use rand::RngCore;
@@ -163,7 +163,7 @@ impl ExtendedWallet {
     }
 
     /// Get addresses for all chains.
-    pub fn all_addresses(&self) -> Vec<(Chain, String)> {
+    pub fn all_addresses(&self) -> Vec<(ChainId, String)> {
         use secp256k1::{Secp256k1, SecretKey};
         use ed25519_dalek::SigningKey;
         use sha2::{Sha256, Digest};
@@ -175,7 +175,7 @@ impl ExtendedWallet {
         // Bitcoin - derive proper Taproot (P2TR) address
         match self.derive_taproot_address(0, 0) {
             Ok(address) => {
-                addresses.push((Chain::Bitcoin, address));
+                addresses.push((ChainId::new("bitcoin"), address));
             }
             Err(e) => {
                 eprintln!("Error: Bitcoin address derivation failed: {}", e);
@@ -194,7 +194,7 @@ impl ExtendedWallet {
             let hash = hasher.finalize();
             let mut address = [0u8; 20];
             address.copy_from_slice(&hash[12..]);
-            addresses.push((Chain::Ethereum, format!("0x{}", hex::encode(address))));
+            addresses.push((ChainId::new("ethereum"), format!("0x{}", hex::encode(address))));
         }
 
         // Sui
@@ -208,7 +208,7 @@ impl ExtendedWallet {
             hasher.update(sui_verifying.as_bytes());
             hasher.finalize().into()
         };
-        addresses.push((Chain::Sui, format!("0x{}", hex::encode(&hash))));
+        addresses.push((ChainId::new("sui"), format!("0x{}", hex::encode(&hash))));
 
         // Aptos
         let mut aptos_key = [0u8; 32];
@@ -219,20 +219,20 @@ impl ExtendedWallet {
         hasher.update(aptos_verifying.as_bytes());
         hasher.update(&[0x00]);
         let hash = hasher.finalize();
-        addresses.push((Chain::Aptos, format!("0x{}", hex::encode(&hash[..]))));
+        addresses.push((ChainId::new("aptos"), format!("0x{}", hex::encode(&hash[..]))));
 
         // Solana
         let mut solana_key = [0u8; 32];
         solana_key.copy_from_slice(&self.seed[..32]);
         let solana_signing = SigningKey::from_bytes(&solana_key);
         let solana_verifying: ed25519_dalek::VerifyingKey = solana_signing.verifying_key();
-        addresses.push((Chain::Solana, bs58::encode(solana_verifying.as_bytes()).into_string()));
+        addresses.push((ChainId::new("solana"), bs58::encode(solana_verifying.as_bytes()).into_string()));
 
         addresses
     }
 
     /// Get address for a specific chain.
-    pub fn address(&self, chain: Chain) -> String {
+    pub fn address(&self, chain: ChainId) -> String {
         let addresses = self.all_addresses();
         addresses.iter()
             .find(|(c, _)| *c == chain)

@@ -1,6 +1,6 @@
-//! Chain-specific integrations.
+//! ChainId-specific integrations.
 
-use csv_core::Chain;
+use csv_store::state::ChainId;
 
 pub mod aptos;
 pub mod bitcoin;
@@ -9,12 +9,12 @@ pub mod solana;
 pub mod sui;
 
 /// Chains currently supported by the wallet UI.
-pub fn supported_wallet_chains() -> Vec<Chain> {
+pub fn supported_wallet_chains() -> Vec<ChainId> {
     vec![
-        Chain::Bitcoin,
-        Chain::Ethereum,
-        Chain::Sui,
-        Chain::Aptos,
-        Chain::Solana,
+        ChainId::new("bitcoin"),
+        ChainId::new("ethereum"),
+        ChainId::new("sui"),
+        ChainId::new("aptos"),
+        ChainId::new("solana"),
     ]
 }

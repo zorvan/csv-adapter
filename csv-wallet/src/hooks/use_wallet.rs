@@ -1,7 +1,7 @@
 //! Wallet state hook.
 
 use crate::wallet_core::{ChainAccount, WalletData as Wallet};
-use csv_core::Chain;
+use csv_store::state::ChainId;
 use csv_keys::{
     bip39::{Mnemonic, MnemonicType},
     bip44::derive_all_chain_keys,
@@ -20,7 +20,7 @@ pub struct WalletState {
     /// Current wallet
     pub wallet: Option<Wallet>,
     /// Wallet addresses
-    pub addresses: std::collections::HashMap<csv_core::Chain, String>,
+    pub addresses: std::collections::HashMap<csv_core::ChainId, String>,
 }
 
 /// Wallet context.
@@ -143,11 +143,11 @@ impl WalletContext {
             // Parse chain from keystore_ref (format: "{chain}_account_{index}")
             let chain_str = keystore_ref.split('_').next().unwrap_or("unknown");
             let chain = match chain_str {
-                "bitcoin" => Chain::Bitcoin,
-                "ethereum" => Chain::Ethereum,
-                "sui" => Chain::Sui,
-                "aptos" => Chain::Aptos,
-                "solana" => Chain::Solana,
+                "bitcoin" => ChainId::new("bitcoin"),
+                "ethereum" => ChainId::new("ethereum"),
+                "sui" => ChainId::new("sui"),
+                "aptos" => ChainId::new("aptos"),
+                "solana" => ChainId::new("solana"),
                 _ => continue, // Skip unknown chains
             };
 

@@ -5,7 +5,7 @@ use crate::components::{all_chain_displays, Card, ChainDisplay};
 use crate::context::{use_wallet_context, WalletContext};
 use crate::routes::Route;
 use crate::wallet_core::ChainAccount;
-use csv_core::Chain;
+use csv_store::state::ChainId;
 use dioxus::prelude::*;
 use wasm_bindgen::prelude::*;
 
@@ -115,7 +115,7 @@ fn AccountsTab() -> Element {
 }
 
 #[component]
-fn ChainAccountsSection(chain: Chain) -> Element {
+fn ChainAccountsSection(chain: ChainId) -> Element {
     let wallet_ctx = use_wallet_context();
     let chain_accounts = wallet_ctx.accounts_for_chain(chain);
 
@@ -141,7 +141,7 @@ fn ChainAccountsSection(chain: Chain) -> Element {
 fn ChainAccountRow(account: ChainAccount, mut wallet_ctx: WalletContext) -> Element {
     let mut show_key = use_signal(|| false);
     let _account_clone = account.clone();
-    let is_bitcoin = account.chain == Chain::Bitcoin;
+    let is_bitcoin = account.chain == ChainId::new("bitcoin");
 
     rsx! {
         div { class: "flex items-center justify-between bg-gray-800/50 rounded-lg p-3",
@@ -196,13 +196,13 @@ fn ChainAccountRow(account: ChainAccount, mut wallet_ctx: WalletContext) -> Elem
     }
 }
 
-fn chain_name(chain: &Chain) -> &'static str {
-    match chain {
-        Chain::Bitcoin => "Bitcoin",
-        Chain::Ethereum => "Ethereum",
-        Chain::Sui => "Sui",
-        Chain::Aptos => "Aptos",
-        Chain::Solana => "Solana",
+fn chain_name(chain: &ChainId) -> &'static str {
+    match chain.as_str() {
+        "bitcoin" => "Bitcoin",
+        "ethereum" => "Ethereum",
+        "sui" => "Sui",
+        "aptos" => "Aptos",
+        "solana" => "Solana",
         _ => "Unknown",
     }
 }
@@ -210,7 +210,7 @@ fn chain_name(chain: &Chain) -> &'static str {
 #[component]
 fn AddAccountTab() -> Element {
     let mut wallet_ctx = use_wallet_context();
-    let mut selected_chain = use_signal(|| ChainDisplay(Chain::Bitcoin));
+    let mut selected_chain = use_signal(|| ChainDisplay(ChainId::new("bitcoin")));
     let mut pk_input = use_signal(String::new);
     let mut name_input = use_signal(String::new);
     let mut passphrase_input = use_signal(String::new);
@@ -230,7 +230,7 @@ fn AddAccountTab() -> Element {
                                 value: "{selected_chain.read()}",
                                 onchange: move |evt| {
                                     let val = evt.value();
-                                    if let Ok(c) = val.parse::<Chain>() {
+                                    if let Ok(c) = val.parse::<ChainId>() {
                                         selected_chain.set(ChainDisplay(c));
                                     }
                                 },
@@ -501,7 +501,7 @@ fn trigger_download(filename: &str, content: &str) {
 
 /// Generate a random 32-byte private key for any chain.
 /// All supported chains (Bitcoin/Ethereum secp256k1, Sui/Aptos/Solana ed25519) use 32-byte keys.
-fn generate_key_for_chain(_chain: Chain) -> String {
+fn generate_key_for_chain(_chain: ChainId) -> String {
     use rand::rngs::OsRng;
     use rand::RngCore;
 

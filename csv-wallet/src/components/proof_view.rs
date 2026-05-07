@@ -4,7 +4,7 @@
 //! - Proof structure breakdown
 //! - Merkle path visualization
 //! - Verification status
-//! - Chain signatures display
+//! - ChainId signatures display
 //! - Raw proof data viewer
 
 use crate::components::hash_display::{shorten_hash, HashDisplay};
@@ -119,7 +119,7 @@ pub fn ProofInspector(props: ProofInspectorProps) -> Element {
             // Header with status
             div { class: "proof-header",
                 div { class: "proof-title-section",
-                    h3 { class: "proof-title", "Cross-Chain Proof" }
+                    h3 { class: "proof-title", "Cross-ChainId Proof" }
                     span {
                         class: "proof-status-badge",
                         style: format!("color: {}; border-color: {}",
@@ -220,7 +220,7 @@ struct ProofOverviewProps {
 fn ProofOverview(props: ProofOverviewProps) -> Element {
     rsx! {
         div { class: "proof-overview",
-            // Chain flow visualization
+            // ChainId flow visualization
             div { class: "proof-chain-flow",
                 div { class: "chain-box source",
                     div { class: "chain-label", "Source" }

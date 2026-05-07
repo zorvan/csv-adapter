@@ -2,7 +2,7 @@
 
 use dioxus::prelude::*;
 use crate::seals::registry::{SealRecord, SealStatus};
-use csv_core::Chain;
+use csv_store::state::ChainId;
 
 /// Seal state.
 #[derive(Clone, PartialEq)]
@@ -29,7 +29,7 @@ impl SealContext {
         }
     }
 
-    pub fn get_seals_by_chain(&self, chain: Chain) -> Vec<SealRecord> {
+    pub fn get_seals_by_chain(&self, chain: ChainId) -> Vec<SealRecord> {
         self.state.read().seals.iter()
             .filter(|s| s.chain == chain)
             .cloned()

@@ -34,7 +34,7 @@ pub fn ShowSanad(id: String) -> Element {
                             p { class: "font-mono text-sm text-gray-200 break-all", "{sanad.id}" }
                         }
                         div {
-                            p { class: "text-sm text-gray-400 mb-1", "Chain" }
+                            p { class: "text-sm text-gray-400 mb-1", "ChainId" }
                             span { class: "{chain_badge_class(&sanad.chain)}", "{chain_icon_emoji(&sanad.chain)} {chain_name(&sanad.chain)}" }
                         }
                         div {

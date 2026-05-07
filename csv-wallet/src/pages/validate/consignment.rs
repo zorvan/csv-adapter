@@ -44,7 +44,7 @@ pub fn ValidateConsignment() -> Element {
                 }
                 ol { class: "text-xs text-blue-200 list-decimal list-inside space-y-1",
                     li { "Structural: Version, schema, and required fields" }
-                    li { "Commitment Chain: Genesis to latest integrity" }
+                    li { "Commitment ChainId: Genesis to latest integrity" }
                     li { "Seal Consumption: Double-spend detection" }
                     li { "State Transitions: Valid evolution rules" }
                     li { "Final Acceptance: All checks must pass" }
@@ -178,7 +178,7 @@ fn validate_consignment_json(json: &str) -> Result<Vec<ValidationStepUI>, String
 
     // Run validation
     let validator = ConsignmentValidator::new();
-    let report = validator.validate_consignment(&consignment, csv_core::nullifier::ChainId::Bitcoin);
+    let report = validator.validate_consignment(&consignment, csv_core::nullifier::ChainId::new("bitcoin"));
 
     // Convert report to UI format
     let steps: Vec<ValidationStepUI> = report

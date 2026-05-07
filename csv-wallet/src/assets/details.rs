@@ -2,7 +2,7 @@
 //!
 //! Provides detailed information about individual assets.
 
-use csv_core::{Chain, Sanad, SanadId};
+use csv_core::{ChainId, Sanad, SanadId};
 use serde::{Serialize, Deserialize};
 
 /// Detailed asset information.
@@ -10,8 +10,8 @@ use serde::{Serialize, Deserialize};
 pub struct AssetDetails {
     /// Sanad ID
     pub sanad_id: String,
-    /// Chain
-    pub chain: Chain,
+    /// ChainId
+    pub chain: ChainId,
     /// Commitment
     pub commitment: String,
     /// Owner address
@@ -36,7 +36,7 @@ pub struct AssetDetails {
 
 impl AssetDetails {
     /// Create asset details from a Sanad.
-    pub fn from_sanad(sanad: &Sanad, chain: Chain) -> Self {
+    pub fn from_sanad(sanad: &Sanad, chain: ChainId) -> Self {
         Self {
             sanad_id: format!("{:x}", sanad.id.0),
             chain,

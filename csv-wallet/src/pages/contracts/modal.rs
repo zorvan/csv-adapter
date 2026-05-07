@@ -27,7 +27,7 @@ pub fn ContractDetailModal(
                         p { class: "font-mono text-sm text-gray-200 break-all", "{contract.address}" }
                     }
                     div {
-                        p { class: "text-xs text-gray-400 mb-1", "Chain" }
+                        p { class: "text-xs text-gray-400 mb-1", "ChainId" }
                         p { class: "text-sm", "{chain_name(&contract.chain)}" }
                     }
                     div {

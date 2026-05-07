@@ -3,14 +3,14 @@
 use crate::context::{use_wallet_context, ProofStatus, SealStatus};
 use crate::pages::common::*;
 use crate::routes::Route;
-use csv_core::Chain;
+use csv_store::state::ChainId;
 use dioxus::prelude::*;
 
 #[component]
 pub fn Sanads() -> Element {
     let wallet_ctx = use_wallet_context();
     let sanads = wallet_ctx.sanads();
-    let mut filter_chain = use_signal(|| Option::<Chain>::None);
+    let mut filter_chain = use_signal(|| Option::<ChainId>::None);
 
     let filtered = match *filter_chain.read() {
         Some(c) => sanads
@@ -36,7 +36,7 @@ pub fn Sanads() -> Element {
                     class: if filter_chain.read().is_none() { "{btn_primary_class()}" } else { "{btn_secondary_class()}" },
                     "All"
                 }
-                for chain in [Chain::Bitcoin, Chain::Ethereum, Chain::Sui, Chain::Aptos, Chain::Solana] {
+                for chain in [ChainId::new("bitcoin"), ChainId::new("ethereum"), ChainId::new("sui"), ChainId::new("aptos"), ChainId::new("solana")] {
                     button {
                         key: "sanad-filter-{chain:?}",
                         onclick: move |_| filter_chain.set(Some(chain)),
@@ -59,7 +59,7 @@ pub fn Sanads() -> Element {
                             thead {
                                 tr { class: "text-left text-gray-400 border-b border-gray-800",
                                     th { class: "px-4 py-2 font-medium", "Sanad ID" }
-                                    th { class: "px-4 py-2 font-medium", "Chain" }
+                                    th { class: "px-4 py-2 font-medium", "ChainId" }
                                     th { class: "px-4 py-2 font-medium", "Value" }
                                     th { class: "px-4 py-2 font-medium", "Status" }
                                     th { class: "px-4 py-2 font-medium", "Seal/Proof" }

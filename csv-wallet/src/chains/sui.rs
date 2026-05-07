@@ -1,6 +1,6 @@
 //! Sui chain integration.
 
-use csv_core::Chain;
+use csv_store::state::ChainId;
 
 /// Format Sui address.
 pub fn format_address(hash_bytes: &[u8]) -> String {
@@ -8,6 +8,6 @@ pub fn format_address(hash_bytes: &[u8]) -> String {
 }
 
 /// Get chain type.
-pub fn chain() -> Chain {
-    Chain::Sui
+pub fn chain() -> ChainId {
+    ChainId::new("sui")
 }

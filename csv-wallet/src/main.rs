@@ -1,4 +1,4 @@
-//! CSV Wallet — Standalone Multi-Chain Wallet with Dioxus UI
+//! CSV Wallet — Standalone Multi-ChainId Wallet with Dioxus UI
 
 #![warn(missing_docs)]
 #![allow(dead_code)]

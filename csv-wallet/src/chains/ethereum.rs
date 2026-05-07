@@ -1,6 +1,6 @@
 //! Ethereum chain integration.
 
-use csv_core::Chain;
+use csv_store::state::ChainId;
 
 /// Format Ethereum address.
 pub fn format_address(address_bytes: &[u8; 20]) -> String {
@@ -8,6 +8,6 @@ pub fn format_address(address_bytes: &[u8; 20]) -> String {
 }
 
 /// Get chain type.
-pub fn chain() -> Chain {
-    Chain::Ethereum
+pub fn chain() -> ChainId {
+    ChainId::new("ethereum")
 }

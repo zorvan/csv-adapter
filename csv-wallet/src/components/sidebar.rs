@@ -179,12 +179,12 @@ fn user_mode_nav(mode: WalletMode) -> Element {
 
         {sidebar_section("Send / Receive", rsx! {
             {sidebar_link(Route::TransferSanad {}, "\u{1F4E4}", "Send Sanad")}
-            {sidebar_link(Route::CrossChainTransfer {}, "\u{1F504}", "Cross-Chain")}
+            {sidebar_link(Route::CrossChainTransfer {}, "\u{1F504}", "Cross-ChainId")}
         })}
 
         {sidebar_section("History", rsx! {
             {sidebar_link(Route::Transactions {}, "\u{1F4B8}", "Transactions")}
-            {sidebar_link(Route::CrossChain {}, "\u{21C4}", "Cross-Chain Transfers")}
+            {sidebar_link(Route::CrossChain {}, "\u{21C4}", "Cross-ChainId Transfers")}
         })}
     }
 }
@@ -208,7 +208,7 @@ fn developer_mode_nav(mode: WalletMode) -> Element {
             {sidebar_link(Route::ConsumeSanad {}, "\u{1F525}", "Consume Sanad")}
         })}
 
-        {sidebar_section("Cross-Chain Transfer", rsx! {
+        {sidebar_section("Cross-ChainId Transfer", rsx! {
             {sidebar_link(Route::CrossChain {}, "\u{21C4}", "All Transfers")}
             {sidebar_link(Route::CrossChainTransfer {}, "\u{2795}", "New Transfer")}
             {sidebar_link(Route::CrossChainStatus {}, "\u{1F50D}", "Status")}
@@ -249,7 +249,7 @@ fn validator_mode_nav(mode: WalletMode) -> Element {
             {sidebar_link(Route::Proofs {}, "\u{1F4CB}", "Proof Inspector")}
         })}
 
-        {sidebar_section("Cross-Chain", rsx! {
+        {sidebar_section("Cross-ChainId", rsx! {
             {sidebar_link(Route::CrossChain {}, "\u{21C4}", "All Transfers")}
         })}
     }

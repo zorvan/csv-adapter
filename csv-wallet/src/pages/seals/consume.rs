@@ -81,7 +81,7 @@ pub fn ConsumeSeal(seal_ref: Option<String>) -> Element {
                                 p { class: "text-xs text-gray-400 mb-2", "Selected Seal Details:" }
                                 div { class: "grid grid-cols-2 gap-2 text-xs",
                                     div { span { class: "text-gray-500", "Full Ref: " }, span { class: "font-mono text-gray-300 break-all", "{seal.seal_ref}" } }
-                                    div { span { class: "text-gray-500", "Chain: " }, span { class: "{chain_badge_class(&seal.chain)}", "{chain_icon_emoji(&seal.chain)} {chain_name(&seal.chain)}" } }
+                                    div { span { class: "text-gray-500", "ChainId: " }, span { class: "{chain_badge_class(&seal.chain)}", "{chain_icon_emoji(&seal.chain)} {chain_name(&seal.chain)}" } }
                                     div { span { class: "text-gray-500", "Value: " }, span { class: "font-mono text-gray-300", "{seal.value}" } }
                                     div { span { class: "text-gray-500", "Status: " }, span { class: "text-green-300", "Available" } }
                                 }

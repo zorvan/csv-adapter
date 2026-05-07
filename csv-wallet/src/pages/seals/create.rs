@@ -8,14 +8,14 @@ use crate::context::{
 };
 use crate::pages::common::*;
 use crate::routes::Route;
-use csv_core::Chain;
+use csv_store::state::ChainId;
 use dioxus::prelude::*;
 use std::rc::Rc;
 
 #[component]
 pub fn CreateSeal() -> Element {
     let mut wallet_ctx = use_wallet_context();
-    let mut selected_chain = use_signal(|| Chain::Bitcoin);
+    let mut selected_chain = use_signal(|| ChainId::new("bitcoin"));
     let mut selected_sanad_index = use_signal(|| 0usize);
     let mut result = use_signal(|| Option::<String>::None);
     let mut error = use_signal(|| Option::<String>::None);
@@ -45,8 +45,8 @@ pub fn CreateSeal() -> Element {
             }
 
             div { class: "{card_class()} p-6 space-y-5",
-                {form_field("Chain", chain_select(move |v: Rc<FormData>| {
-                    if let Ok(c) = v.value().parse::<Chain>() {
+                {form_field("ChainId", chain_select(move |v: Rc<FormData>| {
+                    if let Ok(c) = v.value().parse::<ChainId>() {
                         selected_chain.set(c);
                         selected_sanad_index.set(0); // Reset selection when chain changes
                     }

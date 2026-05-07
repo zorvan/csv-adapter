@@ -3,7 +3,7 @@
 //! Each account belongs to a specific chain and uses secure keystore references.
 //! Private keys are never stored in memory longer than necessary for signing.
 
-use csv_core::Chain;
+use csv_store::state::ChainId;
 use csv_keys::bip44::derive_address_from_key;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -14,7 +14,7 @@ pub struct ChainAccount {
     /// Unique account ID
     pub id: String,
     /// Blockchain this account belongs to
-    pub chain: Chain,
+    pub chain: ChainId,
     /// User-friendly account name
     pub name: String,
     /// Keystore reference (UUID) - points to encrypted key in browser storage
@@ -33,7 +33,7 @@ pub struct ChainAccount {
 
 impl ChainAccount {
     /// Create a new account from an address (for watch-only accounts).
-    pub fn watch_only(chain: Chain, name: &str, address: &str) -> Self {
+    pub fn watch_only(chain: ChainId, name: &str, address: &str) -> Self {
         Self {
             id: Uuid::new_v4().to_string(),
             chain,
@@ -52,7 +52,7 @@ impl ChainAccount {
 
     /// Create account from keystore reference (secure, no plaintext key).
     pub fn from_keystore(
-        chain: Chain,
+        chain: ChainId,
         name: &str,
         address: &str,
         keystore_ref: &str,
@@ -77,7 +77,7 @@ impl ChainAccount {
     /// not the plaintext key.
     ///
     /// Uses csv-keys for canonical address derivation across all chains.
-    pub fn derive_address(chain: Chain, hex_key: &str) -> Result<String, String> {
+    pub fn derive_address(chain: ChainId, hex_key: &str) -> Result<String, String> {
         let hex_clean = hex_key.strip_prefix("0x").unwrap_or(hex_key);
         let bytes = hex::decode(hex_clean).map_err(|e| format!("Invalid hex: {}", e))?;
         if bytes.len() != 32 {

@@ -169,7 +169,7 @@ pub fn ZkVerifyProof() -> Element {
 
                             div { class: "grid grid-cols-2 gap-4 text-sm",
                                 div {
-                                    p { class: "text-gray-500", "Chain" }
+                                    p { class: "text-gray-500", "ChainId" }
                                     p { "{proof.public_inputs.source_chain.to_string()}" }
                                 }
                                 div {

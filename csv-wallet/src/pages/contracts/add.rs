@@ -3,14 +3,14 @@
 use crate::context::{generate_id, use_wallet_context, DeployedContract};
 use crate::pages::common::*;
 use crate::routes::Route;
-use csv_core::Chain;
+use csv_store::state::ChainId;
 use dioxus::prelude::*;
 use std::rc::Rc;
 
 #[component]
 pub fn AddContract() -> Element {
     let mut wallet_ctx = use_wallet_context();
-    let mut selected_chain = use_signal(|| Chain::Sui);
+    let mut selected_chain = use_signal(|| ChainId::new("sui"));
     let mut contract_address = use_signal(String::new);
     let mut tx_hash = use_signal(String::new);
     let mut result = use_signal(|| Option::<String>::None);
@@ -33,8 +33,8 @@ pub fn AddContract() -> Element {
             }
 
             div { class: "{card_class()} p-6 space-y-5",
-                {form_field("Chain", chain_select(move |v: Rc<FormData>| {
-                    if let Ok(c) = v.value().parse::<Chain>() {
+                {form_field("ChainId", chain_select(move |v: Rc<FormData>| {
+                    if let Ok(c) = v.value().parse::<ChainId>() {
                         selected_chain.set(c);
                         error.set(None);
                     }
@@ -79,7 +79,7 @@ pub fn AddContract() -> Element {
                         }
                         // Only require 0x prefix for non-Solana chains (Solana uses base58)
                         let chain = *selected_chain.read();
-                        if chain != Chain::Solana && !addr.starts_with("0x") {
+                        if chain != ChainId::new("solana") && !addr.starts_with("0x") {
                             error.set(Some("Address must start with 0x".to_string()));
                             return;
                         }

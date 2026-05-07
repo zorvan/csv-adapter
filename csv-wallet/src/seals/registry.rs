@@ -2,7 +2,7 @@
 //!
 //! Core seal management operations.
 
-use csv_core::{Chain, SanadId, SealPoint};
+use csv_core::{ChainId, SanadId, SealPoint};
 use serde::{Serialize, Deserialize};
 
 /// Seal status.
@@ -13,8 +13,8 @@ pub enum SealStatus {
     Unconsumed,
     /// Seal has been consumed
     Consumed {
-        /// Chain where it was consumed
-        consumed_on: Chain,
+        /// ChainId where it was consumed
+        consumed_on: ChainId,
         /// Transaction hash
         tx_hash: String,
         /// Block height
@@ -31,8 +31,8 @@ pub enum SealStatus {
 pub struct SealRecord {
     /// Seal ID (human-readable format)
     pub id: String,
-    /// Chain
-    pub chain: Chain,
+    /// ChainId
+    pub chain: ChainId,
     /// Status
     pub status: SealStatus,
     /// Creation timestamp
@@ -79,7 +79,7 @@ impl SealManager {
     /// Returns an error if `seal_ref` is None (fake seals not allowed)
     pub fn create_seal(
         &self,
-        chain: Chain,
+        chain: ChainId,
         value: Option<u64>,
         seal_ref: Option<SealPoint>,
     ) -> Result<SealRecord, String> {
@@ -112,7 +112,7 @@ impl SealManager {
     }
 
     /// List all seals.
-    pub fn list_seals(&self, chain: Option<Chain>) -> Result<Vec<SealRecord>, String> {
+    pub fn list_seals(&self, chain: Option<ChainId>) -> Result<Vec<SealRecord>, String> {
         self.store.list_seals(chain).map_err(|e| format!("{}", e))
     }
 

@@ -3,7 +3,7 @@
 //! In-memory storage for seal records.
 
 use super::manager::SealRecord;
-use csv_core::{Chain, SanadId};
+use csv_core::{ChainId, SanadId};
 use csv_core::mcp::{HasErrorSuggestion, FixAction, error_codes};
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -95,7 +95,7 @@ impl SealStore {
     }
 
     /// List all seals, optionally filtered by chain.
-    pub fn list_seals(&self, chain: Option<Chain>) -> Result<Vec<SealRecord>, SealStoreError> {
+    pub fn list_seals(&self, chain: Option<ChainId>) -> Result<Vec<SealRecord>, SealStoreError> {
         let seals = self.seals.lock().unwrap();
         Ok(seals.values()
             .filter(|s| chain.map_or(true, |c| s.chain == c))

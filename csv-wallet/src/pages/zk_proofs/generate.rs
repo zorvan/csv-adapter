@@ -8,14 +8,14 @@ use crate::context::{use_wallet_context, ProofRecord, ProofStatus};
 use crate::pages::common::*;
 use crate::routes::Route;
 use csv_core::zk_proof::ZkSealProof;
-use csv_core::Chain;
+use csv_store::state::ChainId;
 use dioxus::prelude::*;
 
 /// Generate ZK proof page
 #[component]
 pub fn ZkGenerateProof() -> Element {
     let mut wallet_ctx = use_wallet_context();
-    let mut selected_chain = use_signal(|| Chain::Bitcoin);
+    let mut selected_chain = use_signal(|| ChainId::new("bitcoin"));
     let mut sanad_id = use_signal(String::new);
     let mut result = use_signal(|| None::<ZkResult>);
     let mut is_generating = use_signal(|| false);
@@ -44,18 +44,18 @@ pub fn ZkGenerateProof() -> Element {
             div { class: "{card_class()} p-6 space-y-5",
                 h2 { class: "text-lg font-semibold", "Proof Parameters" }
 
-                // Chain selection
+                // ChainId selection
                 div { class: "space-y-2",
                     label { class: "text-sm text-gray-400", "Blockchain" }
                     select {
                         class: "{input_class()}",
                         onchange: move |e| {
-                            if let Ok(c) = e.value().parse::<Chain>() {
+                            if let Ok(c) = e.value().parse::<ChainId>() {
                                 selected_chain.set(c);
                             }
                         },
                         value: "{selected_chain.read().to_string()}",
-                        for chain in [Chain::Bitcoin, Chain::Ethereum] {
+                        for chain in [ChainId::new("bitcoin"), ChainId::new("ethereum")] {
                             option { value: chain.to_string(), "{chain.to_string()}" }
                         }
                     }
@@ -101,8 +101,8 @@ pub fn ZkGenerateProof() -> Element {
 
                         // Generate ZK proof based on chain
                         let proof_result = match chain {
-                            Chain::Bitcoin => generate_bitcoin_zk_proof(&seal.seal_ref, &sanad_id_str),
-                            Chain::Ethereum => generate_ethereum_zk_proof(&seal.seal_ref, &sanad_id_str),
+                            ChainId::new("bitcoin") => generate_bitcoin_zk_proof(&seal.seal_ref, &sanad_id_str),
+                            ChainId::new("ethereum") => generate_ethereum_zk_proof(&seal.seal_ref, &sanad_id_str),
                             _ => Err("ZK proofs not yet available for this chain".to_string()),
                         };
 
@@ -161,7 +161,7 @@ pub fn ZkGenerateProof() -> Element {
                                 div { class: "mt-4 space-y-2",
                                     p { class: "text-sm text-gray-400", "Proof Details:" }
                                     div { class: "p-3 bg-gray-800 rounded-lg font-mono text-xs",
-                                        p { "Chain: {proof.public_inputs.source_chain.to_string()}" }
+                                        p { "ChainId: {proof.public_inputs.source_chain.to_string()}" }
                                         p { "Block Height: {proof.public_inputs.block_height}" }
                                         p { "Proof System: {proof.verifier_key.proof_system.to_string()}" }
                                     }
@@ -263,7 +263,7 @@ fn generate_bitcoin_zk_proof(seal_ref: &str, sanad_id: &str) -> Result<ZkSealPro
     // Create mock witness data
     // In production, this would come from actual Bitcoin transaction data
     let witness = ChainWitness {
-        chain: Chain::Bitcoin,
+        chain: ChainId::new("bitcoin"),
         block_hash: Hash::new([0x01; 32]), // Would be actual block hash
         block_height: 800_000,
         tx_data: format!("spend_sanad_{}", sanad_id).into_bytes(),

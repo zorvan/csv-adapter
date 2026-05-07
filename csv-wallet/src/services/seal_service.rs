@@ -4,7 +4,7 @@
 
 use chrono::{DateTime, Utc};
 use csv_core::mcp::{error_codes, FixAction, HasErrorSuggestion};
-use csv_core::Chain;
+use csv_store::state::ChainId;
 use serde::{Deserialize, Serialize};
 
 use crate::storage::{seal_storage, LocalStorageManager};
@@ -31,7 +31,7 @@ pub struct SealRecord {
 
 impl SealRecord {
     /// Parse chain from string.
-    pub fn chain_enum(&self) -> Result<Chain, String> {
+    pub fn chain_enum(&self) -> Result<ChainId, String> {
         self.chain.parse()
     }
 }

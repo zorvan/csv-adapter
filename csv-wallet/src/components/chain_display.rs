@@ -1,20 +1,20 @@
-//! Display wrapper types for Chain and Network to work with Dropdown component.
+//! Display wrapper types for ChainId and Network to work with Dropdown component.
 
 use crate::chains::supported_wallet_chains;
 use crate::context::Network;
-use csv_core::Chain;
+use csv_store::state::ChainId;
 
-/// Display wrapper for Chain with emoji and name.
-pub struct ChainDisplay(pub Chain);
+/// Display wrapper for ChainId with emoji and name.
+pub struct ChainDisplay(pub ChainId);
 
 impl std::fmt::Display for ChainDisplay {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.0 {
-            Chain::Bitcoin => write!(f, "\u{1F7E0} Bitcoin"),
-            Chain::Ethereum => write!(f, "\u{1F537} Ethereum"),
-            Chain::Sui => write!(f, "\u{1F30A} Sui"),
-            Chain::Aptos => write!(f, "\u{1F7E2} Aptos"),
-            Chain::Solana => write!(f, "\u{2600} Solana"),
+            ChainId::new("bitcoin") => write!(f, "\u{1F7E0} Bitcoin"),
+            ChainId::new("ethereum") => write!(f, "\u{1F537} Ethereum"),
+            ChainId::new("sui") => write!(f, "\u{1F30A} Sui"),
+            ChainId::new("aptos") => write!(f, "\u{1F7E2} Aptos"),
+            ChainId::new("solana") => write!(f, "\u{2600} Solana"),
             _ => write!(f, "Unknown"),
         }
     }

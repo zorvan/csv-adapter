@@ -132,7 +132,7 @@ pub fn shorten_hash(hash: &str, prefix_len: usize, suffix_len: usize) -> String 
 pub struct TxHashDisplayProps {
     /// Transaction hash.
     pub tx_hash: String,
-    /// Chain name for explorer link.
+    /// ChainId name for explorer link.
     pub chain: String,
     /// Explorer URL base (e.g., https://etherscan.io/tx/).
     pub explorer_url: Option<String>,

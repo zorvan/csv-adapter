@@ -1,4 +1,4 @@
-//! Chain-specific transaction builders using the csv-adapter runtime.
+//! ChainId-specific transaction builders using the csv-adapter runtime.
 //!
 //! This module delegates all transaction building to the csv-adapter runtime,
 //! which routes to the appropriate chain adapter implementing ChainSigner and
@@ -7,7 +7,7 @@
 //! Production Guarantee Plan compliant - no duplicate implementations.
 
 use crate::services::blockchain::BlockchainError;
-use csv_core::Chain;
+use csv_store::state::ChainId;
 use std::str::FromStr;
 
 /// Build a complete, serialized transaction ready for signing
@@ -16,7 +16,7 @@ use std::str::FromStr;
 /// For contract calls and advanced operations, use `ChainRuntime::build_contract_call`
 /// which provides proper encoding via chain adapters.
 pub fn build_transaction(
-    chain: Chain,
+    chain: ChainId,
     from: &str,
     to: &str,
     value: u64,
@@ -28,14 +28,14 @@ pub fn build_transaction(
     // Build transaction data using the chain runtime
     // For simple transfers, we construct the transaction data directly
     match chain {
-        Chain::Ethereum => build_eth_transaction_data(to, value, data, nonce, gas_price, gas_limit),
-        Chain::Bitcoin => build_btc_transaction_data(to, value, data),
-        Chain::Sui => build_sui_transaction_data_simple(from, to, data),
-        Chain::Aptos => build_aptos_transaction_data_simple(from, to, data, nonce),
-        Chain::Solana => {
+        ChainId::new("ethereum") => build_eth_transaction_data(to, value, data, nonce, gas_price, gas_limit),
+        ChainId::new("bitcoin") => build_btc_transaction_data(to, value, data),
+        ChainId::new("sui") => build_sui_transaction_data_simple(from, to, data),
+        ChainId::new("aptos") => build_aptos_transaction_data_simple(from, to, data, nonce),
+        ChainId::new("solana") => {
             return Err(BlockchainError {
                 message: "Solana transactions require a recent blockhash. Use build_solana_transaction_with_blockhash() with a blockhash from Solana RPC.".to_string(),
-                chain: Some(Chain::Solana),
+                chain: Some(ChainId::new("solana")),
                 code: Some(400),
             })
         }
@@ -60,7 +60,7 @@ fn build_eth_transaction_data(
     // In production, this uses RLP encoding via the ethereum adapter
     let mut tx_data = Vec::new();
 
-    // Chain ID (for mainnet = 1, for now encode as 0 for any chain)
+    // ChainId ID (for mainnet = 1, for now encode as 0 for any chain)
     tx_data.extend_from_slice(&[0u8; 8]);
 
     // Nonce (8 bytes)
@@ -79,13 +79,13 @@ fn build_eth_transaction_data(
     let to_bytes = hex::decode(to.trim_start_matches("0x"))
         .map_err(|e| BlockchainError {
             message: format!("Invalid to address: {}", e),
-            chain: Some(Chain::Ethereum),
+            chain: Some(ChainId::new("ethereum")),
             code: Some(400),
         })?;
     if to_bytes.len() != 20 {
         return Err(BlockchainError {
             message: "Ethereum address must be 20 bytes".to_string(),
-            chain: Some(Chain::Ethereum),
+            chain: Some(ChainId::new("ethereum")),
             code: Some(400),
         });
     }
@@ -153,7 +153,7 @@ pub fn build_btc_transaction_with_utxos(
     if amount == 0 {
         return Err(BlockchainError {
             message: "Amount must be greater than 0".to_string(),
-            chain: Some(Chain::Bitcoin),
+            chain: Some(ChainId::new("bitcoin")),
             code: Some(400),
         });
     }
@@ -161,7 +161,7 @@ pub fn build_btc_transaction_with_utxos(
     if op_return_data.map(|d| d.len() > 80).unwrap_or(false) {
         return Err(BlockchainError {
             message: "OP_RETURN data exceeds 80 bytes".to_string(),
-            chain: Some(Chain::Bitcoin),
+            chain: Some(ChainId::new("bitcoin")),
             code: Some(400),
         });
     }
@@ -175,7 +175,7 @@ pub fn build_btc_transaction_with_utxos(
     if selected_utxos.is_empty() {
         return Err(BlockchainError {
             message: "Insufficient funds".to_string(),
-            chain: Some(Chain::Bitcoin),
+            chain: Some(ChainId::new("bitcoin")),
             code: Some(400),
         });
     }
@@ -230,7 +230,7 @@ pub fn build_btc_transaction_with_utxos(
         let txid_bytes = hex::decode(&u.txid)
             .map_err(|e| BlockchainError {
                 message: format!("Invalid txid: {}", e),
-                chain: Some(Chain::Bitcoin),
+                chain: Some(ChainId::new("bitcoin")),
                 code: Some(400),
             })?;
         Ok(TxInput {
@@ -252,7 +252,7 @@ pub fn build_btc_transaction_with_utxos(
     // Serialize transaction
     tx.serialize().map_err(|e| BlockchainError {
         message: format!("Failed to serialize transaction: {}", e),
-        chain: Some(Chain::Bitcoin),
+        chain: Some(ChainId::new("bitcoin")),
         code: Some(500),
     })
 }
@@ -304,7 +304,7 @@ fn select_utxos(
                 "Insufficient funds: have {}, need {} (target {} + fee ~{})",
                 total, required, target_amount, required - target_amount
             ),
-            chain: Some(Chain::Bitcoin),
+            chain: Some(ChainId::new("bitcoin")),
             code: Some(400),
         });
     }
@@ -346,7 +346,7 @@ fn parse_bitcoin_address(address: &str) -> Result<(Vec<u8>, bool), BlockchainErr
     let addr: Address<NetworkUnchecked> = Address::from_str(address)
         .map_err(|e| BlockchainError {
             message: format!("Invalid Bitcoin address: {}", e),
-            chain: Some(Chain::Bitcoin),
+            chain: Some(ChainId::new("bitcoin")),
             code: Some(400),
         })?;
 
@@ -463,7 +463,7 @@ fn build_btc_transaction_data(
         message: "build_btc_transaction_data is deprecated. Use build_btc_transaction_with_utxos \
                  which requires UTXO inputs. Fetch UTXOs via the chain adapter's \
                  get_utxos_for_address method before building transactions.".to_string(),
-        chain: Some(Chain::Bitcoin),
+        chain: Some(ChainId::new("bitcoin")),
         code: Some(400),
     })
 }
@@ -484,13 +484,13 @@ fn build_sui_transaction_data_simple(
     let sender_bytes = hex::decode(sender.trim_start_matches("0x"))
         .map_err(|e| BlockchainError {
             message: format!("Invalid sender address: {}", e),
-            chain: Some(Chain::Sui),
+            chain: Some(ChainId::new("sui")),
             code: Some(400),
         })?;
     if sender_bytes.len() != 32 {
         return Err(BlockchainError {
             message: "Sui address must be 32 bytes".to_string(),
-            chain: Some(Chain::Sui),
+            chain: Some(ChainId::new("sui")),
             code: Some(400),
         });
     }
@@ -500,7 +500,7 @@ fn build_sui_transaction_data_simple(
     let package_bytes = hex::decode(package.trim_start_matches("0x"))
         .map_err(|e| BlockchainError {
             message: format!("Invalid package ID: {}", e),
-            chain: Some(Chain::Sui),
+            chain: Some(ChainId::new("sui")),
             code: Some(400),
         })?;
     tx_data.extend_from_slice(&package_bytes);
@@ -528,13 +528,13 @@ fn build_aptos_transaction_data_simple(
     let sender_bytes = hex::decode(sender.trim_start_matches("0x"))
         .map_err(|e| BlockchainError {
             message: format!("Invalid sender address: {}", e),
-            chain: Some(Chain::Aptos),
+            chain: Some(ChainId::new("aptos")),
             code: Some(400),
         })?;
     if sender_bytes.len() != 32 {
         return Err(BlockchainError {
             message: "Aptos address must be 32 bytes".to_string(),
-            chain: Some(Chain::Aptos),
+            chain: Some(ChainId::new("aptos")),
             code: Some(400),
         });
     }
@@ -547,7 +547,7 @@ fn build_aptos_transaction_data_simple(
     let contract_bytes = hex::decode(contract.trim_start_matches("0x"))
         .map_err(|e| BlockchainError {
             message: format!("Invalid contract address: {}", e),
-            chain: Some(Chain::Aptos),
+            chain: Some(ChainId::new("aptos")),
             code: Some(400),
         })?;
     tx_data.extend_from_slice(&contract_bytes);
@@ -598,7 +598,7 @@ pub fn build_solana_transaction_with_blockhash(
     if !recent_blockhash.is_valid() {
         return Err(BlockchainError {
             message: "Blockhash has expired. Fetch a new recent blockhash.".to_string(),
-            chain: Some(Chain::Solana),
+            chain: Some(ChainId::new("solana")),
             code: Some(400),
         });
     }
@@ -607,13 +607,13 @@ pub fn build_solana_transaction_with_blockhash(
     let fee_payer_bytes = bs58::decode(fee_payer).into_vec()
         .map_err(|e| BlockchainError {
             message: format!("Invalid fee payer address: {}", e),
-            chain: Some(Chain::Solana),
+            chain: Some(ChainId::new("solana")),
             code: Some(400),
         })?;
     if fee_payer_bytes.len() != 32 {
         return Err(BlockchainError {
             message: "Solana fee payer must be 32 bytes".to_string(),
-            chain: Some(Chain::Solana),
+            chain: Some(ChainId::new("solana")),
             code: Some(400),
         });
     }
@@ -669,14 +669,14 @@ pub async fn fetch_solana_blockhash(rpc_url: &str) -> Result<SolanaBlockhash, Bl
         .await
         .map_err(|e| BlockchainError {
             message: format!("Failed to fetch blockhash: {}", e),
-            chain: Some(Chain::Solana),
+            chain: Some(ChainId::new("solana")),
             code: Some(500),
         })?;
 
     let rpc_response: serde_json::Value = response.json().await
         .map_err(|e| BlockchainError {
             message: format!("Failed to parse blockhash response: {}", e),
-            chain: Some(Chain::Solana),
+            chain: Some(ChainId::new("solana")),
             code: Some(500),
         })?;
 
@@ -687,14 +687,14 @@ pub async fn fetch_solana_blockhash(rpc_url: &str) -> Result<SolanaBlockhash, Bl
         .and_then(|h| h.as_str())
         .ok_or_else(|| BlockchainError {
             message: "Failed to extract blockhash from response".to_string(),
-            chain: Some(Chain::Solana),
+            chain: Some(ChainId::new("solana")),
             code: Some(500),
         })?;
 
     let blockhash_bytes = bs58::decode(blockhash_str).into_vec()
         .map_err(|e| BlockchainError {
             message: format!("Invalid blockhash encoding: {}", e),
-            chain: Some(Chain::Solana),
+            chain: Some(ChainId::new("solana")),
             code: Some(500),
         })?;
 
@@ -816,7 +816,7 @@ fn build_solana_transaction_data(
         message: "build_solana_transaction_data is deprecated. Use build_solana_transaction_with_blockhash \
                  with a real blockhash obtained from Solana RPC getRecentBlockhash. \
                  Transactions with placeholder blockhashes are invalid and will be rejected.".to_string(),
-        chain: Some(Chain::Solana),
+        chain: Some(ChainId::new("solana")),
         code: Some(400),
     })
 }
@@ -919,7 +919,7 @@ pub fn build_aptos_transaction(
 /// Queries the chain's RPC to find contracts deployed by or associated with the given address.
 /// Supports filtering by contract type.
 pub async fn discover_contracts(
-    chain: Chain,
+    chain: ChainId,
     address: &str,
     api_url: &str,
     filter: Option<&str>,
@@ -927,11 +927,11 @@ pub async fn discover_contracts(
     
     
     match chain {
-        Chain::Ethereum => discover_ethereum_contracts(address, api_url, filter).await,
-        Chain::Solana => discover_solana_programs(address, api_url, filter).await,
-        Chain::Sui => discover_sui_packages(address, api_url, filter).await,
-        Chain::Aptos => discover_aptos_modules(address, api_url, filter).await,
-        Chain::Bitcoin => Ok(Vec::new()), // Bitcoin doesn't have contracts
+        ChainId::new("ethereum") => discover_ethereum_contracts(address, api_url, filter).await,
+        ChainId::new("solana") => discover_solana_programs(address, api_url, filter).await,
+        ChainId::new("sui") => discover_sui_packages(address, api_url, filter).await,
+        ChainId::new("aptos") => discover_aptos_modules(address, api_url, filter).await,
+        ChainId::new("bitcoin") => Ok(Vec::new()), // Bitcoin doesn't have contracts
         _ => Ok(Vec::new()),
     }
 }
@@ -967,13 +967,13 @@ reqwest::Client::new();
         .await
         .map_err(|e| BlockchainError {
             message: format!("Failed to query block number: {}", e),
-            chain: Some(Chain::Ethereum),
+            chain: Some(ChainId::new("ethereum")),
             code: Some(500),
         })?;
 
     let result: serde_json::Value = response.json().await.map_err(|e| BlockchainError {
         message: format!("Failed to parse response: {}", e),
-        chain: Some(Chain::Ethereum),
+        chain: Some(ChainId::new("ethereum")),
         code: Some(500),
     })?;
 
@@ -1015,7 +1015,7 @@ reqwest::Client::new();
 
                                     deployments.push(ContractDeployment {
                                         address: contract_addr.to_string(),
-                                        chain: Some(Chain::Ethereum),
+                                        chain: Some(ChainId::new("ethereum")),
                                         contract_address: contract_addr.to_string(),
                                         contract_type,
                                         deployed_at: block_num,
@@ -1093,13 +1093,13 @@ let default_contract_type = filter.map(|f| match f.to_lowercase().as_str() {
         .await
         .map_err(|e| BlockchainError {
             message: format!("Failed to query programs: {}", e),
-            chain: Some(Chain::Solana),
+            chain: Some(ChainId::new("solana")),
             code: Some(500),
         })?;
 
     let result: serde_json::Value = response.json().await.map_err(|e| BlockchainError {
         message: format!("Failed to parse response: {}", e),
-        chain: Some(Chain::Solana),
+        chain: Some(ChainId::new("solana")),
         code: Some(500),
     })?;
 
@@ -1119,7 +1119,7 @@ let default_contract_type = filter.map(|f| match f.to_lowercase().as_str() {
                 if is_executable || account_data.is_some() {
                     deployments.push(ContractDeployment {
                         address: pubkey.to_string(),
-                        chain: Some(Chain::Solana),
+                        chain: Some(ChainId::new("solana")),
                         contract_address: pubkey.to_string(),
                         contract_type: default_contract_type,
                         deployed_at: 0, // Solana doesn't have block numbers in the same way
@@ -1160,13 +1160,13 @@ reqwest::Client::new();
         .await
         .map_err(|e| BlockchainError {
             message: format!("Failed to query objects: {}", e),
-            chain: Some(Chain::Sui),
+            chain: Some(ChainId::new("sui")),
             code: Some(500),
         })?;
     
     let _result: serde_json::Value = response.json().await.map_err(|e| BlockchainError {
         message: format!("Failed to parse response: {}", e),
-        chain: Some(Chain::Sui),
+        chain: Some(ChainId::new("sui")),
         code: Some(500),
     })?;
     
@@ -1206,13 +1206,13 @@ reqwest::Client::new();
         .await
         .map_err(|e| BlockchainError {
             message: format!("Failed to query modules: {}", e),
-            chain: Some(Chain::Aptos),
+            chain: Some(ChainId::new("aptos")),
             code: Some(500),
         })?;
     
     let _result: serde_json::Value = response.json().await.map_err(|e| BlockchainError {
         message: format!("Failed to parse response: {}", e),
-        chain: Some(Chain::Aptos),
+        chain: Some(ChainId::new("aptos")),
         code: Some(500),
     })?;
     

@@ -48,7 +48,7 @@ pub fn ProofBundlePage(id: String) -> Element {
                 // Proof bundle overview
                 {proof_overview_section(&proof)}
 
-                // Chain anchor details
+                // ChainId anchor details
                 {anchor_section(&proof)}
 
                 // Seal reference (the consumed seal)
@@ -95,7 +95,7 @@ fn proof_overview_section(proof: &ProofRecord) -> Element {
                     p { class: "font-mono text-sm", "{&proof.seal_ref}" }
                 }
                 div { class: "space-y-1",
-                    label { class: "text-xs text-gray-500 uppercase", "Chain" }
+                    label { class: "text-xs text-gray-500 uppercase", "ChainId" }
                     p { class: "font-medium", "{proof.chain.to_string()}" }
                 }
                 div { class: "space-y-1",
@@ -120,12 +120,12 @@ fn anchor_section(proof: &ProofRecord) -> Element {
         div { class: "{card_class()} p-6",
             h2 { class: "text-lg font-semibold mb-4 flex items-center gap-2",
                 "🔗 "
-                "Chain Anchor"
+                "ChainId Anchor"
             }
 
             div { class: "space-y-4",
                 div { class: "p-3 bg-gray-800/50 rounded-lg",
-                    p { class: "text-xs text-gray-500 mb-1", "Source Chain" }
+                    p { class: "text-xs text-gray-500 mb-1", "Source ChainId" }
                     p { class: "font-medium", "{proof.chain.to_string()}" }
                 }
 
@@ -138,7 +138,7 @@ fn anchor_section(proof: &ProofRecord) -> Element {
 
                 if let Some(ref target) = proof.target_chain {
                     div { class: "p-3 bg-gray-800/50 rounded-lg",
-                        p { class: "text-xs text-gray-500 mb-1", "Target Chain" }
+                        p { class: "text-xs text-gray-500 mb-1", "Target ChainId" }
                         p { class: "font-medium", "{target.to_string()}" }
                     }
                 }
@@ -165,12 +165,12 @@ fn seal_section(proof: &ProofRecord) -> Element {
 
             div { class: "space-y-4",
                 div { class: "p-3 bg-gray-800/50 rounded-lg",
-                    p { class: "text-xs text-gray-500 mb-1", "Seal ID (Chain-Native)" }
+                    p { class: "text-xs text-gray-500 mb-1", "Seal ID (ChainId-Native)" }
                     p { class: "font-mono text-sm break-all", "{&proof.seal_ref}" }
                 }
 
                 div { class: "p-3 bg-gray-800/50 rounded-lg",
-                    p { class: "text-xs text-gray-500 mb-1", "Chain" }
+                    p { class: "text-xs text-gray-500 mb-1", "ChainId" }
                     p { class: "font-medium", "{proof.chain.to_string()}" }
                 }
 
