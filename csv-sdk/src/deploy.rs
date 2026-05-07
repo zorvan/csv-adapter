@@ -26,8 +26,9 @@
 use std::sync::Arc;
 
 use crate::client::ClientRef;
-use crate::errors::CsvError;
-use csv_core::ChainId;
+use crate::error::CsvError;
+
+use csv_core::Chain;
 
 /// Result type for deployment operations.
 pub type DeploymentResult<T> = Result<T, DeploymentError>;
@@ -453,7 +454,7 @@ impl DeploymentManager {
                 // Aptos addresses are 32 bytes (0x prefixed hex)
                 Ok(address.len() == 32)
             }
-            _ => Err(DeploymentError::UnsupportedChain(chain.id().to_string())),
+            _ => Err(DeploymentError::UnsupportedChain(chain.to_string())),
         }
     }
 

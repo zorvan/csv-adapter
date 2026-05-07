@@ -51,7 +51,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::hash::Hash;
-use crate::title::SanadId;
+use crate::sanad::SanadId;
 use crate::seal::SealPoint;
 
 /// The chain that enforces this seal's single-use.

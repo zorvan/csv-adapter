@@ -87,7 +87,7 @@ fn main() {
         .expect("plugin should build");
 
     let mut factory = AdapterFactory::empty();
-    let mut registry = csv_core::ChainPluginRegistry::new();
+    let mut registry = csv_core::DriverRegistry::new();
     registry.register(plugin);
     factory.register_plugins_from_registry(&registry);
 

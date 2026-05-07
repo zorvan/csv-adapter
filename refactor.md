@@ -483,11 +483,11 @@ pub struct AptosAnchorRef        pub struct AptosCommitAnchor
 **Why "Sanad"?** A property deed (سَنَد) is:
 
 - A legal document proving ownership
-- Exclusive — one title per property
+- Exclusive — one sanad per property
 - Transferable — deeds change hands
-- The record of provenance — chain of title
+- The record of provenance — chain of sanads
 
-"Chain of title" even has a legal meaning matching the commitment chain exactly.
+"Chain of sanad" even has a legal meaning matching the commitment chain exactly.
 
 ```rust
 // Before                           // After
@@ -497,7 +497,7 @@ RightOperationResult                SanadOperationResult
 ChainRightOps                       ChainSanadOps
 ```
 
-**File:** `right.rs` → `title.rs`
+**File:** `right.rs` → `sanad.rs`
 
 ---
 
@@ -572,7 +572,7 @@ driver_registry.rs     → DriverRegistry (merged), DriverMetadata (was ChainPlu
 |---|---|
 | `src/traits.rs` | `src/seal_protocol.rs` |
 | `src/chain_adapter.rs` | `src/driver.rs` + `src/backend.rs` (split) |
-| `src/right.rs` | `src/title.rs` |
+| `src/right.rs` | `src/sanad,rs` |
 | `src/seal_registry.rs` | `src/nullifier.rs` |
 | `src/mpc.rs` | `src/commit_mux.rs` |
 | `src/adapter_factory.rs` | `src/driver_registry.rs` (merged with chain_plugin + chain_discovery) |
@@ -584,8 +584,8 @@ driver_registry.rs     → DriverRegistry (merged), DriverMetadata (was ChainPlu
 | `src/adapters/test.rs` | `src/drivers/mock.rs` |
 | `src/proof_verify.rs` | `src/verifier.rs` |
 | `src/agent_types.rs` | `src/mcp.rs` |
-| `examples/basic_right.rs` | `examples/basic_title.rs` |
-| `fuzz/fuzz_targets/fuzz_right_from_canonical_bytes.rs` | `fuzz/fuzz_targets/fuzz_title.rs` |
+| `examples/basic_right.rs` | `examples/basic_sanad,rs` |
+| `fuzz/fuzz_targets/fuzz_right_from_canonical_bytes.rs` | `fuzz/fuzz_targets/fuzz_sanad,rs` |
 | `fuzz/fuzz_targets/fuzz_seal_ref_from_bytes.rs` | `fuzz/fuzz_targets/fuzz_seal_point.rs` |
 
 Files to keep exactly as-is (names are correct):
@@ -613,8 +613,8 @@ Files to keep exactly as-is (names are correct):
 | Current | New |
 |---|---|
 | `seals/manager.rs` | `seals/registry.rs` |
-| `pages/rights/` | `pages/titles/` |
-| `hooks/use_assets.rs` | `hooks/use_titles.rs` |
+| `pages/rights/` | `pages/sanads/` |
+| `hooks/use_assets.rs` | `hooks/use_sanads.rs` |
 | `services/blockchain/` | `services/chain/` |
 | `components/seal_visualizer.rs` | `components/seal_view.rs` |
 | `components/proof_inspector.rs` | `components/proof_view.rs` |
@@ -627,8 +627,8 @@ Files to keep exactly as-is (names are correct):
 |---|---|---|
 | `SealRef` | `SealPoint` | seal.rs, all consumers |
 | `AnchorRef` | `CommitAnchor` | commitment.rs, all consumers |
-| `Right` | `Sanad` | title.rs |
-| `RightId` | `SanadId` | title.rs |
+| `Right` | `Sanad` | sanad,rs |
+| `RightId` | `SanadId` | sanad,rs |
 | `AnchorLayer` | `SealProtocol` | seal_protocol.rs |
 | `FullChainAdapter` | `ChainBackend` | backend.rs |
 | `ChainAdapter` | `ChainDriver` | driver.rs |
@@ -657,7 +657,7 @@ Files to keep exactly as-is (names are correct):
 | `AptosAnchorRef` | `AptosCommitAnchor` | csv-aptos |
 | `SolanaAnchorLayer` | `SolanaSealProtocol` | csv-solana |
 | `SolanaChainOperations` | `SolanaBackend` | csv-solana |
-| `use_assets` hook | `use_titles` | csv-wallet |
+| `use_assets` hook | `use_sanads` | csv-wallet |
 | `AssetService` | `SanadService` | csv-wallet |
 
 ---
@@ -689,7 +689,7 @@ Rust uses `Ref` for borrowed smart pointers. Domain types that identify somethin
 `errors.rs` → `error.rs`. `CsvErrors` → `ProtocolError`.
 
 **Rule 4: File name = primary type name.**
-`seal_protocol.rs` contains `SealProtocol`. `title.rs` contains `Sanad`. If a file contains multiple types with no primary, use a descriptive noun: `types.rs`, `ops.rs`.
+`seal_protocol.rs` contains `SealProtocol`. `sanad.rs` contains `Sanad`. If a file contains multiple types with no primary, use a descriptive noun: `types.rs`, `ops.rs`.
 
 **Rule 5: `Backend` for full implementations, `Driver` for descriptors.**
 `ChainBackend` = full implementation. `ChainDriver` = minimal plugin descriptor. Never use "Adapter", "Facade", "Factory" in domain type names again.
@@ -950,9 +950,9 @@ Execute in this order to keep CI green at each step:
 
 **Step 5 — `Right` → `Sanad`**
 
-- `right.rs` → `title.rs`
+- `right.rs` → `sanad.rs`
 - Global find-replace: `Right` → `Sanad`, `RightId` → `SanadId`
-- Wallet: `pages/rights/` → `pages/titles/`, `use_assets` → `use_titles`
+- Wallet: `pages/rights/` → `pages/sanads/`, `use_assets` → `use_sanads`
 - CI must pass.
 
 **Step 6 — `MpcTree` → `CommitMux`**
@@ -1207,7 +1207,7 @@ THREE TRAIT LAYERS
 CORE TYPES
   SealRef              → SealPoint           (not a Rust reference)
   AnchorRef            → CommitAnchor        (where a commitment is anchored)
-  Right                → Sanad               (a property deed, chain of title)
+  Right                → Sanad               (a property deed, chain of sanads)
   RightId              → SanadId
   MpcTree              → CommitMux           (not multi-party computation)
   MpcLeaf              → MuxLeaf
@@ -1224,7 +1224,7 @@ CHAIN IMPLS
 KEY FILES
   traits.rs            → seal_protocol.rs
   chain_adapter.rs     → driver.rs + backend.rs  (split)
-  right.rs             → title.rs
+  right.rs             → sanad.rs
   mpc.rs               → commit_mux.rs
   seal_registry.rs     → nullifier.rs
   real_rpc.rs          → node.rs  (each chain)

@@ -1,4 +1,4 @@
-//! Transfer management facade.
+//! Transfer management runtime.
 //!
 //! The [`TransferManager`] handles cross-chain transfers between any
 //! two supported chains using the lock-and-prove protocol.
@@ -18,7 +18,7 @@ use std::sync::Arc;
 use csv_core::{Chain, SanadId};
 
 use crate::client::ClientRef;
-use crate::errors::CsvError;
+use crate::error::CsvError;
 
 /// Filter options for listing transfers.
 #[derive(Debug, Clone, Default)]

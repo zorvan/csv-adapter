@@ -3,11 +3,14 @@
 //! Handles mnemonic generation, seed derivation, and address generation
 //! for multiple chains from a single seed.
 
-use crate::wallet::metadata::{BitcoinNetwork, WalletMetadata};
+use crate::wallet::metadata::WalletMetadata;
 use csv_core::Chain;
 use bip32::Mnemonic;
 use serde::{Serialize, Deserialize};
 use rand::RngCore;
+
+// Re-export for convenience
+pub use crate::wallet::metadata::BitcoinNetwork;
 use rand::rngs::OsRng;
 
 /// Extended wallet with metadata.
@@ -85,7 +88,7 @@ impl ExtendedWallet {
 
     /// Derive a proper Taproot (P2TR) address using BIP-86
     fn derive_taproot_address(&self, account_index: u32, address_index: u32) -> Result<String, String> {
-        use secp256k1::{Secp256k1, KeyPair, XOnlyPublicKey};
+        use secp256k1::{Secp256k1, SecretKey, XOnlyPublicKey};
         use bitcoin::{
             bip32::{DerivationPath, ExtendedPrivKey},
             Address, Network as BitcoinNetworkType,
@@ -125,10 +128,11 @@ impl ExtendedWallet {
             .derive_priv(&secp, &path)
             .map_err(|e| format!("Key derivation failed: {}", e))?;
 
-        // Get the secret key
+        // Get the secret key and create XOnlyPublicKey
         let secret_key = child_key.private_key;
-        let key_pair = KeyPair::from_secret_key(&secp, &secret_key);
-        let (xonly, _parity) = XOnlyPublicKey::from_keypair(&key_pair);
+        let secret_key = SecretKey::from_slice(secret_key.as_ref())
+            .map_err(|e| format!("Invalid secret key: {}", e))?;
+        let xonly = XOnlyPublicKey::from_secret_key(&secp, &secret_key);
 
         // Apply taproot tweak
         let (tweaked_pk, _parity) = xonly.tap_tweak(&secp, None);

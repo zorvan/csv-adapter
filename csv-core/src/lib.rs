@@ -2,7 +2,7 @@
 //!
 //! This crate provides the foundational types and traits for the CSV protocol:
 //!
-//! - **[`Sanad`]** — A verifiable, single-use digital title (deed) that can be
+//! - **[`Sanad`]** — A verifiable, single-use digital sanad (deed) that can be
 //!   transferred cross-chain
 //! - **[`struct@Hash`]** — A 32-byte cryptographic hash (SHA-256 based)
 //! - **[`Commitment`]** — A binding between a sanad's state and its anchor
@@ -58,7 +58,7 @@ pub mod commitment;
 pub mod hash;
 pub mod seal;
 pub mod tagged_hash;
-pub mod title;      // Sanad/Title types
+pub mod sanad;      // Sanad/Title types (re-exported from title)
 
 // Advanced commitment types
 pub mod commitments_ext;
@@ -68,6 +68,9 @@ pub mod protocol_version;
 
 // Agent-friendly types (AI agent support) - 🟡 BETA
 pub mod mcp;
+
+// Re-export Chain for backward compatibility with chain crates
+pub use mcp::Chain;
 
 // Production hardening - 🔒 STABLE
 pub mod hardening;
@@ -98,7 +101,6 @@ pub mod seal_protocol;
 
 // Chain operation traits (Production Guarantee Plan Phase 2) - 🔒 STABLE
 pub mod backend;
-pub mod ops;        // New: refactored chain operations (replaces backend)
 
 // Shared event schemas (Production Guarantee Plan Phase 6) - 🔒 STABLE
 pub mod events;
@@ -150,7 +152,7 @@ pub use protocol_version::{
 pub use commitment::Commitment;
 pub use hash::Hash;
 pub use seal::{CommitAnchor, SealPoint};
-pub use title::{Sanad, SanadError, SanadId, OwnershipProof};
+pub use sanad::{Sanad, SanadError, SanadId, OwnershipProof};
 pub use signature::{parse_signatures_from_bytes, verify_signatures, Signature, SignatureScheme};
 
 // DAG and proofs
@@ -170,19 +172,6 @@ pub use backend::{
     TransactionInfo, TransactionStatus,
 };
 
-// New refactored chain operations (replaces chain_operations)
-pub use ops::{
-    BalanceInfo as OpsBalanceInfo, ChainBackend, ChainBroadcaster as OpsChainBroadcaster,
-    ChainCapability as OpsChainCapability, ChainDeployer as OpsChainDeployer,
-    ChainOpError as OpsChainOpError, ChainOpResult as OpsChainOpResult,
-    ChainProofProvider as OpsChainProofProvider, ChainQuery as OpsChainQuery,
-    ChainSanadOps, ChainSigner as OpsChainSigner, ContractStatus as OpsContractStatus,
-    DeploymentStatus as OpsDeploymentStatus, FinalityStatus as OpsFinalityStatus,
-    SanadOperation, SanadOperationResult, SanadOperationResult as OpsSanadOperationResult,
-    TokenBalance as OpsTokenBalance, TransactionInfo as OpsTransactionInfo,
-    TransactionStatus as OpsTransactionStatus,
-};
-
 // Event schemas (Production Guarantee Plan Phase 6)
 pub use events::{
     CsvEvent, EventData, EventFilter, EventFinalityStatus, EventIndexer, EventIndexerRegistry,
@@ -193,7 +182,7 @@ pub use events::{
 pub use client::{ValidationClient, ValidationResult};
 pub use cross_chain::{CrossChainLockEvent, CrossChainRegistry, CrossChainRegistryEntry};
 pub use nullifier::{
-    ChainId, SealNullifier, DoubleSpendError, OptimizedSealNullifier,
+    SealNullifier, DoubleSpendError, OptimizedSealNullifier,
     SealConsumption, SealStatus,
 };
 

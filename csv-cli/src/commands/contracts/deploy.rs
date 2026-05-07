@@ -10,13 +10,13 @@ use csv_core::ChainId;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Convert store Chain to core Chain for adapter usage.
-fn to_core_chain(chain: Chain) -> CoreChain {
+fn to_core_chain(chain: Chain) -> csv_core::Chain {
     match chain {
-        builtin::Bitcoin => Corebuiltin::Bitcoin,
-        builtin::Ethereum => Corebuiltin::Ethereum,
-        builtin::Sui => Corebuiltin::Sui,
-        builtin::Aptos => Corebuiltin::Aptos,
-        builtin::Solana => Corebuiltin::Solana,
+        Chain::Bitcoin => csv_core::Chain::Bitcoin,
+        Chain::Ethereum => csv_core::Chain::Ethereum,
+        Chain::Sui => csv_core::Chain::Sui,
+        Chain::Aptos => csv_core::Chain::Aptos,
+        Chain::Solana => csv_core::Chain::Solana,
     }
 }
 
@@ -37,21 +37,21 @@ pub fn cmd_deploy(
     ));
 
     match chain {
-        builtin::Bitcoin => {
+        Chain::Bitcoin => {
             output::info("Bitcoin is UTXO-native — no contract deployment needed");
             output::info("Single-use enforcement is structural via UTXO spending");
             output::info("Adapter connectivity: use 'csv testnet validate' to verify");
         }
-        builtin::Ethereum => {
+        Chain::Ethereum => {
             deploy_ethereum_csv_client(config, state, deployer_key, account)?;
         }
-        builtin::Sui => {
+        Chain::Sui => {
             deploy_sui_csv_client(config, state, account)?;
         }
-        builtin::Aptos => {
+        Chain::Aptos => {
             deploy_aptos_csv_client(config, state, account)?;
         }
-        builtin::Solana => {
+        Chain::Solana => {
             deploy_solana_csv_client(config, state)?;
         }
     }
@@ -66,9 +66,9 @@ fn deploy_ethereum_csv_client(
     deployer_key: Option<String>,
     _account: Option<String>,
 ) -> Result<()> {
-    use csv_adapter::CsvClient;
+    use csv_sdk::CsvClient;
 
-    let chain_config = config.chain(&builtin::Ethereum)?;
+    let chain_config = config.chain(&Chain::Ethereum)?;
     let rpc_url = &chain_config.rpc_url;
 
     output::progress(1, 4, "Initializing CSV client for Ethereum...");
@@ -87,7 +87,7 @@ fn deploy_ethereum_csv_client(
 
     // Build CSV client with Ethereum support
     let client = CsvClient::builder()
-        .with_chain(to_core_chain(builtin::Ethereum))
+        .with_chain(to_core_chain(Chain::Ethereum))
         .build()
         .map_err(|e| anyhow::anyhow!("Failed to build CSV client: {}", e))?;
 
@@ -114,7 +114,7 @@ fn deploy_ethereum_csv_client(
         .as_secs();
 
     state.store_contract(ContractRecord {
-        chain: builtin::Ethereum,
+        chain: Chain::Ethereum,
         address: hex::encode(&deployment.address),
         tx_hash: deployment.transaction_hash.clone(),
         deployed_at: timestamp,
@@ -141,16 +141,16 @@ fn deploy_sui_csv_client(
     state: &mut UnifiedStateManager,
     _account: Option<String>,
 ) -> Result<()> {
-    use csv_adapter::CsvClient;
+    use csv_sdk::CsvClient;
 
-    let chain_config = config.chain(&builtin::Sui)?;
+    let chain_config = config.chain(&Chain::Sui)?;
     let rpc_url = &chain_config.rpc_url;
 
     output::progress(1, 3, "Initializing CSV client for Sui...");
     output::info(&format!("  RPC: {}", rpc_url));
 
     // Check for Sui account
-    let sui_account = state.get_account(&builtin::Sui);
+    let sui_account = state.get_account(&Chain::Sui);
     if sui_account.is_none() {
         output::warning("No Sui account found in unified state");
         output::info("Create an account with: csv wallet create --chain sui");
@@ -159,7 +159,7 @@ fn deploy_sui_csv_client(
     output::progress(2, 3, "Building CSV client with Sui chain...");
 
     let _client = CsvClient::builder()
-        .with_chain(to_core_chain(builtin::Sui))
+        .with_chain(to_core_chain(Chain::Sui))
         .build()
         .map_err(|e| anyhow::anyhow!("Failed to build CSV client: {}", e))?;
 
@@ -180,15 +180,15 @@ fn deploy_aptos_csv_client(
     state: &mut UnifiedStateManager,
     _account: Option<String>,
 ) -> Result<()> {
-    use csv_adapter::CsvClient;
+    use csv_sdk::CsvClient;
 
-    let chain_config = config.chain(&builtin::Aptos)?;
+    let chain_config = config.chain(&Chain::Aptos)?;
     let rpc_url = &chain_config.rpc_url;
 
     output::progress(1, 3, "Initializing CSV client for Aptos...");
     output::info(&format!("  RPC: {}", rpc_url));
 
-    let aptos_account = state.get_account(&builtin::Aptos);
+    let aptos_account = state.get_account(&Chain::Aptos);
     if aptos_account.is_none() {
         output::warning("No Aptos account found in unified state");
         output::info("Create an account with: csv wallet create --chain aptos");
@@ -197,7 +197,7 @@ fn deploy_aptos_csv_client(
     output::progress(2, 3, "Building CSV client with Aptos chain...");
 
     let _client = CsvClient::builder()
-        .with_chain(to_core_chain(builtin::Aptos))
+        .with_chain(to_core_chain(Chain::Aptos))
         .build()
         .map_err(|e| anyhow::anyhow!("Failed to build CSV client: {}", e))?;
 
@@ -214,11 +214,11 @@ fn deploy_aptos_csv_client(
 
 /// Deploy Solana contracts using CSV Adapter unified client.
 fn deploy_solana_csv_client(_config: &Config, state: &mut UnifiedStateManager) -> Result<()> {
-    use csv_adapter::CsvClient;
+    use csv_sdk::CsvClient;
 
     output::progress(1, 3, "Initializing CSV client for Solana...");
 
-    let solana_account = state.get_account(&builtin::Solana);
+    let solana_account = state.get_account(&Chain::Solana);
     if solana_account.is_none() {
         output::warning("No Solana account found in unified state");
         output::info("Create an account with: csv wallet create --chain solana");
@@ -227,7 +227,7 @@ fn deploy_solana_csv_client(_config: &Config, state: &mut UnifiedStateManager) -
     output::progress(2, 3, "Building CSV client with Solana chain...");
 
     let _client = CsvClient::builder()
-        .with_chain(to_core_chain(builtin::Solana))
+        .with_chain(to_core_chain(Chain::Solana))
         .build()
         .map_err(|e| anyhow::anyhow!("Failed to build CSV client: {}", e))?;
 

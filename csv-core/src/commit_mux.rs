@@ -507,13 +507,3 @@ mod tests {
         assert_eq!(proof_2.leaf_index, 2);
     }
 }
-
-// Backward compatibility type aliases
-#[deprecated(since = "0.4.0", note = "Use CommitMux instead")]
-pub type CommitMux = CommitMux;
-
-#[deprecated(since = "0.4.0", note = "Use MuxLeaf instead")]
-pub type MuxLeaf = MuxLeaf;
-
-#[deprecated(since = "0.4.0", note = "Use MuxProof instead")]
-pub type MuxProof = MuxProof;

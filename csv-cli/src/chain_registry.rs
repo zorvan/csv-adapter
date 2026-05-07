@@ -6,7 +6,7 @@
 #![allow(dead_code)]
 
 use crate::config::Chain;
-use csv_core::{AdapterFactory, ChainDriver, ChainCapabilities};
+use csv_core::{ChainDriver, ChainCapabilities, DriverRegistry};
 
 /// Get the chain ID string for a Chain enum variant
 pub fn chain_id(chain: &Chain) -> &'static str {
@@ -21,7 +21,7 @@ pub fn chain_id(chain: &Chain) -> &'static str {
 
 /// Get chain adapter for a Chain enum variant
 pub fn get_adapter(chain: &Chain) -> Option<Box<dyn ChainDriver>> {
-    let factory = AdapterFactory::new();
+    let factory = DriverRegistry::new();
     factory.create_adapter(chain_id(chain))
 }
 
@@ -47,7 +47,7 @@ pub fn supports_smart_contracts(chain: &Chain) -> bool {
 
 /// Get all supported chains from registry
 pub fn supported_chains() -> Vec<String> {
-    let factory = AdapterFactory::new();
+    let factory = DriverRegistry::new();
     factory
         .supported_chains()
         .iter()

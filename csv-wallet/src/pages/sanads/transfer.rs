@@ -101,7 +101,7 @@ pub fn TransferSanad() -> Element {
                                 loading.set(true);
                                 result.set(None);
 
-                                match blockchain.transfer_sanad_local(chain, &sanad_id, &to_addr, &std::collections::HashMap::new(), &signer).await {
+                                match blockchain.transfer_sanad_local(chain, &sanad_id, &to_addr).await {
                                     Ok(tx_hash) => {
                                         result.set(Some(format!("✅ Transfer successful! Transaction: {}", truncate_address(&tx_hash, 12))));
                                         wallet_ctx.refresh_sanads().await;

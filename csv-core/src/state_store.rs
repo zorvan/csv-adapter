@@ -15,7 +15,7 @@ use alloc::vec::Vec;
 
 use crate::commitment::Commitment;
 use crate::hash::Hash;
-use crate::title::Sanad;
+use crate::sanad::Sanad;
 use crate::seal::SealPoint;
 
 /// A recorded state transition in the contract history.
@@ -244,7 +244,7 @@ mod tests {
 
         let sanad = Sanad::new(
             Hash::new([0xCD; 32]),
-            crate::sanad::TitleOwnershipProof {
+            crate::sanad::SanadOwnershipProof {
                 proof: vec![0x01],
                 owner: vec![0xFF; 32],
                 scheme: None,

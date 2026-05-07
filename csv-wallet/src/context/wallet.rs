@@ -72,14 +72,14 @@ impl WalletContext {
 
         // Load app state (sanads, seals, etc.)
         if let Some(persisted) =
-            store.try_load::<csv_adapter_store::state::UnifiedStorage>(UNIFIED_STORAGE_KEY)
+            store.try_load::<csv_store::state::UnifiedStorage>(UNIFIED_STORAGE_KEY)
         {
             if let Some(c) = persisted.selected_chain {
                 s.selected_chain = convert_chain_from_store(c);
             }
             s.selected_network = match persisted.selected_network {
-                Some(csv_adapter_store::state::Network::Dev) => Network::Dev,
-                Some(csv_adapter_store::state::Network::Main) => Network::Main,
+                Some(csv_store::state::Network::Dev) => Network::Dev,
+                Some(csv_store::state::Network::Main) => Network::Main,
                 _ => Network::Test,
             };
             s.sanads = persisted
@@ -91,11 +91,11 @@ impl WalletContext {
                         chain: convert_chain_from_store(r.chain),
                         value: r.value,
                         status: match r.status {
-                            csv_adapter_store::state::SanadStatus::Active => SanadStatus::Active,
-                            csv_adapter_store::state::SanadStatus::Transferred => {
+                            csv_store::state::SanadStatus::Active => SanadStatus::Active,
+                            csv_store::state::SanadStatus::Transferred => {
                                 SanadStatus::Transferred
                             }
-                            csv_adapter_store::state::SanadStatus::Consumed => {
+                            csv_store::state::SanadStatus::Consumed => {
                                 SanadStatus::Consumed
                             }
                         },
@@ -114,22 +114,22 @@ impl WalletContext {
                         sanad_id: t.sanad_id,
                         dest_owner: t.destination_address.unwrap_or_default(),
                         status: match t.status {
-                            csv_adapter_store::state::TransferStatus::Initiated => {
+                            csv_store::state::TransferStatus::Initiated => {
                                 TransferStatus::Initiated
                             }
-                            csv_adapter_store::state::TransferStatus::Locked => {
+                            csv_store::state::TransferStatus::Locked => {
                                 TransferStatus::Locked
                             }
-                            csv_adapter_store::state::TransferStatus::Verifying => {
+                            csv_store::state::TransferStatus::Verifying => {
                                 TransferStatus::Verifying
                             }
-                            csv_adapter_store::state::TransferStatus::Minting => {
+                            csv_store::state::TransferStatus::Minting => {
                                 TransferStatus::Minting
                             }
-                            csv_adapter_store::state::TransferStatus::Completed => {
+                            csv_store::state::TransferStatus::Completed => {
                                 TransferStatus::Completed
                             }
-                            csv_adapter_store::state::TransferStatus::Failed => {
+                            csv_store::state::TransferStatus::Failed => {
                                 TransferStatus::Failed
                             }
                         },
@@ -240,16 +240,16 @@ impl WalletContext {
         let s = self.state.read();
 
         // Convert local types to unified storage types
-        use csv_adapter_store::state::{ContractRecord, SanadRecord, TransferRecord, WalletConfig};
+        use csv_store::state::{ContractRecord, SanadRecord, TransferRecord, WalletConfig};
 
-        let persisted = csv_adapter_store::state::UnifiedStorage {
+        let persisted = csv_store::state::UnifiedStorage {
             version: 1,
             initialized: !s.wallet.is_empty(),
             selected_chain: Some(convert_chain_to_store(s.selected_chain.clone())),
             selected_network: Some(match s.selected_network {
-                Network::Dev => csv_adapter_store::state::Network::Dev,
-                Network::Test => csv_adapter_store::state::Network::Test,
-                Network::Main => csv_adapter_store::state::Network::Main,
+                Network::Dev => csv_store::state::Network::Dev,
+                Network::Test => csv_store::state::Network::Test,
+                Network::Main => csv_store::state::Network::Main,
             }),
             sanads: s
                 .sanads
@@ -263,11 +263,11 @@ impl WalletContext {
                     commitment: r.id.clone(), // Using sanad ID as commitment reference
                     nullifier: None,
                     status: match r.status {
-                        SanadStatus::Active => csv_adapter_store::state::SanadStatus::Active,
+                        SanadStatus::Active => csv_store::state::SanadStatus::Active,
                         SanadStatus::Transferred => {
-                            csv_adapter_store::state::SanadStatus::Transferred
+                            csv_store::state::SanadStatus::Transferred
                         }
-                        SanadStatus::Consumed => csv_adapter_store::state::SanadStatus::Consumed,
+                        SanadStatus::Consumed => csv_store::state::SanadStatus::Consumed,
                     },
                     created_at: 0, // Creation time tracking to be implemented
                 })
@@ -290,19 +290,19 @@ impl WalletContext {
                     proof: None,
                     status: match t.status {
                         TransferStatus::Initiated => {
-                            csv_adapter_store::state::TransferStatus::Initiated
+                            csv_store::state::TransferStatus::Initiated
                         }
-                        TransferStatus::Locked => csv_adapter_store::state::TransferStatus::Locked,
+                        TransferStatus::Locked => csv_store::state::TransferStatus::Locked,
                         TransferStatus::Verifying => {
-                            csv_adapter_store::state::TransferStatus::Verifying
+                            csv_store::state::TransferStatus::Verifying
                         }
                         TransferStatus::Minting => {
-                            csv_adapter_store::state::TransferStatus::Minting
+                            csv_store::state::TransferStatus::Minting
                         }
                         TransferStatus::Completed => {
-                            csv_adapter_store::state::TransferStatus::Completed
+                            csv_store::state::TransferStatus::Completed
                         }
-                        TransferStatus::Failed => csv_adapter_store::state::TransferStatus::Failed,
+                        TransferStatus::Failed => csv_store::state::TransferStatus::Failed,
                     },
                     created_at: t.created_at,
                     completed_at: None, // Completion time set when transfer finalized
@@ -311,7 +311,7 @@ impl WalletContext {
             seals: s
                 .seals
                 .iter()
-                .map(|s_rec| csv_adapter_store::state::SealRecord {
+                .map(|s_rec| csv_store::state::SealRecord {
                     seal_ref: s_rec.seal_ref.clone(),
                     chain: convert_chain_to_store(s_rec.chain.clone()),
                     value: s_rec.value,
@@ -322,7 +322,7 @@ impl WalletContext {
             proofs: s
                 .proofs
                 .iter()
-                .map(|p| csv_adapter_store::state::ProofRecord {
+                .map(|p| csv_store::state::ProofRecord {
                     chain: convert_chain_to_store(p.chain.clone()),
                     sanad_id: p.sanad_id.clone(),
                     proof_type: p.proof_type.clone(),
@@ -563,7 +563,7 @@ impl WalletContext {
             .map_err(|e| format!("Failed to derive address: {}", e))?;
 
         // Create keystore reference (simplified - in production this would encrypt and store)
-        let keystore_ref = format!("keystore_{}_{}", chain.id(), uuid::Uuid::new_v4());
+        let keystore_ref = format!("keystore_{}_{}", chain, uuid::Uuid::new_v4());
 
         // Create account
         let account = crate::wallet_core::ChainAccount::from_keystore(
@@ -869,26 +869,26 @@ pub fn WalletProvider(children: Element) -> Element {
     }
 }
 
-/// Convert csv_core::Chain to csv_adapter_store::Chain
-fn convert_chain_to_store(chain: csv_core::Chain) -> csv_adapter_store::state::Chain {
+/// Convert csv_core::Chain to csv_store::Chain
+fn convert_chain_to_store(chain: csv_core::Chain) -> csv_store::state::Chain {
     match chain {
-        csv_core::Chain::Bitcoin => csv_adapter_store::state::Chain::Bitcoin,
-        csv_core::Chain::Ethereum => csv_adapter_store::state::Chain::Ethereum,
-        csv_core::Chain::Sui => csv_adapter_store::state::Chain::Sui,
-        csv_core::Chain::Aptos => csv_adapter_store::state::Chain::Aptos,
-        csv_core::Chain::Solana => csv_adapter_store::state::Chain::Solana,
-        _ => csv_adapter_store::state::Chain::Bitcoin, // fallback for any future chains
+        csv_core::Chain::Bitcoin => csv_store::state::Chain::Bitcoin,
+        csv_core::Chain::Ethereum => csv_store::state::Chain::Ethereum,
+        csv_core::Chain::Sui => csv_store::state::Chain::Sui,
+        csv_core::Chain::Aptos => csv_store::state::Chain::Aptos,
+        csv_core::Chain::Solana => csv_store::state::Chain::Solana,
+        _ => csv_store::state::Chain::Bitcoin, // fallback for any future chains
     }
 }
 
-/// Convert csv_adapter_store::Chain to csv_core::Chain
-fn convert_chain_from_store(chain: csv_adapter_store::state::Chain) -> csv_core::Chain {
+/// Convert csv_store::Chain to csv_core::Chain
+fn convert_chain_from_store(chain: csv_store::state::Chain) -> csv_core::Chain {
     match chain {
-        csv_adapter_store::state::Chain::Bitcoin => csv_core::Chain::Bitcoin,
-        csv_adapter_store::state::Chain::Ethereum => csv_core::Chain::Ethereum,
-        csv_adapter_store::state::Chain::Sui => csv_core::Chain::Sui,
-        csv_adapter_store::state::Chain::Aptos => csv_core::Chain::Aptos,
-        csv_adapter_store::state::Chain::Solana => csv_core::Chain::Solana,
+        csv_store::state::Chain::Bitcoin => csv_core::Chain::Bitcoin,
+        csv_store::state::Chain::Ethereum => csv_core::Chain::Ethereum,
+        csv_store::state::Chain::Sui => csv_core::Chain::Sui,
+        csv_store::state::Chain::Aptos => csv_core::Chain::Aptos,
+        csv_store::state::Chain::Solana => csv_core::Chain::Solana,
     }
 }
 

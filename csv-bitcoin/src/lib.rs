@@ -21,7 +21,6 @@ pub mod seal;
 pub mod signatures;
 pub mod spv;
 pub mod tapret;
-pub mod testnet_deploy;
 pub mod tx_builder;
 pub mod types;
 pub mod wallet;

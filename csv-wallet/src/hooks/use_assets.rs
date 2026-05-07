@@ -60,6 +60,6 @@ pub fn AssetProvider(children: Element) -> Element {
 }
 
 /// Hook to access asset state.
-pub fn use_assets() -> AssetContext {
+pub fn use_sanads() -> AssetContext {
     use_context::<AssetContext>()
 }

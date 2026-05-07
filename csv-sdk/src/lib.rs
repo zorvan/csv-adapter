@@ -30,7 +30,7 @@
 //!         .build()?;
 //!
 //!     // Access managers
-//!     let titles = client.titles();
+//!     let sanads = client.sanads();
 //!     let transfers = client.transfers();
 //!     let proofs = client.proofs();
 //!
@@ -55,7 +55,7 @@
 //!
 //! # Key Concepts
 //!
-//! - **Sanad**: A verifiable, single-use digital title (deed) that can be transferred
+//! - **Sanad**: A verifiable, single-use digital sanad (deed) that can be transferred
 //!   cross-chain. Exists in client state, not on any chain.
 //! - **Seal**: The on-chain mechanism that enforces a Sanad's single-use.
 //!   Chain-specific and exists on one chain only.
@@ -75,7 +75,7 @@ pub mod events;
 pub mod runtime;
 pub mod prelude;
 pub mod proofs;
-pub mod titles;
+pub mod sanads;
 pub mod transfers;
 pub mod wallet;
 
@@ -120,7 +120,7 @@ pub use client::CsvClient;
 pub use builder::{ClientBuilder, StoreBackend};
 
 /// Re-export runtime types
-pub use runtime::{ChainFacade, AdapterFacade, AdapterConfig, AdapterBuilder};
+pub use runtime::{ChainRuntime, RuntimeManager, RuntimeConfig, AdapterBuilder};
 
 /// Re-export deployment types
 pub use deploy::{ContractDeployment, DeploymentError, DeploymentManager, DeploymentResult};

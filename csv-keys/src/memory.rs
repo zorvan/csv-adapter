@@ -15,7 +15,7 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 /// # Example
 ///
 /// ```
-/// use csv_adapter_keystore::memory::SecretKey;
+/// use csv_keys::memory::SecretKey;
 ///
 /// let key = SecretKey::new([1u8; 32]);
 /// // Key is automatically zeroed when dropped
@@ -39,7 +39,7 @@ impl SecretKey {
     ///
     /// # Example
     /// ```
-    /// use csv_adapter_keystore::memory::SecretKey;
+    /// use csv_keys::memory::SecretKey;
     ///
     /// let key = SecretKey::new([0u8; 32]);
     /// ```

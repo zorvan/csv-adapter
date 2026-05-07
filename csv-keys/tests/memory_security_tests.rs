@@ -6,7 +6,7 @@
 //! 3. Seed zeroizes memory on drop
 //! 4. No secret data remains in memory after operations
 
-use csv_adapter_keystore::memory::{Passphrase, SecretKey, Seed};
+use csv_keys::memory::{Passphrase, SecretKey, Seed};
 
 /// Test that SecretKey properly zeroizes on drop
 #[test]
@@ -150,7 +150,7 @@ fn test_secret_key_clone_independence() {
 /// Test that keystore encryption/decryption doesn't leave intermediate copies
 #[test]
 fn test_keystore_encryption_cleanup() {
-    use csv_adapter_keystore::keystore::{KeystoreFile, KdfType};
+    use csv_keys::keystore::{KeystoreFile, KdfType};
 
     // Create a key
     let key = SecretKey::from_bytes(&[0xBBu8; 32]).unwrap();

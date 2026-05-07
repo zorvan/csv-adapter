@@ -11,7 +11,7 @@ use csv_core::Hash;
 #[cfg(feature = "rpc")]
 use csv_core::SealStore;
 #[cfg(feature = "rpc")]
-use csv_adapter_store::SqliteSealStore;
+use csv_store::SqliteSealStore;
 use std::collections::HashSet;
 #[cfg(feature = "rpc")]
 use std::sync::Arc;

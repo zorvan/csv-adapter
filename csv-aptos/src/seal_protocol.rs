@@ -652,7 +652,7 @@ impl SealProtocol for AptosSealProtocol {
         transition_payload_hash: Hash,
         seal_point: &Self::SealPoint,
     ) -> Hash {
-        let core_seal = CoreSealPoint::new(seal_ref.to_vec(), Some(seal_ref.nonce))
+        let core_seal = CoreSealPoint::new(seal_point.account_address.to_vec(), Some(seal_point.nonce))
             .expect("valid seal reference");
         Commitment::simple(
             contract_id,

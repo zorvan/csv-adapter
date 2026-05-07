@@ -248,7 +248,7 @@ pub fn CrossChainTransfer() -> Element {
                 }
 
                 // Create native wallet from account
-                let signer = NativeWallet::new(from, account);
+                let signer = NativeWallet::new(account.address.clone());
                 let service = BlockchainService::new(BlockchainConfig::default());
 
                 // Determine destination owner (default to same address)
@@ -272,6 +272,7 @@ pub fn CrossChainTransfer() -> Element {
                         contracts.insert(
                             from,
                             ContractDeployment {
+                                address: contract.address.clone(),
                                 chain: from,
                                 contract_address: contract.address.clone(),
                                 tx_hash: contract.tx_hash.clone(),
@@ -290,6 +291,7 @@ pub fn CrossChainTransfer() -> Element {
                         contracts.insert(
                             to,
                             ContractDeployment {
+                                address: contract.address.clone(),
                                 chain: to,
                                 contract_address: contract.address.clone(),
                                 tx_hash: contract.tx_hash.clone(),
@@ -396,7 +398,7 @@ pub fn CrossChainTransfer() -> Element {
                             generated_at: now,
                             verified_at: Some(now),
                             data: Some(proof_data),
-                            target_chain: Some(to),
+                            target_chain: to,
                             verification_tx_hash: Some(transfer_result.mint_tx_hash.clone()),
                         };
                         wallet_ctx.add_proof(proof);

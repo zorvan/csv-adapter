@@ -64,7 +64,7 @@ pub fn ZkVerifyProof() -> Element {
                                 // Clone proof fields before moving proof
                                 let chain = proof.public_inputs.source_chain;
                                 let timestamp = proof.public_inputs.timestamp;
-                                let seal_id = proof.public_inputs.seal_ref.seal_id.clone();
+                                let seal_id = proof.public_inputs.seal_ref.id.clone();
 
                                 result.set(Some(ZkVerifyResult {
                                     success: valid,
@@ -289,7 +289,7 @@ fn verify_zk_proof(input: &str) -> Result<(ZkSealProof, bool), String> {
         csv_core::zk_proof::ProofSystem::Groth16 => {
             #[cfg(feature = "csv-adapter-ethereum")]
             {
-                use csv_adapter_ethereum::zk_verifier::EthereumGroth16Verifier;
+                use csv_ethereum::zk_verifier::EthereumGroth16Verifier;
                 use csv_core::zk_proof::ZkVerifier;
                 // Use Ethereum Groth16 verifier
                 let verifier = EthereumGroth16Verifier::new();

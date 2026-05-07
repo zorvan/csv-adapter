@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use crate::collections::HashMap;
 use thiserror::Error;
 
-use crate::Chain;
+use crate::mcp::Chain;
 
 // Re-export from chain_config for convenience
 pub use crate::chain_config::{AccountModel, ChainCapabilities, ChainConfig};

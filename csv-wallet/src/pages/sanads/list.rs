@@ -3,7 +3,7 @@
 use crate::context::{use_wallet_context, ProofStatus, SealStatus};
 use crate::pages::common::*;
 use crate::routes::Route;
-use csv_core::ChainId;
+use csv_core::Chain;
 use dioxus::prelude::*;
 
 #[component]

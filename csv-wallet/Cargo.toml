@@ -16,7 +16,7 @@ path = "src/main.rs"
 
 [dependencies]
 # Core CSV Protocol types
-csv-sdk = { path = "../csv-sdk", default-features = false, features = ["in-memory", "wallet"] }
+csv-sdk = { path = "../csv-sdk", default-features = false, features = ["in-memory", "wallet", "tokio"] }
 csv-core = { path = "../csv-core" }
 csv-store = { path = "../csv-store", default-features = false, features = ["browser-storage"] }
 csv-keys = { path = "../csv-keys", features = ["wasm"] }
@@ -30,7 +30,7 @@ dioxus-router = "0.7"
 
 # Cryptography - wasm compatible
 getrandom = { version = "0.2", features = ["js"] }
-secp256k1 = { version = "0.28", features = ["rand-std"] }
+secp256k1 = { version = "0.29", features = ["rand-std", "global-context"] }
 ed25519-dalek = { version = "2.0", features = ["rand_core"] }
 sha2 = "0.10"
 sha3 = "0.10"

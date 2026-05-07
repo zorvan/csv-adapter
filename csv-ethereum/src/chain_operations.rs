@@ -9,13 +9,13 @@
 //! - ChainSanadOps: Sanad management via CSV seal contract
 
 use async_trait::async_trait;
-use csv_core::chain_operations::{
+use csv_core::backend::{
     BalanceInfo, ChainBroadcaster, ChainDeployer, ChainOpError, ChainOpResult, ChainProofProvider,
     ChainQuery, ChainSanadOps, ChainSigner, ContractStatus, DeploymentStatus, FinalityStatus, SanadOperationResult, TransactionInfo, TransactionStatus,
 };
 use csv_core::hash::Hash;
 use csv_core::proof::{FinalityProof, InclusionProof as CoreInclusionProof};
-use csv_core::title::SanadId;
+use csv_core::sanad::SanadId;
 use csv_core::signature::SignatureScheme;
 
 use crate::seal_protocol::EthereumSealProtocol;
@@ -950,7 +950,7 @@ impl ChainSanadOps for EthereumBackend {
             Ok(tx_info) => {
                 // Transaction found - check confirmations for state
                 let has_confirmations = match &tx_info.status {
-                    csv_core::chain_operations::TransactionStatus::Confirmed { confirmations, .. } => *confirmations > 0,
+                    csv_core::backend::TransactionStatus::Confirmed { confirmations, .. } => *confirmations > 0,
                     _ => false,
                 };
                 if has_confirmations {

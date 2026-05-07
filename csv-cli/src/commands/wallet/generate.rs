@@ -1,6 +1,6 @@
 //! Wallet generation for all chains (Phase 5 Compliant).
 //!
-//! Uses csv-adapter-keystore facade for all cryptographic operations.
+//! Uses csv-adapter-keystore runtime for all cryptographic operations.
 //! No direct crypto dependencies - all key derivation through keystore API.
 
 use crate::config::{Chain, Config, Network};
@@ -9,8 +9,8 @@ use crate::state::UnifiedStateManager;
 use anyhow::Result;
 use std::collections::HashMap;
 
-// Phase 5: Use keystore facade for all crypto operations
-use csv_adapter_keystore::{
+// Phase 5: Use keystore runtime for all crypto operations
+use csv_keys::{
     Mnemonic, MnemonicType,
     bip44::{derive_all_chain_keys, derive_address_from_key},
 };
@@ -19,7 +19,6 @@ use csv_adapter_keystore::{
 pub fn cmd_init(
     network: Network,
     words: u8,
-    fund: bool,
     account: u32,
     config: &Config,
     state: &mut UnifiedStateManager,
@@ -36,11 +35,11 @@ pub fn cmd_init(
     let mut addresses = HashMap::new();
 
     for chain in [
-        builtin::Bitcoin,
-        builtin::Ethereum,
-        builtin::Sui,
-        builtin::Aptos,
-        builtin::Solana,
+        Chain::Bitcoin,
+        Chain::Ethereum,
+        Chain::Sui,
+        Chain::Aptos,
+        Chain::Solana,
     ] {
         output::info(&format!("Generating {} wallet...", chain));
         let address = generate_wallet_for_chain(&chain, &network, &mnemonic, account, state)?;
@@ -53,14 +52,7 @@ pub fn cmd_init(
     save_wallet_config(&mnemonic, &addresses, config)?;
     output::success("Configuration saved to ~/.csv/config.toml");
 
-    // Step 4: Fund wallets if requested
-    if fund {
-        output::info("Funding wallets from faucets...");
-        fund_all_wallets(&addresses, &network)?;
-        output::success("All wallets funded with test tokens");
-    }
-
-    // Step 5: Summary
+    // Step 4: Summary
     output::header("Wallet Setup Complete! Ready to build!");
     output::info("Your wallet addresses:");
     for (chain, address) in &addresses {
@@ -74,9 +66,8 @@ pub fn cmd_init(
         ));
     }
 
-    if fund {
-        output::info("Check balances with: csv wallet balance --chain <chain>");
-    }
+    output::info("Check balances with: csv wallet balance --chain <chain>");
+    output::info("Fund your wallets using chain faucets or exchanges");
 
     output::success("Start building: csv sanad create --chain bitcoin --value 100000");
 
@@ -91,15 +82,15 @@ pub fn cmd_generate(
     state: &mut UnifiedStateManager,
 ) -> Result<()> {
     match chain {
-        builtin::Bitcoin => generate_bitcoin(network, state),
-        builtin::Ethereum => generate_ethereum(state),
-        builtin::Sui => generate_sui(state),
-        builtin::Aptos => generate_aptos(state),
-        builtin::Solana => generate_solana(state),
+        Chain::Bitcoin => generate_bitcoin(network, state),
+        Chain::Ethereum => generate_ethereum(state),
+        Chain::Sui => generate_sui(state),
+        Chain::Aptos => generate_aptos(state),
+        Chain::Solana => generate_solana(state),
     }
 }
 
-/// Generate BIP-39 mnemonic phrase using keystore facade.
+/// Generate BIP-39 mnemonic phrase using keystore runtime.
 fn generate_mnemonic(words: u8) -> Result<String> {
     // Phase 5: Use keystore's BIP-39 implementation
     let mnemonic_type = if words >= 24 {
@@ -114,7 +105,7 @@ fn generate_mnemonic(words: u8) -> Result<String> {
     Ok(mnemonic.as_str().to_string())
 }
 
-/// Generate wallet for a specific chain from mnemonic using keystore facade.
+/// Generate wallet for a specific chain from mnemonic using keystore runtime.
 fn generate_wallet_for_chain(
     chain: &Chain,
     _network: &Network,
@@ -124,11 +115,11 @@ fn generate_wallet_for_chain(
 ) -> Result<String> {
     // Phase 5: Use keystore's BIP-44 derivation for all chains
     let core_chain = match chain {
-        builtin::Bitcoin => csv_core::builtin::Bitcoin,
-        builtin::Ethereum => csv_core::builtin::Ethereum,
-        builtin::Sui => csv_core::builtin::Sui,
-        builtin::Aptos => csv_core::builtin::Aptos,
-        builtin::Solana => csv_core::builtin::Solana,
+        Chain::Bitcoin => csv_core::Chain::Bitcoin,
+        Chain::Ethereum => csv_core::Chain::Ethereum,
+        Chain::Sui => csv_core::Chain::Sui,
+        Chain::Aptos => csv_core::Chain::Aptos,
+        Chain::Solana => csv_core::Chain::Solana,
     };
 
     // Convert mnemonic to seed
@@ -149,11 +140,11 @@ fn generate_wallet_for_chain(
 
     // Store in state with derivation path
     let coin_type = match chain {
-        builtin::Bitcoin => "0",
-        builtin::Ethereum => "60",
-        builtin::Sui => "784",
-        builtin::Aptos => "637",
-        builtin::Solana => "501",
+        Chain::Bitcoin => "0",
+        Chain::Ethereum => "60",
+        Chain::Sui => "784",
+        Chain::Aptos => "637",
+        Chain::Solana => "501",
     };
     let derivation_path = format!("m/44'/{}'/{}'/0/0", coin_type, account);
     state.store_address_with_derivation(chain.clone(), address.clone(), Some(derivation_path));
@@ -164,7 +155,7 @@ fn generate_wallet_for_chain(
 // Individual chain generators (for non-mnemonic wallet generation)
 
 fn generate_bitcoin(network: Network, state: &mut UnifiedStateManager) -> Result<()> {
-    use csv_adapter::wallet::Wallet;
+    use csv_sdk::wallet::Wallet;
     use rand::RngCore;
 
     let mut seed = [0u8; 64];
@@ -173,10 +164,10 @@ fn generate_bitcoin(network: Network, state: &mut UnifiedStateManager) -> Result
     // Create wallet from seed
     let wallet = Wallet::from_seed(seed);
 
-    // Derive Bitcoin address using the facade
-    let address = wallet.derive_address(csv_adapter::builtin::Bitcoin, 0, 0);
+    // Derive Bitcoin address using the runtime
+    let address = wallet.derive_address(csv_core::Chain::Bitcoin, 0, 0);
 
-    state.store_address(builtin::Bitcoin, address.clone());
+    state.store_address(Chain::Bitcoin, address.clone());
 
     output::header("Bitcoin Wallet Generated");
     output::kv("Network", &network.to_string());
@@ -186,7 +177,6 @@ fn generate_bitcoin(network: Network, state: &mut UnifiedStateManager) -> Result
 
     println!();
     output::warning("Save this seed securely. It cannot be recovered.");
-    output::info("Fund this wallet with: csv wallet fund --chain bitcoin");
 
     Ok(())
 }
@@ -208,7 +198,7 @@ fn generate_ethereum(state: &mut UnifiedStateManager) -> Result<()> {
     let hash = Keccak256::digest(&pubkey_bytes[1..]);
     let address = format!("0x{}", hex::encode(&hash[12..]));
 
-    state.store_address(builtin::Ethereum, address.clone());
+    state.store_address(Chain::Ethereum, address.clone());
 
     output::header("Ethereum Wallet Generated");
     output::kv("Address", &address);
@@ -216,7 +206,6 @@ fn generate_ethereum(state: &mut UnifiedStateManager) -> Result<()> {
 
     println!();
     output::warning("Save this private key securely. It cannot be recovered.");
-    output::info("Fund this wallet with: csv wallet fund --chain ethereum");
 
     Ok(())
 }
@@ -239,7 +228,7 @@ fn generate_sui(state: &mut UnifiedStateManager) -> Result<()> {
     let address_bytes = hasher.finalize();
     let address = format!("0x{}", hex::encode(address_bytes));
 
-    state.store_address(builtin::Sui, address.clone());
+    state.store_address(Chain::Sui, address.clone());
 
     output::header("Sui Wallet Generated");
     output::kv("Address", &address);
@@ -247,7 +236,6 @@ fn generate_sui(state: &mut UnifiedStateManager) -> Result<()> {
 
     println!();
     output::warning("Save this private key securely.");
-    output::info("Fund this wallet with: csv wallet fund --chain sui");
 
     Ok(())
 }
@@ -269,7 +257,7 @@ fn generate_aptos(state: &mut UnifiedStateManager) -> Result<()> {
     let auth_key = hasher.finalize();
     let address = format!("0x{}", hex::encode(auth_key));
 
-    state.store_address(builtin::Aptos, address.clone());
+    state.store_address(Chain::Aptos, address.clone());
 
     output::header("Aptos Wallet Generated");
     output::kv("Address", &address);
@@ -277,7 +265,6 @@ fn generate_aptos(state: &mut UnifiedStateManager) -> Result<()> {
 
     println!();
     output::warning("Save this private key securely.");
-    output::info("Fund this wallet with: csv wallet fund --chain aptos");
 
     Ok(())
 }
@@ -294,7 +281,7 @@ fn generate_solana(state: &mut UnifiedStateManager) -> Result<()> {
 
     let address = bs58::encode(verifying_key.as_bytes()).into_string();
 
-    state.store_address(builtin::Solana, address.clone());
+    state.store_address(Chain::Solana, address.clone());
 
     output::header("Solana Wallet Generated");
     output::kv("Address", &address);
@@ -302,7 +289,6 @@ fn generate_solana(state: &mut UnifiedStateManager) -> Result<()> {
 
     println!();
     output::warning("Save this private key securely.");
-    output::info("Fund this wallet with: csv wallet fund --chain solana");
 
     Ok(())
 }
@@ -315,16 +301,5 @@ fn save_wallet_config(
     // Save to unified storage
     // In the future, could also save to encrypted keystore
     output::info(&format!("Saved {} wallet addresses", addresses.len()));
-    Ok(())
-}
-
-fn fund_all_wallets(addresses: &HashMap<Chain, String>, _network: &Network) -> Result<()> {
-    output::info("Funding all wallets from faucets...");
-
-    for (chain, address) in addresses {
-        output::info(&format!("Funding {}: {}", chain, address));
-        // Faucet funding implementation would go here
-    }
-
     Ok(())
 }

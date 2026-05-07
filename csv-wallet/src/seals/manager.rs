@@ -88,7 +88,7 @@ impl SealManager {
              Use the chain adapter's create_seal() method to obtain a real seal reference.".to_string()
         })?;
 
-        let seal_id = hex::encode(&seal_ref.seal_id);
+        let seal_id = hex::encode(&seal_ref.id);
 
         let record = SealRecord {
             id: seal_id.clone(),

@@ -204,7 +204,7 @@ The MCP server provides self-describing errors with actionable suggestions:
 
 **Architecture Highlights:**
 - 5 supported chains (Bitcoin, Ethereum, Sui, Aptos, Solana)
-- Unified facade pattern for CLI, wallet, explorer
+- Unified runtime pattern for CLI, wallet, explorer
 - Native SDK compliance per chain
 - 8-phase CI guarantee gates
 

@@ -106,13 +106,18 @@ pub struct ChainId(pub String);
 
 impl ChainId {
     /// Create a new ChainId from a string.
-    pub fn new(id: impl Into<String>) -> Self {
-        Self(id.into().to_lowercase())
+    pub fn new(id: &str) -> Self {
+        Self(id.to_lowercase())
     }
 
     /// Get the raw chain ID string.
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+
+    /// Get the chain ID as bytes.
+    pub fn as_bytes(&self) -> &[u8] {
+        self.0.as_bytes()
     }
 
     /// Convert to owned string.
@@ -162,17 +167,20 @@ impl From<String> for ChainId {
 /// These are convenience constants — the protocol accepts any string ID.
 pub mod builtin {
     use super::ChainId;
+    use lazy_static::lazy_static;
 
-    /// Bitcoin mainnet/testnet (UTXO-based)
-    pub const BITCOIN: ChainId = ChainId(String::from("bitcoin"));
-    /// Ethereum mainnet/testnet (EVM-based)
-    pub const ETHEREUM: ChainId = ChainId(String::from("ethereum"));
-    /// Sui mainnet/testnet (Move-based, object-oriented)
-    pub const SUI: ChainId = ChainId(String::from("sui"));
-    /// Aptos mainnet/testnet (Move-based, resource-oriented)
-    pub const APTOS: ChainId = ChainId(String::from("aptos"));
-    /// Solana mainnet/devnet (Sealevel-based, account-oriented)
-    pub const SOLANA: ChainId = ChainId(String::from("solana"));
+    lazy_static! {
+        /// Bitcoin mainnet/testnet (UTXO-based)
+        pub static ref BITCOIN: ChainId = ChainId::new("bitcoin");
+        /// Ethereum mainnet/testnet (EVM-based)
+        pub static ref ETHEREUM: ChainId = ChainId::new("ethereum");
+        /// Sui mainnet/testnet (Move-based, object-oriented)
+        pub static ref SUI: ChainId = ChainId::new("sui");
+        /// Aptos mainnet/testnet (Move-based, resource-oriented)
+        pub static ref APTOS: ChainId = ChainId::new("aptos");
+        /// Solana mainnet/devnet (Sealevel-based, account-oriented)
+        pub static ref SOLANA: ChainId = ChainId::new("solana");
+    }
 }
 
 impl PartialEq<&str> for ChainId {

@@ -12,7 +12,8 @@
 //! | Sui | 44' | 784' | m/44'/784'/0'/0'/i |
 //! | Aptos | 44' | 637' | m/44'/637'/0'/0'/i |
 
-use csv_core::ChainId;
+
+use csv_core::Chain;
 
 /// A unified wallet supporting multi-chain HD derivation (BIP-44).
 ///
@@ -331,7 +332,7 @@ impl WalletManager {
     /// # Note
     ///
     /// This operation requires RPC connectivity through a configured chain adapter.
-    /// The facade delegates to chain adapters implementing the [`ChainQuery`] trait
+    /// The runtime delegates to chain adapters implementing the [`ChainQuery`] trait
     /// from csv-adapter-core.
     ///
     /// # Errors

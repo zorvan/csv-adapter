@@ -33,7 +33,7 @@ use crate::hash::Hash;
 
 /// Result of commitment chain verification.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ChainVerificationResult {
+pub struct VerificationResult {
     /// The ordered chain of commitments (genesis → latest)
     pub chain: Vec<Commitment>,
     /// The genesis commitment (first in the chain)
@@ -85,11 +85,11 @@ pub enum ChainError {
 /// * `latest_commitment_hash` - The hash of the latest commitment (starting point)
 ///
 /// # Returns
-/// A `ChainVerificationResult` if the chain is valid, or a `ChainError` if invalid.
+/// A `VerificationResult` if the chain is valid, or a `ChainError` if invalid.
 pub fn verify_commitment_chain(
     commitments: &[Commitment],
     latest_commitment_hash: Hash,
-) -> Result<ChainVerificationResult, ChainError> {
+) -> Result<VerificationResult, ChainError> {
     if commitments.is_empty() {
         return Err(ChainError::EmptyChain);
     }
@@ -169,7 +169,7 @@ pub fn verify_commitment_chain(
     let latest_commitment = chain.last().unwrap().clone();
     let chain_length = chain.len();
 
-    Ok(ChainVerificationResult {
+    Ok(VerificationResult {
         chain,
         genesis: genesis_commitment,
         latest: latest_commitment,
@@ -187,10 +187,10 @@ pub fn verify_commitment_chain(
 /// * `ordered_commitments` - Commitments in chronological order
 ///
 /// # Returns
-/// A `ChainVerificationResult` if valid, or a `ChainError` if invalid.
+/// A `VerificationResult` if valid, or a `ChainError` if invalid.
 pub fn verify_ordered_commitment_chain(
     ordered_commitments: &[Commitment],
-) -> Result<ChainVerificationResult, ChainError> {
+) -> Result<VerificationResult, ChainError> {
     if ordered_commitments.is_empty() {
         return Err(ChainError::EmptyChain);
     }
@@ -238,7 +238,7 @@ pub fn verify_ordered_commitment_chain(
     let latest = ordered_commitments.last().unwrap().clone();
     let contract_id = genesis.contract_id;
 
-    Ok(ChainVerificationResult {
+    Ok(VerificationResult {
         chain: ordered_commitments.to_vec(),
         genesis,
         latest,

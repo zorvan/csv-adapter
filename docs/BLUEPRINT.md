@@ -29,7 +29,7 @@ The repository already has substantial foundations:
 
 - `csv-adapter-core` contains protocol primitives for sanads, seals, commitments, proofs, transitions, registries, and cross-chain abstractions.
 - Chain adapter crates exist for Bitcoin, Ethereum, Sui, Aptos, and Solana.
-- `csv-adapter` provides a unified Rust facade, though not every consumer uses it consistently yet.
+- `csv-adapter` provides a unified Rust runtime, though not every consumer uses it consistently yet.
 - `csv-cli`, `csv-wallet`, and `csv-explorer` exist as working surfaces.
 - Contracts/programs exist for Ethereum, Sui, Aptos, and Solana.
 - The contracts are moving toward shared lifecycle names and shared metadata for tokens, NFTs, and advanced proofs.
@@ -41,13 +41,13 @@ The repository has reached production-candidate status. Per the [Production Eval
 - ✅ Strong protocol center in `csv-adapter-core` with canonical types
 - ✅ Clean adapter boundaries via `SealProtocol` and `ChainBackend` traits
 - ✅ Native SDK compliance across all chains (Bitcoin, Ethereum, Sui, Aptos, Solana)
-- ✅ Unified facade (`ChainFacade`) for CLI, wallet, and explorer
+- ✅ Unified runtime (`ChainRuntime`) for CLI, wallet, and explorer
 - ✅ Event schema standardization with shared `CsvEvent` types
 - ✅ CI guarantee gates (8 phases) enforcing production standards
 
 **Remaining Work (Non-Blocking):**
 
-- ✅ CLI/wallet facade convergence audit - 100% facade usage verified
+- ✅ CLI/wallet runtime convergence audit - 100% runtime usage verified
 - ✅ Example cleanup - All 4 examples created
 - ✅ Explorer indexer chain plugins - All 5 chains registered
 - ⚠️ Testnet integration test execution (tests exist, need testnet runs)
@@ -168,7 +168,7 @@ csv-adapter-{chain}
   - contract/program bindings
 
 csv-adapter
-  Unified facade:
+  Unified runtime:
   - CsvClient
   - ChainRegistry
   - Wallet service
@@ -178,18 +178,18 @@ csv-adapter
 
 csv-cli
   Command parsing, config, and output.
-  Calls csv-adapter facade only.
+  Calls csv-adapter runtime only.
 
 csv-wallet
   UI, local session state, and human approval flows.
-  Calls wasm-compatible csv-adapter facade only.
+  Calls wasm-compatible csv-adapter runtime only.
 
 csv-explorer
   Indexing orchestration, storage, REST/GraphQL/WebSocket APIs, UI.
   Uses shared event schemas and per-chain indexer plugins.
 
 typescript-sdk
-  Future generated/thin SDK over stable facade schemas and WASM bindings.
+  Future generated/thin SDK over stable runtime schemas and WASM bindings.
 ```
 
 Adding a new chain should require:
@@ -569,7 +569,7 @@ Track a small set of metrics that prove the architecture is getting healthier.
 | Metric | Target | Why it matters |
 |---|---:|---|
 | Production audit findings | 0 | proves no stubs/placeholders remain in production code |
-| Direct chain calls from CLI/wallet | 0 outside facade | proves single implementation |
+| Direct chain calls from CLI/wallet | 0 outside runtime | proves single implementation |
 | Time to first local workflow | < 5 minutes | proves onboarding works |
 | Supported chains through registry | 100% | proves chain addition model |
 | Wallet plaintext key persistence | 0 paths | proves key handling discipline |

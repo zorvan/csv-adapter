@@ -1,23 +1,23 @@
 //! Cross-chain transfer command implementation (Phase 5 Compliant)
 //!
-//! Uses only csv-adapter facade APIs - no direct chain adapter dependencies.
+//! Uses only csv-adapter runtime APIs - no direct chain adapter dependencies.
 
 use anyhow::Result;
 
-use csv_adapter::CsvClient;
+use csv_sdk::CsvClient;
 use csv_core::hash::Hash;
 use csv_core::ChainId;
 
-use crate::config::{Chain as ConfigChain, Config};
+use crate::config::{Chain, Config};
 use crate::output;
 use crate::state::{TransferRecord, TransferStatus, UnifiedStateManager};
 
 use super::to_core_chain;
 
-/// Execute cross-chain transfer using only facade API
+/// Execute cross-chain transfer using only runtime API
 pub fn cmd_transfer(
-    from: ConfigChain,
-    to: ConfigChain,
+    from: Chain,
+    to: Chain,
     sanad_id: String,
     dest_owner: Option<String>,
     _config: &Config,
@@ -42,7 +42,7 @@ pub fn cmd_transfer(
     let sanad_id_hash = Hash::new(sanad_bytes);
 
     // Generate transfer ID
-    let transfer_id = generate_transfer_id(&sanad_id_hash, &from_chain, &to_chain);
+    let transfer_id = generate_transfer_id(&sanad_id_hash, &from, &to);
 
     // Check if we have the sanad
     if state.get_sanad(&sanad_id_hash.to_string()).is_none() {
@@ -74,13 +74,13 @@ pub fn cmd_transfer(
         .build()
         .map_err(|e| anyhow::anyhow!("Failed to create CSV client: {}", e))?;
 
-    // Use facade transfer manager
+    // Use runtime transfer manager
     let _transfers = client.transfers();
 
     // In a full implementation, this would execute the cross-chain transfer
-    // using the facade's cross_chain method. For now, we record the intent.
+    // using the runtime's cross_chain method. For now, we record the intent.
     output::info("Cross-chain transfer requires chain adapter integration.");
-    output::info("Using facade API - implementation pending in chain adapters.");
+    output::info("Using runtime API - implementation pending in chain adapters.");
 
     // Clone for use in record after get_address call
     let from_chain_clone = from.clone();
@@ -108,7 +108,7 @@ pub fn cmd_transfer(
     state.add_transfer(transfer_record);
 
     output::success(&format!(
-        "Transfer {} recorded. Status: Pending (facade integration required)",
+        "Transfer {} recorded. Status: Pending (runtime integration required)",
         transfer_id
     ));
 

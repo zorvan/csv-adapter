@@ -1,6 +1,7 @@
 //! Explorer integration service.
 
 use csv_core::Chain;
+#[cfg(not(target_arch = "wasm32"))]
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
@@ -18,29 +19,29 @@ impl ExplorerConfig {
     /// Get explorer config for a chain (testnet by default).
     pub fn for_chain(chain: Chain) -> Option<Self> {
         match chain {
-            Chain::Bitcoin => Some(Self {
+            builtin::Bitcoin => Some(Self {
                 base_url: "https://mempool.space/testnet".to_string(),
                 tx_url_template: "https://mempool.space/testnet/tx/{}".to_string(),
                 address_url_template: "https://mempool.space/testnet/address/{}".to_string(),
             }),
-            Chain::Ethereum => Some(Self {
+            builtin::Ethereum => Some(Self {
                 base_url: "https://sepolia.etherscan.io".to_string(),
                 tx_url_template: "https://sepolia.etherscan.io/tx/{}".to_string(),
                 address_url_template: "https://sepolia.etherscan.io/address/{}".to_string(),
             }),
-            Chain::Sui => Some(Self {
+            builtin::Sui => Some(Self {
                 base_url: "https://suiscan.xyz/testnet".to_string(),
                 tx_url_template: "https://suiscan.xyz/testnet/tx/{}".to_string(),
                 address_url_template: "https://suiscan.xyz/testnet/address/{}".to_string(),
             }),
-            Chain::Aptos => Some(Self {
+            builtin::Aptos => Some(Self {
                 base_url: "https://explorer.aptoslabs.com/testnet".to_string(),
                 tx_url_template: "https://explorer.aptoslabs.com/txn/{}?network=testnet"
                     .to_string(),
                 address_url_template: "https://explorer.aptoslabs.com/account/{}?network=testnet"
                     .to_string(),
             }),
-            Chain::Solana => Some(Self {
+            builtin::Solana => Some(Self {
                 base_url: "https://explorer.solana.com".to_string(),
                 tx_url_template: "https://explorer.solana.com/tx/{}?cluster=devnet".to_string(),
                 address_url_template: "https://explorer.solana.com/address/{}?cluster=devnet"

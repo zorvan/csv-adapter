@@ -29,7 +29,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::hash::Hash;
-use crate::protocol_version::Chain;
+use crate::protocol_version::builtin;
 use crate::seal::SealPoint;
 
 /// Maximum ZK proof size (1MB)
@@ -65,7 +65,7 @@ impl VerifierKey {
     /// Compute a hash of this verifier key for identification
     pub fn hash(&self) -> Hash {
         let mut hasher = Sha256::new();
-        hasher.update(self.chain.id().as_bytes());
+        hasher.update(self.chain.as_bytes());
         hasher.update(&self.key_bytes);
         hasher.update(&self.version.to_le_bytes());
         Hash::new(hasher.finalize().into())
@@ -228,7 +228,7 @@ impl ChainWitness {
     /// Compute a hash of the witness for integrity verification
     pub fn hash(&self) -> Hash {
         let mut hasher = Sha256::new();
-        hasher.update(self.chain.id().as_bytes());
+        hasher.update(self.chain.as_bytes());
         hasher.update(self.block_hash.as_bytes());
         hasher.update(&self.block_height.to_le_bytes());
         hasher.update(&self.tx_data);
@@ -277,7 +277,7 @@ impl ZkVerifierRegistry {
 
     /// Register a verifier key for a chain
     pub fn register(&mut self, key: VerifierKey) {
-        self.verifiers.insert(key.chain, key);
+        self.verifiers.insert(key.chain.clone(), key);
     }
 
     /// Get the verifier key for a chain
@@ -286,7 +286,7 @@ impl ZkVerifierRegistry {
     }
 
     /// Check if a chain has a registered verifier
-    pub fn has_verifier(&self, chain: &Chain) -> bool {
+    pub fn has_verifier(&self, chain: &crate::protocol_version::ChainId) -> bool {
         self.verifiers.contains_key(chain)
     }
 
@@ -296,7 +296,7 @@ impl ZkVerifierRegistry {
     }
 
     /// Get all registered chains
-    pub fn registered_chains(&self) -> Vec<Chain> {
+    pub fn registered_chains(&self) -> Vec<crate::protocol_version::ChainId> {
         self.verifiers.keys().cloned().collect()
     }
 }
@@ -316,7 +316,7 @@ pub enum ZkError {
 
     /// Verifier key not found for chain
     #[error("Verifier key not found for chain: {0}")]
-    VerifierNotFound(Chain),
+    VerifierNotFound(crate::protocol_version::ChainId),
 
     /// Proof verification failed
     #[error("Proof verification failed: {0}")]
@@ -349,11 +349,11 @@ pub fn default_verifier_registry() -> ZkVerifierRegistry {
     // Register placeholder verifiers for common chains
     // In production, these would be loaded from on-chain contracts
     for chain in [
-        builtin::Bitcoin,
-        builtin::Ethereum,
-        builtin::Solana,
-        builtin::Sui,
-        builtin::Aptos,
+        builtin::BITCOIN.clone(),
+        builtin::ETHEREUM.clone(),
+        builtin::SOLANA.clone(),
+        builtin::SUI.clone(),
+        builtin::APTOS.clone(),
     ] {
         registry.register(VerifierKey::new(
             chain,
@@ -372,9 +372,9 @@ mod tests {
 
     #[test]
     fn test_verifier_key_hash() {
-        let key1 = VerifierKey::new(builtin::Bitcoin, vec![1u8; 32], ProofSystem::SP1, 1);
-        let key2 = VerifierKey::new(builtin::Bitcoin, vec![1u8; 32], ProofSystem::SP1, 1);
-        let key3 = VerifierKey::new(builtin::Ethereum, vec![1u8; 32], ProofSystem::SP1, 1);
+        let key1 = VerifierKey::new(builtin::BITCOIN.clone(), vec![1u8; 32], ProofSystem::SP1, 1);
+        let key2 = VerifierKey::new(builtin::BITCOIN.clone(), vec![1u8; 32], ProofSystem::SP1, 1);
+        let key3 = VerifierKey::new(builtin::ETHEREUM.clone(), vec![1u8; 32], ProofSystem::SP1, 1);
 
         assert_eq!(key1.hash(), key2.hash());
         assert_ne!(key1.hash(), key3.hash());
@@ -382,13 +382,13 @@ mod tests {
 
     #[test]
     fn test_zk_seal_proof_structure() {
-        let verifier_key = VerifierKey::new(builtin::Bitcoin, vec![1u8; 32], ProofSystem::SP1, 1);
+        let verifier_key = VerifierKey::new(builtin::BITCOIN.clone(), vec![1u8; 32], ProofSystem::SP1, 1);
         let seal_ref = SealPoint::new(vec![0xAB; 32], Some(42)).unwrap();
         let public_inputs = ZkPublicInputs {
             seal_ref: seal_ref.clone(),
             block_hash: Hash::new([1u8; 32]),
             commitment: Hash::new([2u8; 32]),
-            source_chain: builtin::Bitcoin,
+            source_chain: builtin::BITCOIN.clone(),
             block_height: 800_000,
             timestamp: 1_000_000,
         };
@@ -399,13 +399,13 @@ mod tests {
 
     #[test]
     fn test_zk_seal_proof_too_large() {
-        let verifier_key = VerifierKey::new(builtin::Bitcoin, vec![1u8; 32], ProofSystem::SP1, 1);
+        let verifier_key = VerifierKey::new(builtin::BITCOIN.clone(), vec![1u8; 32], ProofSystem::SP1, 1);
         let seal_ref = SealPoint::new(vec![0xAB; 32], Some(42)).unwrap();
         let public_inputs = ZkPublicInputs {
             seal_ref,
             block_hash: Hash::new([1u8; 32]),
             commitment: Hash::new([2u8; 32]),
-            source_chain: builtin::Bitcoin,
+            source_chain: builtin::BITCOIN.clone(),
             block_height: 800_000,
             timestamp: 1_000_000,
         };
@@ -416,13 +416,13 @@ mod tests {
 
     #[test]
     fn test_zk_seal_proof_invalid() {
-        let verifier_key = VerifierKey::new(builtin::Bitcoin, vec![1u8; 32], ProofSystem::SP1, 1);
+        let verifier_key = VerifierKey::new(builtin::BITCOIN.clone(), vec![1u8; 32], ProofSystem::SP1, 1);
         let seal_ref = SealPoint::new(vec![0xAB; 32], Some(42)).unwrap();
         let public_inputs = ZkPublicInputs {
             seal_ref,
             block_hash: Hash::zero(), // Invalid: zero block hash
             commitment: Hash::new([2u8; 32]),
-            source_chain: builtin::Bitcoin,
+            source_chain: builtin::BITCOIN.clone(),
             block_height: 800_000,
             timestamp: 1_000_000,
         };
@@ -434,7 +434,7 @@ mod tests {
     #[test]
     fn test_witness_hash() {
         let witness = ChainWitness {
-            chain: builtin::Bitcoin,
+            chain: builtin::BITCOIN.clone(),
             block_hash: Hash::new([1u8; 32]),
             block_height: 800_000,
             tx_data: vec![0xAB; 64],
@@ -455,17 +455,17 @@ mod tests {
     fn test_verifier_registry() {
         let mut registry = ZkVerifierRegistry::new();
 
-        assert!(!registry.has_verifier(&builtin::Bitcoin));
+        assert!(!registry.has_verifier(&builtin::BITCOIN.clone()));
 
-        registry.register(VerifierKey::new(builtin::Bitcoin, vec![1u8; 32], ProofSystem::SP1, 1));
-        assert!(registry.has_verifier(&builtin::Bitcoin));
+        registry.register(VerifierKey::new(builtin::BITCOIN.clone(), vec![1u8; 32], ProofSystem::SP1, 1));
+        assert!(registry.has_verifier(&builtin::BITCOIN.clone()));
         assert_eq!(registry.registered_chains().len(), 1);
 
-        let key = registry.get(&builtin::Bitcoin).unwrap();
-        assert_eq!(key.chain, builtin::Bitcoin);
+        let key = registry.get(&builtin::BITCOIN.clone()).unwrap();
+        assert_eq!(key.chain, builtin::BITCOIN.clone());
 
-        registry.remove(&builtin::Bitcoin);
-        assert!(!registry.has_verifier(&builtin::Bitcoin));
+        registry.remove(&builtin::BITCOIN.clone());
+        assert!(!registry.has_verifier(&builtin::BITCOIN.clone()));
     }
 
     #[test]
@@ -473,9 +473,9 @@ mod tests {
         let registry = default_verifier_registry();
         let chains = registry.registered_chains();
         assert_eq!(chains.len(), 5);
-        assert!(chains.contains(&builtin::Bitcoin));
-        assert!(chains.contains(&builtin::Ethereum));
-        assert!(chains.contains(&builtin::Solana));
+        assert!(chains.contains(&builtin::BITCOIN.clone()));
+        assert!(chains.contains(&builtin::ETHEREUM.clone()));
+        assert!(chains.contains(&builtin::SOLANA.clone()));
     }
 
     #[test]
@@ -489,13 +489,13 @@ mod tests {
 
     #[test]
     fn test_zk_seal_proof_serialization() {
-        let verifier_key = VerifierKey::new(builtin::Bitcoin, vec![1u8; 32], ProofSystem::SP1, 1);
+        let verifier_key = VerifierKey::new(builtin::BITCOIN.clone(), vec![1u8; 32], ProofSystem::SP1, 1);
         let seal_ref = SealPoint::new(vec![0xAB; 32], Some(42)).unwrap();
         let public_inputs = ZkPublicInputs {
             seal_ref,
             block_hash: Hash::new([1u8; 32]),
             commitment: Hash::new([2u8; 32]),
-            source_chain: builtin::Bitcoin,
+            source_chain: builtin::BITCOIN.clone(),
             block_height: 800_000,
             timestamp: 1_000_000,
         };

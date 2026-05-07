@@ -1,6 +1,6 @@
-//! Chain facade implementations.
+//! Chain runtime implementations.
 //!
-//! This module provides unified facade functions that delegate to the appropriate
+//! This module provides unified runtime functions that delegate to the appropriate
 //! chain backends while providing a consistent API across all supported chains.
 //!
 //! # Clean Architecture
@@ -15,12 +15,12 @@
 //!    - `Backend` type (e.g., `EthereumBackend`) implementing `ChainBackend`
 //!    - Backend can be created via driver registration
 //!
-//! 3. **csv-sdk (this facade)**:
+//! 3. **csv-sdk (this runtime)**:
 //!    - Works with `Arc<dyn ChainBackend>` (Backend implementations)
 //!    - Provides `AdapterBuilder` for constructing adapters with chain-specific configs
-//!    - `ChainFacade` delegates operations to registered adapters
+//!    - `ChainRuntime` delegates operations to registered adapters
 //!
-//! The facade pattern ensures that:
+//! The runtime pattern ensures that:
 //! - CLI, wallet, and other components don't need direct chain adapter dependencies
 //! - All chain operations go through a unified interface
 //! - Error handling is consistent across chains
@@ -28,8 +28,10 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
-#[cfg(feature = "tokio")]
+#[cfg(all(feature = "tokio", not(feature = "wasm")))]
 use tokio::sync::Mutex;
+#[cfg(feature = "wasm")]
+use wasm_bindgen_futures::spawn_local;
 
 // Imports for contract call encoding
 #[allow(unused_imports)]
@@ -44,29 +46,29 @@ use sha3::Digest;
 
 use csv_core::{
     Chain, ChainBackend,
-    OpsBalanceInfo as BalanceInfo, OpsTransactionInfo as TransactionInfo, OpsTransactionStatus as TransactionStatus,
-    OpsDeploymentStatus as DeploymentStatus, SanadOperationResult,
+    BalanceInfo, TransactionInfo, TransactionStatus,
+    DeploymentStatus, SanadOperationResult,
     SanadId, Hash, ProofBundle,
 };
 
 use crate::client::ClientRef;
-use crate::errors::CsvError;
+use crate::error::CsvError;
 
-/// Unified chain facade that provides all chain operations.
+/// Unified chain runtime that provides all chain operations.
 ///
-/// This is the main facade that chains, CLI, and wallet components should use
+/// This is the main runtime that chains, CLI, and wallet components should use
 /// for all blockchain interactions. It delegates to the appropriate chain
 /// adapters while providing a consistent API.
 ///
 /// # Architecture
 ///
-/// The facade holds `Arc<dyn ChainBackend>` instances which are the chain-specific
-/// `ChainOperations` types (e.g., `EthereumChainOperations`), NOT the `SealProtocol` types.
+/// The runtime holds `Arc<dyn ChainBackend>` instances which are the chain-specific
+/// `ChainOperations` types (e.g., `EthereumBackend`), NOT the `SealProtocol` types.
 /// This distinction is crucial for Clean Architecture compliance.
 ///
 /// Use `AdapterBuilder` to construct adapters properly with chain-specific configuration.
 #[derive(Clone)]
-pub struct ChainFacade {
+pub struct ChainRuntime {
     client: Arc<ClientRef>,
     adapters: Arc<Mutex<HashMap<Chain, Arc<dyn ChainBackend>>>>,
 }
@@ -78,7 +80,7 @@ struct SealCheckData {
     is_consumed: bool,
 }
 
-impl ChainFacade {
+impl ChainRuntime {
     pub(crate) fn new(client: Arc<ClientRef>) -> Self {
         Self {
             client,
@@ -86,7 +88,7 @@ impl ChainFacade {
         }
     }
 
-    /// Create a new ChainFacade with pre-built adapters.
+    /// Create a new ChainRuntime with pre-built adapters.
     ///
     /// This is used by the builder to auto-register adapters when chains are enabled.
     pub(crate) fn with_adapters(
@@ -101,20 +103,20 @@ impl ChainFacade {
 
     /// Register a chain adapter for the given chain.
     ///
-    /// The adapter must implement `ChainBackend` (e.g., `EthereumChainOperations`).
+    /// The adapter must implement `ChainBackend` (e.g., `EthereumBackend`).
     /// Use `AdapterBuilder` to construct adapters with proper chain-specific configuration.
     ///
     /// # Example
     /// ```no_run
-    /// use csv_adapter::facade::{ChainFacade, AdapterBuilder, AdapterConfig};
-    /// use csv_core::ChainId;
+    /// use csv_adapter::runtime::{ChainRuntime, AdapterBuilder, RuntimeConfig};
+    /// use csv_core::Chain;
     ///
-    /// let facade = ChainFacade::new(/* client ref */);
+    /// let runtime = ChainRuntime::new(/* client ref */);
     /// let adapter = AdapterBuilder::new()
     ///     .ethereum_from_config(config, rpc, csv_seal_address)
     ///     .await
     ///     .build();
-    /// facade.register_adapter(Chain::Ethereum, adapter);
+    /// runtime.register_adapter(Chain::Ethereum, adapter);
     /// ```
     pub async fn register_adapter(&self, chain: Chain, adapter: Arc<dyn ChainBackend>) {
         let mut adapters = self.adapters.lock().await;
@@ -123,7 +125,7 @@ impl ChainFacade {
 
     /// Query the balance for an address on the specified chain.
     ///
-    /// This is the primary facade function used by CLI and wallet
+    /// This is the primary runtime function used by CLI and wallet
     /// for balance queries across all chains.
     pub async fn get_balance(
         &self,
@@ -162,7 +164,7 @@ impl ChainFacade {
 
     /// Sign a transaction using the wallet's key identifier.
     ///
-    /// This facade function is used by CLI and wallet for transaction signing.
+    /// This runtime function is used by CLI and wallet for transaction signing.
     pub async fn sign_transaction(
         &self,
         chain: Chain,
@@ -182,7 +184,7 @@ impl ChainFacade {
 
     /// Broadcast a signed transaction to the network.
     ///
-    /// This facade function is used by CLI and wallet for transaction broadcasting.
+    /// This runtime function is used by CLI and wallet for transaction broadcasting.
     /// Delegates to ChainBroadcaster::submit_transaction.
     pub async fn broadcast_transaction(
         &self,
@@ -202,7 +204,7 @@ impl ChainFacade {
 
     /// Build an inclusion proof for a commitment on the specified chain.
     ///
-    /// This facade function is used by CLI and wallet for proof generation.
+    /// This runtime function is used by CLI and wallet for proof generation.
     /// Delegates to ChainProofProvider::build_inclusion_proof.
     pub async fn build_inclusion_proof(
         &self,
@@ -223,7 +225,7 @@ impl ChainFacade {
 
     /// Deploy a lock contract to the specified chain.
     ///
-    /// This facade function is used by CLI for contract deployment.
+    /// This runtime function is used by CLI for contract deployment.
     /// Delegates to ChainDeployer::deploy_lock_contract.
     pub async fn deploy_lock_contract(
         &self,
@@ -295,7 +297,7 @@ impl ChainFacade {
         let adapter = self.get_adapter(chain).await?;
         
         adapter
-            .consume_sanad(&sanad_id.into(), owner_key_id)
+            .consume_sanad(&sanad_id, owner_key_id)
             .await
             .map_err(|e| CsvError::ProtocolError {
                 chain,
@@ -316,7 +318,7 @@ impl ChainFacade {
         let adapter = self.get_adapter(chain).await?;
         
         adapter
-            .lock_sanad(&sanad_id.into(), destination_chain, owner_key_id)
+            .lock_sanad(&sanad_id, destination_chain, owner_key_id)
             .await
             .map_err(|e| CsvError::ProtocolError {
                 chain,
@@ -326,7 +328,7 @@ impl ChainFacade {
 
     /// Create a new seal on the specified chain.
     ///
-    /// This is the primary facade function for seal creation. It delegates to the
+    /// This is the primary runtime function for seal creation. It delegates to the
     /// chain adapter's SealProtocol::create_seal method to create a real chain-native seal.
     ///
     /// # Arguments
@@ -339,7 +341,7 @@ impl ChainFacade {
     ///
     /// # Example
     /// ```rust,ignore
-    /// let seal_ref = facade.create_seal(Chain::Bitcoin, Some(100_000)).await?;
+    /// let seal_ref = runtime.create_seal(Chain::Bitcoin, Some(100_000)).await?;
     /// // seal_ref.seal_id contains the actual on-chain identifier (e.g., UTXO txid)
     /// ```
     pub async fn create_seal(
@@ -372,7 +374,7 @@ impl ChainFacade {
         let adapter = self.get_adapter(chain).await?;
         
         adapter
-            .mint_sanad(source_chain, &sanad_id.into(), lock_proof, new_owner)
+            .mint_sanad(source_chain, &source_sanad_id, lock_proof, new_owner)
             .await
             .map_err(|e| CsvError::ProtocolError {
                 chain,
@@ -451,21 +453,20 @@ impl ChainFacade {
     ///
     /// # Returns
     /// Serialized transaction data ready for signing
+    #[deprecated(since = "0.4.0", note = "Use chain-specific contract call methods instead")]
     pub async fn build_contract_call(
         &self,
-        chain: Chain,
-        contract: &str,
-        function: &str,
-        args: Vec<Vec<u8>>,
-        from: &str,
-        nonce: u64,
+        _chain: Chain,
+        _contract: &str,
+        _function: &str,
+        _args: Vec<Vec<u8>>,
+        _from: &str,
+        _nonce: u64,
     ) -> Result<Vec<u8>, CsvError> {
-        let adapter = self.get_adapter(chain).await?;
-        adapter.build_contract_call(contract, function, args, from, nonce)
-            .map_err(|e| CsvError::ProtocolError {
-                chain,
-                message: format!("Contract call encoding failed: {}", e),
-            })
+        Err(CsvError::CapabilityUnavailable {
+            chain: _chain,
+            capability: "build_contract_call".to_string(),
+        })
     }
 
     /// Get the adapter for the specified chain.
@@ -657,7 +658,7 @@ impl ChainFacade {
         };
 
         // Use the core proof verification pipeline for signatures and seal check
-        match csv_core::proof_verify::verify_proof(
+        match csv_core::verify_proof(
             proof_bundle,
             seal_checker,
             signature_scheme,
@@ -680,7 +681,7 @@ impl ChainFacade {
     async fn pre_fetch_seal_data(&self, sanad_id: &SanadId) -> Result<SealCheckData, CsvError> {
         // Clone the Arc to avoid capturing self in the spawned task
         let store_arc = Arc::clone(&self.client.store);
-        let sanad_id_clone: csv_core::sanad::SanadId = sanad_id.clone().into();
+        let sanad_id_clone: csv_core::sanad::SanadId = sanad_id.clone();
         
         // Run the store access in a blocking task since it uses std::sync::Mutex
         let is_consumed = tokio::task::spawn_blocking(move || {
@@ -702,16 +703,16 @@ impl ChainFacade {
     }
 }
 
-/// Adapter configuration for the facade.
+/// Adapter configuration for the runtime.
 #[derive(Debug, Clone)]
-pub struct AdapterConfig {
+pub struct RuntimeConfig {
     /// RPC endpoints for each chain
     pub rpc_endpoints: HashMap<Chain, String>,
     /// Chain-specific configuration
     pub chain_config: HashMap<Chain, HashMap<String, String>>,
 }
 
-impl Default for AdapterConfig {
+impl Default for RuntimeConfig {
     fn default() -> Self {
         Self {
             rpc_endpoints: HashMap::new(),
@@ -727,7 +728,7 @@ impl Default for AdapterConfig {
 ///
 /// # Architecture Compliance
 ///
-/// All chains now follow the standard facade pattern:
+/// All chains now follow the standard runtime pattern:
 /// - **Bitcoin**: Uses `from_config(config, rpc)` with optional xpub in config
 /// - **Ethereum**: Uses `from_config(config, rpc, csv_seal_address)`
 /// - **Sui**: Uses `from_config(config, rpc)`
@@ -735,10 +736,10 @@ impl Default for AdapterConfig {
 /// - **Solana**: Uses `from_config(config, rpc)`
 ///
 /// Chain operations are created from anchor layers via `from_anchor_layer(&anchor)`,
-/// producing `Arc<dyn ChainBackend>` for registration in ChainFacade.
+/// producing `Arc<dyn ChainBackend>` for registration in ChainRuntime.
 ///
 /// The builder methods handle chain-specific configuration internally while
-/// presenting a unified interface for the facade.
+/// presenting a unified interface for the runtime.
 pub struct AdapterBuilder;
 
 impl AdapterBuilder {
@@ -749,7 +750,7 @@ impl AdapterBuilder {
 
     /// Build an Ethereum adapter from its specific configuration.
     ///
-    /// Uses `EthereumChainOperations::from_anchor_layer()` internally which creates
+    /// Uses `EthereumBackend::from_anchor_layer()` internally which creates
     /// the ChainBackend implementation from an EthereumSealProtocol.
     #[cfg(feature = "ethereum")]
     pub async fn ethereum_from_config(
@@ -758,8 +759,8 @@ impl AdapterBuilder {
         rpc: Box<dyn csv_ethereum::rpc::EthereumRpc>,
         csv_seal_address: [u8; 20],
     ) -> Result<Arc<dyn ChainBackend>, CsvError> {
-        use csv_ethereum::chain_operations::EthereumChainOperations;
-        use csv_ethereum::adapter::EthereumSealProtocol;
+        use csv_ethereum::chain_operations::EthereumBackend;
+        use csv_ethereum::seal_protocol::EthereumSealProtocol;
 
         // Create the SealProtocol first (this is the protocol primitive)
         let anchor_layer = EthereumSealProtocol::from_config(config, rpc, csv_seal_address)
@@ -769,7 +770,7 @@ impl AdapterBuilder {
             })?;
 
         // Create ChainOperations from SealProtocol (this implements ChainBackend)
-        let operations = EthereumChainOperations::from_anchor_layer(&anchor_layer)
+        let operations = EthereumBackend::from_anchor_layer(&anchor_layer)
             .map_err(|e| CsvError::ProtocolError {
                 chain: Chain::Ethereum,
                 message: format!("Failed to create Ethereum chain operations: {}", e),
@@ -785,8 +786,8 @@ impl AdapterBuilder {
         config: csv_sui::config::SuiConfig,
         rpc: Box<dyn csv_sui::rpc::SuiRpc>,
     ) -> Result<Arc<dyn ChainBackend>, CsvError> {
-        use csv_sui::chain_operations::SuiChainOperations;
-        use csv_sui::adapter::SuiSealProtocol;
+        use csv_sui::chain_operations::SuiBackend;
+        use csv_sui::seal_protocol::SuiSealProtocol;
 
         let anchor_layer = SuiSealProtocol::from_config(config, rpc)
             .map_err(|e| CsvError::ProtocolError {
@@ -794,7 +795,7 @@ impl AdapterBuilder {
                 message: format!("Failed to create Sui anchor layer: {}", e),
             })?;
 
-        let operations = SuiChainOperations::from_anchor_layer(&anchor_layer)
+        let operations = SuiBackend::from_anchor_layer(&anchor_layer)
             .map_err(|e| CsvError::ProtocolError {
                 chain: Chain::Sui,
                 message: format!("Failed to create Sui chain operations: {}", e),
@@ -810,8 +811,8 @@ impl AdapterBuilder {
         config: csv_aptos::config::AptosConfig,
         rpc: Box<dyn csv_aptos::rpc::AptosRpc>,
     ) -> Result<Arc<dyn ChainBackend>, CsvError> {
-        use csv_aptos::chain_operations::AptosChainOperations;
-        use csv_aptos::adapter::AptosSealProtocol;
+        use csv_aptos::chain_operations::AptosBackend;
+        use csv_aptos::seal_protocol::AptosSealProtocol;
 
         let anchor_layer = AptosSealProtocol::from_config(config, rpc)
             .map_err(|e| CsvError::ProtocolError {
@@ -819,7 +820,7 @@ impl AdapterBuilder {
                 message: format!("Failed to create Aptos anchor layer: {}", e),
             })?;
 
-        let operations = AptosChainOperations::from_anchor_layer(&anchor_layer)
+        let operations = AptosBackend::from_anchor_layer(&anchor_layer)
             .map_err(|e| CsvError::ProtocolError {
                 chain: Chain::Aptos,
                 message: format!("Failed to create Aptos chain operations: {}", e),
@@ -835,17 +836,17 @@ impl AdapterBuilder {
         config: csv_solana::config::SolanaConfig,
         rpc: Box<dyn csv_solana::rpc::SolanaRpc>,
     ) -> Result<Arc<dyn ChainBackend>, CsvError> {
-        use csv_solana::chain_operations::SolanaChainOperations;
-        use csv_solana::adapter::SolanaSealProtocol;
+        use csv_solana::chain_operations::SolanaBackend;
+        use csv_solana::seal_protocol::SolanaSealProtocol;
 
-        // Solana now uses from_config() following the standard facade pattern
+        // Solana now uses from_config() following the standard runtime pattern
         let anchor_layer = SolanaSealProtocol::from_config(config, rpc)
             .map_err(|e| CsvError::ProtocolError {
                 chain: Chain::Solana,
                 message: format!("Failed to create Solana anchor layer: {}", e),
             })?;
 
-        let operations = SolanaChainOperations::from_anchor_layer(&anchor_layer)
+        let operations = SolanaBackend::from_anchor_layer(&anchor_layer)
             .map_err(|e| CsvError::ProtocolError {
                 chain: Chain::Solana,
                 message: format!("Failed to create Solana chain operations: {}", e),
@@ -864,7 +865,7 @@ impl AdapterBuilder {
         use csv_bitcoin::chain_operations::BitcoinBackend;
         use csv_bitcoin::seal_protocol::BitcoinSealProtocol;
 
-        // Bitcoin uses from_config() following the standard facade pattern
+        // Bitcoin uses from_config() following the standard runtime pattern
         let anchor_layer = BitcoinSealProtocol::from_config(config, rpc)
             .map_err(|e| CsvError::ProtocolError {
                 chain: Chain::Bitcoin,
@@ -887,48 +888,48 @@ impl Default for AdapterBuilder {
     }
 }
 
-/// Main adapter facade that manages all chain adapters.
+/// Main adapter runtime that manages all chain adapters.
 ///
 /// This is the entry point for creating and managing chain adapters
 /// through a unified interface.
 ///
 /// # Clean Architecture
 ///
-/// This facade does NOT directly create adapters. Instead:
+/// This runtime does NOT directly create adapters. Instead:
 /// 1. Use `AdapterBuilder` to construct chain-specific adapters with proper configuration
 /// 2. Register adapters via `register_adapter()`
-/// 3. Use `chain_facade()` to access the unified operation interface
+/// 3. Use `chain_runtime()` to access the unified operation interface
 ///
 /// This design respects each chain's unique construction requirements while
 /// providing a consistent interface for operations.
-pub struct AdapterFacade {
-    config: AdapterConfig,
-    chain_facade: ChainFacade,
+pub struct RuntimeManager {
+    config: RuntimeConfig,
+    chain_runtime: ChainRuntime,
     builder: AdapterBuilder,
 }
 
-impl AdapterFacade {
-    /// Create a new adapter facade with the given configuration.
-    pub fn new(config: AdapterConfig) -> Self {
+impl RuntimeManager {
+    /// Create a new adapter runtime with the given configuration.
+    pub fn new(config: RuntimeConfig) -> Self {
         let client_ref = Arc::new(ClientRef::new());
-        let chain_facade = ChainFacade::new(client_ref);
+        let chain_runtime = ChainRuntime::new(client_ref);
         let builder = AdapterBuilder::new();
         
         Self {
             config,
-            chain_facade,
+            chain_runtime,
             builder,
         }
     }
 
-    /// Get the chain facade for operations.
-    pub fn chain_facade(&self) -> &ChainFacade {
-        &self.chain_facade
+    /// Get the chain runtime for operations.
+    pub fn chain_runtime(&self) -> &ChainRuntime {
+        &self.chain_runtime
     }
 
-    /// Get a mutable reference to the chain facade for registering adapters.
-    pub fn chain_facade_mut(&mut self) -> &mut ChainFacade {
-        &mut self.chain_facade
+    /// Get a mutable reference to the chain runtime for registering adapters.
+    pub fn chain_runtime_mut(&mut self) -> &mut ChainRuntime {
+        &mut self.chain_runtime
     }
 
     /// Get the adapter builder for constructing chain adapters.
@@ -941,16 +942,16 @@ impl AdapterFacade {
     /// Use this when you have constructed an adapter using `AdapterBuilder` or
     /// have a custom adapter implementation.
     pub async fn register_adapter(&mut self, chain: Chain, adapter: Arc<dyn ChainBackend>) {
-        self.chain_facade.register_adapter(chain, adapter).await;
+        self.chain_runtime.register_adapter(chain, adapter).await;
     }
 
     /// Get the adapter configuration.
-    pub fn config(&self) -> &AdapterConfig {
+    pub fn config(&self) -> &RuntimeConfig {
         &self.config
     }
 
     /// Get a mutable reference to the adapter configuration.
-    pub fn config_mut(&mut self) -> &mut AdapterConfig {
+    pub fn config_mut(&mut self) -> &mut RuntimeConfig {
         &mut self.config
     }
 }
@@ -1048,16 +1049,16 @@ mod tests {
 
     #[test]
     fn test_adapter_config_default() {
-        let config = AdapterConfig::default();
+        let config = RuntimeConfig::default();
         assert!(config.rpc_endpoints.is_empty());
         assert!(config.chain_config.is_empty());
     }
 
     #[tokio::test]
-    async fn test_chain_facade_creation() {
+    async fn test_chain_runtime_creation() {
         let client_ref = Arc::new(ClientRef::new());
-        let facade = ChainFacade::new(client_ref);
-        assert!(facade.adapters.lock().await.is_empty());
+        let runtime = ChainRuntime::new(client_ref);
+        assert!(runtime.adapters.lock().await.is_empty());
     }
 
     #[test]

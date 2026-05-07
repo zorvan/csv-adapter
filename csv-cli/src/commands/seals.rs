@@ -1,13 +1,13 @@
 //! Seal management commands (Phase 5 Compliant)
 //!
-//! Uses csv-adapter facade APIs only - no direct chain adapter dependencies.
+//! Uses csv-adapter runtime APIs only - no direct chain adapter dependencies.
 
 use anyhow::Result;
 use clap::Subcommand;
 
-use csv_adapter::CsvClient;
+use csv_sdk::CsvClient;
 
-use crate::config::{Chain as ConfigChain, Config};
+use crate::config::{Chain, Config};
 use crate::output;
 use crate::state::{SealRecord, UnifiedStateManager};
 use crate::commands::cross_chain::to_core_chain;
@@ -18,7 +18,7 @@ pub enum SealAction {
     Create {
         /// Chain name
         #[arg(value_enum)]
-        chain: ConfigChain,
+        chain: Chain,
         /// Value (chain-specific)
         #[arg(short, long)]
         value: Option<u64>,
@@ -27,7 +27,7 @@ pub enum SealAction {
     Consume {
         /// Chain name
         #[arg(value_enum)]
-        chain: ConfigChain,
+        chain: Chain,
         /// Seal reference (chain-specific format)
         seal_ref: String,
     },
@@ -35,7 +35,7 @@ pub enum SealAction {
     Verify {
         /// Chain name
         #[arg(value_enum)]
-        chain: ConfigChain,
+        chain: Chain,
         /// Seal reference
         seal_ref: String,
     },
@@ -43,7 +43,7 @@ pub enum SealAction {
     List {
         /// Filter by chain
         #[arg(short, long, value_enum)]
-        chain: Option<ConfigChain>,
+        chain: Option<Chain>,
     },
 }
 
@@ -57,7 +57,7 @@ pub fn execute(action: SealAction, _config: &Config, state: &mut UnifiedStateMan
 }
 
 fn cmd_create(
-    chain: ConfigChain,
+    chain: Chain,
     value: Option<u64>,
     state: &mut UnifiedStateManager,
 ) -> Result<()> {
@@ -65,7 +65,7 @@ fn cmd_create(
 
     let core_chain = to_core_chain(chain.clone());
 
-    // Phase 5: Use facade client to create seal via SanadsManager
+    // Phase 5: Use runtime client to create seal via SanadsManager
     let client = CsvClient::builder()
         .with_chain(core_chain)
         .build()
@@ -77,7 +77,7 @@ fn cmd_create(
     // Generate a commitment for seal creation
     let commitment = csv_core::Hash::new(generate_commitment());
 
-    // Create the sanad (which internally creates a seal via the facade)
+    // Create the sanad (which internally creates a seal via the runtime)
     match sanads.create(commitment, core_chain) {
         Ok(sanad) => {
             let seal_id = hex::encode(sanad.id.as_bytes());
@@ -87,7 +87,7 @@ fn cmd_create(
             output::kv("Seal ID", &seal_id[..16.min(seal_id.len())]);
             output::kv("Value", &format!("{} satoshis", value_sat));
             output::kv("Sanad ID", &hex::encode(sanad.id.as_bytes())[..16]);
-            output::success("Seal created successfully via facade");
+            output::success("Seal created successfully via runtime");
 
             // Record in state
             state.storage.seals.push(SealRecord {
@@ -99,7 +99,7 @@ fn cmd_create(
             });
         }
         Err(e) => {
-            return Err(anyhow::anyhow!("Failed to create seal via facade: {}", e));
+            return Err(anyhow::anyhow!("Failed to create seal via runtime: {}", e));
         }
     }
 
@@ -115,7 +115,7 @@ fn generate_commitment() -> [u8; 32] {
 }
 
 fn cmd_consume(
-    chain: ConfigChain,
+    chain: Chain,
     seal_ref: String,
     state: &mut UnifiedStateManager,
 ) -> Result<()> {
@@ -132,7 +132,7 @@ fn cmd_consume(
 
     let core_chain = to_core_chain(chain.clone());
 
-    // Use facade to consume the seal
+    // Use runtime to consume the seal
     let client = CsvClient::builder()
         .with_chain(core_chain)
         .build()
@@ -158,10 +158,10 @@ fn cmd_consume(
 
             output::kv("Chain", &chain.to_string());
             output::kv_hash("Seal", &seal_bytes);
-            output::success("Seal consumed via facade");
+            output::success("Seal consumed via runtime");
         }
         Err(e) => {
-            return Err(anyhow::anyhow!("Failed to consume seal via facade: {}", e));
+            return Err(anyhow::anyhow!("Failed to consume seal via runtime: {}", e));
         }
     }
 
@@ -169,7 +169,7 @@ fn cmd_consume(
 }
 
 fn cmd_verify(
-    chain: ConfigChain,
+    chain: Chain,
     seal_ref: String,
     state: &UnifiedStateManager,
 ) -> Result<()> {
@@ -180,7 +180,7 @@ fn cmd_verify(
 
     let core_chain = to_core_chain(chain.clone());
 
-    // Use facade to verify seal status
+    // Use runtime to verify seal status
     let client = CsvClient::builder()
         .with_chain(core_chain)
         .build()
@@ -222,7 +222,7 @@ fn cmd_verify(
             output::kv("Status", if local_consumed { "Consumed" } else { "Unknown" });
 
             if local_consumed {
-                output::info("Seal was consumed locally but not found in facade");
+                output::info("Seal was consumed locally but not found in runtime");
             } else {
                 output::warning("Seal not found in the system");
             }
@@ -239,7 +239,7 @@ fn cmd_verify(
     Ok(())
 }
 
-fn cmd_list(chain: Option<ConfigChain>, state: &UnifiedStateManager) -> Result<()> {
+fn cmd_list(chain: Option<Chain>, state: &UnifiedStateManager) -> Result<()> {
     output::header("Consumed Seals");
 
     let consumed_seals: Vec<&SealRecord> =

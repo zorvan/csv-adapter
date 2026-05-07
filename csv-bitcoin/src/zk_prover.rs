@@ -19,7 +19,7 @@
 //! - Verifiable: Anyone can verify without trusting Bitcoin RPC
 
 use csv_core::hash::Hash;
-use csv_core::protocol_version::Chain;
+use csv_core::protocol_version::builtin;
 use csv_core::seal::SealPoint;
 use csv_core::zk_proof::{ChainWitness, ProofSystem, VerifierKey, ZkError, ZkProver, ZkPublicInputs, ZkSealProof};
 use bitcoin::hashes::Hash as BitcoinHash;
@@ -85,7 +85,7 @@ impl BitcoinSpvProver {
         }
 
         let verifier_key = VerifierKey::new(
-            Chain::Bitcoin,
+            builtin::BITCOIN.clone(),
             vec![0u8; 64], // Mock verifier key
             ProofSystem::SP1,
             1,
@@ -95,7 +95,7 @@ impl BitcoinSpvProver {
             seal_ref: seal.clone(),
             block_hash: witness.block_hash,
             commitment: Hash::new(mock_proof_hash),
-            source_chain: Chain::Bitcoin,
+            source_chain: builtin::BITCOIN.clone(),
             block_height: witness.block_height,
             timestamp: witness.timestamp,
         };
@@ -112,7 +112,7 @@ impl ZkProver for BitcoinSpvProver {
         witness: &ChainWitness,
     ) -> Result<ZkSealProof, ZkError> {
         // Validate witness is for Bitcoin
-        if witness.chain != Chain::Bitcoin {
+        if witness.chain != *builtin::BITCOIN {
             return Err(ZkError::InvalidProof(
                 "BitcoinSpvProver only supports Bitcoin chain".to_string()
             ));
@@ -143,7 +143,7 @@ impl ZkProver for BitcoinSpvProver {
             // all necessary data for verification
 
             let verifier_key = VerifierKey::new(
-                Chain::Bitcoin,
+                builtin::BITCOIN.clone(),
                 self.prover_key.clone().unwrap_or_default(),
                 ProofSystem::SP1,
                 1,
@@ -160,7 +160,7 @@ impl ZkProver for BitcoinSpvProver {
                 seal_ref: seal.clone(),
                 block_hash: witness.block_hash,
                 commitment: witness.hash(),
-                source_chain: Chain::Bitcoin,
+                source_chain: builtin::BITCOIN.clone(),
                 block_height: witness.block_height,
                 timestamp: witness.timestamp,
             };
@@ -259,7 +259,7 @@ mod tests {
 
         let seal = SealPoint::new(vec![0xAB; 32], Some(42)).unwrap();
         let witness = ChainWitness {
-            chain: Chain::Bitcoin,
+            chain: builtin::BITCOIN.clone(),
             block_hash: Hash::new([1u8; 32]),
             block_height: 800_000,
             tx_data: vec![0xCD; 64],
@@ -273,7 +273,7 @@ mod tests {
 
         let proof = result.unwrap();
         assert!(!proof.proof_bytes.is_empty());
-        assert_eq!(proof.verifier_key.chain, Chain::Bitcoin);
+        assert_eq!(proof.verifier_key.chain, *builtin::BITCOIN);
         assert_eq!(proof.proof_system(), ProofSystem::SP1);
     }
 
@@ -302,7 +302,7 @@ mod tests {
 
         let seal = SealPoint::new(vec![0xAB; 32], Some(42)).unwrap();
         let witness = ChainWitness {
-            chain: Chain::Bitcoin,
+            chain: builtin::BITCOIN.clone(),
             block_hash: Hash::new([1u8; 32]),
             block_height: 800_000,
             tx_data: vec![0xCD; 64],

@@ -5,7 +5,7 @@
 //! included in a Bitcoin block without requiring a full node.
 
 use csv_core::hash::Hash;
-use csv_core::protocol_version::Chain;
+use csv_core::protocol_version::builtin;
 use csv_core::seal::SealPoint;
 use csv_core::zk_proof::{ZkPublicInputs, ZkSealProof, ProofSystem, VerifierKey};
 use bitcoin::hashes::{Hash as BitcoinHash, sha256d};
@@ -70,12 +70,12 @@ impl Sp1BtcSpvInput {
 
         for branch_node in &self.merkle_branch {
             // Determine if current is left or sanad child
-            let is_sanad = (position & 1) == 1;
+            let is_sanad_child = (position & 1) == 1;
             position >>= 1;
 
             // Concatenate and hash
             let mut concat = Vec::with_capacity(64);
-            if is_sanad {
+            if is_sanad_child {
                 concat.extend_from_slice(branch_node);
                 concat.extend_from_slice(&current);
             } else {
@@ -121,7 +121,7 @@ impl Sp1BtcSpvOutput {
             seal_ref: input.seal_ref.clone(),
             block_hash: Hash::new(input.expected_block_hash),
             commitment: input.commitment.clone(),
-            source_chain: Chain::Bitcoin,
+            source_chain: builtin::BITCOIN.clone(),
             block_height: input.block_height,
             timestamp: 0, // Would be extracted from block header
         };
@@ -135,7 +135,7 @@ impl Sp1BtcSpvOutput {
     /// Create a ZkSealProof from this output
     pub fn to_zk_proof(&self, proof_bytes: Vec<u8>) -> Result<ZkSealProof, &'static str> {
         let verifier_key = VerifierKey::new(
-            Chain::Bitcoin,
+            builtin::BITCOIN.clone(),
             vec![0u8; 64], // Placeholder - real key would be loaded from env
             ProofSystem::SP1,
             1,

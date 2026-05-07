@@ -6,11 +6,10 @@
 //! csv chain status --chain bitcoin
 //! csv chain config --chain ethereum
 //!
-//! # Wallet operations
+//! # Wallet operations (encrypted mnemonics)
+//! csv wallet init
 //! csv wallet generate --chain bitcoin --network signet
-//! csv wallet balance --chain bitcoin --address bcrt1...
-//! csv wallet fund --chain bitcoin --network signet
-//! csv wallet export --chain bitcoin --format xpub
+//! csv wallet balance --chain bitcoin
 //!
 //! # Sanad operations
 //! csv sanad create --chain bitcoin --value 100000
@@ -80,7 +79,7 @@ enum Commands {
     },
 
     // ─── Wallet Operations ───
-    /// Wallet management (generate, fund, balance, export)
+    /// Wallet management (encrypted mnemonic generation and balance)
     Wallet {
         #[command(subcommand)]
         action: WalletAction,

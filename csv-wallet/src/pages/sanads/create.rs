@@ -2,7 +2,7 @@
 
 use crate::context::{generate_id, use_wallet_context, SanadStatus, TrackedSanad};
 use crate::pages::common::*;
-use csv_core::ChainId;
+use csv_core::Chain;
 use dioxus::prelude::*;
 use std::rc::Rc;
 

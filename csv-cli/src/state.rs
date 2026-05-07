@@ -2,14 +2,11 @@
 
 use std::path::Path;
 
-pub use csv_adapter_store::state::{
+pub use csv_store::state::{
     Chain, ContractRecord, GasAccount, SanadRecord, SanadStatus, SealRecord, TransactionRecord,
     TransactionStatus, TransactionType, TransferRecord, TransferStatus, UnifiedStorage,
     WalletAccount,
 };
-
-// Keystore migration module for encrypted key storage
-pub mod keystore_migration;
 
 /// Unified state manager for CLI
 pub struct UnifiedStateManager {

@@ -68,18 +68,18 @@ fn cmd_create(
 ) -> Result<()> {
     output::header(&format!("Creating Sanad on {}", chain));
 
-    // Use the new facade to create the sanad
-    use csv_adapter::CsvClient;
-    use csv_adapter::StoreBackend;
+    // Use the new runtime to create the sanad
+    use csv_sdk::CsvClient;
+    use csv_sdk::StoreBackend;
     use csv_core::ChainId;
 
     // Map CLI Chain to core Chain
     let core_chain = match chain {
-        builtin::Bitcoin => Corebuiltin::Bitcoin,
-        builtin::Ethereum => Corebuiltin::Ethereum,
-        builtin::Solana => Corebuiltin::Solana,
-        builtin::Sui => Corebuiltin::Sui,
-        builtin::Aptos => Corebuiltin::Aptos,
+        Chain::Bitcoin => csv_core::Chain::Bitcoin,
+        Chain::Ethereum => csv_core::Chain::Ethereum,
+        Chain::Solana => csv_core::Chain::Solana,
+        Chain::Sui => csv_core::Chain::Sui,
+        Chain::Aptos => csv_core::Chain::Aptos,
     };
 
     // Build CSV client with the requested chain enabled
@@ -103,7 +103,7 @@ fn cmd_create(
     };
     let commitment = csv_core::Hash::new(commitment_bytes);
 
-    // Create the sanad through the facade
+    // Create the sanad through the runtime
     match client.sanads().create(commitment, core_chain) {
         Ok(sanad) => {
             let sanad_id_hex = hex::encode(sanad.id.as_bytes());
@@ -112,8 +112,8 @@ fn cmd_create(
             let tracked = SanadRecord {
                 id: sanad_id_hex.clone(),
                 chain: chain.clone(),
-                seal_ref: String::new(), // Would be populated by the facade
-                owner: String::new(),    // Would be populated by the facade
+                seal_ref: String::new(), // Would be populated by the runtime
+                owner: String::new(),    // Would be populated by the runtime
                 value: value.unwrap_or(0),
                 commitment: hex::encode(commitment.as_bytes()),
                 nullifier: None,
@@ -135,14 +135,14 @@ fn cmd_create(
                     .map(|v| v.to_string())
                     .unwrap_or_else(|| "default".to_string()),
             );
-            output::kv("Status", "Created via facade");
+            output::kv("Status", "Created via runtime");
 
             // UnifiedStateManager is automatically saved after command execution
             println!();
-            output::info("Sanad created successfully via facade. Use 'csv sanad show <sanad_id>' to view details");
+            output::info("Sanad created successfully via runtime. Use 'csv sanad show <sanad_id>' to view details");
         }
         Err(e) => {
-            output::error(&format!("Failed to create sanad via facade: {}", e));
+            output::error(&format!("Failed to create sanad via runtime: {}", e));
             return Err(anyhow::anyhow!("Sanad creation failed: {}", e));
         }
     }

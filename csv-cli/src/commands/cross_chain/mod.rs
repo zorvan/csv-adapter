@@ -1,14 +1,12 @@
 //! Cross-chain transfer commands (Phase 5 Compliant)
 //!
-//! This module uses only the csv-adapter facade API.
+//! This module uses only the csv-adapter runtime API.
 //! All chain operations are delegated through `CsvClient::transfers()`.
 
 use anyhow::Result;
 use clap::Subcommand;
 
-use csv_core::ChainId;
-
-use crate::config::{Chain as ConfigChain, Config};
+use crate::config::{Chain, Config};
 use crate::state::UnifiedStateManager;
 
 pub mod status;
@@ -16,14 +14,14 @@ pub mod transfer;
 
 #[derive(Subcommand)]
 pub enum CrossChainAction {
-    /// Execute a cross-chain Sanad transfer (via facade)
+    /// Execute a cross-chain Sanad transfer (via runtime)
     Transfer {
         /// Source chain
         #[arg(long)]
-        from: ConfigChain,
+        from: Chain,
         /// Destination chain
         #[arg(long)]
-        to: ConfigChain,
+        to: Chain,
         /// Sanad ID to transfer (hex)
         #[arg(long)]
         sanad_id: String,
@@ -40,10 +38,10 @@ pub enum CrossChainAction {
     List {
         /// Filter by source chain
         #[arg(long, value_enum)]
-        from: Option<ConfigChain>,
+        from: Option<Chain>,
         /// Filter by destination chain
         #[arg(long, value_enum)]
-        to: Option<ConfigChain>,
+        to: Option<Chain>,
     },
     /// Retry a failed transfer
     Retry {
@@ -71,12 +69,12 @@ pub fn execute(
 }
 
 /// Convert CLI Chain enum to core Chain enum
-pub fn to_core_chain(chain: ConfigChain) -> Chain {
+pub fn to_core_chain(chain: Chain) -> csv_core::Chain {
     match chain {
-        Configbuiltin::Bitcoin => builtin::Bitcoin,
-        Configbuiltin::Ethereum => builtin::Ethereum,
-        Configbuiltin::Sui => builtin::Sui,
-        Configbuiltin::Aptos => builtin::Aptos,
-        Configbuiltin::Solana => builtin::Solana,
+        Chain::Bitcoin => csv_core::Chain::Bitcoin,
+        Chain::Ethereum => csv_core::Chain::Ethereum,
+        Chain::Sui => csv_core::Chain::Sui,
+        Chain::Aptos => csv_core::Chain::Aptos,
+        Chain::Solana => csv_core::Chain::Solana,
     }
 }

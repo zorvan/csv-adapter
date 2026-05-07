@@ -55,7 +55,7 @@ impl SolanaSealProtocol {
         }
     }
 
-    /// Create from configuration and RPC client (standard facade pattern).
+    /// Create from configuration and RPC client (standard runtime pattern).
     ///
     /// # Arguments
     /// * `config` - Solana adapter configuration (includes network, program ID, optional keypair)
@@ -264,10 +264,10 @@ impl SealProtocol for SolanaSealProtocol {
 
         // Create instruction to publish commitment to the seal account
         let publish_ix = solana_sdk::instruction::Instruction::new_with_bytes(
-            seal_ref.account, // seal program
+            seal_point.account, // seal program
             &instruction_data,
             vec![
-                solana_sdk::instruction::AccountMeta::new(seal_ref.account, false),
+                solana_sdk::instruction::AccountMeta::new(seal_point.account, false),
                 solana_sdk::instruction::AccountMeta::new(commitment_pda, false),
                 solana_sdk::instruction::AccountMeta::new_readonly(owner, true),
             ],
@@ -301,10 +301,10 @@ impl SealProtocol for SolanaSealProtocol {
             block_height: slot,
             account_changes: vec![
                 AccountChange {
-                    pubkey: seal_ref.account,
-                    prev_lamports: seal_ref.lamports,
+                    pubkey: seal_point.account,
+                    prev_lamports: seal_point.lamports,
                     new_lamports: 0, // Seal is consumed
-                    prev_data: seal_ref.seed.clone(),
+                    prev_data: seal_point.seed.clone(),
                     new_data: None,
                     closed: true,
                 },
@@ -321,7 +321,7 @@ impl SealProtocol for SolanaSealProtocol {
 
         // Remove seal from active tracking since it's now consumed
         if let Ok(mut seals) = self.active_seals.lock() {
-            seals.retain(|s| s.account != seal_ref.account);
+            seals.retain(|s| s.account != seal_point.account);
         }
 
         Ok(anchor_ref)
@@ -399,7 +399,7 @@ impl SealProtocol for SolanaSealProtocol {
             .ok_or_else(|| SolanaError::Wallet("No wallet configured".to_string()))?;
 
         // Get the seal account to consume
-        let seal_account = seal_ref.account;
+        let seal_account = seal_point.account;
 
         // In production, this would:
         // 1. Build a ConsumeSeal instruction
@@ -436,8 +436,8 @@ impl SealProtocol for SolanaSealProtocol {
         hasher.update(anchor.as_bytes());
 
         // Seal reference data
-        hasher.update(seal_ref.account.as_ref());
-        hasher.update(seal_ref.lamports.to_le_bytes());
+        hasher.update(seal_point.account.as_ref());
+        hasher.update(seal_point.lamports.to_le_bytes());
 
         Hash::new(hasher.finalize().into())
     }

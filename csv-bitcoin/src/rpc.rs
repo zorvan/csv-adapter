@@ -51,7 +51,7 @@ pub trait BitcoinRpc: Send + Sync {
     ) -> Result<Vec<UtxoInfo>, Box<dyn std::error::Error + Send + Sync>>;
 
     /// Clone the RPC client into a new boxed trait object.
-    /// Required for the facade pattern to share RPC across operations.
+    /// Required for the runtime pattern to share RPC across operations.
     fn clone_boxed(&self) -> Box<dyn BitcoinRpc + Send + Sync>;
 }
 

@@ -10,14 +10,11 @@ use alloc::vec::Vec;
 use serde::{Deserialize, Serialize};
 
 use crate::hash::Hash;
-use crate::protocol_version::Chain;
-use crate::title::{TitleOwnershipProof as TitleOwnershipProof, Sanad};
+use crate::mcp::Chain;
+use crate::sanad::{OwnershipProof as SanadOwnershipProof, Sanad};
 use crate::seal::SealPoint;
 
 /// Chain identifier alias for cross-chain transfers.
-///
-/// This re-exports the canonical [`Chain`] from the protocol contract.
-/// All cross-chain operations use this type.
 pub type ChainId = Chain;
 
 /// Event emitted when a Sanad is locked on the source chain for cross-chain transfer.
@@ -28,13 +25,13 @@ pub struct CrossChainLockEvent {
     /// The commitment hash of the Sanad
     pub commitment: Hash,
     /// The owner who initiated the lock
-    pub owner: TitleOwnershipProof,
+    pub owner: SanadOwnershipProof,
     /// Source chain where the Sanad is being locked
     pub source_chain: ChainId,
     /// Destination chain for the transfer
     pub destination_chain: ChainId,
     /// Destination owner (may differ from source owner)
-    pub destination_owner: TitleOwnershipProof,
+    pub destination_owner: SanadOwnershipProof,
     /// Source chain's seal reference (consumed during lock)
     pub source_seal: SealPoint,
     /// Source transaction hash
@@ -346,9 +343,9 @@ pub trait LockProvider {
         &self,
         sanad_id: Hash,
         commitment: Hash,
-        owner: TitleOwnershipProof,
+        owner: SanadOwnershipProof,
         destination_chain: ChainId,
-        destination_owner: TitleOwnershipProof,
+        destination_owner: SanadOwnershipProof,
     ) -> Result<(CrossChainLockEvent, InclusionProof), CrossChainError>;
 }
 
@@ -406,9 +403,9 @@ impl CrossChainTransfer {
         minter: &dyn MintProvider,
         sanad_id: Hash,
         commitment: Hash,
-        owner: TitleOwnershipProof,
+        owner: SanadOwnershipProof,
         destination_chain: ChainId,
-        destination_owner: TitleOwnershipProof,
+        destination_owner: SanadOwnershipProof,
         current_block_height: u64,
         finality_depth: u64,
     ) -> Result<CrossChainTransferResult, CrossChainError> {
@@ -537,21 +534,22 @@ pub use crate::nullifier::SealNullifier;
 mod tests {
     use super::*;
     use crate::hash::Hash;
+    use crate::mcp::Chain;
 
     #[test]
     fn test_chain_id_roundtrip() {
         for chain in [
-            ChainId::Bitcoin,
-            ChainId::Sui,
-            ChainId::Aptos,
-            ChainId::Ethereum,
-            ChainId::Solana,
+            Chain::Bitcoin,
+            Chain::Sui,
+            Chain::Aptos,
+            Chain::Ethereum,
+            Chain::Solana,
         ] {
-            let id_str = chain.id();
-            let parsed: Result<ChainId, _> = id_str.parse();
+            let id_str = chain.to_string();
+            let parsed: Result<Chain, _> = id_str.parse();
             assert_eq!(parsed, Ok(chain));
         }
-        assert!("unknown".parse::<ChainId>().is_err());
+        assert!("unknown".parse::<Chain>().is_err());
     }
 
     #[test]
@@ -561,9 +559,9 @@ mod tests {
 
         let entry = CrossChainRegistryEntry {
             sanad_id,
-            source_chain: ChainId::Bitcoin,
+            source_chain: Chain::Bitcoin,
             source_seal: SealPoint::new(vec![0x01], None).unwrap(),
-            destination_chain: ChainId::Sui,
+            destination_chain: Chain::Sui,
             destination_seal: SealPoint::new(vec![0x02], None).unwrap(),
             lock_tx_hash: Hash::new([0x03; 32]),
             mint_tx_hash: Hash::new([0x04; 32]),
@@ -584,9 +582,9 @@ mod tests {
 
         let entry1 = CrossChainRegistryEntry {
             sanad_id: Hash::new([0xAB; 32]),
-            source_chain: ChainId::Bitcoin,
+            source_chain: Chain::Bitcoin,
             source_seal: seal.clone(),
-            destination_chain: ChainId::Sui,
+            destination_chain: Chain::Sui,
             destination_seal: SealPoint::new(vec![0x02], None).unwrap(),
             lock_tx_hash: Hash::new([0x03; 32]),
             mint_tx_hash: Hash::new([0x04; 32]),
@@ -598,9 +596,9 @@ mod tests {
         // Second transfer using same source seal should fail
         let entry2 = CrossChainRegistryEntry {
             sanad_id: Hash::new([0xCD; 32]),
-            source_chain: ChainId::Bitcoin,
+            source_chain: Chain::Bitcoin,
             source_seal: seal.clone(),
-            destination_chain: ChainId::Aptos,
+            destination_chain: Chain::Aptos,
             destination_seal: SealPoint::new(vec![0x05], None).unwrap(),
             lock_tx_hash: Hash::new([0x06; 32]),
             mint_tx_hash: Hash::new([0x07; 32]),
@@ -618,9 +616,9 @@ mod tests {
 
         let entry = CrossChainRegistryEntry {
             sanad_id: Hash::new([0xAB; 32]),
-            source_chain: ChainId::Bitcoin,
+            source_chain: Chain::Bitcoin,
             source_seal: SealPoint::new(vec![0x01], None).unwrap(),
-            destination_chain: ChainId::Sui,
+            destination_chain: Chain::Sui,
             destination_seal: SealPoint::new(vec![0x02], None).unwrap(),
             lock_tx_hash: Hash::new([0x03; 32]),
             mint_tx_hash: Hash::new([0x04; 32]),

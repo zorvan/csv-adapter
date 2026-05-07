@@ -12,7 +12,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::hash::Hash;
-use crate::title::SanadId;
+use crate::sanad::SanadId;
 
 /// Standard event names in the CSV protocol
 pub mod event_names {
@@ -397,7 +397,7 @@ pub trait EventIndexer: Send + Sync {
 }
 
 /// Event indexer registry
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct EventIndexerRegistry {
     indexers: Vec<Box<dyn EventIndexer>>,
 }

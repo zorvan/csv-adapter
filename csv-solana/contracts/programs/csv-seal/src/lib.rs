@@ -26,7 +26,7 @@ pub use events::*;
 pub use instructions::*;
 pub use state::*;
 
-declare_id!("HdxSFwzk2v6JMm3w55MW1EuMeNcM9gTC4ETFMKqYyy6m");
+declare_id!("HzZ12WPJjDvZ8nCA9yjXgKAoJ8XV1386976Jwrm63RcD");
 
 #[program]
 pub mod csv_seal {

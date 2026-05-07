@@ -375,10 +375,3 @@ mod tests {
         assert_eq!(anchor.metadata, vec![7, 8]);
     }
 }
-
-// Backward compatibility type aliases
-#[deprecated(since = "0.4.0", note = "Use SealPoint instead")]
-pub type SealPoint = SealPoint;
-
-#[deprecated(since = "0.4.0", note = "Use CommitAnchor instead")]
-pub type CommitAnchor = CommitAnchor;

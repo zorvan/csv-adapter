@@ -122,9 +122,9 @@ impl KeystoreFile {
     ///
     /// # Example
     /// ```
-    /// use csv_adapter_keystore::keystore::{KeystoreFile, KdfType};
-    /// use csv_adapter_keystore::memory::SecretKey;
-    /// use csv_adapter_keystore::memory::Passphrase;
+    /// use csv_keys::keystore::{KeystoreFile, KdfType};
+    /// use csv_keys::memory::SecretKey;
+    /// use csv_keys::memory::Passphrase;
     ///
     /// let key = SecretKey::random();
     /// let passphrase = Passphrase::new("my secure password");

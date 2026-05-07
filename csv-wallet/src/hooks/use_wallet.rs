@@ -2,7 +2,7 @@
 
 use crate::wallet_core::{ChainAccount, WalletData as Wallet};
 use csv_core::Chain;
-use csv_adapter_keystore::{
+use csv_keys::{
     bip39::{Mnemonic, MnemonicType},
     bip44::derive_all_chain_keys,
     browser_keystore::BrowserKeystore,
@@ -65,7 +65,7 @@ impl WalletContext {
             // Store the encrypted key in browser keystore
             let keystore_ref = format!("{}_account_0", chain.to_string().to_lowercase());
 
-            use csv_adapter_keystore::memory::Passphrase;
+            use csv_keys::memory::Passphrase;
             let passphrase = Passphrase::new(password);
 
             keystore
@@ -130,7 +130,7 @@ impl WalletContext {
             return Err("No keys found in keystore".to_string());
         }
 
-        use csv_adapter_keystore::memory::Passphrase;
+        use csv_keys::memory::Passphrase;
         let passphrase = Passphrase::new(password);
 
         // Restore accounts from keystore
@@ -195,7 +195,7 @@ impl WalletContext {
         }
 
         // Try to decrypt the first key to verify password
-        use csv_adapter_keystore::memory::Passphrase;
+        use csv_keys::memory::Passphrase;
         let passphrase = Passphrase::new(password);
 
         let first_key = &key_ids[0];

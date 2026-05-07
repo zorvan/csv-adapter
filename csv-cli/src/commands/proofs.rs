@@ -66,7 +66,7 @@ fn cmd_generate(
     config: &Config,
     _state: &UnifiedStateManager,
 ) -> Result<()> {
-    use csv_adapter::prelude::CsvClient;
+    use csv_sdk::prelude::CsvClient;
     use csv_core::ChainId;
     
     use csv_core::sanad::SanadId;
@@ -90,11 +90,11 @@ fn cmd_generate(
 
     // Build CSV client with the chain enabled
     let adapter_chain = match chain {
-        builtin::Bitcoin => Adapterbuiltin::Bitcoin,
-        builtin::Ethereum => Adapterbuiltin::Ethereum,
-        builtin::Sui => Adapterbuiltin::Sui,
-        builtin::Aptos => Adapterbuiltin::Aptos,
-        builtin::Solana => Adapterbuiltin::Solana,
+        Chain::Bitcoin => csv_core::Chain::Bitcoin,
+        Chain::Ethereum => csv_core::Chain::Ethereum,
+        Chain::Sui => csv_core::Chain::Sui,
+        Chain::Aptos => csv_core::Chain::Aptos,
+        Chain::Solana => csv_core::Chain::Solana,
     };
 
     output::progress(1, 4, "Initializing CSV client...");
@@ -110,11 +110,11 @@ fn cmd_generate(
     // Use the proof manager to generate the proof
     let rt = tokio::runtime::Runtime::new()?;
     let proof_bundle = rt.block_on(async {
-        // Get the chain facade
-        let facade = client.chain_facade();
+        // Get the chain runtime
+        let runtime = client.chain_runtime();
 
-        // Generate the proof using the facade
-        facade.generate_proof(adapter_chain, &sanad_id_obj).await
+        // Generate the proof using the runtime
+        runtime.generate_proof(adapter_chain, &sanad_id_obj).await
             .map_err(|e| anyhow::anyhow!("Proof generation failed: {}", e))
     })?;
 
@@ -125,16 +125,16 @@ fn cmd_generate(
         "chain": chain.to_string(),
         "sanad_id": sanad_id,
         "proof_type": match chain {
-            builtin::Bitcoin => "merkle",
-            builtin::Ethereum => "mpt",
-            builtin::Sui => "checkpoint",
-            builtin::Aptos => "ledger",
-            builtin::Solana => "epoch",
+            Chain::Bitcoin => "merkle",
+            Chain::Ethereum => "mpt",
+            Chain::Sui => "checkpoint",
+            Chain::Aptos => "ledger",
+            Chain::Solana => "epoch",
         },
         "block_height": proof_bundle.finality_proof.confirmations,
         "inclusion_proof": hex::encode(&proof_bundle.inclusion_proof.proof_bytes),
         "dag_root": hex::encode(proof_bundle.transition_dag.root_commitment.as_bytes()),
-        "seal_id": hex::encode(&proof_bundle.seal_ref.seal_id),
+        "seal_id": hex::encode(&proof_bundle.seal_ref.id),
         "anchor_height": proof_bundle.anchor_ref.block_height,
         "generated_at": chrono::Utc::now().to_rfc3339(),
     });
@@ -158,7 +158,7 @@ fn cmd_verify(
     _config: &Config,
     _state: &UnifiedStateManager,
 ) -> Result<()> {
-    use csv_adapter::prelude::CsvClient;
+    use csv_sdk::prelude::CsvClient;
     use csv_core::ChainId;
     use csv_core::{sanad::SanadId, proof::ProofBundle};
 
@@ -210,11 +210,11 @@ fn cmd_verify(
 
     // Build the CSV client
     let adapter_chain = match chain {
-        builtin::Bitcoin => Adapterbuiltin::Bitcoin,
-        builtin::Ethereum => Adapterbuiltin::Ethereum,
-        builtin::Sui => Adapterbuiltin::Sui,
-        builtin::Aptos => Adapterbuiltin::Aptos,
-        builtin::Solana => Adapterbuiltin::Solana,
+        Chain::Bitcoin => csv_core::Chain::Bitcoin,
+        Chain::Ethereum => csv_core::Chain::Ethereum,
+        Chain::Sui => csv_core::Chain::Sui,
+        Chain::Aptos => csv_core::Chain::Aptos,
+        Chain::Solana => csv_core::Chain::Solana,
     };
 
     let client = CsvClient::builder()
@@ -293,11 +293,11 @@ fn cmd_verify(
 
     output::progress(3, 4, "Verifying cryptographic proof...");
 
-    // Use the facade to verify
+    // Use the runtime to verify
     let rt = tokio::runtime::Runtime::new()?;
     let valid = rt.block_on(async {
-        let facade = client.chain_facade();
-        facade.verify_proof_bundle(adapter_chain, &proof_bundle, &sanad_id).await
+        let runtime = client.chain_runtime();
+        runtime.verify_proof_bundle(adapter_chain, &proof_bundle, &sanad_id).await
             .map_err(|e| anyhow::anyhow!("Proof verification error: {}", e))
     })?;
 

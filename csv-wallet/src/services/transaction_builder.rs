@@ -1,6 +1,6 @@
-//! Chain-specific transaction builders using the csv-adapter facade.
+//! Chain-specific transaction builders using the csv-adapter runtime.
 //!
-//! This module delegates all transaction building to the csv-adapter facade,
+//! This module delegates all transaction building to the csv-adapter runtime,
 //! which routes to the appropriate chain adapter implementing ChainSigner and
 //! ChainBroadcaster traits.
 //!
@@ -13,7 +13,7 @@ use std::str::FromStr;
 /// Build a complete, serialized transaction ready for signing
 ///
 /// This function constructs chain-specific transaction data for basic transfers.
-/// For contract calls and advanced operations, use `ChainFacade::build_contract_call`
+/// For contract calls and advanced operations, use `ChainRuntime::build_contract_call`
 /// which provides proper encoding via chain adapters.
 pub fn build_transaction(
     chain: Chain,
@@ -25,7 +25,7 @@ pub fn build_transaction(
     gas_price: u64,
     gas_limit: u64,
 ) -> Result<Vec<u8>, BlockchainError> {
-    // Build transaction data using the chain facade
+    // Build transaction data using the chain runtime
     // For simple transfers, we construct the transaction data directly
     match chain {
         Chain::Ethereum => build_eth_transaction_data(to, value, data, nonce, gas_price, gas_limit),
@@ -35,7 +35,7 @@ pub fn build_transaction(
         Chain::Solana => {
             return Err(BlockchainError {
                 message: "Solana transactions require a recent blockhash. Use build_solana_transaction_with_blockhash() with a blockhash from Solana RPC.".to_string(),
-                chain: Some(Chain::Solana),
+                chain: Chain::Solana,
                 code: Some(400),
             })
         }
@@ -79,13 +79,13 @@ fn build_eth_transaction_data(
     let to_bytes = hex::decode(to.trim_start_matches("0x"))
         .map_err(|e| BlockchainError {
             message: format!("Invalid to address: {}", e),
-            chain: Some(Chain::Ethereum),
+            chain: Chain::Ethereum,
             code: Some(400),
         })?;
     if to_bytes.len() != 20 {
         return Err(BlockchainError {
             message: "Ethereum address must be 20 bytes".to_string(),
-            chain: Some(Chain::Ethereum),
+            chain: Chain::Ethereum,
             code: Some(400),
         });
     }
@@ -453,7 +453,7 @@ impl BitcoinTransaction {
 ///
 /// **DEPRECATED**: This function requires UTXOs to build valid Bitcoin transactions.
 /// Use `build_btc_transaction_with_utxos` which provides proper UTXO selection
-/// and fee calculation via the ChainFacade.
+/// and fee calculation via the ChainRuntime.
 fn build_btc_transaction_data(
     _to: &str,
     _value: u64,
@@ -471,7 +471,7 @@ fn build_btc_transaction_data(
 /// Build Sui transaction data for basic contract calls
 ///
 /// NOTE: For production use with proper BCS serialization,
-/// use ChainFacade::build_contract_call which delegates to the Sui adapter.
+/// use ChainRuntime::build_contract_call which delegates to the Sui adapter.
 fn build_sui_transaction_data_simple(
     sender: &str,
     package: &str,
@@ -514,7 +514,7 @@ fn build_sui_transaction_data_simple(
 /// Build Aptos transaction data for basic contract calls
 ///
 /// NOTE: For production use with proper BCS serialization,
-/// use ChainFacade::build_contract_call which delegates to the Aptos adapter.
+/// use ChainRuntime::build_contract_call which delegates to the Aptos adapter.
 fn build_aptos_transaction_data_simple(
     sender: &str,
     contract: &str,
@@ -598,7 +598,7 @@ pub fn build_solana_transaction_with_blockhash(
     if !recent_blockhash.is_valid() {
         return Err(BlockchainError {
             message: "Blockhash has expired. Fetch a new recent blockhash.".to_string(),
-            chain: Some(Chain::Solana),
+            chain: Chain::Solana,
             code: Some(400),
         });
     }
@@ -607,13 +607,13 @@ pub fn build_solana_transaction_with_blockhash(
     let fee_payer_bytes = bs58::decode(fee_payer).into_vec()
         .map_err(|e| BlockchainError {
             message: format!("Invalid fee payer address: {}", e),
-            chain: Some(Chain::Solana),
+            chain: Chain::Solana,
             code: Some(400),
         })?;
     if fee_payer_bytes.len() != 32 {
         return Err(BlockchainError {
             message: "Solana fee payer must be 32 bytes".to_string(),
-            chain: Some(Chain::Solana),
+            chain: Chain::Solana,
             code: Some(400),
         });
     }
@@ -660,6 +660,7 @@ pub async fn fetch_solana_blockhash(rpc_url: &str) -> Result<SolanaBlockhash, Bl
         "params": [{"commitment": "finalized"}]
     });
 
+    #[cfg(not(target_arch = "wasm32"))]
     let response = reqwest::Client::new()
         .post(rpc_url)
         .header("Content-Type", "application/json")
@@ -668,14 +669,14 @@ pub async fn fetch_solana_blockhash(rpc_url: &str) -> Result<SolanaBlockhash, Bl
         .await
         .map_err(|e| BlockchainError {
             message: format!("Failed to fetch blockhash: {}", e),
-            chain: Some(Chain::Solana),
+            chain: Chain::Solana,
             code: Some(500),
         })?;
 
     let rpc_response: serde_json::Value = response.json().await
         .map_err(|e| BlockchainError {
             message: format!("Failed to parse blockhash response: {}", e),
-            chain: Some(Chain::Solana),
+            chain: Chain::Solana,
             code: Some(500),
         })?;
 
@@ -686,14 +687,14 @@ pub async fn fetch_solana_blockhash(rpc_url: &str) -> Result<SolanaBlockhash, Bl
         .and_then(|h| h.as_str())
         .ok_or_else(|| BlockchainError {
             message: "Failed to extract blockhash from response".to_string(),
-            chain: Some(Chain::Solana),
+            chain: Chain::Solana,
             code: Some(500),
         })?;
 
     let blockhash_bytes = bs58::decode(blockhash_str).into_vec()
         .map_err(|e| BlockchainError {
             message: format!("Invalid blockhash encoding: {}", e),
-            chain: Some(Chain::Solana),
+            chain: Chain::Solana,
             code: Some(500),
         })?;
 
@@ -815,14 +816,14 @@ fn build_solana_transaction_data(
         message: "build_solana_transaction_data is deprecated. Use build_solana_transaction_with_blockhash \
                  with a real blockhash obtained from Solana RPC getRecentBlockhash. \
                  Transactions with placeholder blockhashes are invalid and will be rejected.".to_string(),
-        chain: Some(Chain::Solana),
+        chain: Chain::Solana,
         code: Some(400),
     })
 }
 
 /// Build Sui transaction data for contract calls
 ///
-/// DEPRECATED: Use `ChainFacade::build_contract_call` for production use
+/// DEPRECATED: Use `ChainRuntime::build_contract_call` for production use
 /// which provides proper BCS serialization via the Sui adapter.
 pub fn build_sui_transaction_data(
     sender: &str,
@@ -841,7 +842,7 @@ pub fn build_sui_transaction_data(
 
 /// Build Aptos transaction data for contract calls
 ///
-/// DEPRECATED: Use `ChainFacade::build_contract_call` for production use
+/// DEPRECATED: Use `ChainRuntime::build_contract_call` for production use
 /// which provides proper BCS serialization via the Aptos adapter.
 pub fn build_aptos_transaction_data(
     sender: &str,
@@ -862,7 +863,7 @@ pub fn build_aptos_transaction_data(
 /// Build ABI-encoded function call for Ethereum
 ///
 /// This function provides basic ABI encoding for Ethereum contract calls.
-/// For production use with full type checking, use `ChainFacade::build_contract_call`
+/// For production use with full type checking, use `ChainRuntime::build_contract_call`
 /// which delegates to the Ethereum adapter with proper ABI encoding.
 pub fn build_abi_call(function_signature: &str, args: Vec<Vec<u8>>) -> Vec<u8> {
     // Simple ABI encoding: function selector (4 bytes) + encoded arguments
@@ -946,7 +947,9 @@ async fn discover_ethereum_contracts(
 ) -> Result<Vec<crate::services::blockchain::ContractDeployment>, BlockchainError> {
     use crate::services::blockchain::{ContractDeployment, ContractType};
 
-    let client = reqwest::Client::new();
+    #[cfg(not(target_arch = "wasm32"))]
+    let client =
+reqwest::Client::new();
     let scan_blocks = 100u64; // Scan last 100 blocks
 
     // Get current block number
@@ -964,13 +967,13 @@ async fn discover_ethereum_contracts(
         .await
         .map_err(|e| BlockchainError {
             message: format!("Failed to query block number: {}", e),
-            chain: Some(Chain::Ethereum),
+            chain: Chain::Ethereum,
             code: Some(500),
         })?;
 
     let result: serde_json::Value = response.json().await.map_err(|e| BlockchainError {
         message: format!("Failed to parse response: {}", e),
-        chain: Some(Chain::Ethereum),
+        chain: Chain::Ethereum,
         code: Some(500),
     })?;
 
@@ -1011,6 +1014,7 @@ async fn discover_ethereum_contracts(
                                     let contract_type = default_filter_type.unwrap_or(ContractType::Registry);
 
                                     deployments.push(ContractDeployment {
+                                        address: contract_addr.to_string(),
                                         chain: Chain::Ethereum,
                                         contract_address: contract_addr.to_string(),
                                         contract_type,
@@ -1050,7 +1054,9 @@ async fn discover_solana_programs(
 ) -> Result<Vec<crate::services::blockchain::ContractDeployment>, BlockchainError> {
     use crate::services::blockchain::{ContractDeployment, ContractType};
 
-    let client = reqwest::Client::new();
+    #[cfg(not(target_arch = "wasm32"))]
+    let client =
+reqwest::Client::new();
 
     let default_contract_type = filter.map(|f| match f.to_lowercase().as_str() {
         "registry" => ContractType::Registry,
@@ -1087,13 +1093,13 @@ async fn discover_solana_programs(
         .await
         .map_err(|e| BlockchainError {
             message: format!("Failed to query programs: {}", e),
-            chain: Some(Chain::Solana),
+            chain: Chain::Solana,
             code: Some(500),
         })?;
 
     let result: serde_json::Value = response.json().await.map_err(|e| BlockchainError {
         message: format!("Failed to parse response: {}", e),
-        chain: Some(Chain::Solana),
+        chain: Chain::Solana,
         code: Some(500),
     })?;
 
@@ -1112,6 +1118,7 @@ async fn discover_solana_programs(
 
                 if is_executable || account_data.is_some() {
                     deployments.push(ContractDeployment {
+                        address: pubkey.to_string(),
                         chain: Chain::Solana,
                         contract_address: pubkey.to_string(),
                         contract_type: default_contract_type,
@@ -1135,7 +1142,9 @@ async fn discover_sui_packages(
     use crate::services::blockchain::ContractType;
     
     // Query Sui RPC for objects owned by this address
-    let client = reqwest::Client::new();
+    #[cfg(not(target_arch = "wasm32"))]
+    let client =
+reqwest::Client::new();
     
     let payload = serde_json::json!({
         "jsonrpc": "2.0",
@@ -1185,7 +1194,9 @@ async fn discover_aptos_modules(
     use crate::services::blockchain::ContractType;
     
     // Query Aptos REST API for account modules
-    let client = reqwest::Client::new();
+    #[cfg(not(target_arch = "wasm32"))]
+    let client =
+reqwest::Client::new();
     
     let url = format!("{}/accounts/{}/modules", api_url, address);
     

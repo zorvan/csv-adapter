@@ -113,13 +113,13 @@ pub trait DriverPlugin: Send + Sync + Any {
 }
 
 // ===========================================================================
-// DriverRegistry (merged from AdapterFactory + ChainPluginRegistry)
+// DriverRegistry (merged from AdapterFactory + DriverRegistry)
 // ===========================================================================
 
 /// Registry of driver factories for dynamic chain instantiation.
 ///
 /// This struct merges the roles of the former `AdapterFactory` and
-/// `ChainPluginRegistry`, providing both direct factory registration
+/// `DriverRegistry`, providing both direct factory registration
 /// and plugin-based adapter creation from a single API.
 pub struct DriverRegistry {
     factories: HashMap<String, Arc<dyn Fn(Option<ChainConfig>) -> Box<dyn ChainDriver> + Send + Sync>>,
@@ -762,7 +762,7 @@ impl std::fmt::Display for DriverPluginBuildError {
 impl std::error::Error for DriverPluginBuildError {}
 
 /// Built driver plugin from builder.
-struct BuiltDriverPlugin {
+pub struct BuiltDriverPlugin {
     metadata: DriverMetadata,
     adapter_factory: Box<dyn Fn(Option<ChainConfig>) -> Box<dyn ChainDriver> + Send + Sync>,
     config_factory: Box<dyn Fn() -> ChainConfig + Send + Sync>,

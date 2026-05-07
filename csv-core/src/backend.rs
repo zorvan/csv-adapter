@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::hash::Hash;
 use crate::proof::{FinalityProof, InclusionProof};
-use crate::title::SanadId;
+use crate::sanad::SanadId;
 use crate::seal::SealPoint;
 
 /// Result type for chain operations

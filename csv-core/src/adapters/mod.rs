@@ -8,7 +8,7 @@
 //! - `csv-adapter-sui` - Sui implementation
 //! - `csv-adapter-ethereum` - Ethereum implementation
 
-pub use super::chain_adapter::{
+pub use super::driver::{
     ChainDriver, ChainDriverExt, ChainError, ChainResult, RpcClient, Wallet,
 };
 pub use super::chain_config::{AccountModel, ChainCapabilities, ChainConfig};

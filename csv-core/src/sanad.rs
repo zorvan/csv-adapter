@@ -59,24 +59,6 @@ impl SanadId {
     }
 }
 
-impl From<crate::sanad::SanadId> for SanadId {
-    fn from(sanad_id: crate::sanad::SanadId) -> Self {
-        SanadId(sanad_id.0)
-    }
-}
-
-impl From<&crate::sanad::SanadId> for SanadId {
-    fn from(sanad_id: &crate::sanad::SanadId) -> Self {
-        SanadId(sanad_id.0)
-    }
-}
-
-impl From<SanadId> for crate::sanad::SanadId {
-    fn from(sanad_id: SanadId) -> Self {
-        crate::sanad::SanadId(sanad_id.0)
-    }
-}
-
 /// Proof of ownership for a Sanad.
 ///
 /// On L1 chains (Bitcoin, Sui): this is the UTXO/Object ownership proof.
@@ -91,26 +73,6 @@ pub struct OwnershipProof {
     /// Signature scheme for cryptographic verification.
     /// Encodes which signature scheme the `proof` field uses.
     pub scheme: Option<crate::signature::SignatureScheme>,
-}
-
-impl From<crate::sanad::OwnershipProof> for OwnershipProof {
-    fn from(proof: crate::sanad::OwnershipProof) -> Self {
-        Self {
-            proof: proof.proof,
-            owner: proof.owner,
-            scheme: proof.scheme,
-        }
-    }
-}
-
-impl From<OwnershipProof> for crate::sanad::OwnershipProof {
-    fn from(proof: OwnershipProof) -> Self {
-        Self {
-            proof: proof.proof,
-            owner: proof.owner,
-            scheme: proof.scheme,
-        }
-    }
 }
 
 /// A consumable Sanad in the USP system.
@@ -538,34 +500,6 @@ impl Sanad {
     }
 }
 
-impl From<crate::sanad::Sanad> for Sanad {
-    fn from(sanad: crate::sanad::Sanad) -> Self {
-        Self {
-            id: sanad.id.into(),
-            commitment: sanad.commitment,
-            owner: sanad.owner.into(),
-            salt: sanad.salt,
-            nullifier: sanad.nullifier,
-            state_root: sanad.state_root,
-            execution_proof: sanad.execution_proof,
-        }
-    }
-}
-
-impl From<Sanad> for crate::sanad::Sanad {
-    fn from(sanad: Sanad) -> Self {
-        Self {
-            id: sanad.id.into(),
-            commitment: sanad.commitment,
-            owner: sanad.owner.into(),
-            salt: sanad.salt,
-            nullifier: sanad.nullifier,
-            state_root: sanad.state_root,
-            execution_proof: sanad.execution_proof,
-        }
-    }
-}
-
 /// Sanad validation errors.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum SanadError {
@@ -590,20 +524,6 @@ pub enum SanadError {
     /// The SanadId does not match the computed H(commitment || salt)
     #[error("Invalid SanadId: does not match H(commitment || salt)")]
     InvalidSanadId,
-}
-
-impl From<crate::sanad::SanadError> for SanadError {
-    fn from(err: crate::sanad::SanadError) -> Self {
-        match err {
-            crate::sanad::SanadError::MissingOwnershipProof => SanadError::MissingOwnershipProof,
-            crate::sanad::SanadError::InvalidOwnershipProof => SanadError::InvalidOwnershipProof,
-            crate::sanad::SanadError::InvalidCommitment => SanadError::InvalidCommitment,
-            crate::sanad::SanadError::AlreadyConsumed => SanadError::AlreadyConsumed,
-            crate::sanad::SanadError::InvalidNullifier => SanadError::InvalidNullifier,
-            crate::sanad::SanadError::InvalidEncoding => SanadError::InvalidEncoding,
-            crate::sanad::SanadError::InvalidSanadId => SanadError::InvalidSanadId,
-        }
-    }
 }
 
 #[cfg(test)]

@@ -1,14 +1,12 @@
-//! Wallet command types and enums.
-//!
-//! Defines the CLI interface for wallet operations.
+//! Wallet command types — encrypted mnemonic management only.
 
 use crate::config::{Chain, Network};
 use clap::Subcommand;
 
-/// Wallet management actions.
+/// Wallet management actions (encrypted mnemonics only).
 #[derive(Subcommand)]
 pub enum WalletAction {
-    /// Initialize wallet with one-command setup (generate, fund, configure)
+    /// Initialize wallet with encrypted mnemonic (generate, store encrypted)
     Init {
         /// Network (dev/test/main)
         #[arg(value_enum, default_value = "dev")]
@@ -16,14 +14,22 @@ pub enum WalletAction {
         /// Generate mnemonic (12 or 24 words)
         #[arg(short, long, default_value = "12")]
         words: u8,
-        /// Auto-fund from faucets
-        #[arg(long, default_value = "true")]
-        fund: bool,
         /// Bitcoin account index (BIP-86 derivation path account)
         #[arg(long, default_value = "0")]
         account: u32,
     },
-    /// Generate a new wallet
+    /// Import wallet from mnemonic phrase (from csv-wallet or other source)
+    Import {
+        /// Mnemonic phrase (12 or 24 words)
+        phrase: String,
+        /// Network (dev/test/main)
+        #[arg(value_enum, default_value = "dev")]
+        network: Network,
+        /// Bitcoin account index
+        #[arg(long, default_value = "0")]
+        account: u32,
+    },
+    /// Generate wallet for specific chain
     Generate {
         /// Chain name
         #[arg(value_enum)]
@@ -41,91 +47,6 @@ pub enum WalletAction {
         #[arg(short, long)]
         address: Option<String>,
     },
-    /// Fund wallet from faucet
-    Fund {
-        /// Chain name
-        #[arg(value_enum)]
-        chain: Chain,
-        /// Address (uses stored address if not provided)
-        #[arg(short, long)]
-        address: Option<String>,
-    },
-    /// Export wallet (xpub, mnemonic, or private key)
-    Export {
-        /// Chain name
-        #[arg(value_enum)]
-        chain: Chain,
-        /// Export format
-        #[arg(short, long, default_value = "address")]
-        format: String,
-    },
-    /// Import wallet from private key or mnemonic
-    Import {
-        /// Chain name
-        #[arg(value_enum)]
-        chain: Chain,
-        /// Private key (hex) or mnemonic phrase
-        secret: String,
-    },
-    /// List wallets
+    /// List all wallet addresses
     List,
-    /// Set or get address for a chain
-    Address {
-        /// Chain name
-        #[arg(value_enum)]
-        chain: Chain,
-        /// Address to set (if not provided, shows current address)
-        #[arg(value_name = "ADDRESS")]
-        address: Option<String>,
-    },
-    /// Import full wallet from csv-wallet JSON export
-    ImportCsvWallet {
-        /// Path to csv-wallet JSON file (default: ~/.csv/wallet/csv-wallet.json)
-        #[arg(short, long)]
-        path: Option<String>,
-    },
-    /// Export wallet to csv-wallet JSON format
-    ExportCsvWallet {
-        /// Output file path (default: ~/.csv/wallet/csv-wallet-export.json)
-        #[arg(short, long)]
-        output: Option<String>,
-    },
-    /// Sync with csv-wallet (import all accounts, update addresses)
-    Sync {
-        /// Path to csv-wallet JSON (default: ~/.csv/wallet/csv-wallet.json)
-        #[arg(short, long)]
-        path: Option<String>,
-    },
-}
-
-/// Wallet export formats.
-///
-/// SECURITY: Private key export is NOT supported. Keys must remain
-/// in encrypted keystore. Use keystore migration tools for backup.
-pub enum ExportFormat {
-    /// Export address only (safe, recommended).
-    Address,
-    /// Export extended public key (safe, for watch-only).
-    Xpub,
-    /// Export mnemonic requires keystore password.
-    /// Only available through encrypted keystore operations.
-    Mnemonic,
-}
-
-impl std::str::FromStr for ExportFormat {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "address" => Ok(ExportFormat::Address),
-            "xpub" => Ok(ExportFormat::Xpub),
-            "mnemonic" => Ok(ExportFormat::Mnemonic),
-            "private-key" | "privatekey" => Err(
-                "Private key export is NOT supported in production. \
-                 Use keystore migration tools or backup the encrypted keystore file directly."
-                    .to_string(),
-            ),
-            _ => Err(format!("Unknown export format: {}", s)),
-        }
-    }
 }

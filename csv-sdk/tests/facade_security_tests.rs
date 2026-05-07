@@ -1,20 +1,20 @@
 //! Adapter Provider Security Tests
 //!
-//! These tests verify that the adapter facade properly:
+//! These tests verify that the adapter runtime properly:
 //! 1. Routes all operations through secure channels
 //! 2. Does not expose raw key material
 //! 3. Uses proper error handling that doesn't leak sensitive data
 //! 4. Validates all inputs before passing to chain adapters
 
-use csv_adapter::{AdapterConfig, AdapterFacade};
+use csv_adapter::{RuntimeConfig, RuntimeManager};
 use csv_core::Chain;
 
-/// Test that adapter facade creation validates configuration
+/// Test that adapter runtime creation validates configuration
 #[test]
-fn test_facade_config_validation() {
-    // Empty config should still create facade (uses defaults)
-    let config = AdapterConfig::default();
-    let facade = AdapterFacade::new(config);
+fn test_runtime_config_validation() {
+    // Empty config should still create runtime (uses defaults)
+    let config = RuntimeConfig::default();
+    let runtime = RuntimeManager::new(config);
 
     // Provider should be created but not initialized for any chain
     // (actual behavior depends on implementation)
@@ -22,13 +22,13 @@ fn test_facade_config_validation() {
 
 /// Test that chain operations return proper errors for uninitialized chains
 #[test]
-fn test_facade_uninitialized_chain_error() {
-    let config = AdapterConfig::default();
-    let facade = AdapterFacade::new(config);
+fn test_runtime_uninitialized_chain_error() {
+    let config = RuntimeConfig::default();
+    let runtime = RuntimeManager::new(config);
 
     // Operations on uninitialized chain should return proper error
     // without exposing internal details
-    let result = facade.get_balance(Chain::Ethereum, &[0u8; 20]);
+    let result = runtime.get_balance(Chain::Ethereum, &[0u8; 20]);
 
     // Should return error, not panic
     // Error should not contain sensitive internal paths
@@ -75,13 +75,13 @@ fn test_chain_byte_consistency() {
     }
 }
 
-/// Test that adapter facade doesn't expose internal implementation details
+/// Test that adapter runtime doesn't expose internal implementation details
 #[test]
-fn test_facade_error_sanitization() {
-    // Any errors from the facade should be sanitized
+fn test_runtime_error_sanitization() {
+    // Any errors from the runtime should be sanitized
     // to not expose internal implementation details
 
-    // This test would need actual facade implementation to test properly
+    // This test would need actual runtime implementation to test properly
     // For now, we verify the contract
 
     // Example of what we want to prevent:

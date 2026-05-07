@@ -301,7 +301,7 @@ pub mod real_rpc {
 
         fn clone_boxed(&self) -> Box<dyn BitcoinRpc + Send + Sync> {
             // Note: bitcoincore-rpc Client doesn't implement Clone.
-            // The facade pattern typically uses this for sharing RPC across operations.
+            // The runtime pattern typically uses this for sharing RPC across operations.
             // For RealBitcoinRpc, the client should be wrapped in Arc or use connection pooling.
             // For now, we create a new client with the same configuration.
             Box::new(RealBitcoinRpc {

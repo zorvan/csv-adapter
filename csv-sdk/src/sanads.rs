@@ -1,4 +1,4 @@
-//! Sanads management facade.
+//! Sanads management runtime.
 //!
 //! The [`SanadsManager`] provides a high-level API for creating, querying,
 //! and managing Sanads across all supported chains.
@@ -18,7 +18,7 @@ use std::sync::Arc;
 use csv_core::{Chain, Hash, Sanad, SanadId};
 
 use crate::client::ClientRef;
-use crate::errors::CsvError;
+use crate::error::CsvError;
 
 /// Filter options for listing Sanads.
 #[derive(Debug, Clone, Default)]
@@ -106,7 +106,7 @@ impl SanadsManager {
         //   let sanad = Sanad::new(commitment.hash(), owner_proof, salt);
 
         let salt = generate_salt();
-        let owner = csv_core::SanadOwnershipProof {
+        let owner = csv_core::OwnershipProof {
             proof: vec![0u8; 32], // Derived from wallet in full implementation
             owner: vec![0u8; 32],
             scheme: None,

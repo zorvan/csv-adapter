@@ -1,14 +1,14 @@
 //! Wallet balance checking commands (Phase 5 Compliant).
 //!
-//! Uses csv-adapter facade APIs only - no direct chain adapter dependencies.
+//! Uses csv-adapter runtime APIs only - no direct chain adapter dependencies.
 
 use crate::config::{Chain, Config};
 use crate::output;
 use crate::state::UnifiedStateManager;
 use anyhow::Result;
 
-use csv_adapter::CsvClient;
-use csv_adapter::StoreBackend;
+use csv_sdk::CsvClient;
+use csv_sdk::StoreBackend;
 
 /// Check balance for a specific chain.
 pub async fn cmd_balance(
@@ -23,7 +23,7 @@ pub async fn cmd_balance(
         output::header(&format!("{} Balance", chain));
         output::kv("Address", &addr);
 
-        // Query balance from chain using csv-adapter facade
+        // Query balance from chain using csv-adapter runtime
         match query_balance(&chain, &addr, config).await {
             Ok(balance) => {
                 output::kv("Balance", &format!("{} {}", balance, chain_symbol(&chain)));
@@ -49,11 +49,11 @@ pub fn cmd_list(_config: &Config, state: &mut UnifiedStateManager) -> Result<()>
     output::header("Wallet Addresses");
 
     let chains = vec![
-        builtin::Bitcoin,
-        builtin::Ethereum,
-        builtin::Sui,
-        builtin::Aptos,
-        builtin::Solana,
+        Chain::Bitcoin,
+        Chain::Ethereum,
+        Chain::Sui,
+        Chain::Aptos,
+        Chain::Solana,
     ];
 
     let mut found_any = false;
@@ -73,21 +73,21 @@ pub fn cmd_list(_config: &Config, state: &mut UnifiedStateManager) -> Result<()>
     Ok(())
 }
 
-/// Query balance from chain using csv-adapter facade APIs.
+/// Query balance from chain using csv-adapter runtime APIs.
 ///
-/// This function uses only the unified CsvClient facade, avoiding direct
+/// This function uses only the unified CsvClient runtime, avoiding direct
 /// chain adapter dependencies per Phase 5 of the Production Guarantee Plan.
 async fn query_balance(chain: &Chain, address: &str, config: &Config) -> Result<f64> {
-    use csv_adapter::prelude::NetworkType;
+    use csv_sdk::prelude::NetworkType;
     use csv_core::ChainId;
 
     // Map CLI Chain to core Chain
     let core_chain = match chain {
-        builtin::Bitcoin => Corebuiltin::Bitcoin,
-        builtin::Ethereum => Corebuiltin::Ethereum,
-        builtin::Solana => Corebuiltin::Solana,
-        builtin::Sui => Corebuiltin::Sui,
-        builtin::Aptos => Corebuiltin::Aptos,
+        Chain::Bitcoin => csv_core::Chain::Bitcoin,
+        Chain::Ethereum => csv_core::Chain::Ethereum,
+        Chain::Solana => csv_core::Chain::Solana,
+        Chain::Sui => csv_core::Chain::Sui,
+        Chain::Aptos => csv_core::Chain::Aptos,
     };
 
     // Build CSV client with the requested chain enabled
@@ -97,7 +97,7 @@ async fn query_balance(chain: &Chain, address: &str, config: &Config) -> Result<
         .build()
         .map_err(|e| anyhow::anyhow!("Failed to build CSV client: {}", e))?;
 
-    // Get chain facade and query balance through the unified facade
+    // Get chain runtime and query balance through the unified runtime
     let clean_address = address.strip_prefix("0x").unwrap_or(address);
     
     // Initialize adapters with the correct network (testnet by default for CLI)
@@ -110,21 +110,21 @@ async fn query_balance(chain: &Chain, address: &str, config: &Config) -> Result<
     // Execute async operations using the existing tokio runtime
     let balance_info = async {
         client.init_adapters(network).await.map_err(|e| {
-            csv_adapter::CsvError::ProtocolError {
+            csv_sdk::CsvError::ProtocolError {
                 chain: core_chain,
                 message: format!("Failed to initialize adapters: {}", e),
             }
         })?;
-        client.chain_facade().get_balance(core_chain, clean_address).await
+        client.chain_runtime().get_balance(core_chain, clean_address).await
     }.await;
 
     match balance_info {
         Ok(balance_info) => Ok(balance_info.available as f64 / 1e8), // Convert from satoshis to BTC for Bitcoin, adjust for other chains as needed
         Err(e) => {
             // Check if it's a configuration error
-            if matches!(e, csv_adapter::CsvError::ChainNotEnabled(_)) {
+            if matches!(e, csv_sdk::CsvError::ChainNotEnabled(_)) {
                 Err(anyhow::anyhow!(
-                    "Balance query via facade requires RPC configuration. \
+                    "Balance query via runtime requires RPC configuration. \
                      Please configure the appropriate RPC_URL environment variable for {:?}.",
                     chain
                 ))
@@ -138,10 +138,10 @@ async fn query_balance(chain: &Chain, address: &str, config: &Config) -> Result<
 /// Get symbol for chain.
 fn chain_symbol(chain: &Chain) -> &'static str {
     match chain {
-        builtin::Bitcoin => "BTC",
-        builtin::Ethereum => "ETH",
-        builtin::Sui => "SUI",
-        builtin::Aptos => "APT",
-        builtin::Solana => "SOL",
+        Chain::Bitcoin => "BTC",
+        Chain::Ethereum => "ETH",
+        Chain::Sui => "SUI",
+        Chain::Aptos => "APT",
+        Chain::Solana => "SOL",
     }
 }

@@ -17,7 +17,7 @@
 //!         .build()?;
 //!
 //!     // Access managers
-//!     let titles = client.titles();
+//!     let sanads = client.sanads();
 //!     let transfers = client.transfers();
 //!     let proofs = client.proofs();
 //!
@@ -31,7 +31,8 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use csv_core::ChainId;
+
+use csv_core::Chain;
 use csv_core::ChainRegistry;
 #[cfg(feature = "tokio")]
 use tokio::sync::broadcast;
@@ -39,13 +40,12 @@ use tokio::sync::broadcast;
 use crate::builder::ClientBuilder;
 use crate::config::Config;
 use crate::deploy::DeploymentManager;
-use crate::errors::CsvError;
+use crate::error::CsvError;
 #[cfg(feature = "tokio")]
 use crate::events::EventStream;
-use crate::facade::ChainFacade;
+use crate::runtime::ChainRuntime;
 use crate::proofs::ProofManager;
-use crate::titles::SanadsManager;
-use crate::scalable_builder::ScalableClientBuilder;
+use crate::sanads::SanadsManager;
 use crate::transfers::TransferManager;
 use crate::wallet::Wallet;
 use crate::wallet::WalletManager;
@@ -197,8 +197,8 @@ pub struct CsvClient {
     pub(crate) event_tx: (),
     /// Chain registry for dynamic chain management.
     pub(crate) chain_registry: Option<Arc<ChainRegistry>>,
-    /// Chain facade for unified chain operations.
-    pub(crate) chain_facade: ChainFacade,
+    /// Chain runtime for unified chain operations.
+    pub(crate) chain_runtime: ChainRuntime,
 }
 
 impl CsvClient {
@@ -240,12 +240,13 @@ impl CsvClient {
     ///     .build()?;
     /// # Ok::<_, csv_adapter::CsvError>(())
     /// ```
-    pub fn scalable_builder() -> ScalableClientBuilder {
-        ScalableClientBuilder::new()
+    #[deprecated(since = "0.4.0", note = "Use CsvClient::builder() instead")]
+    pub fn scalable_builder() -> ClientBuilder {
+        ClientBuilder::new()
     }
 
     /// Get a [`SanadsManager`] for creating, querying, and managing Sanads.
-    pub fn titles(&self) -> SanadsManager {
+    pub fn sanads(&self) -> SanadsManager {
         SanadsManager::new(Arc::new(self.clone_ref()))
     }
 
@@ -332,20 +333,20 @@ impl CsvClient {
         &self.config
     }
 
-    /// Get a reference to the chain facade for unified chain operations.
+    /// Get a reference to the chain runtime for unified chain operations.
     ///
-    /// The chain facade provides all chain operations (balance queries,
+    /// The chain runtime provides all chain operations (balance queries,
     /// transaction signing, broadcasting, proof generation, etc.) through
     /// a unified interface that delegates to the appropriate chain adapters.
-    pub fn chain_facade(&self) -> &ChainFacade {
-        &self.chain_facade
+    pub fn chain_runtime(&self) -> &ChainRuntime {
+        &self.chain_runtime
     }
 
     /// Initialize and register chain adapters for all enabled chains.
     ///
     /// This method must be called after building the client to instantiate
     /// and register the actual chain adapter implementations. Without this,
-    /// the facade will have no adapters and chain operations will fail with
+    /// the runtime will have no adapters and chain operations will fail with
     /// "Chain not supported" errors.
     ///
     /// # Arguments
@@ -368,8 +369,8 @@ impl CsvClient {
     ///     // Initialize adapters for all enabled chains on testnet
     ///     client.init_adapters(NetworkType::Testnet).await?;
     ///
-    ///     // Now you can use the facade
-    ///     let balance = client.chain_facade()
+    ///     // Now you can use the runtime
+    ///     let balance = client.chain_runtime()
     ///         .get_balance(Chain::Bitcoin, "bc1...")
     ///         .await?;
     ///
@@ -382,7 +383,7 @@ impl CsvClient {
 
             match adapter_result {
                 Ok(Some(adapter)) => {
-                    self.chain_facade.register_adapter(*chain, adapter).await;
+                    self.chain_runtime.register_adapter(*chain, adapter).await;
                     log::info!("Initialized adapter for chain: {:?} on {:?}", chain, network);
                 }
                 Ok(None) => {
@@ -404,7 +405,7 @@ impl CsvClient {
         _config: &crate::config::Config,
         network: NetworkType,
     ) -> Result<Option<std::sync::Arc<dyn csv_core::ChainBackend>>, CsvError> {
-        let _builder = crate::facade::AdapterBuilder::new();
+        let _builder = crate::runtime::AdapterBuilder::new();
         let _is_testnet = matches!(network, NetworkType::Testnet);
 
         match chain {
@@ -466,11 +467,11 @@ impl CsvClient {
                 let eth_config = csv_ethereum::config::EthereumConfig {
                     network: eth_network,
                     finality_depth: if _is_testnet { 15 } else { 12 },
-                    use_checkpoint_finality: !is_testnet,
+                    use_checkpoint_finality: !_is_testnet,
                     rpc_url: rpc_url.clone(),
                 };
                 let csv_seal_address = [0u8; 20]; // Default, should be configured
-                let rpc = csv_ethereum::real_rpc::RealEthereumRpc::new(&rpc_url, csv_seal_address)
+                let rpc = csv_ethereum::node::RealEthereumRpc::new(&rpc_url, csv_seal_address)
                     .await
                     .map_err(|e| CsvError::ProtocolError { chain: Chain::Ethereum, message: format!("Failed to create Ethereum RPC client: {}", e) })?;
                 _builder.ethereum_from_config(eth_config, Box::new(rpc) as Box<dyn csv_ethereum::rpc::EthereumRpc>, csv_seal_address).await.map(Some)
@@ -498,7 +499,7 @@ impl CsvClient {
                 sui_config.rpc_url = rpc_url.clone();
                 // Seal contract package ID is required but not available - using placeholder
                 sui_config.seal_contract.package_id = Some("0x0000000000000000000000000000000000000000000000000000000000000000".to_string());
-                let rpc = csv_sui::real_rpc::SuiRpcClient::new(&rpc_url);
+                let rpc = csv_sui::node::SuiRpcClient::new(&rpc_url);
                 _builder.sui_from_config(sui_config, Box::new(rpc) as Box<dyn csv_sui::rpc::SuiRpc>).await.map(Some)
             }
             #[cfg(feature = "aptos")]
@@ -522,7 +523,7 @@ impl CsvClient {
                     csv_aptos::config::AptosNetwork::Mainnet
                 };
                 aptos_config.rpc_url = rpc_url.clone();
-                let rpc = csv_aptos::real_rpc::AptosRpcClient::new(&rpc_url);
+                let rpc = csv_aptos::node::AptosRpcClient::new(&rpc_url);
                 _builder.aptos_from_config(aptos_config, Box::new(rpc) as Box<dyn csv_aptos::rpc::AptosRpc>).await.map(Some)
             }
             #[cfg(feature = "solana")]
@@ -584,7 +585,7 @@ impl CsvClient {
             config: self.config.clone(),
             event_tx: self.event_tx.clone(),
             chain_registry: self.chain_registry.clone(),
-            chain_facade: Some(self.chain_facade.clone()),
+            chain_runtime: Some(self.chain_runtime.clone()),
         }
     }
 }
@@ -608,13 +609,13 @@ pub(crate) struct ClientRef {
     pub(crate) event_tx: (),
     #[allow(dead_code)]
     pub(crate) chain_registry: Option<Arc<ChainRegistry>>,
-    /// Chain facade for unified chain operations.
+    /// Chain runtime for unified chain operations.
     #[allow(dead_code)]
-    pub(crate) chain_facade: Option<crate::facade::ChainFacade>,
+    pub(crate) chain_runtime: Option<crate::runtime::ChainRuntime>,
 }
 
 impl ClientRef {
-    /// Create a new empty ClientRef (used by AdapterFacade for testing)
+    /// Create a new empty ClientRef (used by RuntimeManager for testing)
     #[allow(dead_code)]
     pub(crate) fn new() -> Self {
         #[cfg(feature = "tokio")]
@@ -633,7 +634,7 @@ impl ClientRef {
             config: Config::default(),
             event_tx,
             chain_registry: None,
-            chain_facade: None,
+            chain_runtime: None,
         }
     }
 

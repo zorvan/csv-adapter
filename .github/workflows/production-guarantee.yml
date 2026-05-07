@@ -103,14 +103,14 @@ jobs:
 
       - name: Check CLI for direct adapter imports
         run: |
-          # Check if CLI imports chain adapters directly (should only use csv-adapter facade)
+          # Check if CLI imports chain adapters directly (should only use csv-adapter runtime)
           DIRECT_IMPORTS=$(rg "csv_adapter_(bitcoin|ethereum|sui|aptos|solana)" csv-cli/src --glob '*.rs' || true)
           if [ -n "$DIRECT_IMPORTS" ]; then
             echo "ERROR: csv-cli contains direct adapter imports:"
             echo "$DIRECT_IMPORTS"
             exit 1
           fi
-          echo "✓ CLI uses only facade APIs"
+          echo "✓ CLI uses only runtime APIs"
 
       - name: Check Wallet for direct adapter imports
         run: |
@@ -121,7 +121,7 @@ jobs:
             echo "$DIRECT_IMPORTS"
             exit 1
           fi
-          echo "✓ Wallet uses only facade APIs"
+          echo "✓ Wallet uses only runtime APIs"
 
   # ── Phase 3: No Plaintext Key Handling ───────────────────────
   no-plaintext-keys:

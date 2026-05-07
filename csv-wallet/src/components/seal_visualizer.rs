@@ -76,7 +76,7 @@ impl TransferStatus {
 #[derive(Props, Clone, PartialEq)]
 pub struct SealVisualizerProps {
     /// Seal ID.
-    pub seal_id: String,
+    pub id: String,
     /// Current state.
     pub current_state: SealState,
     /// Event history.
@@ -101,7 +101,7 @@ pub fn SealVisualizer(props: SealVisualizerProps) -> Element {
                 h3 { class: "seal-viz-title",
                     "Seal "
                     HashDisplay {
-                        value: props.seal_id.clone(),
+                        value: props.id.clone(),
                         prefix_len: 8,
                         suffix_len: 8,
                         show_copy: true,

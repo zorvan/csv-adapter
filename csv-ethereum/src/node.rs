@@ -12,7 +12,7 @@ mod real_rpc_impl {
         signers::local::PrivateKeySigner,
     };
     use async_trait::async_trait;
-    use csv_adapter_store::SqliteSealStore;
+    use csv_store::SqliteSealStore;
     use serde_json::json;
 
     use crate::rpc::{EthereumRpc, LogEntry, RpcBlock, RpcTransaction, SingleStorageProof, StorageProof, TransactionReceipt};

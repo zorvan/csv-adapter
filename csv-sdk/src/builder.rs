@@ -22,10 +22,10 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use csv_core::ChainId;
+use csv_core::Chain;
 
 use crate::config::Config;
-use crate::errors::CsvError;
+use crate::error::CsvError;
 use crate::wallet::Wallet;
 
 /// Storage backend for seal and anchor persistence.
@@ -187,8 +187,8 @@ impl ClientBuilder {
         #[cfg(not(feature = "tokio"))]
         let event_tx = ();
 
-        // Create the chain facade
-        // Note: ClientRef initially has no chain_facade to avoid circular dependency
+        // Create the chain runtime
+        // Note: ClientRef initially has no chain_runtime to avoid circular dependency
         let client_ref = Arc::new(crate::client::ClientRef {
             enabled_chains: self.state.enabled_chains.clone(),
             wallet: self.state.wallet.clone(),
@@ -196,9 +196,9 @@ impl ClientBuilder {
             config: config.clone(),
             event_tx: event_tx.clone(),
             chain_registry: self.state.chain_registry.clone(),
-            chain_facade: None,
+            chain_runtime: None,
         });
-        let chain_facade = crate::facade::ChainFacade::new(client_ref);
+        let chain_runtime = crate::runtime::ChainRuntime::new(client_ref);
 
         Ok(crate::client::CsvClient {
             enabled_chains: self.state.enabled_chains,
@@ -207,7 +207,7 @@ impl ClientBuilder {
             config,
             chain_registry: self.state.chain_registry.clone(),
             event_tx,
-            chain_facade,
+            chain_runtime,
         })
     }
 

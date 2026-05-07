@@ -28,12 +28,12 @@ use sha2::{Digest, Sha256};
 
 use crate::commitment::Commitment;
 use crate::commitment_chain::{
-    verify_ordered_commitment_chain, ChainError, ChainVerificationResult,
+    verify_ordered_commitment_chain, ChainError, VerificationResult,
 };
 use crate::consignment::Consignment;
 use crate::cross_chain::InclusionProof as CrossChainInclusionProof;
 use crate::hash::Hash;
-use crate::title::{Sanad, SanadError, SanadId};
+use crate::sanad::{Sanad, SanadError, SanadId};
 use crate::seal::SealPoint;
 use crate::nullifier::{ChainId, SealNullifier, SealConsumption, SealStatus};
 use crate::state_store::{
@@ -309,7 +309,7 @@ impl ValidationClient {
     fn verify_commitment_chain(
         &self,
         commitments: &[Commitment],
-    ) -> Result<ChainVerificationResult, ChainError> {
+    ) -> Result<VerificationResult, ChainError> {
         if commitments.is_empty() {
             return Err(ChainError::EmptyChain);
         }
@@ -322,7 +322,7 @@ impl ValidationClient {
     fn verify_seal_consumption(
         &mut self,
         consignment: &Consignment,
-        _chain_result: &ChainVerificationResult,
+        _chain_result: &VerificationResult,
         anchor_chain: &ChainId,
     ) -> Result<usize, ValidationError> {
         let mut seals_consumed = 0;
@@ -461,7 +461,7 @@ impl ValidationClient {
     fn update_local_state(
         &mut self,
         consignment: &Consignment,
-        chain_result: &ChainVerificationResult,
+        chain_result: &VerificationResult,
     ) -> Result<(), ValidationError> {
         let contract_id = chain_result.contract_id;
 
@@ -540,7 +540,7 @@ mod tests {
     use super::*;
     use crate::consignment::Consignment;
     use crate::genesis::Genesis;
-    use crate::TitleOwnershipProof;
+    use crate::SanadOwnershipProof;
 
     fn make_test_genesis() -> Genesis {
         Genesis::new(
@@ -611,7 +611,7 @@ mod tests {
 
         let sanad = Sanad::new(
             Hash::new([0xCD; 32]),
-            TitleOwnershipProof {
+            SanadOwnershipProof {
                 proof: vec![0x01, 0x02, 0x03],
                 owner: vec![0xFF; 32],
                 scheme: None,
@@ -649,7 +649,7 @@ mod tests {
 
         let sanad = Sanad::new(
             Hash::new([0xCD; 32]),
-            TitleOwnershipProof {
+            SanadOwnershipProof {
                 proof: vec![0x01],
                 owner: vec![0xFF; 32],
                 scheme: None,
@@ -681,7 +681,7 @@ mod tests {
         // Try to consume same seal again
         let sanad2 = Sanad::new(
             Hash::new([0xEF; 32]),
-            TitleOwnershipProof {
+            SanadOwnershipProof {
                 proof: vec![0x02],
                 owner: vec![0xEE; 32],
                 scheme: None,
@@ -712,7 +712,7 @@ mod tests {
 
         let sanad = Sanad::new(
             Hash::new([0xCD; 32]),
-            TitleOwnershipProof {
+            SanadOwnershipProof {
                 proof: vec![0x01],
                 owner: vec![0xFF; 32],
                 scheme: None,
@@ -756,7 +756,7 @@ mod tests {
         // Try to consume on Ethereum (cross-chain double-spend)
         let sanad2 = Sanad::new(
             Hash::new([0xEF; 32]),
-            TitleOwnershipProof {
+            SanadOwnershipProof {
                 proof: vec![0x02],
                 owner: vec![0xEE; 32],
                 scheme: None,
@@ -783,7 +783,7 @@ mod tests {
 
         let sanad = Sanad::new(
             Hash::new([0xCD; 32]),
-            TitleOwnershipProof {
+            SanadOwnershipProof {
                 proof: vec![0x01],
                 owner: vec![0xFF; 32],
                 scheme: None,

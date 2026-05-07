@@ -212,7 +212,7 @@ impl SanadStore for InMemorySealStore {
         Ok(())
     }
 
-    fn get_sanad(&self, sanad_id: &crate::title::SanadId) -> Result<Option<SanadRecord>, StoreError> {
+    fn get_sanad(&self, sanad_id: &crate::sanad::SanadId) -> Result<Option<SanadRecord>, StoreError> {
         Ok(self
             .sanads
             .iter()
@@ -240,7 +240,7 @@ impl SanadStore for InMemorySealStore {
 
     fn consume_sanad(
         &mut self,
-        sanad_id: &crate::title::SanadId,
+        sanad_id: &crate::sanad::SanadId,
         consumed_at: u64,
     ) -> Result<(), StoreError> {
         if let Some(r) = self
@@ -283,14 +283,14 @@ impl SanadStore for InMemorySealStore {
             .collect())
     }
 
-    fn has_sanad(&self, sanad_id: &crate::title::SanadId) -> Result<bool, StoreError> {
+    fn has_sanad(&self, sanad_id: &crate::sanad::SanadId) -> Result<bool, StoreError> {
         Ok(self
             .sanads
             .iter()
             .any(|r| r.sanad_id.0.as_bytes() == sanad_id.0.as_bytes()))
     }
 
-    fn delete_sanad(&mut self, sanad_id: &crate::title::SanadId) -> Result<(), StoreError> {
+    fn delete_sanad(&mut self, sanad_id: &crate::sanad::SanadId) -> Result<(), StoreError> {
         let before = self.sanads.len();
         self.sanads
             .retain(|r| r.sanad_id.0.as_bytes() != sanad_id.0.as_bytes());
@@ -308,7 +308,7 @@ impl SanadStore for InMemorySealStore {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SanadRecord {
     /// Sanad ID (unique identifier)
-    pub sanad_id: crate::title::SanadId,
+    pub sanad_id: crate::sanad::SanadId,
     /// The chain where this Sanad is anchored
     pub chain: String,
     /// Owner identifier (address or pubkey)
@@ -326,13 +326,13 @@ pub struct SanadRecord {
 /// Trait for persistent Sanad storage
 ///
 /// This trait extends the seal storage with Sanad-specific operations
-/// required by the SanadsManager facade.
+/// required by the SanadsManager runtime.
 pub trait SanadStore: Send + Sync {
     /// Save a Sanad to the store
     fn save_sanad(&mut self, record: &SanadRecord) -> Result<(), StoreError>;
 
     /// Get a Sanad by its ID
-    fn get_sanad(&self, sanad_id: &crate::title::SanadId) -> Result<Option<SanadRecord>, StoreError>;
+    fn get_sanad(&self, sanad_id: &crate::sanad::SanadId) -> Result<Option<SanadRecord>, StoreError>;
 
     /// List all Sanads for a specific chain
     fn list_sanads_by_chain(&self, chain: &str) -> Result<Vec<SanadRecord>, StoreError>;
@@ -343,7 +343,7 @@ pub trait SanadStore: Send + Sync {
     /// Mark a Sanad as consumed
     fn consume_sanad(
         &mut self,
-        sanad_id: &crate::title::SanadId,
+        sanad_id: &crate::sanad::SanadId,
         consumed_at: u64,
     ) -> Result<(), StoreError>;
 
@@ -354,10 +354,10 @@ pub trait SanadStore: Send + Sync {
     fn list_active_sanads(&self) -> Result<Vec<SanadRecord>, StoreError>;
 
     /// Check if a Sanad exists
-    fn has_sanad(&self, sanad_id: &crate::title::SanadId) -> Result<bool, StoreError>;
+    fn has_sanad(&self, sanad_id: &crate::sanad::SanadId) -> Result<bool, StoreError>;
 
     /// Delete a Sanad (for administrative purposes)
-    fn delete_sanad(&mut self, sanad_id: &crate::title::SanadId) -> Result<(), StoreError>;
+    fn delete_sanad(&mut self, sanad_id: &crate::sanad::SanadId) -> Result<(), StoreError>;
 }
 
 /// Store error types

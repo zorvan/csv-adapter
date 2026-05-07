@@ -6,8 +6,8 @@
 //! 3. No key material is exposed in error messages
 //! 4. Zeroization of sensitive data
 
-use csv_adapter_keystore::bip44::derive_address_from_key;
-use csv_adapter_keystore::{bip44, generate_mnemonic, Keystore, KeystoreConfig, KeystoreError};
+use csv_keys::bip44::derive_address_from_key;
+use csv_keys::{bip44, generate_mnemonic, Keystore, KeystoreConfig, KeystoreError};
 
 /// Test that mnemonic generation produces valid phrases
 #[test]

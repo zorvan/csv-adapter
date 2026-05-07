@@ -5,7 +5,7 @@
 
 use async_trait::async_trait;
 use base64::Engine;
-use csv_core::chain_adapter::{
+use csv_core::driver::{
     AccountModel, ChainDriver, ChainCapabilities, ChainError, ChainResult, RpcClient, Wallet,
 };
 use csv_core::chain_config::ChainConfig;

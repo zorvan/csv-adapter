@@ -17,7 +17,7 @@
 //! # Quick Start
 //!
 //! ```
-//! use csv_adapter_keystore::{
+//! use csv_keys::{
 //!     bip39::{Mnemonic, MnemonicType},
 //!     bip44::derive_key,
 //!     keystore::{KeystoreFile, create_keystore},
@@ -36,7 +36,7 @@
 //!
 //! // Encrypt and save
 //! let passphrase = Passphrase::new("secure password");
-//! let keystore = KeystoreFile::encrypt(&eth_key, &passphrase, csv_adapter_keystore::keystore::KdfType::Scrypt).unwrap();
+//! let keystore = KeystoreFile::encrypt(&eth_key, &passphrase, csv_keys::keystore::KdfType::Scrypt).unwrap();
 //! keystore.save_to("/path/to/keystore.json").unwrap();
 //! ```
 

@@ -4,7 +4,7 @@
 //! enabling Ethereum to be used through the unified chain adapter interface.
 
 use async_trait::async_trait;
-use csv_core::chain_adapter::{
+use csv_core::driver::{
     AccountModel, ChainDriver, ChainCapabilities, ChainError, ChainResult, RpcClient, Wallet,
 };
 use csv_core::chain_config::ChainConfig;

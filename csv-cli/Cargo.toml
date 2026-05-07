@@ -19,7 +19,7 @@ name = "csv"
 path = "src/main.rs"
 
 [dependencies]
-# Phase 5 Compliant: Use only facade and core types
+# Phase 5 Compliant: Use only runtime and core types
 # No direct chain adapter dependencies - all operations go through csv-adapter
 csv-sdk = { version = "0.4.0", path = "../csv-sdk", features = ["all-chains"] }
 csv-core = { version = "0.4.0", path = "../csv-core" }
@@ -53,6 +53,7 @@ rand = "0.8"
 
 # HTTP client for RPC calls
 reqwest = { version = "0.12", features = ["json", "blocking"] }
+thiserror = "1.0"
 
 [dev-dependencies]
 tempfile = "3.0"

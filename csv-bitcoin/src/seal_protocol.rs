@@ -48,7 +48,7 @@ pub struct BitcoinSealProtocol {
 }
 
 impl BitcoinSealProtocol {
-    /// Create from configuration and RPC client (standard facade pattern).
+    /// Create from configuration and RPC client (standard runtime pattern).
     ///
     /// # Arguments
     /// * `config` - Bitcoin adapter configuration (includes network, finality depth, optional xpub)
@@ -521,7 +521,7 @@ impl SealProtocol for BitcoinSealProtocol {
         seal_point: &Self::SealPoint,
     ) -> Hash {
         let core_seal =
-            CoreSealPoint::new(seal_ref.to_vec(), seal_ref.nonce).expect("valid seal reference");
+            CoreSealPoint::new(seal_point.txid.to_vec(), seal_point.nonce).expect("valid seal reference");
         Commitment::simple(
             contract_id,
             previous_commitment,

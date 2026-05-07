@@ -305,12 +305,12 @@ impl ProofRecord {
 
         let proof_system = zk_proof.verifier_key.proof_system.to_string();
         let proof_bytes = STANDARD.encode(&zk_proof.proof_bytes);
-        let seal_id = hex::encode(&zk_proof.public_inputs.seal_ref.seal_id);
+        let seal_id = hex::encode(&zk_proof.public_inputs.seal_ref.id);
         let block_hash = hex::encode(zk_proof.public_inputs.block_hash.as_bytes());
         let verifier_key_hash = hex::encode(&zk_proof.verifier_key.hash().as_bytes()[..16]);
 
         Self {
-            chain: zk_proof.public_inputs.source_chain,
+            chain: zk_proof.public_inputs.source_chain.as_str().parse().unwrap_or(Chain::Bitcoin),
             sanad_id,
             seal_ref,
             proof_type: "zk_seal".to_string(),

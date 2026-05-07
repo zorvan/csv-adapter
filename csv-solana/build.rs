@@ -77,15 +77,22 @@ fn generate_bytecode_constants(bytecode_out: &Path, contracts_dir: &Path) {
 }
 
 fn read_program_bytecode(contracts_dir: &Path) -> String {
-    // Look for compiled .so files in target/deploy
+    // Look for compiled .so files in target/deploy (Anchor < 0.30)
+    // or programs/<program>/target/deploy (Anchor >= 0.30)
     let deploy_dir = contracts_dir.join("target/deploy");
-    if deploy_dir.exists() {
-        if let Ok(entries) = fs::read_dir(&deploy_dir) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.extension().is_some_and(|e| e == "so") {
-                    if let Ok(bytes) = fs::read(&path) {
-                        return bytes_to_array_literal(&bytes);
+    let program_deploy_dir = contracts_dir.join("programs/csv-seal/target/deploy");
+
+    let search_dirs = vec![&deploy_dir, &program_deploy_dir];
+
+    for dir in &search_dirs {
+        if dir.exists() {
+            if let Ok(entries) = fs::read_dir(dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.extension().is_some_and(|e| e == "so") {
+                        if let Ok(bytes) = fs::read(&path) {
+                            return bytes_to_array_literal(&bytes);
+                        }
                     }
                 }
             }
@@ -93,8 +100,8 @@ fn read_program_bytecode(contracts_dir: &Path) -> String {
     }
 
     panic!(
-        "Solana program bytecode not found under {:?}. Run `anchor build` in csv-adapter-solana/contracts or commit precompiled .so artifacts.",
-        deploy_dir
+        "Solana program bytecode not found under {:?} or {:?}. Run `anchor build` in csv-adapter-solana/contracts or commit precompiled .so artifacts.",
+        deploy_dir, program_deploy_dir
     );
 }
 

@@ -161,7 +161,7 @@ fn perform_offline_verification(input: &str) -> VerificationResult {
     let bundle = bundle_result.unwrap();
 
     // Step 2: Structure validation - check required fields
-    let has_required_fields = !bundle.seal_ref.seal_id.is_empty()
+    let has_required_fields = !bundle.seal_ref.id.is_empty()
         && !bundle.anchor_ref.anchor_id.is_empty()
         && !bundle.inclusion_proof.proof_bytes.is_empty();
 
@@ -226,14 +226,14 @@ fn perform_offline_verification(input: &str) -> VerificationResult {
     });
 
     // Step 6: Seal validity check
-    let seal_valid = !bundle.seal_ref.seal_id.is_empty();
+    let seal_valid = !bundle.seal_ref.id.is_empty();
     steps.push(VerificationStep {
         name: "Seal Registry Check".to_string(),
         passed: seal_valid,
         details: if seal_valid {
             format!("Seal valid: {} ({} bytes)",
-                hex::encode(&bundle.seal_ref.seal_id[..8.min(bundle.seal_ref.seal_id.len())]),
-                bundle.seal_ref.seal_id.len()
+                hex::encode(&bundle.seal_ref.id[..8.min(bundle.seal_ref.id.len())]),
+                bundle.seal_ref.id.len()
             )
         } else {
             "Seal reference empty or invalid".to_string()

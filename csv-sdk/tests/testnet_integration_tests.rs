@@ -13,7 +13,7 @@
 //! - APTOS_RPC_URL (defaults to testnet public endpoint)
 //! - SOL_RPC_URL (defaults to devnet public endpoint)
 
-use csv_adapter::{AdapterConfig, AdapterFacade, ChainFacade};
+use csv_adapter::{RuntimeConfig, RuntimeManager, ChainRuntime};
 use csv_core::Chain;
 use std::collections::HashMap;
 
@@ -40,18 +40,18 @@ async fn test_ethereum_sepolia_connectivity() {
     let rpc_url = get_testnet_rpc(Chain::Ethereum);
     println!("Testing Ethereum Sepolia at: {}", rpc_url);
 
-    let mut config = AdapterConfig::default();
+    let mut config = RuntimeConfig::default();
     config.rpc_endpoints.insert(Chain::Ethereum, rpc_url);
 
-    let mut facade = AdapterFacade::new(config);
-    let result = facade.initialize().await;
+    let mut runtime = RuntimeManager::new(config);
+    let result = runtime.initialize().await;
 
     assert!(result.is_ok(), "Failed to initialize Ethereum adapter: {:?}", result);
 
-    let chain_facade = facade.chain_facade();
+    let chain_runtime = runtime.chain_runtime();
 
     // Test getting latest block height
-    // Note: This requires the facade method to be implemented
+    // Note: This requires the runtime method to be implemented
     // For now, we just verify the adapter initializes correctly
 }
 
@@ -62,11 +62,11 @@ async fn test_bitcoin_signet_connectivity() {
     let rpc_url = get_testnet_rpc(Chain::Bitcoin);
     println!("Testing Bitcoin Signet at: {}", rpc_url);
 
-    let mut config = AdapterConfig::default();
+    let mut config = RuntimeConfig::default();
     config.rpc_endpoints.insert(Chain::Bitcoin, rpc_url);
 
-    let mut facade = AdapterFacade::new(config);
-    let result = facade.initialize().await;
+    let mut runtime = RuntimeManager::new(config);
+    let result = runtime.initialize().await;
 
     // Bitcoin adapter may not be available without the 'bitcoin' feature
     match result {
@@ -82,11 +82,11 @@ async fn test_sui_testnet_connectivity() {
     let rpc_url = get_testnet_rpc(Chain::Sui);
     println!("Testing Sui Testnet at: {}", rpc_url);
 
-    let mut config = AdapterConfig::default();
+    let mut config = RuntimeConfig::default();
     config.rpc_endpoints.insert(Chain::Sui, rpc_url);
 
-    let mut facade = AdapterFacade::new(config);
-    let result = facade.initialize().await;
+    let mut runtime = RuntimeManager::new(config);
+    let result = runtime.initialize().await;
 
     match result {
         Ok(_) => println!("Sui adapter initialized successfully"),
@@ -101,11 +101,11 @@ async fn test_aptos_testnet_connectivity() {
     let rpc_url = get_testnet_rpc(Chain::Aptos);
     println!("Testing Aptos Testnet at: {}", rpc_url);
 
-    let mut config = AdapterConfig::default();
+    let mut config = RuntimeConfig::default();
     config.rpc_endpoints.insert(Chain::Aptos, rpc_url);
 
-    let mut facade = AdapterFacade::new(config);
-    let result = facade.initialize().await;
+    let mut runtime = RuntimeManager::new(config);
+    let result = runtime.initialize().await;
 
     match result {
         Ok(_) => println!("Aptos adapter initialized successfully"),
@@ -120,11 +120,11 @@ async fn test_solana_devnet_connectivity() {
     let rpc_url = get_testnet_rpc(Chain::Solana);
     println!("Testing Solana Devnet at: {}", rpc_url);
 
-    let mut config = AdapterConfig::default();
+    let mut config = RuntimeConfig::default();
     config.rpc_endpoints.insert(Chain::Solana, rpc_url);
 
-    let mut facade = AdapterFacade::new(config);
-    let result = facade.initialize().await;
+    let mut runtime = RuntimeManager::new(config);
+    let result = runtime.initialize().await;
 
     match result {
         Ok(_) => println!("Solana adapter initialized successfully"),
@@ -136,15 +136,15 @@ async fn test_solana_devnet_connectivity() {
 #[tokio::test]
 #[ignore = "Requires network access to all testnets"]
 async fn test_multi_chain_configuration() {
-    let mut config = AdapterConfig::default();
+    let mut config = RuntimeConfig::default();
 
     // Configure all chains
     for chain in [Chain::Bitcoin, Chain::Ethereum, Chain::Sui, Chain::Aptos, Chain::Solana] {
         config.rpc_endpoints.insert(chain, get_testnet_rpc(chain));
     }
 
-    let mut facade = AdapterFacade::new(config);
-    let result = facade.initialize().await;
+    let mut runtime = RuntimeManager::new(config);
+    let result = runtime.initialize().await;
 
     // Should initialize without errors (some adapters may be feature-gated)
     match result {
@@ -233,22 +233,22 @@ fn test_chain_id_slip44_consistency() {
 #[tokio::test]
 async fn test_fail_closed_without_rpc() {
     // Create a configuration with NO RPC endpoints configured
-    let config = AdapterConfig::default();
+    let config = RuntimeConfig::default();
     // Note: rpc_endpoints is empty
 
-    let mut facade = AdapterFacade::new(config);
+    let mut runtime = RuntimeManager::new(config);
 
     // Attempting to initialize should fail gracefully
-    let result = facade.initialize().await;
+    let result = runtime.initialize().await;
 
     // Should succeed (no adapters to initialize)
     assert!(result.is_ok(), "Empty configuration should initialize without error");
 
     // Attempting operations without configured adapter should fail
-    let chain_facade = facade.chain_facade();
+    let chain_runtime = runtime.chain_runtime();
 
     // Test that operations fail with proper error when chain not configured
-    let balance_result = chain_facade
+    let balance_result = chain_runtime
         .query_balance(Chain::Ethereum, "0x0000000000000000000000000000000000000000")
         .await;
 
@@ -277,24 +277,24 @@ async fn test_fail_closed_without_rpc() {
 #[tokio::test]
 #[ignore = "Tests actual network timeout behavior"]
 async fn test_fail_closed_with_invalid_rpc() {
-    let mut config = AdapterConfig::default();
+    let mut config = RuntimeConfig::default();
     // Configure an invalid/unreachable RPC endpoint
     config.rpc_endpoints.insert(
         Chain::Ethereum,
         "http://localhost:99999".to_string(), // Invalid port
     );
 
-    let mut facade = AdapterFacade::new(config);
+    let mut runtime = RuntimeManager::new(config);
 
     // Should fail during initialization or first operation
-    let init_result = facade.initialize().await;
+    let init_result = runtime.initialize().await;
 
     // Either initialization fails or operations will fail
     match init_result {
         Ok(_) => {
             // If init succeeded, operations should still fail
-            let chain_facade = facade.chain_facade();
-            let balance_result = chain_facade
+            let chain_runtime = runtime.chain_runtime();
+            let balance_result = chain_runtime
                 .query_balance(Chain::Ethereum, "0x0000000000000000000000000000000000000000")
                 .await;
 

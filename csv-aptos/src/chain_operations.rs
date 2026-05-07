@@ -9,7 +9,7 @@
 //! - ChainSanadOps: Sanad management operations
 
 use async_trait::async_trait;
-use csv_core::chain_operations::{
+use csv_core::backend::{
     BalanceInfo, ChainBroadcaster, ChainDeployer, ChainOpError, ChainOpResult, ChainProofProvider,
     ChainQuery, ChainSanadOps, ChainSigner, ContractStatus, DeploymentStatus, FinalityStatus,
     SanadOperationResult, TransactionInfo,
@@ -17,7 +17,7 @@ use csv_core::chain_operations::{
 };
 use csv_core::hash::Hash;
 use csv_core::proof::{FinalityProof, InclusionProof as CoreInclusionProof};
-use csv_core::title::SanadId;
+use csv_core::sanad::SanadId;
 use csv_core::signature::SignatureScheme;
 use sha3::{Digest, Sha3_256};
 

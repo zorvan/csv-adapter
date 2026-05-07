@@ -1,4 +1,4 @@
-//! Proof management facade.
+//! Proof management runtime.
 //!
 //! The [`ProofManager`] handles generation and verification of
 //! cryptographic proofs for Sanads and cross-chain transfers.
@@ -14,7 +14,7 @@ use std::sync::Arc;
 use csv_core::{Chain, Hash, ProofBundle, SanadId};
 
 use crate::client::ClientRef;
-use crate::errors::CsvError;
+use crate::error::CsvError;
 
 /// Manager for proof operations.
 ///

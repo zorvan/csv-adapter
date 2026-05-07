@@ -19,7 +19,7 @@
 //!
 //! For this reason, Groth16 is preferred for Ethereum verification.
 
-use csv_core::protocol_version::Chain;
+use csv_core::protocol_version::builtin;
 use csv_core::zk_proof::{ProofSystem, ZkError, ZkPublicInputs, ZkSealProof, ZkVerifier};
 use sha2::{Digest, Sha256};
 
@@ -121,7 +121,7 @@ impl ZkVerifier for EthereumGroth16Verifier {
         // Check verifier key matches
         if let Some(ref expected_vk) = self.verifier_key {
             if &proof.verifier_key.key_bytes != expected_vk {
-                return Err(ZkError::VerifierNotFound(Chain::Ethereum));
+                return Err(ZkError::VerifierNotFound(builtin::ETHEREUM.clone()));
             }
         }
 
@@ -270,7 +270,7 @@ mod tests {
             seal_ref: seal,
             block_hash: Hash::new([1u8; 32]),
             commitment: Hash::new([2u8; 32]),
-            source_chain: Chain::Ethereum,
+            source_chain: builtin::ETHEREUM.clone(),
             block_height: 19_000_000,
             timestamp: 1_000_000,
         };
@@ -278,7 +278,7 @@ mod tests {
         // Create a proof with wrong proof system (SP1 instead of Groth16)
         let proof = ZkSealProof::new(
             vec![0u8; 200],
-            VerifierKey::new(Chain::Ethereum, vec![0u8; 64], ProofSystem::SP1, 1),
+            VerifierKey::new(builtin::ETHEREUM.clone(), vec![0u8; 64], ProofSystem::SP1, 1),
             public_inputs,
         ).unwrap();
 

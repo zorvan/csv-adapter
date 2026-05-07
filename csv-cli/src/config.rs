@@ -9,7 +9,7 @@ use std::sync::{Mutex, OnceLock};
 use serde::{Deserialize, Serialize};
 
 // Re-export unified types from csv-adapter-store
-pub use csv_adapter_store::state::{Chain, ChainConfig, FaucetConfig, Network, WalletAccount};
+pub use csv_store::state::{Chain, ChainConfig, Network, WalletAccount};
 
 /// CSV Wallet exported JSON format (legacy, for migration from csv-wallet < 0.4)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -85,7 +85,7 @@ pub fn parse_network(s: &str) -> anyhow::Result<Network> {
 
 /// Full CLI configuration using unified storage types
 ///
-/// Note: New code should use UnifiedStorage from csv_adapter_store::state
+/// Note: New code should use UnifiedStorage from csv_store::state
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     /// Chain configurations
@@ -94,9 +94,6 @@ pub struct Config {
     /// Legacy wallet configurations (per chain) - migrated to unified.accounts
     #[serde(default)]
     pub wallets: HashMap<Chain, LegacyWalletConfigToml>,
-    /// Faucet configurations
-    #[serde(default)]
-    pub faucets: HashMap<Chain, FaucetConfig>,
     /// Data directory for state persistence
     #[serde(default = "default_data_dir")]
     pub data_dir: String,
@@ -198,57 +195,10 @@ impl Default for Config {
         );
 
         let wallets = HashMap::new();
-        let mut faucets = HashMap::new();
-
-        // Bitcoin faucet
-        faucets.insert(
-            Chain::Bitcoin,
-            FaucetConfig {
-                url: "https://signet.bc-2.jp".to_string(),
-                amount: Some(100_000), // 100k sats
-            },
-        );
-
-        // Sui faucet
-        faucets.insert(
-            Chain::Sui,
-            FaucetConfig {
-                url: "https://faucet.testnet.sui.io/v1/gas".to_string(),
-                amount: Some(10_000_000_000), // 10 SUI
-            },
-        );
-
-        // Aptos faucet
-        faucets.insert(
-            Chain::Aptos,
-            FaucetConfig {
-                url: "https://faucet.testnet.aptoslabs.com".to_string(),
-                amount: Some(100_000_000), // 1 APT
-            },
-        );
-
-        // Ethereum faucet
-        faucets.insert(
-            Chain::Ethereum,
-            FaucetConfig {
-                url: "https://sepoliafaucet.com".to_string(),
-                amount: Some(100_000_000_000_000_000), // 0.1 ETH
-            },
-        );
-
-        // Solana faucet
-        faucets.insert(
-            Chain::Solana,
-            FaucetConfig {
-                url: "https://faucet.devnet.solana.com".to_string(),
-                amount: Some(1_000_000_000), // 1 SOL
-            },
-        );
 
         Self {
             chains,
             wallets,
-            faucets,
             data_dir: "~/.csv/data".to_string(),
         }
     }
@@ -272,13 +222,10 @@ impl Config {
             let content = std::fs::read_to_string(&path)?;
             let mut config: Config = toml::from_str(&content)?;
 
-            // Merge missing chains and faucets from defaults
+            // Merge missing chains from defaults
             let defaults = Config::default();
             for (chain, chain_config) in defaults.chains {
                 config.chains.entry(chain).or_insert(chain_config);
-            }
-            for (chain, faucet_config) in defaults.faucets {
-                config.faucets.entry(chain).or_insert(faucet_config);
             }
 
             Ok(config)
@@ -348,11 +295,6 @@ impl Config {
         }
 
         None
-    }
-
-    /// Get faucet configuration
-    pub fn faucet(&self, chain: &Chain) -> Option<&FaucetConfig> {
-        self.faucets.get(chain)
     }
 
     /// Set chain configuration
@@ -450,10 +392,6 @@ mod tests {
             config.wallets.is_empty(),
             "Default config should have empty wallets"
         );
-        assert!(
-            !config.faucets.is_empty(),
-            "Default config should have faucets"
-        );
         assert_eq!(config.data_dir, "~/.csv/data");
     }
 
@@ -499,7 +437,6 @@ address = "bcrt1test"
         let config = config.unwrap();
         assert!(config.chains.is_empty());
         assert!(config.wallets.is_empty());
-        assert!(config.faucets.is_empty());
         assert_eq!(config.data_dir, "~/.csv/data");
     }
 
@@ -560,7 +497,6 @@ private_key = "0xabc123"
         let deserialized: Config = toml::from_str(&toml_str).expect("Should deserialize");
 
         assert_eq!(original.chains.len(), deserialized.chains.len());
-        assert_eq!(original.faucets.len(), deserialized.faucets.len());
         assert_eq!(original.data_dir, deserialized.data_dir);
     }
 
@@ -666,7 +602,6 @@ finality_depth = 3
         let empty_config = Config {
             chains: HashMap::new(),
             wallets: HashMap::new(),
-            faucets: HashMap::new(),
             data_dir: "~/.csv/data".to_string(),
         };
         let missing = empty_config.chain(&Chain::Bitcoin);
@@ -738,17 +673,4 @@ rpc_url = "missing bracket"
         assert_eq!(Chain::Solana.to_string(), "solana");
     }
 
-    #[test]
-    fn test_wallet_and_faucet_accessors() {
-        let config = Config::default();
-
-        // Wallet accessor returns None for non-existent
-        assert!(config.wallet(&Chain::Bitcoin).is_none());
-
-        // Faucet accessor returns Some for existing
-        assert!(config.faucet(&Chain::Bitcoin).is_some());
-
-        // Faucet accessor returns Some for Solana (now configured by default)
-        assert!(config.faucet(&Chain::Solana).is_some());
-    }
 }

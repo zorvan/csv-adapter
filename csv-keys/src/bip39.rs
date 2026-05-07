@@ -89,7 +89,7 @@ impl Mnemonic {
     ///
     /// # Example
     /// ```
-    /// use csv_adapter_keystore::bip39::{Mnemonic, MnemonicType};
+    /// use csv_keys::bip39::{Mnemonic, MnemonicType};
     ///
     /// let mnemonic = Mnemonic::generate(MnemonicType::Words12);
     /// assert_eq!(mnemonic.words().count(), 12);

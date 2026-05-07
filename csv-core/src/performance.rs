@@ -33,7 +33,7 @@ impl ProofCache {
 
     /// Get a cached proof bundle
     pub fn get(&self, hash: &Hash) -> Option<ProofBundle> {
-        let cache = self.cache.read().unwrap();
+        let cache = self.cache.read();
         if let Some(cached) = cache.get(hash) {
             // Check if the cache entry is still valid (30 second TTL)
             if cached.expires_at > Instant::now() {
@@ -47,7 +47,7 @@ impl ProofCache {
 
     /// Cache a proof bundle
     pub fn put(&self, hash: Hash, proof: ProofBundle) {
-        let mut cache = self.cache.write().unwrap();
+        let mut cache = self.cache.write();
 
         // Evict oldest entries if cache is full
         if cache.len() >= self.max_size {
@@ -91,7 +91,7 @@ impl ProofCache {
             hits,
             misses,
             hit_rate,
-            size: self.cache.read().unwrap().len(),
+            size: self.cache.read().len(),
         }
     }
 }
@@ -100,7 +100,6 @@ impl ProofCache {
 struct CachedProof {
     proof: ProofBundle,
     /// Last access time (for future LRU implementation)
-    #[allow(dead_code)]
     accessed_at: Instant,
     expires_at: Instant,
 }
@@ -133,31 +132,31 @@ impl SealRegistryFilter {
 
     /// Check if a seal hash might exist in the registry
     pub fn might_contain(&self, hash: &Hash) -> bool {
-        let filter = self.filter.read().unwrap();
+        let filter = self.filter.read();
         filter.might_contain(hash)
     }
 
     /// Add a seal hash to the filter
     pub fn insert(&self, hash: &Hash) {
-        let mut filter = self.filter.write().unwrap();
+        let mut filter = self.filter.write();
         filter.insert(hash);
     }
 
     /// Add multiple seal hashes to the filter
     pub fn insert_batch(&self, hashes: &[Hash]) {
-        let mut filter = self.filter.write().unwrap();
+        let mut filter = self.filter.write();
         filter.insert_batch(hashes);
     }
 
     /// Get filter statistics
     pub fn stats(&self) -> FilterStats {
-        let filter = self.filter.read().unwrap();
+        let filter = self.filter.read();
         filter.stats()
     }
 
     /// Clear the filter
     pub fn clear(&self) {
-        let mut filter = self.filter.write().unwrap();
+        let mut filter = self.filter.write();
         filter.clear();
     }
 }
