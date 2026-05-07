@@ -28,7 +28,7 @@ impl PartialEq for ChainDisplay {
 
 impl Clone for ChainDisplay {
     fn clone(&self) -> Self {
-        Self(self.0)
+        Self(self.0.clone())
     }
 }
 

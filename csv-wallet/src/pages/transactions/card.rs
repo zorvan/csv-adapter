@@ -16,7 +16,7 @@ pub fn TransactionCard(transaction: TransactionRecord) -> Element {
         TransactionStatus::Failed => "text-red-400 bg-red-500/20",
     };
 
-    let explorer_url = wallet_ctx.get_explorer_url(transaction.chain, &transaction.tx_hash);
+    let explorer_url = wallet_ctx.get_explorer_url(transaction.chain.clone(), &transaction.tx_hash);
 
     rsx! {
         Link {

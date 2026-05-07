@@ -50,7 +50,7 @@ pub use csv_store::state::wallet::{FaucetConfig, GasAccount, WalletAccount, Wall
 pub use csv_core::ChainId;
 
 /// Specific proof data based on chain type (wallet-specific).
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum ProofData {
     /// Bitcoin-style Merkle proof
     Merkle {

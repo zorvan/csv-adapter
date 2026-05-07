@@ -117,7 +117,7 @@ fn AccountsTab() -> Element {
 #[component]
 fn ChainAccountsSection(chain: ChainId) -> Element {
     let wallet_ctx = use_wallet_context();
-    let chain_accounts = wallet_ctx.accounts_for_chain(chain);
+    let chain_accounts = wallet_ctx.accounts_for_chain(chain.clone());
 
     if chain_accounts.is_empty() {
         return rsx! {};
@@ -182,10 +182,10 @@ fn ChainAccountRow(account: ChainAccount, mut wallet_ctx: WalletContext) -> Elem
                 button {
                     onclick: {
                         let mut wallet_ctx = wallet_ctx.clone();
-                        let chain = account.chain;
+                        let chain = account.chain.clone();
                         let address = account.address.clone();
-                        move |_| {
-                            wallet_ctx.remove_account(chain, &address);
+                        move |_evt| {
+                            wallet_ctx.remove_account(chain.clone(), &address);
                         }
                     },
                     class: "px-2 py-1 rounded text-xs bg-red-900/30 text-red-400 hover:bg-red-900/50 transition-colors",
@@ -272,7 +272,7 @@ fn AddAccountTab() -> Element {
                         }
                         button {
                             onclick: move |_| {
-                                let chain = selected_chain.read().0;
+                                let chain = selected_chain.read().0.clone();
                                 let key = generate_key_for_chain(chain);
                                 pk_input.set(key);
                                 error.set(None);
@@ -298,7 +298,7 @@ fn AddAccountTab() -> Element {
 
                button {
                         onclick: move |_| {
-                            let chain = selected_chain.read().0;
+                            let chain = selected_chain.read().0.clone();
                             let name = {
                                 let n = name_input.read().clone();
                                 if n.is_empty() { format!("{:?}", chain) } else { n }
@@ -310,9 +310,10 @@ fn AddAccountTab() -> Element {
                                 return;
                             }
                             // Create account from private key via keystore
+                            let chain_for_msg = chain.clone();
                             match wallet_ctx.import_account_from_key(chain, &name, &pk, &passphrase) {
                                 Ok(_) => {
-                                    message.set(Some(format!("Account added for {}!", chain)));
+                                    message.set(Some(format!("Account added for {}!", chain_for_msg)));
                                     pk_input.set(String::new());
                                     name_input.set(String::new());
                                 }

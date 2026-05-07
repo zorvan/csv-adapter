@@ -287,6 +287,8 @@ fn seal_details_section(seal: &SealRecord) -> Element {
         SealStatus::Transferred => "text-green-400 bg-green-500/20",
     };
 
+    let sanad_display = truncate_address(seal.sanad_id.as_deref().unwrap_or("N/A"), 12);
+
     rsx! {
         div { class: "{card_class()}",
             div { class: "{card_header_class()}",
@@ -308,7 +310,7 @@ fn seal_details_section(seal: &SealRecord) -> Element {
                     }
                     div {
                         p { class: "text-xs text-gray-500", "Protects Sanad" }
-                        p { class: "text-sm font-mono", "{truncate_address(seal.sanad_id.as_deref().unwrap_or("N/A"), 12)}" }
+                        p { class: "text-sm font-mono", "{sanad_display}" }
                     }
                     div {
                         p { class: "text-xs text-gray-500", "Value Locked" }
@@ -322,29 +324,33 @@ fn seal_details_section(seal: &SealRecord) -> Element {
                         div { class: "space-y-2",
                             {
                                 if let Ok(content) = serde_json::from_str::<SealContent>(content_json) {
-                                    div {
-                                        p { class: "text-xs text-gray-600", "Content Hash" }
-                                        p { class: "text-xs font-mono break-all", "{&content.content_hash}" }
-                                    }
-                                    div {
-                                        p { class: "text-xs text-gray-600", "Owner" }
-                                        p { class: "text-xs font-mono", "{truncate_address(&content.owner, 12)}" }
-                                    }
+                                    rsx! {
+                                        div {
+                                            p { class: "text-xs text-gray-600", "Content Hash" }
+                                            p { class: "text-xs font-mono break-all", "{&content.content_hash}" }
+                                        }
+                                        div {
+                                            p { class: "text-xs text-gray-600", "Owner" }
+                                            p { class: "text-xs font-mono", "{truncate_address(&content.owner, 12)}" }
+                                        }
                                     if let Some(block) = content.block_number {
-                                        div {
-                                            p { class: "text-xs text-gray-600", "Block Number" }
-                                            p { class: "text-xs font-mono", "{block}" }
-                                        }
+                                             div {
+                                                 p { class: "text-xs text-gray-600", "Block Number" }
+                                                 p { class: "text-xs font-mono", "{block}" }
+                                             }
+                                         }
+                                         if let Some(ref tx) = content.lock_tx_hash {
+                                             div {
+                                                 p { class: "text-xs text-gray-600", "Lock Transaction" }
+                                                 p { class: "text-xs font-mono break-all", "{tx}" }
+                                             }
+                                         }
                                     }
-                                    if let Some(ref tx) = content.lock_tx_hash {
-                                        div {
-                                            p { class: "text-xs text-gray-600", "Lock Transaction" }
-                                            p { class: "text-xs font-mono break-all", "{tx}" }
-                                        }
-                                    }
-                                } else {
-                                    p { class: "text-xs text-gray-500", "Content unavailable" }
-                                }
+                             } else {
+                                          rsx! {
+                                              p { class: "text-xs text-gray-500", "Content unavailable" }
+                                          }
+                                  }
                             }
                         }
                     }
@@ -374,9 +380,11 @@ fn proof_card(proof: &ProofRecord) -> Element {
     let status_class = match proof.status {
         ProofStatus::Verified => "text-green-400 bg-green-500/20",
         ProofStatus::Invalid => "text-red-400 bg-red-500/20",
+        ProofStatus::Failed => "text-red-400 bg-red-500/20",
         ProofStatus::Pending => "text-blue-400 bg-blue-500/20",
         ProofStatus::Generated => "text-yellow-400 bg-yellow-500/20",
     };
+    let seal_display = truncate_address(proof.seal_ref.as_deref().unwrap_or("N/A"), 8);
     rsx! {
         div { class: "border border-gray-700 rounded-lg p-4 mb-4",
             div { class: "flex items-center justify-between mb-3",
@@ -391,7 +399,7 @@ fn proof_card(proof: &ProofRecord) -> Element {
                     p { class: "text-xs text-gray-500", "Source ChainId" }
                     p { class: "font-mono", "{chain_name(&proof.chain)}" }
                 }
-                if let Some(target) = proof.target_chain {
+                if let Some(ref target) = proof.target_chain {
                     div {
                         p { class: "text-xs text-gray-500", "Target ChainId" }
                         p { class: "font-mono", "{chain_name(&target)}" }
@@ -399,7 +407,7 @@ fn proof_card(proof: &ProofRecord) -> Element {
                 }
                 div {
                     p { class: "text-xs text-gray-500", "For Seal" }
-                    p { class: "font-mono", "{truncate_address(proof.seal_ref.as_deref().unwrap_or("N/A"), 8)}" }
+                    p { class: "font-mono", "{seal_display}" }
                 }
                 div {
                     p { class: "text-xs text-gray-500", "Generated" }

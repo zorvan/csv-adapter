@@ -64,12 +64,17 @@ pub fn CreateSanadForm() -> Element {
                     div { class: "flex gap-2 mt-2",
                         button {
                             onclick: move |_| {
+                                let chain = selected_chain.read().clone();
                                 let sanad = TrackedSanad {
                                     id: sanad_id.clone(),
-                                    chain: selected_chain.read().clone(),
+                                    chain: chain.clone(),
+                                    seal_ref: format!("seal_{}", &sanad_id[..20.min(sanad_id.len())]),
+                                    owner: wallet_ctx.address_for_chain(chain.clone()).unwrap_or_default(),
                                     value: value.read().parse().unwrap_or(0),
+                                    commitment: format!("commit_{}", &sanad_id[..20.min(sanad_id.len())]),
+                                    nullifier: None,
                                     status: SanadStatus::Active,
-                                    owner: wallet_ctx.address_for_chain(selected_chain.read().clone()).unwrap_or_default(),
+                                    created_at: js_sys::Date::now() as u64 / 1000,
                                 };
                                 wallet_ctx.add_sanad(sanad);
                                 result.set(None);

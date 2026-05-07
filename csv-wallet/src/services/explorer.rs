@@ -47,6 +47,7 @@ impl ExplorerConfig {
                 address_url_template: "https://explorer.solana.com/address/{}?cluster=devnet"
                     .to_string(),
             }),
+            _ => None,
         }
     }
 

@@ -155,7 +155,8 @@ pub fn WalletConnectButton(chain: ChainId) -> Element {
     let mut wallet_ctx = use_wallet_connection();
     let state = wallet_ctx.state;
 
-    let wallet_type = wallet_ctx.recommended_wallet(chain);
+    let chain_for_recommended = chain.clone();
+    let wallet_type = wallet_ctx.recommended_wallet(chain_for_recommended);
     let is_installed = wallet_ctx.is_wallet_installed(&wallet_type);
     let is_connected = wallet_ctx.is_connected();
     let connecting = wallet_ctx.is_connecting();

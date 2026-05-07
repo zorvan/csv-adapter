@@ -81,10 +81,12 @@ fn proof_overview_section(proof: &ProofRecord) -> Element {
     let status_color = match proof.status {
         ProofStatus::Verified => "var(--proof-valid)",
         ProofStatus::Invalid => "var(--proof-invalid)",
+        ProofStatus::Failed => "var(--proof-invalid)",
         ProofStatus::Pending => "var(--proof-pending)",
         ProofStatus::Generated => "var(--proof-unverified)",
     };
 
+    let seal_ref_display = proof.seal_ref.as_deref().unwrap_or("N/A");
     rsx! {
         div { class: "{card_class()} p-6",
             h2 { class: "text-lg font-semibold mb-4", "Proof Overview" }
@@ -92,7 +94,7 @@ fn proof_overview_section(proof: &ProofRecord) -> Element {
             div { class: "grid grid-cols-2 gap-4",
                 div { class: "space-y-1",
                     label { class: "text-xs text-gray-500 uppercase", "Proof ID" }
-                    p { class: "font-mono text-sm", "{proof.seal_ref.as_deref().unwrap_or("N/A")}" }
+                    p { class: "font-mono text-sm", "{seal_ref_display}" }
                 }
                 div { class: "space-y-1",
                     label { class: "text-xs text-gray-500 uppercase", "ChainId" }
@@ -156,6 +158,7 @@ fn anchor_section(proof: &ProofRecord) -> Element {
 
 /// Seal section - shows the consumed seal reference
 fn seal_section(proof: &ProofRecord) -> Element {
+    let seal_ref_display = proof.seal_ref.as_deref().unwrap_or("N/A");
     rsx! {
         div { class: "{card_class()} p-6",
             h2 { class: "text-lg font-semibold mb-4 flex items-center gap-2",
@@ -166,7 +169,7 @@ fn seal_section(proof: &ProofRecord) -> Element {
             div { class: "space-y-4",
                 div { class: "p-3 bg-gray-800/50 rounded-lg",
                     p { class: "text-xs text-gray-500 mb-1", "Seal ID (ChainId-Native)" }
-                    p { class: "font-mono text-sm break-all", "{proof.seal_ref.as_deref().unwrap_or("N/A")}" }
+                    p { class: "font-mono text-sm break-all", "{seal_ref_display}" }
                 }
 
                 div { class: "p-3 bg-gray-800/50 rounded-lg",
@@ -251,7 +254,9 @@ fn inclusion_proof_section(proof: &ProofRecord) -> Element {
                                 },
                             }
                         } else {
-                            p { class: "text-gray-400 text-sm", "Invalid proof data format" }
+                            rsx! {
+                                p { class: "text-gray-400 text-sm", "Invalid proof data format" }
+                            }
                         }
                     }
 

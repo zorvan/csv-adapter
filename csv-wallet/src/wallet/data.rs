@@ -33,7 +33,7 @@ impl WalletData {
 
     /// Get the gas account address for a chain (first account for now).
     pub fn get_gas_account(&self, chain: &ChainId) -> Option<String> {
-        self.accounts_for_chain(*chain)
+        self.accounts_for_chain(chain.clone())
             .first()
             .map(|a| a.address.clone())
     }

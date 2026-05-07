@@ -27,6 +27,7 @@ pub fn CrossChainTransfer() -> Element {
 
     // Get sanads for the source chain (filtered to active only)
     let from_chain_val = from_chain.read().clone();
+    let from_chain_display = from_chain_val.clone();
     let sanads_for_source: Vec<_> = wallet_ctx
         .sanads_for_chain(from_chain_val)
         .into_iter()
@@ -73,10 +74,11 @@ pub fn CrossChainTransfer() -> Element {
             if let Some(addr) = &dest_addr {
                 dest_balance_loading.set(true);
                 let addr = addr.clone();
+                let chain_for_balance = to_chain_val.clone();
                spawn(async move {
                     use crate::services::chain_api::ChainApi;
                     let api = ChainApi::default();
-                    if let Ok(balance_str) = api.get_balance(&addr, to_chain_val).await {
+                    if let Ok(balance_str) = api.get_balance(&addr, chain_for_balance).await {
                         if let Ok(balance) = balance_str.parse::<u64>() {
                             dest_balance_raw.set(balance);
                         }
@@ -216,7 +218,8 @@ pub fn CrossChainTransfer() -> Element {
             let dest = dest_owner.read().clone();
             let account_idx = *selected_account_index.read();
             let target_contract_idx = *selected_target_contract_index.read();
-            let accounts = wallet_ctx.accounts_for_chain(from);
+            let from_for_accounts = from.clone();
+            let accounts = wallet_ctx.accounts_for_chain(from_for_accounts);
             let mut step_signal = step;
             let mut result_signal = result;
             let mut error_signal = error;
@@ -268,14 +271,16 @@ pub fn CrossChainTransfer() -> Element {
                 let mut contracts = std::collections::HashMap::new();
 
                 // Add source chain contract (needed for locking)
-                let source_contracts = wallet_ctx.contracts_for_chain(from);
+                let from_for_contracts = from.clone();
+                let source_contracts = wallet_ctx.contracts_for_chain(from_for_contracts);
                 if !source_contracts.is_empty() {
                  if let Some(contract) = source_contracts.first() {
+                        let from_for_insert = from.clone();
                         contracts.insert(
-                            from,
+                            from_for_insert,
                             ContractDeployment {
                                 address: contract.address.clone(),
-                                chain: Some(from),
+                                chain: Some(from.clone()),
                                 contract_address: contract.address.clone(),
                                 tx_hash: contract.tx_hash.clone(),
                                 deployed_at: contract.deployed_at,
@@ -286,15 +291,17 @@ pub fn CrossChainTransfer() -> Element {
                 }
 
                 // Add target chain contract (needed for minting)
-                let target_contracts = wallet_ctx.contracts_for_chain(to);
+                let to_for_contracts = to.clone();
+                let target_contracts = wallet_ctx.contracts_for_chain(to_for_contracts);
                 if !target_contracts.is_empty() {
                     let selected_idx = target_contract_idx.min(target_contracts.len() - 1);
                     if let Some(contract) = target_contracts.get(selected_idx) {
+                        let to_for_insert = to.clone();
                         contracts.insert(
-                            to,
+                            to_for_insert,
                             ContractDeployment {
                                 address: contract.address.clone(),
-                                chain: Some(to),
+                                chain: Some(to.clone()),
                                 contract_address: contract.address.clone(),
                                 tx_hash: contract.tx_hash.clone(),
                                 deployed_at: contract.deployed_at,
@@ -304,8 +311,10 @@ pub fn CrossChainTransfer() -> Element {
                     }
                 }
 
+                let from_for_exec = from.clone();
+                let to_for_exec = to.clone();
                 match service
-                    .execute_cross_chain_transfer(from, to, &sanad, &dest_addr, &contracts, &signer)
+                    .execute_cross_chain_transfer(from_for_exec, to_for_exec, &sanad, &dest_addr, &contracts, &signer)
                     .await
                 {
                     Ok(transfer_result) => {
@@ -332,7 +341,7 @@ pub fn CrossChainTransfer() -> Element {
                         };
                         let seal = SealRecord {
                             seal_ref: seal_ref.clone(),
-                            chain: from,
+                            chain: from.clone(),
                             value: sanads_for_source_closure
                                 .get(*selected_sanad_index.read())
                                 .map(|r| r.value)
@@ -347,7 +356,8 @@ pub fn CrossChainTransfer() -> Element {
                         wallet_ctx.add_seal(seal);
 
                         // Create linked Proof record
-                        let proof_data = match from.as_str() {
+                        let from_for_proof = from.clone();
+                        let proof_data = match from_for_proof.as_str() {
                             "bitcoin" => ProofData::Merkle {
                                 root: format!("0x{}", &transfer_result.lock_tx_hash[..40]),
                                 path: vec![format!("0x{}", &sanad[..40])],
@@ -391,8 +401,8 @@ pub fn CrossChainTransfer() -> Element {
                             _ => "merkle",
                         };
 
-                      let proof = ProofRecord {
-                            chain: from,
+                        let proof = ProofRecord {
+                            chain: from.clone(),
                             sanad_id: sanad.clone(),
                             seal_ref: Some(seal_ref.clone()),
                             proof_type: proof_type.to_string(),
@@ -403,7 +413,7 @@ pub fn CrossChainTransfer() -> Element {
                             created_at: now,
                             verified_at: Some(now),
                             status: ProofStatus::Verified,
-                            target_chain: Some(to),
+                            target_chain: Some(to.clone()),
                             verification_tx_hash: Some(transfer_result.mint_tx_hash.clone()),
                         };
                         wallet_ctx.add_proof(proof);
@@ -415,10 +425,12 @@ pub fn CrossChainTransfer() -> Element {
                         );
 
                         // Record the transfer with full details
+                        let from_for_transfer = from.clone();
+                        let to_for_transfer = to.clone();
                         wallet_ctx.add_transfer(TrackedTransfer {
                             id: transfer_id.clone(),
-                            source_chain: from,
-                            dest_chain: to,
+                            source_chain: from_for_transfer.clone(),
+                            dest_chain: to_for_transfer.clone(),
                             sanad_id: sanad.clone(),
                             sender_address: Some(dest_addr.clone()),
                             destination_address: Some(dest_addr.clone()),
@@ -435,7 +447,7 @@ pub fn CrossChainTransfer() -> Element {
 
                         result_signal.set(Some(format!(
                             "Transfer complete!\nTransfer ID: {}\nSanad {} moved from {:?} to {:?}\n\nSeal: {}\nProof: {}\nLock TX: {}\nMint TX: {}",
-                            transfer_id, sanad, from, to,
+                            transfer_id, sanad, from_for_transfer, to_for_transfer,
                             truncate_address(&seal_ref, 12),
                             proof_type,
                             transfer_result.lock_tx_hash,
@@ -569,10 +581,10 @@ pub fn CrossChainTransfer() -> Element {
                     }
                 }
 
-                {form_field("Available Sanads", rsx! {
+                 {form_field("Available Sanads", rsx! {
                     if sanads_for_source.is_empty() {
                         p { class: "text-sm text-red-400",
-                            {format!("No active sanads available for {:?}. Create a sanad on this chain first.", from_chain_val)}
+                            {format!("No active sanads available for {:?}. Create a sanad on this chain first.", from_chain_display)}
                         }
                     } else {
                         select {

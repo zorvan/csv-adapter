@@ -50,16 +50,17 @@ pub fn Contracts() -> Element {
                                         continue;
                                     }
 
-                                    let config = ChainConfig::for_chain(&account.chain);
+                                    let chain = account.chain.clone();
+                                    let config = ChainConfig::for_chain(&chain);
 
-                                    match discover_contracts(account.chain, &account.address, &config.api_url, None).await {
+                                    match discover_contracts(chain.clone(), &account.address, &config.api_url, None).await {
                                         Ok(contracts) => {
                                             for c in contracts {
                                                 let c_addr = c.contract_address.clone();
                                                 // Use a deterministic tx_hash based on address
-                                                let tx_hash = format!("discovered_{}_{}", account.chain, &c_addr[..20.min(c_addr.len())]);
+                                                let tx_hash = format!("discovered_{}_{}", chain, &c_addr[..20.min(c_addr.len())]);
                                                 let contract = ContractRecord {
-                                                    chain: account.chain,
+                                                    chain: chain.clone(),
                                                     address: c_addr,
                                                     tx_hash,
                                                     deployed_at: js_sys::Date::now() as u64 / 1000,
@@ -94,8 +95,7 @@ pub fn Contracts() -> Element {
                             span { "\u{1F50D} Discover from ChainId" }
                         }
                     }
-                    Link { to: Route::AddContract {}, class: "{btn_secondary_class()}", "+ Add Existing" }
-                    Link { to: Route::DeployContract {}, class: "{btn_primary_class()}", "+ Deploy New" }
+                    Link { to: Route::AddContract {}, class: "{btn_primary_class()}", "+ Add Contract" }
                 }
             }
 

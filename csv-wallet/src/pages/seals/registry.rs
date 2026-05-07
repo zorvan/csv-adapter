@@ -135,6 +135,8 @@ fn seal_row(seal: &SealRecord) -> Element {
         SealStatus::Transferred => ("bg-blue-500/20 text-blue-400", "Transferred"),
     };
 
+    let sanad_display = truncate_address(seal.sanad_id.as_deref().unwrap_or("N/A"), 8);
+
     rsx! {
         tr { class: "hover:bg-gray-800/30",
             td { class: "px-4 py-3",
@@ -154,7 +156,7 @@ fn seal_row(seal: &SealRecord) -> Element {
                 } else {
                     Link { to: Route::SanadJourney { id: seal.sanad_id.clone().unwrap_or_default() },
                         class: "font-mono text-xs text-blue-400 hover:underline",
-                        "{truncate_address(seal.sanad_id.as_deref().unwrap_or("N/A"), 8)}"
+                        "{sanad_display}"
                     }
                 }
             }

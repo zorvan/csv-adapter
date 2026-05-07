@@ -6,6 +6,7 @@ use crate::hooks::{format_balance_display, AccountBalance};
 use crate::pages::common::*;
 use crate::routes::Route;
 pub use csv_store::state::ChainId;
+use crate::wallet::account::ChainAccount;
 use dioxus::prelude::*;
 use std::collections::HashMap;
 
@@ -42,7 +43,8 @@ pub fn Dashboard() -> Element {
                 let mut balances = HashMap::new();
 
                 for account in accounts_to_fetch {
-                    let balance_result = api.get_balance(&account.address, account.chain).await;
+                    let chain = account.chain.clone();
+                    let balance_result = api.get_balance(&account.address, chain.clone()).await;
 
                     let balance_raw = match &balance_result {
                         Ok(b) => b.parse::<u64>().unwrap_or(0),
@@ -52,7 +54,7 @@ pub fn Dashboard() -> Element {
 
                     let balance_data = AccountBalance {
                         account_id: account.id.clone(),
-                        chain: account.chain,
+                        chain,
                         address: account.address.clone(),
                         balance_raw,
                         loading: false,
@@ -93,6 +95,7 @@ pub fn Dashboard() -> Element {
         .iter()
         .filter(|t| t.status == TransferStatus::Completed)
         .count();
+   let accounts_for_rsx = accounts.clone();
 
     rsx! {
         div { class: "space-y-6",
@@ -100,14 +103,14 @@ pub fn Dashboard() -> Element {
 
             // Stats row
             div { class: "grid grid-cols-2 lg:grid-cols-4 gap-4",
-                {stat_card("Accounts", &accounts.len().to_string(), "\u{1F4B3}")}
+                {stat_card("Accounts", &accounts_for_rsx.len().to_string(), "\u{1F4B3}")}
                 {stat_card("Active Sanads", &active_sanads.to_string(), "\u{1F48E}")}
                 {stat_card("Transfers", &completed_transfers.to_string(), "\u{21C4}")}
                 {stat_card("Network", "Testnet", "\u{1F310}")}
             }
 
             // ChainId Addresses Section with Balances
-            if !accounts.is_empty() {
+            if !accounts_for_rsx.is_empty() {
                 div { class: "{card_class()} p-5",
                     div { class: "flex items-center justify-between mb-4",
                         h2 { class: "text-lg font-semibold", "Your Accounts" }
@@ -115,42 +118,13 @@ pub fn Dashboard() -> Element {
                             span { class: "text-xs text-gray-400 animate-pulse", "Loading balances..." }
                         }
                     }
-                    div { class: "space-y-3",
-                        for account in accounts {
-                            div { key: "{account.id}", class: "flex items-center justify-between p-3 bg-gray-800/50 rounded-lg",
-                                div { class: "flex items-center gap-3 flex-1",
-                                    span { class: "{chain_badge_class(&account.chain)}",
-                                        "{chain_icon_emoji(&account.chain)} {chain_name(&account.chain)}"
-                                    }
-                                    div { class: "flex-1",
-                                        p { class: "font-mono text-sm text-gray-300", "{truncate_address(&account.address, 12)}" }
-                                        // Display balance
-                                        if let Some(balance_data) = account_balances.read().get(&account.id) {
-                                            if balance_data.loading {
-                                                p { class: "text-xs text-gray-500", "Loading..." }
-                                            } else if let Some(ref error) = balance_data.error {
-                                                p { class: "text-xs text-red-400", "Error fetching balance" }
-                                                // Show detailed error for Bitcoin debugging
-                                                if account.chain == ChainId::new("bitcoin") {
-                                                    p { class: "text-[10px] text-gray-500 max-w-[200px] truncate", "{error}" }
-                                                }
-                                            } else if balance_data.balance_raw > 0 {
-                                                p { class: "text-xs text-green-400 font-medium",
-                                                    "{format_balance_display(balance_data.balance_raw, account.chain)}"
-                                                }
-                                            } else {
-                                                p { class: "text-xs text-yellow-400 font-medium",
-                                                    "{format_balance_display(balance_data.balance_raw, account.chain)} (No funds)"
-                                                }
-                                            }
-                                        } else {
-                                            p { class: "text-xs text-gray-500", "Balance: -" }
-                                        }
-                                    }
-                                }
-                                Link { to: Route::AccountTransactions { id: account.id.clone() }, class: "text-xs text-blue-400 hover:text-blue-300 ml-4",
-                                    "View Transactions \u{2192}"
-                                }
+                     div { class: "space-y-3",
+                         for account in &accounts_for_rsx {
+                            AccountRow {
+                                key: "{account.id}",
+                                account: account.clone(),
+                                chain: account.chain.clone(),
+                                account_balances: account_balances,
                             }
                         }
                     }
@@ -197,6 +171,51 @@ fn stat_card(label: &str, value: &str, icon: &str) -> Element {
                     p { class: "text-xl font-bold", "{value}" }
                 }
                 span { class: "text-2xl", "{icon}" }
+            }
+        }
+    }
+}
+
+#[component]
+fn AccountRow(
+    account: ChainAccount,
+    chain: ChainId,
+    account_balances: Signal<HashMap<String, AccountBalance>>,
+) -> Element {
+    rsx! {
+        div { class: "flex items-center justify-between p-3 bg-gray-800/50 rounded-lg",
+            div { class: "flex items-center gap-3 flex-1",
+                span { class: "{chain_badge_class(&chain)}",
+                    "{chain_icon_emoji(&chain)} {chain_name(&chain)}"
+                }
+                div { class: "flex-1",
+                    p { class: "font-mono text-sm text-gray-300", "{truncate_address(&account.address, 12)}" }
+                    // Display balance
+                    if let Some(balance_data) = account_balances.read().get(&account.id) {
+                        if balance_data.loading {
+                            p { class: "text-xs text-gray-500", "Loading..." }
+                        } else if let Some(ref error) = balance_data.error {
+                            p { class: "text-xs text-red-400", "Error fetching balance" }
+                            // Show detailed error for Bitcoin debugging
+                            if chain.as_str() == "bitcoin" {
+                                p { class: "text-[10px] text-gray-500 max-w-[200px] truncate", "{error}" }
+                            }
+                          } else if balance_data.balance_raw > 0 {
+                            p { class: "text-xs text-green-400 font-medium",
+                                "{format_balance_display(balance_data.balance_raw, chain.clone())}"
+                            }
+                        } else {
+                            p { class: "text-xs text-yellow-400 font-medium",
+                                "{format_balance_display(balance_data.balance_raw, chain.clone())} (No funds)"
+                            }
+                        }
+                    } else {
+                        p { class: "text-xs text-gray-500", "Balance: -" }
+                    }
+                }
+            }
+            Link { to: Route::AccountTransactions { id: account.id.clone() }, class: "text-xs text-blue-400 hover:text-blue-300 ml-4",
+                "View Transactions \u{2192}"
             }
         }
     }

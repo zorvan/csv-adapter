@@ -36,14 +36,7 @@ pub fn Sanads() -> Element {
                     class: if filter_chain.read().is_none() { "{btn_primary_class()}" } else { "{btn_secondary_class()}" },
                     "All"
                 }
-                for chain in [ChainId::new("bitcoin"), ChainId::new("ethereum"), ChainId::new("sui"), ChainId::new("aptos"), ChainId::new("solana")] {
-                    button {
-                        key: "sanad-filter-{chain:?}",
-                        onclick: move |_| filter_chain.set(Some(chain.clone())),
-                        class: if matches!(filter_chain.read().as_ref(), Some(c) if c == &chain) { "{chain_badge_class(&chain)} cursor-pointer" } else { "{chain_badge_class(&chain)} opacity-50 cursor-pointer" },
-                        "{chain_icon_emoji(&chain)} {chain_name(&chain)}"
-                    }
-                }
+                {sanad_filter_buttons(filter_chain)}
             }
 
             if filtered.is_empty() {
@@ -138,5 +131,27 @@ fn seal_status_badge_class(status: &SealStatus) -> &'static str {
         SealStatus::Locked => "text-orange-400 bg-orange-500/20",
         SealStatus::Consumed => "text-gray-400 bg-gray-500/20",
         SealStatus::Transferred => "text-green-400 bg-green-500/20",
+    }
+}
+
+fn sanad_filter_buttons(filter_chain: Signal<Option<ChainId>>) -> Element {
+    let chains = [ChainId::new("bitcoin"), ChainId::new("ethereum"), ChainId::new("sui"), ChainId::new("aptos"), ChainId::new("solana")];
+    let mut buttons = Vec::new();
+    for chain in chains {
+        let mut fc = filter_chain.clone();
+        let c = chain.clone();
+        buttons.push(rsx! {
+            button {
+                key: "sanad-filter-{chain:?}",
+                onclick: move |_| fc.set(Some(c.clone())),
+                class: "{btn_secondary_class()}",
+                "{chain_icon_emoji(&chain)} {chain_name(&chain)}"
+            }
+        });
+    }
+    rsx! {
+        for btn in buttons {
+            {btn}
+        }
     }
 }

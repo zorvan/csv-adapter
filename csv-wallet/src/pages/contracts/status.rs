@@ -29,7 +29,6 @@ pub fn ContractStatus() -> Element {
                 if contracts.is_empty() {
                     div { class: "bg-gray-800/50 rounded-lg p-4 border border-gray-700 text-center",
                         p { class: "text-gray-400", "No contracts deployed on {chain_name(&selected_chain.read())}" }
-                        Link { to: Route::DeployContract {}, class: "text-blue-400 hover:text-blue-300 text-sm mt-1 inline-block", "Deploy now \u{2192}" }
                     }
                 } else {
                     for c in contracts {

@@ -127,7 +127,7 @@ pub struct TransferRecord {
 }
 
 /// Deployed contract info.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ContractRecord {
     /// Chain where contract is deployed.
     pub chain: ChainId,
@@ -389,7 +389,7 @@ impl std::fmt::Display for TransactionStatus {
 }
 
 /// A transaction record.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TransactionRecord {
     /// Transaction ID.
     pub id: String,

@@ -56,56 +56,7 @@ pub fn CrossChainStatus() -> Element {
 
                 // Display selected transfer details
                 {match selected_transfer {
-                    Some(t) => rsx! {
-                        div { class: "space-y-3",
-                            div { class: "bg-gray-800/50 rounded-lg p-4 border border-gray-700 space-y-3",
-                                div { class: "flex justify-between",
-                                    span { class: "text-sm text-gray-400", "Transfer ID" }
-                                    span { class: "text-sm font-mono text-gray-300", "{truncate_address(&t.id, 16)}" }
-                                }
-                                div { class: "flex justify-between",
-                                    span { class: "text-sm text-gray-400", "Source" }
-                                    span { class: "{chain_badge_class(&t.source_chain)}", "{chain_icon_emoji(&t.source_chain)} {chain_name(&t.source_chain)}" }
-                                }
-                                div { class: "flex justify-between",
-                                    span { class: "text-sm text-gray-400", "Destination" }
-                                    span { class: "{chain_badge_class(&t.dest_chain)}", "{chain_icon_emoji(&t.dest_chain)} {chain_name(&t.dest_chain)}" }
-                                }
-                                div { class: "flex justify-between",
-                                    span { class: "text-sm text-gray-400", "Sanad ID" }
-                                    span { class: "text-sm font-mono text-gray-300", "{truncate_address(&t.sanad_id, 12)}" }
-                                }
-                                div { class: "flex justify-between",
-                                    span { class: "text-sm text-gray-400", "Destination Owner" }
-                                    span { class: "text-sm font-mono text-gray-300", "{truncate_address(t.destination_address.as_deref().unwrap_or("N/A"), 12)}" }
-                                }
-                                div { class: "flex justify-between",
-                                    span { class: "text-sm text-gray-400", "Status" }
-                                    span { class: "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {transfer_status_class(&t.status)}",
-                                        "{t.status}"
-                                    }
-                                }
-                                if t.created_at > 0 {
-                                    div { class: "flex justify-between",
-                                        span { class: "text-sm text-gray-400", "Created" }
-                                        span { class: "text-sm text-gray-300", "{format_timestamp(t.created_at)}" }
-                                    }
-                                }
-                                if let Some(ref source_tx) = t.source_tx_hash {
-                                    div { class: "flex justify-between",
-                                        span { class: "text-sm text-gray-400", "Source TX" }
-                                        span { class: "text-sm font-mono text-blue-400", "{truncate_address(source_tx, 12)}" }
-                                    }
-                                }
-                                if let Some(ref dest_tx) = t.dest_tx_hash {
-                                    div { class: "flex justify-between",
-                                        span { class: "text-sm text-gray-400", "Destination TX" }
-                                        span { class: "text-sm font-mono text-blue-400", "{truncate_address(dest_tx, 12)}" }
-                                    }
-                                }
-                            }
-                        }
-                    },
+                    Some(t) => transfer_details(t),
                     None => if !transfers.is_empty() {
                         rsx! {
                             div { class: "bg-gray-800/50 rounded-lg p-4 text-center",
@@ -116,6 +67,60 @@ pub fn CrossChainStatus() -> Element {
                         rsx! {}
                     }
                 }}
+            }
+        }
+    }
+}
+
+fn transfer_details(t: TrackedTransfer) -> Element {
+    let dest_addr_display = truncate_address(t.destination_address.as_deref().unwrap_or("N/A"), 12);
+    rsx! {
+        div { class: "space-y-3",
+            div { class: "bg-gray-800/50 rounded-lg p-4 border border-gray-700 space-y-3",
+                div { class: "flex justify-between",
+                    span { class: "text-sm text-gray-400", "Transfer ID" }
+                    span { class: "text-sm font-mono text-gray-300", "{truncate_address(&t.id, 16)}" }
+                }
+                div { class: "flex justify-between",
+                    span { class: "text-sm text-gray-400", "Source" }
+                    span { class: "{chain_badge_class(&t.source_chain)}", "{chain_icon_emoji(&t.source_chain)} {chain_name(&t.source_chain)}" }
+                }
+                div { class: "flex justify-between",
+                    span { class: "text-sm text-gray-400", "Destination" }
+                    span { class: "{chain_badge_class(&t.dest_chain)}", "{chain_icon_emoji(&t.dest_chain)} {chain_name(&t.dest_chain)}" }
+                }
+                div { class: "flex justify-between",
+                    span { class: "text-sm text-gray-400", "Sanad ID" }
+                    span { class: "text-sm font-mono text-gray-300", "{truncate_address(&t.sanad_id, 12)}" }
+                }
+                div { class: "flex justify-between",
+                    span { class: "text-sm text-gray-400", "Destination Owner" }
+                    span { class: "text-sm font-mono text-gray-300", "{dest_addr_display}" }
+                }
+                div { class: "flex justify-between",
+                    span { class: "text-sm text-gray-400", "Status" }
+                    span { class: "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {transfer_status_class(&t.status)}",
+                        "{t.status}"
+                    }
+                }
+                if t.created_at > 0 {
+                    div { class: "flex justify-between",
+                        span { class: "text-sm text-gray-400", "Created" }
+                        span { class: "text-sm text-gray-300", "{format_timestamp(t.created_at)}" }
+                    }
+                }
+                if let Some(ref source_tx) = t.source_tx_hash {
+                    div { class: "flex justify-between",
+                        span { class: "text-sm text-gray-400", "Source TX" }
+                        span { class: "text-sm font-mono text-blue-400", "{truncate_address(source_tx, 12)}" }
+                    }
+                }
+                if let Some(ref dest_tx) = t.dest_tx_hash {
+                    div { class: "flex justify-between",
+                        span { class: "text-sm text-gray-400", "Destination TX" }
+                        span { class: "text-sm font-mono text-blue-400", "{truncate_address(dest_tx, 12)}" }
+                    }
+                }
             }
         }
     }

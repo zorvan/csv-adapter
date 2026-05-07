@@ -31,7 +31,7 @@ pub struct SealRecord {
 
 impl SealRecord {
     /// Parse chain from string.
-    pub fn chain_enum(&self) -> Result<ChainId, String> {
+    pub fn chain_enum(&self) -> Result<ChainId, ()> {
         self.chain.parse()
     }
 }

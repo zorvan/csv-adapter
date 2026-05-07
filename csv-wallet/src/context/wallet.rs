@@ -201,7 +201,7 @@ impl WalletContext {
     }
 
     pub fn selected_chain(&self) -> ChainId {
-        self.state.read().selected_chain
+        self.state.read().selected_chain.clone()
     }
 
     pub fn set_selected_chain(&mut self, chain: ChainId) {
@@ -372,7 +372,7 @@ impl WalletContext {
         use csv_keys::memory::{Passphrase, SecretKey};
 
         // Derive address from private key
-        let address = crate::wallet_core::ChainAccount::derive_address(chain, private_key_hex)
+        let address = crate::wallet_core::ChainAccount::derive_address(chain.clone(), private_key_hex)
             .map_err(|e| format!("Failed to derive address: {}", e))?;
 
         // Parse the private key bytes
@@ -389,6 +389,7 @@ impl WalletContext {
         // Encrypt and store in browser keystore
         let keystore_id = uuid::Uuid::new_v4().to_string();
         let chain_name = chain.to_string().to_lowercase();
+        let _chain_for_closure = chain.clone();
         let passphrase_obj = Passphrase::new(passphrase);
 
         #[cfg(target_arch = "wasm32")]

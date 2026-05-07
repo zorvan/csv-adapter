@@ -14,7 +14,7 @@ pub fn Header(sidebar_open: bool, on_sidebar_toggle: EventHandler<()>) -> Elemen
     let wallet_ctx = use_wallet_context();
     let selected_chain = wallet_ctx.selected_chain();
     let selected_network = wallet_ctx.selected_network();
-    let active_addr = wallet_ctx.address_for_chain(selected_chain);
+    let active_addr = wallet_ctx.address_for_chain(selected_chain.clone());
 
     rsx! {
         header { class: "bg-gray-900/80 backdrop-blur-sm sticky top-0 z-50 border-b border-gray-800",

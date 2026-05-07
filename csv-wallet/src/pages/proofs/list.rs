@@ -50,12 +50,12 @@ pub fn Proofs() -> Element {
                                     tr { key: "{idx}-{proof.chain}-{proof.sanad_id}-{proof.proof_type}", class: "hover:bg-gray-800/50 transition-colors",
                                         td { class: "px-4 py-3", span { class: "{chain_badge_class(&proof.chain)}", "{chain_icon_emoji(&proof.chain)} {chain_name(&proof.chain)}" } }
                                         td { class: "px-4 py-3 font-mono text-xs",
-                                            Link { to: Route::SanadJourney { id: proof.sanad_id.clone().unwrap_or_default() }, class: "text-purple-400 hover:text-purple-300",
-                                                "{truncate_address(proof.sanad_id.as_deref().unwrap_or("N/A"), 8)}"
+                                            Link { to: Route::SanadJourney { id: proof.sanad_id.clone() }, class: "text-purple-400 hover:text-purple-300",
+                                                "{proof_sanad_display(&proof)}"
                                             }
                                         }
                                         td { class: "px-4 py-3 font-mono text-xs",
-                                            "{truncate_address(proof.seal_ref.as_deref().unwrap_or("N/A"), 8)}"
+                                            "{proof_seal_display(&proof)}"
                                         }
                                         td { class: "px-4 py-3 text-xs", "{proof.proof_type}" }
                                         td { class: "px-4 py-3",
@@ -115,14 +115,14 @@ pub fn Proofs() -> Element {
                                     div { class: "space-y-2",
                                         p { class: "text-sm text-gray-400", "Sanad ID" }
                                         p { class: "text-sm font-mono break-all",
-                                            Link { to: Route::SanadJourney { id: proof.sanad_id.clone().unwrap_or_default() }, class: "text-purple-400 hover:text-purple-300",
-                                                "{proof.sanad_id.as_deref().unwrap_or("N/A")}"
+                                            Link { to: Route::SanadJourney { id: proof.sanad_id.clone() }, class: "text-purple-400 hover:text-purple-300",
+                                                "{&proof.sanad_id}"
                                             }
                                         }
                                     }
                                     div { class: "space-y-2",
                                         p { class: "text-sm text-gray-400", "Seal Reference" }
-                                        p { class: "text-sm font-mono break-all", "{proof.seal_ref.as_deref().unwrap_or("N/A")}" }
+                                        p { class: "text-sm font-mono break-all", "{proof_seal_display(&proof)}" }
                                     }
                                     div { class: "space-y-2",
                                         p { class: "text-sm text-gray-400", "Proof Type" }
@@ -142,12 +142,18 @@ pub fn Proofs() -> Element {
                                             p { class: "text-sm", span { class: "{chain_badge_class(target)}", "{chain_icon_emoji(target)} {chain_name(target)}" } }
                                         }
                                     }
-                                    if let Some(ref data) = proof.proof_data {
-                                        div { class: "space-y-2 border-t border-gray-700 pt-3 mt-3",
-                                            p { class: "text-sm text-gray-400", "Cryptographic Data" }
-                                            {proof_data_summary(data)}
-                                        }
-                                    }
+                                if let Some(ref data_json) = proof.proof_data {
+                                         div { class: "space-y-2 border-t border-gray-700 pt-3 mt-3",
+                                             p { class: "text-sm text-gray-400", "Cryptographic Data" }
+                                             {
+                                                 if let Ok(data) = serde_json::from_str::<crate::context::ProofData>(data_json) {
+                                                     proof_data_summary(&data)
+                                                 } else {
+                                                     rsx! { p { class: "text-xs text-gray-500", "Invalid proof data format" } }
+                                                 }
+                                             }
+                                         }
+                                     }
                                 }
                             }
                         }
@@ -174,8 +180,8 @@ pub fn Proofs() -> Element {
                                         "Are you sure you want to delete this proof? This action cannot be undone."
                                     }
                                     div { class: "bg-gray-800/50 rounded-lg p-3",
-                                        p { class: "text-xs text-gray-500", "Sanad ID: {truncate_address(proof.sanad_id.as_deref().unwrap_or("N/A"), 20)}" }
-                                        p { class: "text-xs text-gray-500", "Seal: {truncate_address(proof.seal_ref.as_deref().unwrap_or("N/A"), 12)}" }
+                                        p { class: "text-xs text-gray-500", "Sanad ID: {proof_sanad_display_long(&proof)}" }
+                                        p { class: "text-xs text-gray-500", "Seal: {proof_seal_display_long(&proof)}" }
                                         p { class: "text-xs text-gray-500", "ChainId: {chain_name(&proof.chain)}" }
                                         p { class: "text-xs text-gray-500", "Status: {proof.status}" }
                                     }
@@ -205,10 +211,27 @@ pub fn Proofs() -> Element {
     }
 }
 
+fn proof_sanad_display(proof: &ProofRecord) -> String {
+    truncate_address(&proof.sanad_id, 8)
+}
+
+fn proof_seal_display(proof: &ProofRecord) -> String {
+    truncate_address(proof.seal_ref.as_deref().unwrap_or("N/A"), 8)
+}
+
+fn proof_sanad_display_long(proof: &ProofRecord) -> String {
+    truncate_address(&proof.sanad_id, 20)
+}
+
+fn proof_seal_display_long(proof: &ProofRecord) -> String {
+    truncate_address(proof.seal_ref.as_deref().unwrap_or("N/A"), 12)
+}
+
 fn proof_status_class(status: &ProofStatus) -> &'static str {
     match status {
         ProofStatus::Verified => "text-green-400 bg-green-500/20",
         ProofStatus::Invalid => "text-red-400 bg-red-500/20",
+        ProofStatus::Failed => "text-red-400 bg-red-500/20",
         ProofStatus::Pending => "text-blue-400 bg-blue-500/20",
         ProofStatus::Generated => "text-yellow-400 bg-yellow-500/20",
     }

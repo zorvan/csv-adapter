@@ -74,12 +74,14 @@ impl WalletContext {
 
             // Derive address from the key
             let private_key_hex = hex::encode(secret_key.as_bytes());
-            let address = ChainAccount::derive_address(chain, &private_key_hex)
+            let chain_for_addr = chain.clone();
+            let address = ChainAccount::derive_address(chain_for_addr, &private_key_hex)
                 .map_err(|e| format!("Failed to derive address for {:?}: {}", chain, e))?;
 
             // Create account with keystore reference
+            let chain_for_account = chain.clone();
             let account = ChainAccount::from_keystore(
-                chain,
+                chain_for_account,
                 &format!("{:?} Account 1", chain),
                 &address,
                 &keystore_ref,
@@ -153,11 +155,13 @@ impl WalletContext {
 
             // Derive address from key
             let private_key_hex = hex::encode(secret_key.as_bytes());
-            let address = ChainAccount::derive_address(chain, &private_key_hex)
+            let chain_for_addr = chain.clone();
+            let address = ChainAccount::derive_address(chain_for_addr, &private_key_hex)
                 .map_err(|e| format!("Failed to derive address: {}", e))?;
 
+            let chain_for_account = chain.clone();
             let account = ChainAccount::from_keystore(
-                chain,
+                chain_for_account,
                 &format!("{:?} Account", chain),
                 &address,
                 &keystore_ref,

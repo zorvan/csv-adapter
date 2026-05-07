@@ -96,8 +96,8 @@ pub fn RunTests() -> Element {
                                 current_step.set(i);
                                 wallet_ctx.add_test_result(TestResult {
                                     id: format!("test-{}-{}-{}", from, to, i),
-                                    from_chain: *from,
-                                    to_chain: *to,
+                                    from_chain: from.clone(),
+                                    to_chain: to.clone(),
                                     status: if i == 4 { TestStatus::Passed } else { TestStatus::Running },
                                     message: format!("Step {}/5", i + 1),
                                 });
@@ -106,8 +106,8 @@ pub fn RunTests() -> Element {
 
                         wallet_ctx.add_test_result(TestResult {
                             id: format!("test-complete-{}", js_sys::Date::now()),
-                            from_chain: pairs[0].0,
-                            to_chain: pairs[0].1,
+                            from_chain: pairs[0].0.clone(),
+                            to_chain: pairs[0].1.clone(),
                             status: TestStatus::Passed,
                             message: "All tests completed".to_string(),
                         });

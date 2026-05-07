@@ -18,10 +18,10 @@ pub fn Seals() -> Element {
     // Collect seals into owned vector for use in closures
     let seals_owned: Vec<_> = seals.into_iter().collect();
 
-    let filtered: Vec<_> = match *filter_chain.read() {
+    let filtered: Vec<_> = match filter_chain.read().as_ref() {
         Some(c) => seals_owned
             .iter()
-            .filter(|s| s.chain == c)
+            .filter(|s| s.chain == *c)
             .cloned()
             .collect(),
         None => seals_owned.clone(),
@@ -43,14 +43,7 @@ pub fn Seals() -> Element {
                     class: if filter_chain.read().is_none() { "{btn_primary_class()}" } else { "{btn_secondary_class()}" },
                     "All"
                 }
-                for chain in [ChainId::new("bitcoin"), ChainId::new("ethereum"), ChainId::new("sui"), ChainId::new("aptos"), ChainId::new("solana")] {
-                    button {
-                        key: "seal-filter-{chain:?}",
-                        onclick: move |_| filter_chain.set(Some(chain)),
-                        class: if matches!(*filter_chain.read(), Some(c) if c == chain) { "{chain_badge_class(&chain)} cursor-pointer" } else { "{chain_badge_class(&chain)} opacity-50 cursor-pointer" },
-                        "{chain_icon_emoji(&chain)} {chain_name(&chain)}"
-                    }
-                }
+                {seal_filter_buttons(filter_chain)}
             }
 
             if filtered.is_empty() {
@@ -82,7 +75,7 @@ pub fn Seals() -> Element {
                                         td { class: "px-4 py-3", span { class: "{chain_badge_class(&seal.chain)}", "{chain_icon_emoji(&seal.chain)} {chain_name(&seal.chain)}" } }
                                         td { class: "px-4 py-3 font-mono text-xs",
                                             Link { to: Route::SanadJourney { id: seal.sanad_id.clone().unwrap_or_default() }, class: "text-purple-400 hover:text-purple-300",
-                                                "{truncate_address(seal.sanad_id.as_deref().unwrap_or("N/A"), 8)}"
+                                                "{seal_sanad_display(seal)}"
                                             }
                                         }
                                         td { class: "px-4 py-3 font-mono text-xs", "{seal.value}" }
@@ -168,14 +161,15 @@ pub fn Seals() -> Element {
                                             }
                                         }
                                     }
-                                    div { class: "space-y-2",
+                                   div { class: "space-y-2",
                                         p { class: "text-sm text-gray-400", "Protects Sanad" }
                                         p { class: "text-sm font-mono break-all",
-                                            Link { to: Route::SanadJourney { id: seal.sanad_id.clone().unwrap_or_default() }, class: "text-purple-400 hover:text-purple-300",
-                                                "{seal.sanad_id.as_deref().unwrap_or("N/A")}"
-                                            }
-                                        }
-                                    }
+                                           Link { to: Route::SanadJourney { id: seal.sanad_id.clone().unwrap_or_default() }, class: "text-purple-400 hover:text-purple-300",
+                                                 "{seal_sanad_display(&seal)}"
+
+                                             }
+                                         }
+                                     }
                                     if seal.created_at > 0 {
                                         div { class: "space-y-2",
                                             p { class: "text-sm text-gray-400", "Created" }
@@ -211,7 +205,7 @@ pub fn Seals() -> Element {
                                         p { class: "text-xs text-gray-500", "Seal Ref: {truncate_address(&seal.seal_ref, 20)}" }
                                         p { class: "text-xs text-gray-500", "ChainId: {chain_name(&seal.chain)}" }
                                         p { class: "text-xs text-gray-500", "Status: {seal.status}" }
-                                        p { class: "text-xs text-gray-500", "Sanad: {truncate_address(seal.sanad_id.as_deref().unwrap_or("N/A"), 12)}" }
+                                        p { class: "text-xs text-gray-500", "Sanad: {seal_sanad_display_long(&seal)}" }
                                     }
                                     div { class: "flex gap-3",
                                         button {
@@ -235,6 +229,36 @@ pub fn Seals() -> Element {
                     None => rsx! {}
                 }
             }
+        }
+    }
+}
+
+fn seal_sanad_display(seal: &SealRecord) -> String {
+    truncate_address(seal.sanad_id.as_deref().unwrap_or("N/A"), 8)
+}
+
+fn seal_sanad_display_long(seal: &SealRecord) -> String {
+    truncate_address(seal.sanad_id.as_deref().unwrap_or("N/A"), 12)
+}
+
+fn seal_filter_buttons(filter_chain: Signal<Option<ChainId>>) -> Element {
+    let chains = [ChainId::new("bitcoin"), ChainId::new("ethereum"), ChainId::new("sui"), ChainId::new("aptos"), ChainId::new("solana")];
+    let mut buttons = Vec::new();
+    for chain in chains {
+        let mut fc = filter_chain.clone();
+        let c = chain.clone();
+        buttons.push(rsx! {
+            button {
+                key: "seal-filter-{chain:?}",
+                onclick: move |_| fc.set(Some(c.clone())),
+                class: "{btn_secondary_class()}",
+                "{chain_icon_emoji(&chain)} {chain_name(&chain)}"
+            }
+        });
+    }
+    rsx! {
+        for btn in buttons {
+            {btn}
         }
     }
 }

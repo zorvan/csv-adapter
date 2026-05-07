@@ -91,11 +91,11 @@ pub fn TransferSanad() -> Element {
                     onclick: move |_| {
                         if let Some(sanad) = active_sanads_for_closure.get(*selected_sanad_index.read()) {
                             let sanad_id = sanad.id.clone();
-                            let chain = sanad.chain;
+                            let chain = sanad.chain.clone();
                             let to_addr = to_address.read().clone();
                             let mut wallet_ctx = wallet_ctx.clone();
                             let blockchain = crate::services::blockchain::BlockchainService::new(Default::default());
-                            let signer = wallet_ctx.get_signer_for_chain(chain).unwrap();
+                            let _signer = wallet_ctx.get_signer_for_chain(chain.clone()).unwrap();
 
                             spawn(async move {
                                 loading.set(true);
