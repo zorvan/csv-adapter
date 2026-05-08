@@ -89,6 +89,7 @@ impl ChainRuntime {
     /// Create a new ChainRuntime with pre-built adapters.
     ///
     /// This is used by the builder to auto-register adapters when chains are enabled.
+    #[allow(dead_code)]
     pub(crate) fn with_adapters(
         client: Arc<ClientRef>,
         adapters: HashMap<ChainId, Arc<dyn ChainBackend>>,
@@ -993,6 +994,7 @@ impl RuntimeManager {
 // Helper functions for encoding contract calls
 
 /// Encode an Ethereum contract call using ABI format
+#[cfg(test)]
 fn encode_eth_contract_call(_contract: &str, function: &str, args: Vec<Vec<u8>>) -> Vec<u8> {
     // Simple ABI encoding: function selector (4 bytes) + encoded arguments
     // In production, this would use the ethabi or alloy-sol-types crate
@@ -1015,60 +1017,6 @@ fn encode_eth_contract_call(_contract: &str, function: &str, args: Vec<Vec<u8>>)
         }
         data.extend_from_slice(&padded[..32.min(padded.len())]);
     }
-
-    data
-}
-
-/// Encode a Move contract call (Sui/Aptos) using BCS format
-fn encode_move_contract_call(
-    package: &str,
-    function: &str,
-    _args: Vec<Vec<u8>>,
-    sender: &str,
-    sequence_number: u64,
-) -> Vec<u8> {
-    // BCS-encoded transaction data
-    // This is a simplified representation - production would use the bcs crate
-    let mut data = Vec::new();
-
-    // Package ID (32 bytes)
-    let package_bytes = hex::decode(package.trim_start_matches("0x")).unwrap_or_default();
-    data.extend_from_slice(&package_bytes);
-
-    // Function name (length-prefixed string)
-    data.push(function.len() as u8);
-    data.extend_from_slice(function.as_bytes());
-
-    // Sender address (32 bytes)
-    let sender_bytes = hex::decode(sender.trim_start_matches("0x")).unwrap_or_default();
-    data.extend_from_slice(&sender_bytes);
-
-    // Sequence number (8 bytes, little-endian)
-    data.extend_from_slice(&sequence_number.to_le_bytes());
-
-    data
-}
-
-/// Encode a Solana contract call using instruction format
-fn encode_solana_contract_call(
-    program_id: &str,
-    function: &str,
-    _args: Vec<Vec<u8>>,
-    _from: &str,
-) -> Vec<u8> {
-    // Solana instruction encoding
-    // This is a simplified representation
-    let mut data = Vec::new();
-
-    // Program ID (32 bytes) - decode base58
-    let program_bytes = bs58::decode(program_id).into_vec().unwrap_or_default();
-    data.extend_from_slice(&program_bytes);
-
-    // Function discriminator (8 bytes - hash of function name)
-    let mut hasher = Sha256::new();
-    hasher.update(function.as_bytes());
-    let hash = hasher.finalize();
-    data.extend_from_slice(&hash[..8]);
 
     data
 }

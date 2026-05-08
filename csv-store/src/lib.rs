@@ -19,11 +19,12 @@ pub mod encrypted_storage;
 
 // Re-exports from state module
 pub use state::{
-    Chain, ChainConfig, ContractRecord, FaucetConfig, GasAccount, Network, ProofRecord,
+    ChainConfig, ChainId, ContractRecord, FaucetConfig, GasAccount, Network, ProofRecord,
     SanadStatus, SealRecord, StateStorage, StorageBackend, StorageError, TransactionRecord,
-    TransactionStatus, TransactionType, TransferRecord, TransferStatus, WalletAccount,
-    WalletConfig,
+    TransactionStatus, TransactionType, TransferRecord, TransferStatus, WalletAccount, WalletConfig,
 };
+#[allow(deprecated)]
+pub use state::Chain;
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "file-storage"))]
 pub use state::FileStorage;

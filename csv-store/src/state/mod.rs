@@ -5,7 +5,7 @@
 //!
 //! # Module Structure
 //!
-//! ```
+//! ```text
 //! state/
 //! ├── mod.rs       # Re-exports
 //! ├── core.rs      # ChainId, Network, ChainConfig
@@ -20,7 +20,7 @@
 //! This module stores **metadata and state only** - never private keys.
 //! Key storage is handled by `csv-adapter-keystore` via references:
 //!
-//! ```rust
+//! ```text
 //! // In StateStorage (this crate)
 //! wallet.accounts[0].keystore_ref = Some("550e8400-e29b-41d4-a716-446655440000");
 //!

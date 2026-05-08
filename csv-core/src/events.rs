@@ -82,6 +82,7 @@ pub struct CsvEvent {
 /// Event data variants
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[allow(missing_docs)]
 pub enum EventData {
     /// Sanad created event
     SanadCreated {

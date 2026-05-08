@@ -37,6 +37,7 @@ impl std::fmt::Display for Network {
 }
 
 // Re-export canonical domain types from csv-store (no duplicates).
+#[allow(unused_imports)]
 pub use csv_store::state::domain::{
     ContractRecord, ProofRecord, ProofStatus, SanadRecord as TrackedSanad, SanadStatus, SealRecord,
     SealStatus, TestResult, TestStatus, TransactionRecord, TransactionStatus, TransactionType,
@@ -44,6 +45,7 @@ pub use csv_store::state::domain::{
 };
 
 // Re-export wallet account types.
+#[allow(unused_imports)]
 pub use csv_store::state::wallet::{FaucetConfig, GasAccount, WalletAccount, WalletConfig};
 
 // Canonical chain identifier.

@@ -220,7 +220,9 @@ pub enum SanadOperation {
 /// Result of a sanad operation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SanadOperationResult {
+    /// Sanad ID affected by the operation.
     pub sanad_id: SanadId,
+    /// Operation that was applied to the sanad.
     pub operation: SanadOperation,
     /// Transaction hash
     pub transaction_hash: String,

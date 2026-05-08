@@ -14,9 +14,15 @@ pub mod metadata;
 pub mod storage;
 
 // Re-export commonly used types for convenience
+#[allow(unused_imports)]
 pub use account::ChainAccount;
+#[allow(unused_imports)]
 pub use context::WalletContext;
+#[allow(unused_imports)]
 pub use data::WalletData;
+#[allow(unused_imports)]
 pub use hd::{BitcoinNetwork, ExtendedWallet};
+#[allow(unused_imports)]
 pub use metadata::WalletMetadata;
+#[allow(unused_imports)]
 pub use storage::WalletStorage;

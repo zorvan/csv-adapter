@@ -11,7 +11,6 @@ The following is the **complete, unabridged conversion** of your gen\_unified\_p
 
 ## ---
 
-
 ### **Central Values — Non-Negotiable Operating Principles**
 
 These values are not aspirational. They are behavioral constraints. Every decision made by every agent on this project must be tested against them before execution.
@@ -87,27 +86,47 @@ Engineering agents must treat this section as a prerequisite checklist for Phase
 
 ### **4.1 Ethereum Transaction Encoding Is Broken**
 
+**CURRENT STATUS (May 2026 repo check): materially mitigated, still needs final test vector.**
+
 In csv-wallet/src/services/transaction\_builder.rs, Ethereum EIP-1559 transactions are encoded using raw byte concatenation with little-endian nonces and hardcoded zeros for chain ID. This is not RLP encoding.
 
-* **FIX REQUIRED:** Replace all manual byte serialization with alloy::rlp encoding. Add a regression test vector derived from a real mainnet transaction.
+* **APPLIED:** csv-wallet now uses RLP encoding for unsigned EIP-1559 transaction payloads; csv-ethereum uses Alloy EIP-2718 encoding for signed EIP-1559 publication.
+* **FIX STILL REQUIRED:** Add a regression test vector derived from a real mainnet or Sepolia transaction and make wallet chain ID configurable instead of defaulting Ethereum transfer construction to chain ID 1.
 
 ### **4.2 Balance Queries Fall Back to Zero on RPC Failure**
 
+**CURRENT STATUS (May 2026 repo check): fixed in csv-wallet, audit other chain adapters.**
+
 csv-wallet/src/services/chain\_api.rs silently returns '0' on any RPC balance query failure.
 
-* **FIX REQUIRED:** Return a typed error (not Ok("0")) on any RPC failure. UI must display a distinct 'balance unavailable' state.
+* **APPLIED:** csv-wallet/src/services/chain\_api.rs returns ChainApiError::BalanceUnavailable instead of Ok("0").
+* **FIX STILL REQUIRED:** UI must render a distinct "balance unavailable" state, and chain adapters must be audited for remaining Ok(0) / unwrap_or(0) RPC failure paths.
 
 ### **4.3 Seal Nullifiers in Unencrypted LocalStorage**
 
+**CURRENT STATUS (May 2026 repo check): still open; foundation exists but was not production-usable.**
+
 State is stored in cleartext, JavaScript-accessible, and XSS-vulnerable.
 
-* **FIX REQUIRED:** Migrate seal nullifier storage to AES-GCM encrypted IndexedDB with HMAC integrity verification.
+* **APPLIED:** csv-store has encrypted IndexedDB with AES-GCM and HMAC integrity, correct wasm randomness, object-store creation, encrypted key indexing, list/load-all/delete semantics, and a one-way csv-seals:* localStorage migration helper.
+* **APPLIED:** csv-wallet has an EncryptedSealManager surface for browser production paths: passphrase-derived key construction, legacy localStorage migration, encrypted create/get/update/list/delete operations.
+* **FIX STILL REQUIRED:** Move WalletContext persistence off UnifiedStorage.seals in localStorage, derive the encrypted seal key from the real wallet unlock/keystore flow, and switch seal pages to async encrypted reads after migration.
 
 ### **4.4 Tokio Nested Runtime Panic in Sui and Solana Backends**
 
+**CURRENT STATUS (May 2026 repo check): still open in Sui deploy path.**
+
 Trait methods construct a new Tokio single-thread runtime inside synchronous trait methods. This panics when called from within an existing Tokio async context.
 
-* **FIX REQUIRED:** Make all trait methods async (preferred) or use spawn\_blocking with a dedicated thread pool.
+* **FIX REQUIRED:** Make all trait methods async (preferred) or use spawn\_blocking with a dedicated thread pool. csv-sui/src/deploy.rs still constructs current-thread runtimes and calls block_on.
+
+### **4.4A Solana Build Identity Mismatch Blocks Workspace Gates**
+
+**CURRENT STATUS (May 2026 repo check): workspace-wide checks are blocked before warning evaluation.**
+
+csv-solana/build.rs invokes Anchor when available. Anchor reports a program ID mismatch between contracts/Anchor.toml key material and source code, then build.rs panics because no compiled program bytecode exists under contracts/target/deploy.
+
+* **FIX REQUIRED:** Decide the canonical Solana program ID, run anchor keys sync or update Anchor.toml/source consistently, then commit the expected build artifact strategy. Until this is fixed, cargo check --workspace --all-targets cannot be used as the project-wide warning gate.
 
 ### **4.5 MPC Batcher Is Implemented but Disconnected**
 
@@ -163,10 +182,18 @@ Delaying PQ to Phase 5 means Phase 1-4 proof bundles carry classical signatures 
 
 * **CI Audit:** Block merges for silent return Ok on RPC failure or manual byte encoding.  
 * **NotFake:** Newtype wrapper to prevent fake-hash bypasses.  
-* **Seal Storage:** Migrate to AES-GCM encrypted IndexedDB.  
+* **Seal Storage:** Finish migration to AES-GCM encrypted IndexedDB: wallet-context wiring, production key source, and no UnifiedStorage.seals plaintext persistence.  
 * **Async Fix:** Resolve Tokio nested-runtime panics in Sui/Solana.  
-* **Alloy RLP:** Fix Ethereum encoding with alloy::rlp.  
+* **Alloy RLP:** Complete with chain-ID configuration and a real transaction vector regression test.  
 * **PQ Default:** Set ML-DSA-65 as the default signature scheme.
+
+### **Phase 0.5 — Verification Gates (Before Phase 1)**
+
+* **WASM Storage Gate:** csv-store --no-default-features --features encrypted-storage must compile for wasm32-unknown-unknown; encrypted envelope unit tests must pass natively.
+* **Migration Gate:** Browser seal storage must prove csv-seals:* localStorage migration removes plaintext records and preserves encrypted list/get/delete behavior.
+* **Warning Gate:** cargo check -p csv-core, cargo check -p csv-store --features encrypted-storage, cargo check -p csv-sdk, and cargo check -p csv-wallet --no-default-features must complete with zero Rust warnings. Promote to cargo check --workspace --all-targets after the Solana build identity mismatch is resolved.
+* **Doctest Gate:** Documentation examples must be marked rust only when they compile; prose diagrams must use text fences.
+* **False-Fix Gate:** A blocker is not closed when a module exists; it closes only when production call sites use it and a regression test would fail without it.
 
 ### **Phase 1 — Core Architecture Consolidation (Weeks 3-6)**
 
@@ -245,6 +272,8 @@ The "WOW" Demo Moment: **Step 5 — csv proof verify \--strict-offline (Airplane
 | :---- | :---- | :---- | :---- |
 | Silent-success / fake-hash paths | 0 | Phase 0 | Engineering |
 | ML-DSA-65 as default signer | Yes | Phase 0 | Engineering |
+| Plaintext seal/nullifier localStorage call sites | 0 | Phase 0 | Engineering |
+| Phase 0 false-fix items without call-site tests | 0 | Phase 0.5 | Engineering |
 | First-workflow time (Developer) | \< 5 minutes | Phase 3 | Engineering |
 | TypeScript SDK published | Yes | Phase 3 | Marketing |
 | Atomic swap demonstrated | Yes | Phase 6 | Engineering |
@@ -275,3 +304,8 @@ The "WOW" Demo Moment: **Step 5 — csv proof verify \--strict-offline (Airplane
 
 * **Decision:** Engineering Wins.  
 * **Reason:** "Trustless" and "Bridge" are toxic terms in 2026\. "Client-verifiable" conveys the same facts with higher credibility.
+
+**D-6: False-Fix Closure Rule**
+
+* **Decision:** A critical blocker is not considered fixed when code exists behind an unused module, wrong cfg gate, or untested feature flag.
+* **Reason:** csv-store already contained an encrypted IndexedDB module, but seal services still used localStorage and the encrypted path had correctness bugs. Production call-site wiring plus regression tests are the closure criteria.

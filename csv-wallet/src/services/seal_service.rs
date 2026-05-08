@@ -9,6 +9,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::storage::{seal_storage, LocalStorageManager};
 
+#[cfg(target_arch = "wasm32")]
+use csv_store::{seal_nullifier_storage, EncryptedStorageError, EncryptedStorageManager};
+
 /// Seal status.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -116,6 +119,17 @@ impl From<crate::storage::StorageError> for SealError {
     }
 }
 
+#[cfg(target_arch = "wasm32")]
+impl From<EncryptedStorageError> for SealError {
+    fn from(err: EncryptedStorageError) -> Self {
+        match err {
+            EncryptedStorageError::NotFound(id) => SealError::NotFound(id),
+            EncryptedStorageError::SerializeError(e) => SealError::InvalidData(e),
+            e => SealError::Storage(e.to_string()),
+        }
+    }
+}
+
 /// Manager for seal records using LocalStorage.
 pub struct SealManager {
     storage: LocalStorageManager,
@@ -191,6 +205,84 @@ impl SealManager {
     /// Delete a seal by ID.
     pub fn delete_seal(&self, id: &str) -> Result<(), SealError> {
         self.storage.delete(id)?;
+        Ok(())
+    }
+}
+
+/// Encrypted seal manager for browser production paths.
+#[cfg(target_arch = "wasm32")]
+pub struct EncryptedSealManager {
+    storage: EncryptedStorageManager,
+}
+
+#[cfg(target_arch = "wasm32")]
+impl EncryptedSealManager {
+    /// Create a manager from a 32-byte key derived from wallet unlock material.
+    pub fn new(key: [u8; 32]) -> Self {
+        Self {
+            storage: seal_nullifier_storage(key),
+        }
+    }
+
+    /// Derive the storage key from a passphrase and salt.
+    pub async fn from_passphrase(passphrase: &str, salt: &[u8]) -> Result<Self, SealError> {
+        let key =
+            EncryptedStorageManager::derive_key_from_password(passphrase, salt).await?;
+        Ok(Self::new(key))
+    }
+
+    /// Migrate legacy `csv-seals:*` plaintext localStorage records into encrypted IndexedDB.
+    pub async fn migrate_legacy_local_storage(&self) -> Result<usize, SealError> {
+        Ok(self
+            .storage
+            .migrate_local_storage_prefix::<SealRecord>("csv-seals:")
+            .await?)
+    }
+
+    /// Create a new seal record and persist it encrypted.
+    pub async fn create_seal(&self, record: &SealRecord) -> Result<(), SealError> {
+        self.storage.save(&record.id, record).await?;
+        Ok(())
+    }
+
+    /// Get a seal record by its ID.
+    pub async fn get_seal(&self, id: &str) -> Result<SealRecord, SealError> {
+        Ok(self.storage.load::<SealRecord>(id).await?)
+    }
+
+    /// Update the status of an existing seal.
+    pub async fn update_status(
+        &self,
+        id: &str,
+        new_status: SealStatus,
+    ) -> Result<SealRecord, SealError> {
+        let mut record = self.get_seal(id).await?;
+        record.status = new_status;
+        self.storage.save(&record.id, &record).await?;
+        Ok(record)
+    }
+
+    /// List all encrypted seals, optionally filtered by status or chain.
+    pub async fn list_seals(&self, filter: StatusFilter) -> Result<Vec<SealRecord>, SealError> {
+        let mut records = self.storage.load_all::<SealRecord>().await?;
+        records.retain(|record| match &filter {
+            StatusFilter::All => true,
+            StatusFilter::ByStatus(status) => record.status == *status,
+            StatusFilter::ByChain(chain) => record.chain == *chain,
+        });
+        records.sort_by_key(|record| std::cmp::Reverse(record.created_at));
+        Ok(records)
+    }
+
+    /// Convenience method: get all seals for a specific chain.
+    pub async fn get_seals_by_chain(&self, chain: &str) -> Result<Vec<SealRecord>, SealError> {
+        self.list_seals(StatusFilter::ByChain(chain.to_string()))
+            .await
+    }
+
+    /// Delete a seal by ID.
+    pub async fn delete_seal(&self, id: &str) -> Result<(), SealError> {
+        self.storage.delete(id).await?;
         Ok(())
     }
 }

@@ -290,7 +290,7 @@ fn verify_zk_proof(input: &str) -> Result<(ZkSealProof, bool), String> {
             proof.is_structurally_valid()
         }
         csv_core::zk_proof::ProofSystem::Groth16 => {
-            #[cfg(feature = "csv-adapter-ethereum")]
+            #[cfg(feature = "csv-ethereum")]
             {
                 use csv_core::zk_proof::ZkVerifier;
                 use csv_ethereum::zk_verifier::EthereumGroth16Verifier;
@@ -298,7 +298,7 @@ fn verify_zk_proof(input: &str) -> Result<(ZkSealProof, bool), String> {
                 let verifier = EthereumGroth16Verifier::new();
                 verifier.verify(&proof).is_ok()
             }
-            #[cfg(not(feature = "csv-adapter-ethereum"))]
+            #[cfg(not(feature = "csv-ethereum"))]
             {
                 // Ethereum verifier not available in this build
                 // For now, accept mock proofs (structural validation only)

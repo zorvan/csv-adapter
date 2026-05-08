@@ -247,7 +247,7 @@ struct ZkResult {
 }
 
 /// Generate a Bitcoin SPV ZK proof using SP1
-#[cfg(feature = "csv-adapter-bitcoin")]
+#[cfg(feature = "csv-bitcoin")]
 fn generate_bitcoin_zk_proof(seal_ref: &str, sanad_id: &str) -> Result<ZkSealProof, String> {
     use csv_bitcoin::zk_prover::BitcoinSpvProver;
     use csv_core::hash::Hash;
@@ -280,7 +280,7 @@ fn generate_bitcoin_zk_proof(seal_ref: &str, sanad_id: &str) -> Result<ZkSealPro
 }
 
 /// Generate a Bitcoin SPV ZK proof using SP1 (stub for non-bitcoin builds)
-#[cfg(not(feature = "csv-adapter-bitcoin"))]
+#[cfg(not(feature = "csv-bitcoin"))]
 fn generate_bitcoin_zk_proof(_seal_ref: &str, _sanad_id: &str) -> Result<ZkSealProof, String> {
     Err("Bitcoin ZK proof generation not available in this build".to_string())
 }

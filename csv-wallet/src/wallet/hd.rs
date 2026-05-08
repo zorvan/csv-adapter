@@ -34,7 +34,6 @@ pub struct ExtendedWallet {
 }
 
 fn serialize_seed<S: serde::Serializer>(seed: &[u8; 64], s: S) -> Result<S::Ok, S::Error> {
-    use serde::ser::Error;
     let hex = hex::encode(seed);
     s.serialize_str(&hex)
 }
@@ -113,12 +112,11 @@ impl ExtendedWallet {
         address_index: u32,
     ) -> Result<String, String> {
         use bitcoin::{
-            bip32::{DerivationPath, ExtendedPrivKey},
+            bip32::{DerivationPath, Xpriv},
             key::TapTweak,
-            secp256k1::XOnlyPublicKey,
             Address, Network as BitcoinNetworkType,
         };
-        use secp256k1::{Secp256k1, SecretKey};
+        use secp256k1::Secp256k1;
 
         // Map our network to Bitcoin network type
         let btc_network = match self.bitcoin_network {
@@ -130,7 +128,7 @@ impl ExtendedWallet {
 
         // Create extended private key from seed
         let secp = Secp256k1::new();
-        let master_key = ExtendedPrivKey::new_master(btc_network, &self.seed)
+        let master_key = Xpriv::new_master(btc_network, &self.seed)
             .map_err(|e| format!("Failed to create master key: {}", e))?;
 
         // BIP-86 path: m/86'/coin_type'/account'/change/address_index
@@ -172,7 +170,7 @@ impl ExtendedWallet {
         use blake2::Blake2b;
         use ed25519_dalek::SigningKey;
         use secp256k1::{Secp256k1, SecretKey};
-        use sha2::{Digest, Sha256};
+        use sha2::Digest;
         use sha3::Keccak256;
 
         let mut addresses = Vec::new();

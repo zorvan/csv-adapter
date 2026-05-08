@@ -330,7 +330,7 @@ pub fn CrossChainTransfer() -> Element {
                         let now = js_sys::Date::now() as u64 / 1000;
 
                         // Get contract addresses from the contracts map
-                        let source_contract =
+                        let _source_contract =
                             contracts.get(&from).map(|c| c.contract_address.clone());
                         let dest_contract = contracts.get(&to).map(|c| c.contract_address.clone());
 

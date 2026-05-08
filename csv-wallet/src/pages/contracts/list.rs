@@ -4,7 +4,6 @@ use crate::context::{use_wallet_context, ContractRecord};
 use crate::pages::common::*;
 use crate::pages::contracts::ContractDetailModal;
 use crate::routes::Route;
-use csv_store::state::ChainId;
 use dioxus::prelude::*;
 
 #[component]
@@ -40,7 +39,6 @@ pub fn Contracts() -> Element {
                             let mut wallet_ctx_clone = wallet_ctx_for_discovery.clone();
                             wasm_bindgen_futures::spawn_local(async move {
                                 use crate::services::chain_api::ChainConfig;
-                                use csv_sdk::prelude::NetworkType;
                                 use crate::services::transaction_builder::discover_contracts;
 
                                 let mut total_found = 0;

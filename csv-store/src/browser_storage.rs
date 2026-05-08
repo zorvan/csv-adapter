@@ -236,7 +236,9 @@ pub use crate::state::{FaucetConfig, GasAccount};
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::{
+        ChainId, Network, SanadStatus, TransactionStatus, TransactionType, TransferStatus,
+    };
 
     // Note: These tests require a browser environment (wasm32-unknown-unknown target)
     // They won't run in standard cargo test without wasm-bindgen-test
@@ -273,9 +275,9 @@ mod tests {
 
     #[test]
     fn test_transaction_type_display() {
-        assert_eq!(TransactionType::Commit.to_string(), "commit");
-        assert_eq!(TransactionType::Transfer.to_string(), "transfer");
-        assert_eq!(TransactionType::Consume.to_string(), "consume");
+        assert_eq!(TransactionType::Transfer.to_string(), "Transfer");
+        assert_eq!(TransactionType::SealCreation.to_string(), "Seal Creation");
+        assert_eq!(TransactionType::SealConsumption.to_string(), "Seal Consumption");
     }
 
     #[test]
