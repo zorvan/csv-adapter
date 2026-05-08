@@ -14,6 +14,9 @@ pub mod state;
 #[cfg(feature = "browser-storage")]
 pub mod browser_storage;
 
+#[cfg(feature = "encrypted-storage")]
+pub mod encrypted_storage;
+
 // Re-exports from state module
 pub use state::{
     Chain, ChainConfig, ContractRecord, FaucetConfig, GasAccount, Network, ProofRecord,
@@ -29,6 +32,11 @@ pub use state::FileStorage;
 pub use browser_storage::{
     asset_storage, seal_storage, wallet_storage, BrowserStateStorage, BrowserStorageError,
     LocalStorageManager, UNIFIED_STORAGE_KEY, WALLET_MNEMONIC_KEY,
+};
+
+#[cfg(feature = "encrypted-storage")]
+pub use encrypted_storage::{
+    seal_nullifier_storage, EncryptedStorageError, EncryptedStorageManager,
 };
 
 /// SQLite-backed seal and anchor store

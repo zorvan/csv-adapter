@@ -18,7 +18,7 @@ path = "src/main.rs"
 # Core CSV Protocol types
 csv-sdk = { path = "../csv-sdk", default-features = false, features = ["in-memory", "wallet", "tokio"] }
 csv-core = { path = "../csv-core" }
-csv-store = { path = "../csv-store", default-features = false, features = ["browser-storage"] }
+csv-store = { path = "../csv-store", default-features = false, features = ["browser-storage", "encrypted-storage"] }
 csv-keys = { path = "../csv-keys", features = ["wasm"] }
 csv-solana = { path = "../csv-solana", optional = true }
 csv-bitcoin = { path = "../csv-bitcoin", optional = true }
