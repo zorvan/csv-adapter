@@ -5,16 +5,40 @@
 //! - Bitcoin/Ethereum: ECDSA over secp256k1
 //! - Sui/Aptos: Ed25519
 //! - Celestia: ECDSA over secp256k1 (Tendermint style)
+//!
+//! ## Post-Quantum Requirement (Decision D-1)
+//!
+//! ML-DSA-65 (FIPS 204, Module-Lattice-Based Digital Signature Algorithm)
+//! is the required default signature scheme from genesis. Classical signatures
+//! (Secp256k1, Ed25519) are forgeable by 2030+ quantum adversaries.
+//! Long-lived proof bundles must use ML-DSA-65.
 
 use crate::error::{ProtocolError, Result};
 
 /// Signature scheme used by a chain
+///
+/// ## Post-Quantum Default (Decision D-1)
+///
+/// ML-DSA-65 is the required default. All new proof bundles should use it.
+/// Ed25519 and Secp256k1 are retained for legacy chain compatibility.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum SignatureScheme {
-    /// ECDSA over secp256k1 (Bitcoin, Ethereum, Celestia)
+    /// ECDSA over secp256k1 (Bitcoin, Ethereum, Celestia) — LEGACY, not PQ
     Secp256k1,
-    /// Ed25519 (Sui, Aptos)
+    /// Ed25519 (Sui, Aptos) — LEGACY, not PQ
     Ed25519,
+    /// ML-DSA-65 (FIPS 204, Module-Lattice-Based Digital Signature)
+    /// Post-quantum secure. Required default for all long-lived proof bundles.
+    /// 65-byte security level, public key ~1312 bytes, signature ~2420 bytes.
+    MlDsa65,
+}
+
+impl Default for SignatureScheme {
+    /// Post-quantum default from genesis (Decision D-1).
+    /// All new proof bundles should use ML-DSA-65.
+    fn default() -> Self {
+        SignatureScheme::MlDsa65
+    }
 }
 
 /// A signature with its associated public key
@@ -46,6 +70,13 @@ impl Signature {
             }
             SignatureScheme::Ed25519 => {
                 verify_ed25519(&self.signature, &self.public_key, &self.message)
+            }
+            SignatureScheme::MlDsa65 => {
+                // ML-DSA-65 verification is not yet implemented.
+                // This is a placeholder until the ml-dsa crate is integrated (Phase 5).
+                Err(ProtocolError::SignatureVerificationFailed(
+                    "ML-DSA-65 verification not yet implemented - Phase 5 engineering task".to_string()
+                ))
             }
         }
     }

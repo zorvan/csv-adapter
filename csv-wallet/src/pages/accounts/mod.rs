@@ -50,6 +50,10 @@ pub fn Dashboard() -> Element {
                         Ok(b) => b.parse::<u64>().unwrap_or(0),
                         Err(_) => 0,
                     };
+                    // IMPORTANT: If balance_raw is 0 AND there's an error, we keep the error so
+                    // the UI can render "balance unavailable" distinctly from "zero balance".
+                    // The ChainApi::get_balance returns BalanceUnavailable error instead of Ok("0").
+                    // See dashboard balance rendering logic below.
                     let error = balance_result.as_ref().err().map(|e| e.to_string());
 
                     let balance_data = AccountBalance {
@@ -203,6 +207,11 @@ fn AccountRow(
                           } else if balance_data.balance_raw > 0 {
                             p { class: "text-xs text-green-400 font-medium",
                                 "{format_balance_display(balance_data.balance_raw, chain.clone())}"
+                            }
+                        } else if balance_data.error.is_some() {
+                            // Balance query failed - show distinct "unavailable" state, not "zero"
+                            p { class: "text-xs text-red-400 font-medium",
+                                "Balance unavailable"
                             }
                         } else {
                             p { class: "text-xs text-yellow-400 font-medium",

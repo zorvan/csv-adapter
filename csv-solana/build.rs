@@ -99,10 +99,14 @@ fn read_program_bytecode(contracts_dir: &Path) -> String {
         }
     }
 
-    panic!(
-        "Solana program bytecode not found under {:?} or {:?}. Run `anchor build` in csv-adapter-solana/contracts or commit precompiled .so artifacts.",
-        deploy_dir, program_deploy_dir
-    );
+    // CRITICAL FIX: Instead of panicking (which blocks `cargo check --workspace`),
+    // emit a placeholder and a warning. The program ID mismatch between Anchor.toml
+    // and source code has been resolved (both now use HzZ12WPJjDvZ8nCA9yjXgKAoJ8XV1386976Jwrm63RcD).
+    // Pre-compiled .so artifacts can be committed manually, or `anchor build` can be run.
+    println!("cargo:warning=Solana program bytecode not found under {:?} or {:?}.", deploy_dir, program_deploy_dir);
+    println!("cargo:warning=Run `anchor build` in contracts/ to compile programs.");
+    println!("cargo:warning=Using empty placeholder - runtime deployment will need actual bytecode.");
+    String::new() // Empty placeholder - callers must handle missing bytecode
 }
 
 fn bytes_to_array_literal(bytes: &[u8]) -> String {

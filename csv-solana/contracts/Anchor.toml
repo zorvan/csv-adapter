@@ -9,13 +9,13 @@ skip-lint = false
 csv_seal = "HzZ12WPJjDvZ8nCA9yjXgKAoJ8XV1386976Jwrm63RcD"
 
 [programs.localnet]
-csv_seal = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+csv_seal = "HzZ12WPJjDvZ8nCA9yjXgKAoJ8XV1386976Jwrm63RcD"
 
 [programs.mainnet]
-csv_seal = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+csv_seal = "HzZ12WPJjDvZ8nCA9yjXgKAoJ8XV1386976Jwrm63RcD"
 
 [programs.testnet]
-csv_seal = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+csv_seal = "HzZ12WPJjDvZ8nCA9yjXgKAoJ8XV1386976Jwrm63RcD"
 
 [provider]
 cluster = "devnet"

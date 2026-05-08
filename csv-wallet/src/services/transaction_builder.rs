@@ -50,6 +50,7 @@ pub fn build_transaction(
 /// Build Ethereum transaction data (EIP-1559 format)
 ///
 /// CRITICAL FIX: Uses proper RLP encoding via rlp crate instead of broken manual byte concatenation.
+/// CRITICAL FIX: Chain ID is now configurable via ETH_CHAIN_ID env var instead of hardcoded to 1.
 /// EIP-1559 transactions are encoded as: 0x02 || rlp([chain_id, nonce, max_priority_fee_per_gas, max_fee_per_gas, gas_limit, to, value, data, access_list, v, r, s])
 fn build_eth_transaction_data(
     to: &str,
@@ -78,7 +79,12 @@ fn build_eth_transaction_data(
     let to_addr = H160::from_slice(&to_bytes);
 
     // Convert values to U256 (big-endian for RLP)
-    let chain_id = U256::from(1u64); // Mainnet default
+    // CRITICAL FIX: Chain ID is configurable to support testnets (Sepolia=11155111, Holesky=17000, etc.)
+    let chain_id_value: u64 = std::env::var("ETH_CHAIN_ID")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(1); // Default to mainnet
+    let chain_id = U256::from(chain_id_value);
     let nonce_u256 = U256::from(nonce);
     let max_priority_fee = U256::from(gas_price);
     let max_fee_per_gas = U256::from(gas_price);

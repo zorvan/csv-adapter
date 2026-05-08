@@ -284,11 +284,12 @@ impl Sanad {
         out.extend_from_slice(&self.owner.proof);
         out.extend_from_slice(&(self.owner.owner.len() as u32).to_le_bytes());
         out.extend_from_slice(&self.owner.owner);
-        // Signature scheme (1 byte: 0=none, 1=secp256k1, 2=ed25519)
+        // Signature scheme (1 byte: 0=none, 1=secp256k1, 2=ed25519, 3=ML-DSA-65)
         out.push(match self.owner.scheme {
             None => 0,
             Some(crate::signature::SignatureScheme::Secp256k1) => 1,
             Some(crate::signature::SignatureScheme::Ed25519) => 2,
+            Some(crate::signature::SignatureScheme::MlDsa65) => 3,
         });
         // Salt
         out.extend_from_slice(&(self.salt.len() as u32).to_le_bytes());
@@ -367,7 +368,7 @@ impl Sanad {
         let owner_data = bytes[pos..pos + owner_len].to_vec();
         pos += owner_len;
 
-        // Read signature scheme (1 byte: 0=none, 1=secp256k1, 2=ed25519)
+        // Read signature scheme (1 byte: 0=none, 1=secp256k1, 2=ed25519, 3=ML-DSA-65)
         if pos >= bytes.len() {
             return Err(SanadError::InvalidEncoding);
         }
@@ -375,6 +376,7 @@ impl Sanad {
             0 => None,
             1 => Some(crate::signature::SignatureScheme::Secp256k1),
             2 => Some(crate::signature::SignatureScheme::Ed25519),
+            3 => Some(crate::signature::SignatureScheme::MlDsa65),
             _ => return Err(SanadError::InvalidEncoding),
         };
         pos += 1;

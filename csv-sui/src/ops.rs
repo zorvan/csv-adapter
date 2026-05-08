@@ -677,16 +677,11 @@ impl ChainProofProvider for SuiBackend {
         // Verify checkpoint exists
         let rpc = self.rpc.clone_boxed();
         let position = proof.position;
-        let result = std::thread::spawn(move || {
-            let rt = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .unwrap();
-            rt.block_on(rpc.get_checkpoint(position))
-        })
-        .join();
+        let result = spawn_blocking_async(async move {
+            rpc.get_checkpoint(position).await
+        });
         match result {
-            Ok(Ok(Some(cp))) => Ok(cp.digest == digest),
+            Ok(Some(cp)) => Ok(cp.digest == digest),
             _ => Ok(false),
         }
     }
@@ -746,23 +741,13 @@ impl ChainProofProvider for SuiBackend {
 
         // Verify checkpoint is old enough for finality
         let rpc = self.rpc.clone_boxed();
-        let result = std::thread::spawn(move || {
-            let rt = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .unwrap();
-            rt.block_on(rpc.get_latest_checkpoint_sequence_number())
-        })
-        .join();
+        let result = spawn_blocking_async(async move {
+            rpc.get_latest_checkpoint_sequence_number().await
+        });
         let latest = match result {
-            Ok(v) => v.map_err(|e| {
-                ChainOpError::RpcError(format!("Failed to get latest checkpoint: {}", e))
-            })?,
+            Ok(v) => v,
             Err(e) => {
-                return Err(ChainOpError::RpcError(format!(
-                    "Blocking task failed: {:?}",
-                    e
-                )))
+                return Err(ChainOpError::RpcError(format!("Failed to get latest checkpoint: {}", e)));
             }
         };
 

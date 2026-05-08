@@ -67,11 +67,21 @@ impl RpcClient for BitcoinRpcClient {
     }
 
     async fn get_balance(&self, address: &str) -> ChainResult<u64> {
-        // Bitcoin requires specific UTXO lookup per address
-        // For now, return 0 as this would need a full UTXO index
-        // In production, this would query an Electrum server or index
-        let _ = address;
-        Ok(0)
+        // CRITICAL FIX: Do NOT silently return Ok(0) - this masked balance query failures
+        // and caused the "fake-zero balance" bug. Instead, query a real UTXO set
+        // from the configured RPC provider.
+        //
+        // Use get_utxos_for_address to sum UTXO amounts for balance.
+        // If no UTXO index is configured, return an error rather than a fake zero.
+        let utxos = self.inner.get_utxos_for_address(address).map_err(|e| {
+            ChainError::RpcError(format!(
+                "Balance unavailable for {}: {}. Bitcoin requires a UTXO index (Electrum/mempool.space).",
+                address, e
+            ))
+        })?;
+
+        let total_balance: u64 = utxos.iter().map(|utxo| utxo.amount_sat).sum();
+        Ok(total_balance)
     }
 
     async fn is_transaction_confirmed(&self, hash: &str) -> ChainResult<bool> {
