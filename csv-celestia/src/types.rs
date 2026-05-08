@@ -159,9 +159,9 @@ impl CelestiaAnchor {
             .unwrap_or_default();
 
         csv_core::seal::CommitAnchor::new(
-            anchor_id,
+            anchor_id.clone(),
             self.height,
-            metadata,
+            metadata.clone(),
         )
         .unwrap_or_else(|_| csv_core::seal::CommitAnchor::new_unchecked(
             anchor_id,
@@ -243,8 +243,8 @@ impl CelestiaFinalityProof {
 
     /// Add quorum signatures and mark as finalized
     pub fn with_quorum(mut self, signatures: Vec<Vec<u8>>) -> Self {
-        self.quorum_signatures = signatures;
         self.has_finality = !signatures.is_empty();
+        self.quorum_signatures = signatures;
         self
     }
 
@@ -274,7 +274,7 @@ impl CelestiaFinalityProof {
             .unwrap_or_default();
 
         csv_core::proof::FinalityProof::new(
-            finality_data,
+            finality_data.clone(),
             self.quorum_signatures.len() as u64,
             true, // Tendermint has deterministic finality
         )

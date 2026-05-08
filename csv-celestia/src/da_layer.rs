@@ -197,7 +197,8 @@ impl MockCelestiaRpc {
     /// Create new mock
     pub fn new() -> Self {
         Self {
-            storage: std::sync::Arc::new(tokio::sync::RwLock::new(std::collections::HashMap::new())
+            storage: std::sync::Arc::new(tokio::sync::RwLock::new(std::collections::HashMap::new())),
+            current_height: std::sync::Arc::new(tokio::sync::RwLock::new(0)),
         }
     }
 

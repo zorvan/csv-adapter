@@ -543,10 +543,10 @@ mod tests {
             ChainId::new("solana"),
         ] {
             let id_str = chain.to_string();
-            let parsed: Result<Chain, _> = id_str.parse();
+            let parsed: Result<ChainId, _> = id_str.parse();
             assert_eq!(parsed, Ok(chain));
         }
-        assert!("unknown".parse::<Chain>().is_err());
+        assert!("unknown".parse::<ChainId>().is_err());
     }
 
     #[test]

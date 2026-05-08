@@ -58,7 +58,7 @@ where
         Self {
             da_layer,
             namespace,
-            consumed_seals: std::sync::Arc::new(tokio::sync::RwLock::new(std::collections::HashSet::new())
+            consumed_seals: std::sync::Arc::new(tokio::sync::RwLock::new(std::collections::HashSet::new()))
         }
     }
 
@@ -199,7 +199,11 @@ where
         hasher.update(&segment_bytes);
 
         // Include signature scheme
-        hasher.update(scheme.as_bytes());
+        let scheme_bytes: u8 = match scheme {
+            csv_core::signature::SignatureScheme::Secp256k1 => 1,
+            csv_core::signature::SignatureScheme::Ed25519 => 2,
+        };
+        hasher.update(&[scheme_bytes]);
 
         // Include namespace for domain separation
         hasher.update(self.namespace.as_bytes());
@@ -310,7 +314,7 @@ where
     /// Build the protocol
     pub fn build(self) -> Result<CelestiaSealProtocol<C, I>> {
         let da_layer = self.da_layer
-            .ok_or_else(|| CelestiaError::InvalidInput(
+            .ok_or_else(|| CelestiaError::InternalError(
                 "DA layer required".to_string()
             ))?;
 

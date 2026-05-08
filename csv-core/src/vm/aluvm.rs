@@ -547,7 +547,7 @@ mod tests {
     fn test_execute_transition_integration() {
         let vm = AluVmAdapter::default_();
         let inputs = make_inputs();
-        let outputs = super::execute_transition(&vm, &[0x00], inputs, &[]).unwrap();
+        let outputs = vm.execute(&[0x00], inputs, &[]).unwrap();
         assert_eq!(outputs.owned_outputs.len(), 0);
     }
 }

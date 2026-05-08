@@ -244,7 +244,7 @@ mod tests {
 
         let sanad = Sanad::new(
             Hash::new([0xCD; 32]),
-            crate::sanad::SanadOwnershipProof {
+            crate::sanad::OwnershipProof {
                 proof: vec![0x01],
                 owner: vec![0xFF; 32],
                 scheme: None,

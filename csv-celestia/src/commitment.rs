@@ -96,7 +96,7 @@ impl From<BlobCommitment> for [u8; 32] {
 ///
 /// Contains the necessary data to verify that a blob was included
 /// at a specific height in a specific namespace.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct CommitmentProof {
     /// Block height where blob was included
     pub height: u64,
@@ -197,7 +197,7 @@ impl CommitmentProof {
 }
 
 /// Data availability sampling result
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AvailabilityProof {
     /// Block height
     pub height: u64,

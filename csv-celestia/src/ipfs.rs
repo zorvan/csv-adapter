@@ -355,7 +355,7 @@ impl MockIpfsClient {
     /// Create a new mock client
     pub fn new() -> Self {
         Self {
-            storage: std::sync::Arc::new(tokio::sync::RwLock::new(std::collections::HashMap::new())
+            storage: std::sync::Arc::new(tokio::sync::RwLock::new(std::collections::HashMap::new()))
         }
     }
 }

@@ -101,6 +101,7 @@ impl DeterministicVM for PassthroughVM {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::state::{GlobalState, Metadata, OwnedState};
     use crate::Hash;
 
     fn test_inputs() -> VMInputs {

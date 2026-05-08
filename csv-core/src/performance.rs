@@ -100,6 +100,7 @@ impl ProofCache {
 struct CachedProof {
     proof: ProofBundle,
     /// Last access time (for future LRU implementation)
+    #[allow(dead_code)]
     accessed_at: Instant,
     expires_at: Instant,
 }
