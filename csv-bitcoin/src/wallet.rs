@@ -492,7 +492,8 @@ mod tests {
     fn test_wallet_key_derivation() {
         let w = SealWallet::generate_random(Network::Signet);
         let k = w.derive_key(&Bip86Path::external(0, 0)).unwrap();
-        assert_eq!(k.address.network, Network::Signet);
+        // Signet taproot addresses start with "tb1p" (testnet bech32m)
+        assert!(k.address.to_string().starts_with("tb1p"));
         assert!(k.address.script_pubkey().is_witness_program());
     }
     #[test]

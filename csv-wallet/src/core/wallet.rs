@@ -5,6 +5,7 @@
 use csv_core::ChainId;
 use bip32::Mnemonic;
 use serde::{Serialize, Deserialize};
+use rand::Rng;
 use rand::RngCore;
 use rand::rngs::OsRng;
 
@@ -46,12 +47,32 @@ pub struct ExtendedWallet {
     /// Mnemonic phrase
     pub mnemonic: String,
     /// Seed bytes
+    #[serde(
+        serialize_with = "serialize_seed",
+        deserialize_with = "deserialize_seed"
+    )]
     pub seed: [u8; 64],
     /// Whether the wallet is locked (encrypted)
     pub is_locked: bool,
     /// Bitcoin network to use
     #[serde(default)]
     pub bitcoin_network: BitcoinNetwork,
+}
+
+fn serialize_seed<S: serde::Serializer>(seed: &[u8; 64], serializer: S) -> Result<S::Ok, S::Error> {
+    let hex = hex::encode(seed);
+    serializer.serialize_str(&hex)
+}
+
+fn deserialize_seed<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<[u8; 64], D::Error> {
+    let hex: String = serde::Deserialize::deserialize(deserializer)?;
+    let bytes = hex::decode(&hex).map_err(serde::de::Error::custom)?;
+    if bytes.len() != 64 {
+        return Err(serde::de::Error::custom("Seed must be 64 bytes (128 hex chars)"));
+    }
+    let mut arr = [0u8; 64];
+    arr.copy_from_slice(&bytes);
+    Ok(arr)
 }
 
 impl ExtendedWallet {
@@ -113,9 +134,9 @@ impl ExtendedWallet {
 
     /// Derive a proper Taproot (P2TR) address using BIP-86
     fn derive_taproot_address(&self, account_index: u32, address_index: u32) -> Result<String, String> {
-        use secp256k1::{Secp256k1, KeyPair, XOnlyPublicKey};
+        use secp256k1::{Secp256k1, Keypair, XOnlyPublicKey};
         use bitcoin::{
-            bip32::{DerivationPath, ExtendedPrivKey},
+            bip32::{DerivationPath, Xpriv},
             Address, Network as BitcoinNetworkType,
             key::TapTweak,
         };
@@ -130,7 +151,7 @@ impl ExtendedWallet {
 
         // Create extended private key from seed
         let secp = Secp256k1::new();
-        let master_key = ExtendedPrivKey::new_master(btc_network, &self.seed)
+        let master_key = Xpriv::new_master(btc_network, &self.seed)
             .map_err(|e| format!("Failed to create master key: {}", e))?;
 
         // BIP-86 path: m/86'/coin_type'/account'/change/address_index
@@ -155,7 +176,7 @@ impl ExtendedWallet {
 
         // Get the secret key
         let secret_key = child_key.private_key;
-        let key_pair = KeyPair::from_secret_key(&secp, &secret_key);
+        let key_pair = Keypair::from_secret_key(&secp, &secret_key);
         let (xonly, _parity) = XOnlyPublicKey::from_keypair(&key_pair);
 
         // Apply taproot tweak
@@ -171,7 +192,7 @@ impl ExtendedWallet {
     pub fn all_addresses(&self) -> Vec<(ChainId, String)> {
         use secp256k1::{Secp256k1, SecretKey};
         use ed25519_dalek::SigningKey;
-        use sha2::{Sha256, Digest};
+        use sha2::Digest;
         use sha3::Keccak256;
         use blake2::Blake2b;
 
@@ -198,7 +219,7 @@ impl ExtendedWallet {
             let pubkey_bytes = public_key.serialize_uncompressed();
             let mut hasher = Keccak256::new();
             hasher.update(&pubkey_bytes[1..]);
-            let hash = hasher.finalize();
+            let hash: [u8; 32] = hasher.finalize().into();
             let mut address = [0u8; 20];
             address.copy_from_slice(&hash[12..]);
             addresses.push((ChainId::new("ethereum"), format!("0x{}", hex::encode(address))));
@@ -212,7 +233,7 @@ impl ExtendedWallet {
         let mut hasher = Blake2b::new();
         hasher.update(&[0x00]);
         hasher.update(sui_verifying.as_bytes());
-        let hash = hasher.finalize();
+        let hash: [u8; 32] = hasher.finalize().into();
         addresses.push((ChainId::new("sui"), format!("0x{}", hex::encode(&hash[..]))));
 
         // Aptos
@@ -223,7 +244,7 @@ impl ExtendedWallet {
         let mut hasher = sha3::Sha3_256::new();
         hasher.update(aptos_verifying.as_bytes());
         hasher.update(&[0x00]);
-        let hash = hasher.finalize();
+        let hash: [u8; 32] = hasher.finalize().into();
         addresses.push((ChainId::new("aptos"), format!("0x{}", hex::encode(&hash[..]))));
 
         // Solana

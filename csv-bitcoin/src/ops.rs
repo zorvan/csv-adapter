@@ -779,7 +779,7 @@ impl BitcoinChainSanadOps {
         _owner_key: &[u8],
     ) -> Result<bitcoin::Transaction, String> {
         let lock_outpoint = bitcoin::OutPoint {
-            txid: bitcoin::Txid::from_byte_array(lock_seal.txid),
+            txid: hex::encode(lock_seal.txid).parse::<bitcoin::Txid>().expect("valid txid"),
             vout: lock_seal.vout,
         };
 
@@ -856,7 +856,7 @@ impl BitcoinChainSanadOps {
         _owner_key: &[u8],
     ) -> Result<bitcoin::Transaction, String> {
         let seal_outpoint = bitcoin::OutPoint {
-            txid: bitcoin::Txid::from_byte_array(seal.txid),
+            txid: hex::encode(seal.txid).parse::<bitcoin::Txid>().expect("valid txid"),
             vout: seal.vout,
         };
         let op_return_script = bitcoin::ScriptBuf::new();
@@ -978,7 +978,7 @@ impl ChainSanadOps for BitcoinChainSanadOps {
 
         // Create the lock UTXO outpoint reference
         let lock_outpoint = bitcoin::OutPoint {
-            txid: bitcoin::Txid::from_byte_array(seal.txid),
+            txid: hex::encode(seal.txid).parse::<bitcoin::Txid>().expect("valid txid"),
             vout: seal.vout,
         };
 
@@ -1166,7 +1166,7 @@ impl ChainSanadOps for BitcoinChainSanadOps {
 
         // Check if the seal UTXO is still unspent via RPC
         let seal_outpoint = bitcoin::OutPoint {
-            txid: bitcoin::Txid::from_byte_array(seal.txid),
+            txid: hex::encode(seal.txid).parse::<bitcoin::Txid>().expect("valid txid"),
             vout: seal.vout,
         };
 

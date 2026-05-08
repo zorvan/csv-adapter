@@ -409,17 +409,30 @@ mod tests {
         assert_eq!(caps.account_model, AccountModel::Account);
     }
 
-    #[test]
-    fn test_create_ethereum_adapter() {
+    #[tokio::test]
+    async fn test_create_ethereum_adapter() {
         let config = ChainConfig {
             chain_id: "ethereum".to_string(),
-            network: "sepolia".to_string(),
-            rpc_url: None,
-            confirmation_blocks: Some(12),
-            ..Default::default()
+            chain_name: "Ethereum".to_string(),
+            default_network: "sepolia".to_string(),
+            rpc_endpoints: vec!["https://ethereum-sepolia-rpc.publicnode.com".to_string()],
+            program_id: None,
+            block_explorer_urls: vec![],
+            start_block: 0,
+            capabilities: ChainCapabilities {
+                supports_nfts: true,
+                supports_smart_contracts: true,
+                account_model: AccountModel::Account,
+                confirmation_blocks: 12,
+                max_batch_size: 100,
+                supported_networks: vec!["mainnet".to_string(), "sepolia".to_string()],
+                supports_cross_chain: false,
+                custom_features: std::collections::HashMap::new(),
+            },
+            custom_settings: std::collections::HashMap::new(),
         };
 
-        let adapter = create_ethereum_adapter(&config);
+        let adapter = create_ethereum_adapter(&config).await;
         assert!(adapter.is_ok());
     }
 }

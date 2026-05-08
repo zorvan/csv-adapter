@@ -54,7 +54,7 @@ where
         rt.block_on(future)
     })
     .join()
-    .map_err(|e| SuiError::RpcError("Thread panicked".to_string()))
+    .map_err(|_| SuiError::RpcError("Thread panicked".to_string()))
     .and_then(|r| r)
 }
 
@@ -435,7 +435,7 @@ impl SuiSealProtocol {
             .run_with_rpc(|rpc| async move {
                 let sender = rpc.sender_address().await?;
                 let gas_objects = rpc.get_gas_objects(sender).await?;
-                Ok::<_, Box<dyn std::error::Error + Send + Sync>>((sender, gas_objects))
+                Ok((sender, gas_objects))
             })
             .map_err(|e| format!("Failed to get gas data: {}", e))?;
 
@@ -557,7 +557,7 @@ impl SealProtocol for SuiSealProtocol {
                         .ok_or_else(|| {
                             SuiError::RpcError("Transaction not found after submission".to_string())
                         })?;
-                    Ok::<_, Box<dyn std::error::Error + Send + Sync>>((tx_digest, block))
+                    Ok((tx_digest, block))
                 })
                 .map_err(|e| ProtocolError::PublishFailed(format!("Transaction failed: {}", e)))?;
 

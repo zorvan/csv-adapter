@@ -297,10 +297,23 @@ mod tests {
     fn test_create_bitcoin_adapter() {
         let config = ChainConfig {
             chain_id: "bitcoin".to_string(),
-            network: "signet".to_string(),
-            rpc_url: None,
-            confirmation_blocks: Some(6),
-            ..Default::default()
+            chain_name: "Bitcoin".to_string(),
+            default_network: "signet".to_string(),
+            rpc_endpoints: vec!["https://blockstream.info/testnet/api".to_string()],
+            program_id: None,
+            block_explorer_urls: vec![],
+            start_block: 0,
+            capabilities: ChainCapabilities {
+                supports_nfts: false,
+                supports_smart_contracts: false,
+                account_model: AccountModel::UTXO,
+                confirmation_blocks: 6,
+                max_batch_size: 100,
+                supported_networks: vec!["mainnet".to_string(), "signet".to_string()],
+                supports_cross_chain: false,
+                custom_features: std::collections::HashMap::new(),
+            },
+            custom_settings: std::collections::HashMap::new(),
         };
 
         let adapter = create_bitcoin_adapter(&config);

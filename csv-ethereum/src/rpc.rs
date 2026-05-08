@@ -438,7 +438,7 @@ mod tests {
     async fn test_ethereum_rpc_receipt() {
         let rpc = MockEthereumRpc::new(1000);
         let tx_hash = [3u8; 32];
-        let receipt = TransactionReceipt {
+       let receipt = TransactionReceipt {
             tx_hash,
             block_number: 500,
             block_hash: [4u8; 32],
@@ -450,13 +450,16 @@ mod tests {
                 log_index: 0,
             }],
             status: 1,
+            gas_used: 21000,
+            success: true,
         };
 
         rpc.add_receipt(tx_hash, receipt.clone());
 
         let fetched = rpc.get_transaction_receipt(tx_hash).await.unwrap();
-        assert_eq!(fetched.logs.len(), 1);
-        assert_eq!(fetched.status, 1);
+        let receipt = fetched.unwrap();
+        assert_eq!(receipt.logs.len(), 1);
+        assert_eq!(receipt.status, 1);
     }
 
     #[tokio::test]

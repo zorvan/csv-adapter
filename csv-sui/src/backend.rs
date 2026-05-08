@@ -375,21 +375,23 @@ impl ChainDriver for SuiSealProtocol {
 
     async fn create_client(&self, config: &ChainConfig) -> ChainResult<Box<dyn RpcClient>> {
         // Create Sui RPC client from chain configuration
-        let rpc_url = config
+        let rpc_endpoint = config
             .rpc_endpoints
             .first()
-            .ok_or_else(|| ChainError::InvalidInput("RPC endpoint required".to_string()))?;
+            .ok_or_else(|| ChainError::InvalidInput("RPC endpoint required".to_string()))?
+            .clone();
 
         // Create the RPC client based on configuration
         #[cfg(feature = "rpc")]
         {
             use crate::node::SuiNode as RealSuiRpcClient;
-            let rpc = RealSuiRpcClient::new(rpc_url);
+            let rpc = RealSuiRpcClient::new(&rpc_endpoint);
             Ok(Box::new(SuiRpcClient::new(Box::new(rpc))))
         }
 
         #[cfg(not(feature = "rpc"))]
         {
+            let _ = rpc_endpoint;
             // Without rpc feature, return an error indicating the feature is required
             Err(ChainError::FeatureNotEnabled(
                 "Real Sui RPC requires the 'rpc' feature to be enabled".to_string(),
@@ -537,10 +539,23 @@ mod tests {
     fn test_create_sui_adapter() {
         let config = ChainConfig {
             chain_id: "sui".to_string(),
-            network: "testnet".to_string(),
-            rpc_url: None,
-            confirmation_blocks: Some(1),
-            ..Default::default()
+            chain_name: "Sui".to_string(),
+            default_network: "testnet".to_string(),
+            rpc_endpoints: vec!["https://fullnode.testnet.sui.io".to_string()],
+            program_id: None,
+            block_explorer_urls: vec![],
+            start_block: 0,
+            capabilities: ChainCapabilities {
+                supports_nfts: true,
+                supports_smart_contracts: true,
+                account_model: AccountModel::Object,
+                confirmation_blocks: 1,
+                max_batch_size: 100,
+                supported_networks: vec!["mainnet".to_string(), "testnet".to_string()],
+                supports_cross_chain: false,
+                custom_features: std::collections::HashMap::new(),
+            },
+            custom_settings: std::collections::HashMap::new(),
         };
 
         let adapter = create_sui_adapter(&config);

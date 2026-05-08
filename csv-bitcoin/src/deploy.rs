@@ -197,7 +197,7 @@ impl ContractDeployer {
         // Create the input from the UTXO
         let input = TxIn {
             previous_output: OutPoint {
-                txid: bitcoin::Txid::from_byte_array(utxo.txid),
+                txid: hex::encode(utxo.txid).parse::<bitcoin::Txid>().expect("valid txid"),
                 vout: utxo.vout,
             },
             script_sig: ScriptBuf::new(),

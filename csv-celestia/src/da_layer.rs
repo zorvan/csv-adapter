@@ -21,7 +21,7 @@
 
 use async_trait::async_trait;
 
-use crate::blob::{Blob, BlobWithMetadata};
+use crate::blob::Blob;
 use crate::commitment::{BlobCommitment, CommitmentProof, FraudProof};
 use crate::error::{CelestiaError, Result};
 use crate::ipfs::{IpfsCid, IpfsClient, IpfsReference};

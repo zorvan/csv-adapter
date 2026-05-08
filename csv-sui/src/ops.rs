@@ -999,6 +999,7 @@ impl From<SuiError> for ChainOpError {
 mod tests {
     use super::*;
     use crate::rpc::MockSuiRpc;
+    use crate::SuiNetwork;
 
     #[test]
     fn test_sui_chain_operations_creation() {

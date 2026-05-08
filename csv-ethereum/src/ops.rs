@@ -989,13 +989,18 @@ impl ChainSanadOps for EthereumBackend {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::EthereumNetwork;
+    use crate::config::Network;
     use crate::rpc::MockEthereumRpc;
 
-    #[tokio::test]
-    async fn test_ethereum_chain_operations_creation() {
+    #[test]
+    fn test_ethereum_chain_operations_creation() {
         let rpc = Box::new(MockEthereumRpc::new(1000));
-        let config = EthereumConfig::new(EthereumNetwork::Mainnet);
+        let config = EthereumConfig {
+            network: Network::Mainnet,
+            finality_depth: 15,
+            use_checkpoint_finality: true,
+            rpc_url: "http://127.0.0.1:8545".to_string(),
+        };
         let ops = EthereumBackend::new(rpc, config);
         assert_eq!(ops.config.network.chain_id(), 1);
     }
@@ -1003,7 +1008,12 @@ mod tests {
     #[test]
     fn test_address_validation() {
         let rpc = Box::new(MockEthereumRpc::new(1000));
-        let config = EthereumConfig::new(EthereumNetwork::Mainnet);
+        let config = EthereumConfig {
+            network: Network::Mainnet,
+            finality_depth: 15,
+            use_checkpoint_finality: true,
+            rpc_url: "http://127.0.0.1:8545".to_string(),
+        };
         let ops = EthereumBackend::new(rpc, config);
 
         // Valid address

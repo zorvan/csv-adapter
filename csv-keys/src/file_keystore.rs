@@ -546,7 +546,7 @@ mod tests {
     #[test]
     fn test_list_keys() {
         let dir = temp_keystore_dir();
-        let ks = FileKeystore::with_dir(dir.path()).unwrap();
+        let mut ks = FileKeystore::with_dir(dir.path()).unwrap();
         let key = SecretKey::random();
         let passphrase = Passphrase::new("test");
 
@@ -597,7 +597,7 @@ mod tests {
     fn test_export_import() {
         let dir1 = temp_keystore_dir();
         let dir2 = temp_keystore_dir();
-        let ks1 = FileKeystore::with_dir(&dir1).unwrap();
+        let mut ks1 = FileKeystore::with_dir(&dir1).unwrap();
         let mut ks2 = FileKeystore::with_dir(&dir2).unwrap();
         let key = SecretKey::random();
         let passphrase = Passphrase::new("test");

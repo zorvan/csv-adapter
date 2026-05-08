@@ -17,6 +17,22 @@ use sha2::{Digest, Sha256};
 // ─────────────────────────────────────────────────────────────────────────────
 
 use crate::types::BitcoinInclusionProof;
+
+/// Convert a 32-byte array to a Txid using hex encoding.
+#[inline]
+fn bytes_to_txid(bytes: [u8; 32]) -> Txid {
+    hex::encode(bytes).parse::<Txid>().expect("valid 32-byte txid")
+}
+
+/// Convert a Txid to a 32-byte array using hex encoding.
+#[inline]
+fn txid_to_bytes(txid: &Txid) -> [u8; 32] {
+    let hex_str = txid.to_string();
+    let hex_str = hex_str.strip_prefix("0x").unwrap_or(&hex_str);
+    let mut bytes = [0u8; 32];
+    hex::decode_to_slice(hex_str, &mut bytes).expect("valid txid hex");
+    bytes
+}
 use bitcoin::{blockdata::block::Header, merkle_tree::PartialMerkleTree, Txid};
 use csv_core::Hash as CoreHash;
 
@@ -339,7 +355,7 @@ pub fn verify_full_spv_proof_rust_bitcoin(
         Some(result) => result,
         None => return false,
     };
-    let txid_obj = Txid::from_byte_array(*txid);
+    let txid_obj = bytes_to_txid(*txid);
     let mut extracted_txids = Vec::new();
     let mut indexes = Vec::new();
     if pmt
@@ -402,7 +418,7 @@ fn extract_merkle_branch_from_pmt(pmt: &PartialMerkleTree, target_index: usize) 
     let mut indexes = Vec::new();
     if let Ok(_root) = pmt.extract_matches(&mut txids, &mut indexes) {
         // Rebuild the tree to find siblings for the target index
-        let mut current_level: Vec<[u8; 32]> = txids.iter().map(|t| t.to_byte_array()).collect();
+        let mut current_level: Vec<[u8; 32]> = txids.iter().map(|t| txid_to_bytes(t)).collect();
         let mut branch = Vec::new();
         let mut idx = target_index % current_level.len();
 
@@ -443,7 +459,7 @@ pub fn to_rust_bitcoin_merkle_proof(
 ) -> Option<PartialMerkleTree> {
     let txids: Vec<Txid> = all_txids
         .iter()
-        .filter_map(|t| Some(Txid::from_byte_array(*t)))
+        .filter_map(|t| Some(bytes_to_txid(*t)))
         .collect();
     if txids.is_empty() {
         return None;
@@ -457,7 +473,7 @@ pub fn compute_merkle_root_rust_bitcoin(txids: &[Txid]) -> Option<[u8; 32]> {
     if txids.is_empty() {
         return None;
     }
-    bitcoin::merkle_tree::calculate_root(txids.iter().copied()).map(|h| h.to_byte_array())
+    bitcoin::merkle_tree::calculate_root(txids.iter().copied()).map(|h| txid_to_bytes(&h))
 }
 
 /// Verify a block's Merkle root using rust-bitcoin's implementation.
@@ -669,8 +685,8 @@ mod tests {
 
     #[test]
     fn test_build_and_verify_pmt() {
-        let txid1 = Txid::from_byte_array([1u8; 32]).unwrap();
-        let txid2 = Txid::from_byte_array([2u8; 32]).unwrap();
+        let txid1 = bytes_to_txid([1u8; 32]);
+        let txid2 = bytes_to_txid([2u8; 32]);
         let txids = vec![txid1, txid2];
         let matches = vec![true, false];
         let pmt = build_merkle_proof_from_txids(&txids, &matches);
@@ -683,8 +699,8 @@ mod tests {
 
     #[test]
     fn test_serialize_deserialize_pmt() {
-        let txid1 = Txid::from_byte_array([1u8; 32]).unwrap();
-        let txid2 = Txid::from_byte_array([2u8; 32]).unwrap();
+        let txid1 = bytes_to_txid([1u8; 32]);
+        let txid2 = bytes_to_txid([2u8; 32]);
         let txids = vec![txid1, txid2];
         let matches = vec![true, false];
         let pmt = build_merkle_proof_from_txids(&txids, &matches);
@@ -700,8 +716,8 @@ mod tests {
 
     #[test]
     fn test_rust_bitcoin_merkle_root() {
-        let txid1 = Txid::from_byte_array([1u8; 32]).unwrap();
-        let txid2 = Txid::from_byte_array([2u8; 32]).unwrap();
+        let txid1 = bytes_to_txid([1u8; 32]);
+        let txid2 = bytes_to_txid([2u8; 32]);
         let txids = vec![txid1, txid2];
         let root = compute_merkle_root_rust_bitcoin(&txids).unwrap();
         assert!(verify_block_merkle_root_rust_bitcoin(&txids, root));
@@ -714,7 +730,7 @@ mod tests {
         let pure_root = compute_merkle_root(&txids_raw).unwrap();
         let rust_txids: Vec<Txid> = txids_raw
             .iter()
-            .map(|t| Txid::from_byte_array(t).unwrap())
+            .map(|t| bytes_to_txid(*t))
             .collect();
         let rust_root = compute_merkle_root_rust_bitcoin(&rust_txids).unwrap();
         assert_eq!(

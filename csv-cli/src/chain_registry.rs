@@ -5,7 +5,7 @@
 
 #![allow(dead_code)]
 
-use crate::config::Chain;
+use crate::config::{Chain, ChainId};
 use csv_core::{ChainCapabilities, ChainDriver, DriverRegistry};
 
 /// Get the chain ID string for a Chain enum variant

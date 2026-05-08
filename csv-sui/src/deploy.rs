@@ -548,7 +548,7 @@ mod tests {
 
     #[test]
     fn test_package_deployer_creation() {
-        let config = SuiConfig::default();
+        let _config = SuiConfig::default();
         // Mock RPC would be needed for real tests
         // Just verify structure compiles
     }

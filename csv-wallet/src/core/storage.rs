@@ -116,7 +116,7 @@ impl WalletStorage {
         let encrypted = storage.get(wallet_id)
             .ok_or_else(|| StorageError::NotFound(wallet_id.to_string()))?;
         
-        decrypt(encrypted, password)
+        decrypt(encrypted, password).map_err(StorageError::EncryptionError)
     }
 
     /// Delete a wallet.

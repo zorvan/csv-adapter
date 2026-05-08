@@ -406,33 +406,33 @@ mod tests {
 
     #[test]
     fn test_coin_types() {
-        assert_eq!(coin_type(ChainId::new("bitcoin")), 0);
-        assert_eq!(coin_type(ChainId::new("ethereum")), 60);
-        assert_eq!(coin_type(ChainId::new("sui")), 784);
-        assert_eq!(coin_type(ChainId::new("aptos")), 637);
-        assert_eq!(coin_type(ChainId::new("solana")), 501);
+        assert_eq!(coin_type(&ChainId::new("bitcoin")), 0);
+        assert_eq!(coin_type(&ChainId::new("ethereum")), 60);
+        assert_eq!(coin_type(&ChainId::new("sui")), 784);
+        assert_eq!(coin_type(&ChainId::new("aptos")), 637);
+        assert_eq!(coin_type(&ChainId::new("solana")), 501);
     }
 
     #[test]
     fn test_derivation_path_for_chains() {
-        let eth_path = derivation_path(ChainId::new("ethereum"), 0, 0);
+        let eth_path = derivation_path(&ChainId::new("ethereum"), 0, 0);
         assert_eq!(eth_path.coin_type & 0x7FFF_FFFF, 60);
 
-        let btc_path = derivation_path(ChainId::new("bitcoin"), 0, 0);
+        let btc_path = derivation_path(&ChainId::new("bitcoin"), 0, 0);
         assert_eq!(btc_path.purpose & 0x7FFF_FFFF, 86); // BIP-86
     }
 
     #[test]
     fn test_derive_key() {
         let seed = [1u8; 64];
-        let key = derive_key(&seed, ChainId::new("ethereum"), 0, 0);
+        let key = derive_key(&seed, &ChainId::new("ethereum"), 0, 0);
         assert!(key.is_ok());
     }
 
     #[test]
     fn test_generate_addresses() {
         let seed = [2u8; 64];
-        let keys = generate_addresses(&seed, ChainId::new("ethereum"), 0, 5);
+        let keys = generate_addresses(&seed, &ChainId::new("ethereum"), 0, 5);
         assert!(keys.is_ok());
         assert_eq!(keys.unwrap().len(), 5);
     }

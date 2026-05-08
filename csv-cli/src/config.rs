@@ -646,7 +646,7 @@ rpc_url = "missing bracket"
         assert!(config.chains.contains_key(&ChainId::new("solana")));
 
         // Set a wallet
-        let wallet = WalletConfig {
+        let wallet = LegacyWalletConfigToml {
             private_key: Some("key".to_string()),
             xpub: None,
             mnemonic: None,

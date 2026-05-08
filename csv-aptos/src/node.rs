@@ -3,8 +3,6 @@
 //! Implements the AptosRpc trait using Aptos's official REST API.
 //! Only compiled when the `rpc` feature is enabled.
 
-use std::future::Future;
-use std::pin::Pin;
 use std::time::{Duration, Instant};
 
 use reqwest::Client;

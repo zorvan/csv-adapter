@@ -9,6 +9,7 @@ use dioxus::prelude::*;
 mod chains;
 mod components;
 mod context;
+mod core;
 mod hooks;
 mod layout;
 mod pages;

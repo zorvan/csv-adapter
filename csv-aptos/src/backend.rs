@@ -475,10 +475,23 @@ mod tests {
     fn test_create_aptos_adapter() {
         let config = ChainConfig {
             chain_id: "aptos".to_string(),
-            network: "devnet".to_string(),
-            rpc_url: None,
-            confirmation_blocks: Some(1),
-            ..Default::default()
+            chain_name: "Aptos".to_string(),
+            default_network: "devnet".to_string(),
+            rpc_endpoints: vec!["https://fullnode.devnet.aptoslabs.com".to_string()],
+            program_id: None,
+            block_explorer_urls: vec![],
+            start_block: 0,
+            capabilities: ChainCapabilities {
+                supports_nfts: true,
+                supports_smart_contracts: true,
+                account_model: AccountModel::Account,
+                confirmation_blocks: 1,
+                max_batch_size: 100,
+                supported_networks: vec!["mainnet".to_string(), "devnet".to_string()],
+                supports_cross_chain: false,
+                custom_features: std::collections::HashMap::new(),
+            },
+            custom_settings: std::collections::HashMap::new(),
         };
 
         let adapter = create_aptos_adapter(&config);

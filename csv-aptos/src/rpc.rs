@@ -536,8 +536,8 @@ mod tests {
         assert_eq!(info.ledger_version, 1000);
     }
 
-    #[test]
-    fn test_resource() {
+    #[tokio::test]
+    async fn test_resource() {
         let rpc = MockAptosRpc::new(1000);
         let address = [1u8; 32];
         let resource = AptosResource {

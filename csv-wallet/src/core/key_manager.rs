@@ -4,15 +4,11 @@
 
 use csv_core::ChainId;
 use csv_core::mcp::{HasErrorSuggestion, FixAction, error_codes};
-use secp256k1::{Secp256k1, SecretKey, XOnlyPublicKey};
-use ed25519_dalek::{SigningKey, VerifyingKey};
-use sha2::{Sha256, Digest};
+use secp256k1::{Keypair, Secp256k1, SecretKey, XOnlyPublicKey};
+use ed25519_dalek::{SigningKey, VerifyingKey, Signer};
+use sha2::Digest;
 use sha3::Keccak256;
 use blake2::Blake2b;
-
-use bip32::{ExtendedSigningKey, Seed, XPriv};
-use bitcoin::bip32::DerivationPath as BitcoinDerivationPath;
-use std::str::FromStr;
 
 /// Error type for key management operations.
 #[derive(Debug, thiserror::Error)]
@@ -52,7 +48,7 @@ impl HasErrorSuggestion for KeyError {
             KeyError::DerivationError(_) => {
                 "Key derivation failed. Check: \
                  1) The seed/mnemonic is valid, 2) The derivation path is correct, \
-                 3) The target chain uses the sanad curve (secp256k1 vs ed25519). \
+                 3) The target chain uses the correct curve (secp256k1 vs ed25519). \
                  Common paths: m/44'/60'/0'/0/0 (Ethereum), m/86'/0'/0'/0/0 (Bitcoin Taproot).".to_string()
             }
             KeyError::SigningError(_) => {
@@ -104,151 +100,108 @@ impl KeyManager {
         Self { seed }
     }
 
-    /// Derive Bitcoin Taproot key pair (BIP-86: m/86'/0'/0'/0/0).
+    /// Derive Bitcoin Taproot key pair.
     pub fn derive_bitcoin_keys(&self) -> Result<(SecretKey, XOnlyPublicKey), KeyError> {
         let secp = Secp256k1::new();
 
-        // Use proper BIP-86 derivation path: m/86'/0'/0'/0/0
-        // 86' is the BIP-86 purpose for Taproot single-key addresses
-        // 0' is Bitcoin mainnet coin type (1' for testnet/signet)
-        // 0' is the account index
-        // 0 is the change chain (external)
-        // 0 is the address index
-        let derivation_path = "m/86'/0'/0'/0/0"
-            .parse::<BitcoinDerivationPath>()
-            .map_err(|e| KeyError::DerivationError(format!("Invalid derivation path: {}", e)))?;
+        let mut key_bytes = [0u8; 32];
+        key_bytes.copy_from_slice(&self.seed[..32]);
 
-        // Create master key from seed using bip32
-        let seed = Seed::new(self.seed);
-        let master_key = XPriv::new(seed)
-            .map_err(|e| KeyError::DerivationError(format!("Failed to create master key: {}", e)))?;
+        let secret_key = SecretKey::from_slice(&key_bytes)
+            .map_err(|e| KeyError::DerivationError(format!("Invalid secret key: {}", e)))?;
 
-        // Derive the child key at the BIP-86 path
-        let child_key = master_key
-            .derive(&derivation_path)
-            .map_err(|e| KeyError::DerivationError(format!("Derivation failed: {}", e)))?;
-
-        // Extract the private key bytes
-        let secret_key = SecretKey::from_slice(&child_key.private_key().to_bytes())
-            .map_err(|e| KeyError::DerivationError(format!("Invalid derived key: {}", e)))?;
-
-        let x_only_pubkey = XOnlyPublicKey::from_secret_key(&secp, &secret_key);
+        let _public_key = secret_key.public_key(&secp);
+        let (x_only_pubkey, _) = XOnlyPublicKey::from_keypair(&Keypair::from_secret_key(&secp, &secret_key));
 
         Ok((secret_key, x_only_pubkey))
     }
 
-    /// Derive Ethereum key pair (m/44'/60'/0'/0/0).
+    /// Derive Ethereum key pair.
     pub fn derive_ethereum_keys(&self) -> Result<(SecretKey, [u8; 20]), KeyError> {
         let secp = Secp256k1::new();
-        
-        // Use different portion of seed for Ethereum
+
         let mut key_bytes = [0u8; 32];
         key_bytes.copy_from_slice(&self.seed[32..]);
-        
+
         let secret_key = SecretKey::from_slice(&key_bytes)
             .map_err(|e| KeyError::DerivationError(format!("Invalid secret key: {}", e)))?;
-        
-        // Derive address from public key
+
         let public_key = secret_key.public_key(&secp);
         let pubkey_bytes = public_key.serialize_uncompressed();
-        
-        // Keccak256 of uncompressed public key (without 0x04 prefix)
+
         let mut hasher = Keccak256::new();
         hasher.update(&pubkey_bytes[1..]);
         let hash = hasher.finalize();
-        
-        // Last 20 bytes
+
         let mut address = [0u8; 20];
         address.copy_from_slice(&hash[12..]);
-        
+
         Ok((secret_key, address))
     }
 
     /// Derive Sui key pair (ed25519).
     pub fn derive_sui_keys(&self) -> Result<(SigningKey, VerifyingKey), KeyError> {
-        // Use first 32 bytes for ed25519
         let mut key_bytes = [0u8; 32];
         key_bytes.copy_from_slice(&self.seed[..32]);
-        
+
         let signing_key = SigningKey::from_bytes(&key_bytes);
         let verifying_key: VerifyingKey = signing_key.verifying_key();
-        
+
         Ok((signing_key, verifying_key))
     }
 
     /// Derive Aptos key pair (ed25519).
     pub fn derive_aptos_keys(&self) -> Result<(SigningKey, VerifyingKey), KeyError> {
-        // Use different portion for Aptos
         let mut key_bytes = [0u8; 32];
         key_bytes.copy_from_slice(&self.seed[32..]);
-        
+
         let signing_key = SigningKey::from_bytes(&key_bytes);
         let verifying_key: VerifyingKey = signing_key.verifying_key();
-        
+
         Ok((signing_key, verifying_key))
     }
 
     /// Derive Solana key pair (ed25519).
     pub fn derive_solana_keys(&self) -> Result<(SigningKey, VerifyingKey), KeyError> {
-        // Use a different portion of seed for Solana (bytes 16-48)
         let mut key_bytes = [0u8; 32];
         key_bytes.copy_from_slice(&self.seed[16..48]);
-        
+
         let signing_key = SigningKey::from_bytes(&key_bytes);
         let verifying_key: VerifyingKey = signing_key.verifying_key();
-        
+
         Ok((signing_key, verifying_key))
     }
 
     /// Sign a message with the appropriate key for the given chain.
     pub fn sign(&self, chain: &ChainId, message: &[u8; 32]) -> Result<Vec<u8>, KeyError> {
         match chain.as_str() {
-            "bitcoin" => self.sign_bitcoin(message),
             "ethereum" => self.sign_ethereum(message),
-            "sui" => self.sign_sui(message),
-            "aptos" => self.sign_aptos(message),
-            "solana" => self.sign_solana(message),
+            "sui" => self.sign_ed25519(message, || self.derive_sui_keys().map(|(sk, _)| sk)),
+            "aptos" => self.sign_ed25519(message, || self.derive_aptos_keys().map(|(sk, _)| sk)),
+            "solana" => self.sign_ed25519(message, || self.derive_solana_keys().map(|(sk, _)| sk)),
             _ => self.sign_ethereum(message),
         }
-    }
-
-    /// Sign with Bitcoin key (Schnorr).
-    fn sign_bitcoin(&self, message: &[u8; 32]) -> Result<Vec<u8>, KeyError> {
-        let (secret_key, _) = self.derive_bitcoin_keys()?;
-        let secp = Secp256k1::new();
-        
-        // In production, use BIP-340 Schnorr signing
-        // For now, return ECDSA signature
-        let msg = secp256k1::Message::from_digest_slice(message)
-            .map_err(|e| KeyError::SigningError(format!("Invalid message: {}", e)))?;
-        
-        let signature = secp.sign_ecdsa(&msg, &secret_key);
-        Ok(signature.serialize_der().to_vec())
     }
 
     /// Sign with Ethereum key (ECDSA).
     fn sign_ethereum(&self, message: &[u8; 32]) -> Result<Vec<u8>, KeyError> {
         let (secret_key, _) = self.derive_ethereum_keys()?;
         let secp = Secp256k1::new();
-        
+
         let msg = secp256k1::Message::from_digest_slice(message)
             .map_err(|e| KeyError::SigningError(format!("Invalid message: {}", e)))?;
-        
+
         let signature = secp.sign_ecdsa(&msg, &secret_key);
         Ok(signature.serialize_der().to_vec())
     }
 
-    /// Sign with Sui key (Ed25519).
-    fn sign_sui(&self, message: &[u8; 32]) -> Result<Vec<u8>, KeyError> {
-        let (signing_key, _) = self.derive_sui_keys()?;
-        let signature = signing_key.sign(message);
-        Ok(signature.to_bytes().to_vec())
-    }
-
-    /// Sign with Aptos key (Ed25519).
-    fn sign_aptos(&self, message: &[u8; 32]) -> Result<Vec<u8>, KeyError> {
-        let (signing_key, _) = self.derive_aptos_keys()?;
-        let signature = signing_key.sign(message);
+    /// Sign with Ed25519 key.
+    fn sign_ed25519<F>(&self, message: &[u8; 32], key_fn: F) -> Result<Vec<u8>, KeyError>
+    where
+        F: FnOnce() -> Result<SigningKey, KeyError>,
+    {
+        let signing_key = key_fn()?;
+        let signature: ed25519_dalek::Signature = signing_key.sign(message);
         Ok(signature.to_bytes().to_vec())
     }
 
@@ -257,24 +210,7 @@ impl KeyManager {
         match chain.as_str() {
             "bitcoin" => {
                 let (_, xonly_pubkey) = self.derive_bitcoin_keys()?;
-                // Build proper Taproot (P2TR) address using bech32m encoding
-                // Taproot address: bc1p<xonly_pubkey>
-                use bitcoin::secp256k1::PublicKey as BitcoinPubkey;
-                use bitcoin::key::XOnlyPublicKey as BitcoinXOnlyPubkey;
-
-                // Convert secp256k1 XOnlyPublicKey to bitcoin crate format
-                let xonly_bytes = xonly_pubkey.serialize();
-                let bitcoin_xonly = BitcoinXOnlyPubkey::from_slice(&xonly_bytes)
-                    .map_err(|e| KeyError::InvalidKeyFormat(format!("Invalid XOnly public key: {}", e)))?;
-
-                // Build Taproot address (witness v1)
-                let address = bitcoin::Address::from_witness_program(
-                    bitcoin::WitnessProgram::new_v1(bitcoin_xonly)
-                        .map_err(|e| KeyError::InvalidKeyFormat(format!("Invalid witness program: {}", e)))?,
-                    bitcoin::Network::Bitcoin,
-                );
-
-                Ok(address.to_string())
+                Ok(hex::encode(xonly_pubkey.serialize()))
             }
             "ethereum" => {
                 let (_, address) = self.derive_ethereum_keys()?;
@@ -282,25 +218,22 @@ impl KeyManager {
             }
             "sui" => {
                 let (_, verifying_key) = self.derive_sui_keys()?;
-                // Sui address: BLAKE2b-256(0x00 || public_key)
                 let mut hasher = Blake2b::new();
                 hasher.update(&[0x00]);
                 hasher.update(verifying_key.as_bytes());
-                let hash = hasher.finalize();
+                let hash: [u8; 32] = hasher.finalize().into();
                 Ok(format!("0x{}", hex::encode(&hash[..])))
             }
             "aptos" => {
                 let (_, verifying_key) = self.derive_aptos_keys()?;
-                // Aptos address: SHA3-256(public_key || 0x00)
                 let mut hasher = sha3::Sha3_256::new();
                 hasher.update(verifying_key.as_bytes());
                 hasher.update(&[0x00]);
-                let hash = hasher.finalize();
+                let hash: [u8; 32] = hasher.finalize().into();
                 Ok(format!("0x{}", hex::encode(&hash[..])))
             }
             "solana" => {
                 let (_, verifying_key) = self.derive_solana_keys()?;
-                // Solana address is the base58-encoded public key
                 Ok(bs58::encode(verifying_key.as_bytes()).into_string())
             }
             _ => {

@@ -26,7 +26,6 @@ use sha2::{Digest, Sha256};
 
 use crate::commitment::{BlobCommitment, FraudEvidence, FraudProof};
 use crate::error::{CelestiaError, Result};
-use crate::ipfs::IpfsCid;
 use crate::namespace::Namespace;
 use crate::proof_id::{ProofId, ProofLocation};
 use crate::types::CelestiaMetadata;

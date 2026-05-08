@@ -27,7 +27,7 @@ pub struct ChainCapabilities {
 }
 
 /// Account model types
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AccountModel {
     /// UTXO-based model (Bitcoin-like)
     UTXO,

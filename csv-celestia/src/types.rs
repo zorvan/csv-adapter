@@ -18,7 +18,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::commitment::{BlobCommitment, CommitmentProof, HybridProof};
+use crate::commitment::{BlobCommitment, CommitmentProof};
 use crate::error::{CelestiaError, Result};
 use crate::namespace::Namespace;
 use crate::proof_id::{ProofId, ProofLocation};

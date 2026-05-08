@@ -338,7 +338,7 @@ mod tests {
             capabilities: csv_core::chain_config::ChainCapabilities {
                 supports_nfts: true,
                 supports_smart_contracts: true,
-                account_model: csv_core::chain_adapter::AccountModel::Account,
+                account_model: csv_core::chain_config::AccountModel::Account,
                 confirmation_blocks: 32,
                 max_batch_size: 100,
                 supported_networks: vec![

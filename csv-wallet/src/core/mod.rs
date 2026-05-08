@@ -6,3 +6,4 @@ pub mod wallet;
 pub mod key_manager;
 pub mod storage;
 pub mod encryption;
+pub mod seal_storage;

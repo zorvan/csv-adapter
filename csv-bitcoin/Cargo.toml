@@ -46,7 +46,6 @@ production = ["rpc"]
 
 [dev-dependencies]
 reqwest = { version = "0.12", features = ["json", "blocking"] }
-bitcoin_hashes = "0.12"
 serde_json = "1.0"
 
 [[example]]

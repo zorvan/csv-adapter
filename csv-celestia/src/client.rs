@@ -10,13 +10,11 @@
 //! Data Size >= 1MB:   Store on IPFS, anchor CID on Celestia
 //! ```
 
-use async_trait::async_trait;
-
 use crate::blob::{Blob, BlobWithMetadata};
 use crate::commitment::BlobCommitment;
 use crate::da_layer::{CelestiaDaLayer, CelestiaRpc, DaLayerConfig, DataAvailabilityLayer};
 use crate::error::{CelestiaError, Result};
-use crate::ipfs::{IpfsCid, IpfsClient, IpfsReference, MockIpfsClient};
+use crate::ipfs::{IpfsCid, IpfsClient, MockIpfsClient};
 use crate::metadata::SanadMetadata;
 use crate::namespace::Namespace;
 use crate::proof_id::{ProofId, ProofLocation};

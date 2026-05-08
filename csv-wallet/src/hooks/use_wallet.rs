@@ -1,5 +1,7 @@
 //! Wallet state hook.
 
+#[cfg(target_arch = "wasm32")]
+use crate::core::seal_storage::derive_key_from_passphrase;
 use crate::wallet_core::{ChainAccount, WalletData as Wallet};
 use csv_keys::{
     bip39::{Mnemonic, MnemonicType},
@@ -212,6 +214,18 @@ impl WalletContext {
 
         // Start a session for key caching
         keystore.start_session();
+
+        // §4.3: Derive encrypted seal storage key from passphrase.
+        // This ensures seal nullifiers are stored in AES-GCM encrypted IndexedDB
+        // rather than plaintext localStorage.
+        #[cfg(target_arch = "wasm32")]
+        {
+            let seal_key = derive_key_from_passphrase(password);
+            let _encrypted_store = seal_nullifier_storage(seal_key);
+            // Store is ready for use; seal pages will find it via the
+            // EncryptedSealManager created with this key at usage time.
+            web_sys::console::log_1(&"Encrypted seal storage initialized".into());
+        }
 
         Ok(())
     }

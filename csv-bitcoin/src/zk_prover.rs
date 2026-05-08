@@ -25,6 +25,7 @@ use csv_core::seal::SealPoint;
 use csv_core::zk_proof::{
     ChainWitness, ProofSystem, VerifierKey, ZkError, ZkProver, ZkPublicInputs, ZkSealProof,
 };
+use csv_core::ChainId;
 use sha2::{Digest, Sha256};
 
 /// Bitcoin SPV ZK Prover using SP1
@@ -276,7 +277,7 @@ mod tests {
         let proof = result.unwrap();
         assert!(!proof.proof_bytes.is_empty());
         assert_eq!(proof.verifier_key.chain, *builtin::BITCOIN);
-        assert_eq!(proof.proof_system(), ProofSystem::SP1);
+        assert_eq!(proof.verifier_key.proof_system, ProofSystem::SP1);
     }
 
     #[test]
