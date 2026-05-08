@@ -264,8 +264,7 @@ pub mod real_rpc {
             address: &str,
         ) -> Result<Vec<crate::rpc::UtxoInfo>, Box<dyn std::error::Error + Send + Sync>> {
             use crate::rpc::UtxoInfo;
-            
-            
+
             // Use listunspent RPC call to get UTXOs for the address
             // This requires the Bitcoin Core wallet to be watching this address
             use std::str::FromStr;
@@ -274,13 +273,13 @@ pub mod real_rpc {
                 .require_network(self.network)
                 .map_err(|e| format!("Address network mismatch: {}", e))?;
             let utxos = self.client.list_unspent(
-                Some(0),          // min_confirmations
-                None,             // max_confirmations
-                Some(&[&addr]),    // addresses filter
-                None,             // filter label
+                Some(0),            // min_confirmations
+                None,               // max_confirmations
+                Some(&[&addr]),     // addresses filter
+                None,               // filter label
                 Default::default(), // options
             )?;
-            
+
             let result: Vec<UtxoInfo> = utxos
                 .into_iter()
                 .map(|u| {
@@ -295,7 +294,7 @@ pub mod real_rpc {
                     }
                 })
                 .collect();
-            
+
             Ok(result)
         }
 

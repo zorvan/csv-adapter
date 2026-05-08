@@ -10,7 +10,7 @@
 pub use crate::builder::{ClientBuilder, StoreBackend};
 pub use crate::client::{CsvClient, NetworkType};
 pub use crate::config::{Config, Network, RpcConfig};
-pub use crate::cross_chain::{mint_sanad_on_chain, is_mint_supported, CrossChainError};
+pub use crate::cross_chain::{is_mint_supported, mint_sanad_on_chain, CrossChainError};
 pub use crate::error::CsvError;
 pub use crate::events::Event;
 #[cfg(feature = "tokio")]
@@ -21,9 +21,7 @@ pub use crate::transfers::{TransferBuilder, TransferManager};
 pub use crate::wallet::Wallet;
 
 // Re-exports from csv-adapter-core
-pub use csv_core::{
-    Commitment, Hash, OwnershipProof, ProofBundle, Sanad, SanadId, SealPoint,
-};
+pub use csv_core::{Commitment, Hash, OwnershipProof, ProofBundle, Sanad, SanadId, SealPoint};
 
 // Agent-friendly types
 pub use csv_core::mcp::{ChainId, ErrorSuggestion, FixAction};

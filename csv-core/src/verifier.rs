@@ -172,7 +172,7 @@ pub fn verify_proof(
 fn validate_proof_bundle_size(bundle: &ProofBundle) -> Result<()> {
     // Estimate size by summing all components
     let mut total_size = 0usize;
-    
+
     // DAG segment size
     total_size += bundle.transition_dag.root_commitment.as_bytes().len();
     for node in &bundle.transition_dag.nodes {
@@ -186,28 +186,28 @@ fn validate_proof_bundle_size(bundle: &ProofBundle) -> Result<()> {
             total_size += parent.as_bytes().len();
         }
     }
-    
+
     // Signatures size
     for sig in &bundle.signatures {
         total_size += sig.len();
     }
-    
+
     // Seal and anchor references
     total_size += bundle.seal_ref.id.len();
     total_size += bundle.anchor_ref.anchor_id.len();
     total_size += bundle.anchor_ref.metadata.len();
-    
+
     // Proof data
     total_size += bundle.inclusion_proof.proof_bytes.len();
     total_size += bundle.finality_proof.finality_data.len();
-    
+
     if total_size > MAX_PROOF_BUNDLE_SIZE {
         return Err(ProtocolError::Generic(format!(
             "Proof bundle too large: {} bytes (max {})",
             total_size, MAX_PROOF_BUNDLE_SIZE
         )));
     }
-    
+
     Ok(())
 }
 
@@ -219,18 +219,18 @@ fn validate_proof_bundle_size(bundle: &ProofBundle) -> Result<()> {
 fn validate_proof_timestamp(bundle: &ProofBundle) -> Result<()> {
     // Use anchor timestamp as proof generation time
     let anchor_timestamp = bundle.anchor_ref.block_height;
-    
+
     // Get current time (in production, this would use the actual current time)
     // For now, we use the anchor timestamp as a relative check
     // In a real implementation, you'd compare against actual current timestamp
-    
+
     // If the anchor timestamp is 0, the proof is likely malformed
     if anchor_timestamp == 0 {
         return Err(ProtocolError::Generic(
-            "Invalid proof timestamp: anchor timestamp is 0".to_string()
+            "Invalid proof timestamp: anchor timestamp is 0".to_string(),
         ));
     }
-    
+
     Ok(())
 }
 
@@ -243,26 +243,26 @@ fn validate_domain_separation(bundle: &ProofBundle) -> Result<()> {
     // Check that the seal reference has a valid seal ID
     if bundle.seal_ref.id.is_empty() {
         return Err(ProtocolError::Generic(
-            "Invalid seal reference: empty seal ID".to_string()
+            "Invalid seal reference: empty seal ID".to_string(),
         ));
     }
-    
+
     // Verify that seal_id and anchor anchor_id match (consistency check)
     // The seal_id should be consistent with the anchor's anchor_id
     if bundle.seal_ref.id != bundle.anchor_ref.anchor_id {
         return Err(ProtocolError::Generic(
-            "Seal reference mismatch: seal ID and anchor ID must match".to_string()
+            "Seal reference mismatch: seal ID and anchor ID must match".to_string(),
         ));
     }
-    
+
     // Verify that the anchor reference has valid metadata
     // Anchor metadata should contain the proof data or reference
     if bundle.anchor_ref.metadata.is_empty() && bundle.anchor_ref.block_height == 0 {
         return Err(ProtocolError::Generic(
-            "Invalid anchor reference: empty metadata and block height".to_string()
+            "Invalid anchor reference: empty metadata and block height".to_string(),
         ));
     }
-    
+
     Ok(())
 }
 
@@ -278,7 +278,7 @@ fn validate_inclusion_proof(proof: &crate::proof::InclusionProof) -> Result<()> 
             "Empty inclusion proof".to_string(),
         ));
     }
-    
+
     // Validate proof size (prevent DoS via oversized proofs)
     if proof.proof_bytes.len() > crate::proof::MAX_PROOF_BYTES {
         return Err(ProtocolError::InclusionProofFailed(format!(
@@ -287,14 +287,14 @@ fn validate_inclusion_proof(proof: &crate::proof::InclusionProof) -> Result<()> 
             crate::proof::MAX_PROOF_BYTES
         )));
     }
-    
+
     // Validate block hash is not zero (indicates malformed proof)
     if proof.block_hash == crate::hash::Hash::zero() {
         return Err(ProtocolError::InclusionProofFailed(
-            "Invalid inclusion proof: block hash is zero".to_string()
+            "Invalid inclusion proof: block hash is zero".to_string(),
         ));
     }
-    
+
     Ok(())
 }
 
@@ -311,14 +311,14 @@ fn validate_finality_proof(proof: &crate::proof::FinalityProof) -> Result<()> {
             proof.confirmations, MIN_REQUIRED_CONFIRMATIONS
         )));
     }
-    
+
     // Validate finality data is present (non-empty for security)
     if proof.finality_data.is_empty() {
         return Err(ProtocolError::FinalityNotReached(
-            "Empty finality proof".to_string()
+            "Empty finality proof".to_string(),
         ));
     }
-    
+
     // Validate finality data size
     if proof.finality_data.len() > crate::proof::MAX_FINALITY_DATA {
         return Err(ProtocolError::FinalityNotReached(format!(
@@ -327,7 +327,7 @@ fn validate_finality_proof(proof: &crate::proof::FinalityProof) -> Result<()> {
             crate::proof::MAX_FINALITY_DATA
         )));
     }
-    
+
     Ok(())
 }
 
@@ -340,26 +340,26 @@ fn validate_anchor_reference(bundle: &ProofBundle) -> Result<()> {
     // Verify anchor block height is reasonable (not 0, not absurdly high)
     if bundle.anchor_ref.block_height == 0 {
         return Err(ProtocolError::Generic(
-            "Invalid anchor: block height is 0".to_string()
+            "Invalid anchor: block height is 0".to_string(),
         ));
     }
-    
+
     // Verify anchor_id matches the seal_id (ensures seal is properly anchored)
     if bundle.anchor_ref.anchor_id != bundle.seal_ref.id {
         return Err(ProtocolError::Generic(
-            "Invalid anchor: anchor_id does not match seal_id".to_string()
+            "Invalid anchor: anchor_id does not match seal_id".to_string(),
         ));
     }
-    
+
     // Verify anchor metadata contains proof reference data
     // The metadata should either match the inclusion proof or contain a valid reference
-    let metadata_valid = !bundle.anchor_ref.metadata.is_empty() || 
-                         bundle.anchor_ref.metadata == bundle.inclusion_proof.proof_bytes;
+    let metadata_valid = !bundle.anchor_ref.metadata.is_empty()
+        || bundle.anchor_ref.metadata == bundle.inclusion_proof.proof_bytes;
     if !metadata_valid {
         // In production, you might want stricter matching
         // For now, we allow flexibility for different proof formats
     }
-    
+
     Ok(())
 }
 

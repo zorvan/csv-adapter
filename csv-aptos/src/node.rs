@@ -44,7 +44,14 @@ impl AptosNode {
         body: &Value,
     ) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
         let url = format!("{}/v1{}", self.rpc_url, path);
-        let response: Value = self.client.post(&url).json(body).send().await?.json().await?;
+        let response: Value = self
+            .client
+            .post(&url)
+            .json(body)
+            .send()
+            .await?
+            .json()
+            .await?;
         Ok(response)
     }
 
@@ -152,7 +159,9 @@ impl AptosNode {
 }
 
 impl AptosRpc for AptosNode {
-    fn get_ledger_info(&self) -> BoxFuture<'_, Result<AptosLedgerInfo, Box<dyn std::error::Error + Send + Sync>>> {
+    fn get_ledger_info(
+        &self,
+    ) -> BoxFuture<'_, Result<AptosLedgerInfo, Box<dyn std::error::Error + Send + Sync>>> {
         Box::pin(async move {
             let result = self.get("/").await?;
             Ok(AptosLedgerInfo {
@@ -161,13 +170,17 @@ impl AptosRpc for AptosNode {
                 ledger_version: Self::parse_u64(&result["ledger_version"]),
                 oldest_ledger_version: Self::parse_u64(&result["oldest_ledger_version"]),
                 ledger_timestamp: Self::parse_u64(&result["ledger_timestamp"]),
-                oldest_transaction_timestamp: Self::parse_u64(&result["oldest_transaction_timestamp"]),
+                oldest_transaction_timestamp: Self::parse_u64(
+                    &result["oldest_transaction_timestamp"],
+                ),
                 epoch_start_timestamp: Self::parse_u64(&result["epoch_start_timestamp"]),
             })
         })
     }
 
-    fn sender_address(&self) -> BoxFuture<'_, Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>>> {
+    fn sender_address(
+        &self,
+    ) -> BoxFuture<'_, Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>>> {
         Box::pin(async move {
             Err("CapabilityUnavailable: sender_address requires a configured signer.                  Use AptosNode with an external key management system or                  configure a signer address explicitly.".into())
         })
@@ -189,14 +202,17 @@ impl AptosRpc for AptosNode {
         address: [u8; 32],
         resource_type: &str,
         _position: Option<u64>,
-    ) -> BoxFuture<'_, Result<Option<AptosResource>, Box<dyn std::error::Error + Send + Sync>>> {
+    ) -> BoxFuture<'_, Result<Option<AptosResource>, Box<dyn std::error::Error + Send + Sync>>>
+    {
         let resource_type = resource_type.to_string();
         Box::pin(async move {
             let addr_str = Self::format_address(address);
-            let result = self.get(&format!(
-                "/accounts/{}/resource/{}",
-                addr_str, resource_type
-            )).await?;
+            let result = self
+                .get(&format!(
+                    "/accounts/{}/resource/{}",
+                    addr_str, resource_type
+                ))
+                .await?;
 
             if result.is_null() || result.get("type").is_none() {
                 return Ok(None);
@@ -210,7 +226,8 @@ impl AptosRpc for AptosNode {
     fn get_transaction(
         &self,
         version: u64,
-    ) -> BoxFuture<'_, Result<Option<AptosTransaction>, Box<dyn std::error::Error + Send + Sync>>> {
+    ) -> BoxFuture<'_, Result<Option<AptosTransaction>, Box<dyn std::error::Error + Send + Sync>>>
+    {
         Box::pin(async move {
             let result = self.get(&format!("/transactions/{}", version)).await?;
             if result.get("hash").is_none() {
@@ -224,12 +241,15 @@ impl AptosRpc for AptosNode {
         &self,
         start_version: u64,
         limit: u32,
-    ) -> BoxFuture<'_, Result<Vec<AptosTransaction>, Box<dyn std::error::Error + Send + Sync>>> {
+    ) -> BoxFuture<'_, Result<Vec<AptosTransaction>, Box<dyn std::error::Error + Send + Sync>>>
+    {
         Box::pin(async move {
-            let result = self.get(&format!(
-                "/transactions?start={}&limit={}",
-                start_version, limit
-            )).await?;
+            let result = self
+                .get(&format!(
+                    "/transactions?start={}&limit={}",
+                    start_version, limit
+                ))
+                .await?;
 
             if let Some(txs) = result.as_array() {
                 Ok(txs.iter().map(Self::parse_transaction).collect())
@@ -246,7 +266,9 @@ impl AptosRpc for AptosNode {
         limit: u32,
     ) -> BoxFuture<'_, Result<Vec<AptosEvent>, Box<dyn std::error::Error + Send + Sync>>> {
         Box::pin(async move {
-            let result = self.get(&format!("/events?handle={}&limit={}", event_handle, limit)).await?;
+            let result = self
+                .get(&format!("/events?handle={}&limit={}", event_handle, limit))
+                .await?;
             if let Some(events) = result.as_array() {
                 Ok(events.iter().map(Self::parse_event).collect())
             } else {
@@ -277,7 +299,8 @@ impl AptosRpc for AptosNode {
                     "Aptos transaction submission failed: {} - {:?}",
                     error,
                     result.get("message")
-                ).into())
+                )
+                .into())
             } else {
                 Err(format!("Unexpected Aptos response: {:?}", result).into())
             }
@@ -299,7 +322,10 @@ impl AptosRpc for AptosNode {
                     return Err("Timeout waiting for transaction confirmation".into());
                 }
 
-                if let Ok(result) = self.get(&format!("/transactions/by_hash/{}", hash_hex)).await {
+                if let Ok(result) = self
+                    .get(&format!("/transactions/by_hash/{}", hash_hex))
+                    .await
+                {
                     if result.get("hash").is_some() {
                         let tx = Self::parse_transaction(&result);
                         if tx.success {
@@ -318,7 +344,8 @@ impl AptosRpc for AptosNode {
     fn get_block_by_version(
         &self,
         version: u64,
-    ) -> BoxFuture<'_, Result<Option<AptosBlockInfo>, Box<dyn std::error::Error + Send + Sync>>> {
+    ) -> BoxFuture<'_, Result<Option<AptosBlockInfo>, Box<dyn std::error::Error + Send + Sync>>>
+    {
         Box::pin(async move {
             let tx = self.get_transaction(version).await?;
             if let Some(tx) = tx {
@@ -343,10 +370,12 @@ impl AptosRpc for AptosNode {
     ) -> BoxFuture<'_, Result<Vec<AptosEvent>, Box<dyn std::error::Error + Send + Sync>>> {
         Box::pin(async move {
             let addr_str = Self::format_address(account);
-            let result = self.get(&format!(
-                "/accounts/{}/events?start={}&limit={}",
-                addr_str, start, limit
-            )).await?;
+            let result = self
+                .get(&format!(
+                    "/accounts/{}/events?start={}&limit={}",
+                    addr_str, start, limit
+                ))
+                .await?;
 
             if let Some(events) = result.as_array() {
                 Ok(events.iter().map(Self::parse_event).collect())
@@ -356,7 +385,9 @@ impl AptosRpc for AptosNode {
         })
     }
 
-    fn get_latest_version(&self) -> BoxFuture<'_, Result<u64, Box<dyn std::error::Error + Send + Sync>>> {
+    fn get_latest_version(
+        &self,
+    ) -> BoxFuture<'_, Result<u64, Box<dyn std::error::Error + Send + Sync>>> {
         Box::pin(async move {
             let ledger = self.get_ledger_info().await?;
             Ok(ledger.ledger_version)
@@ -366,7 +397,8 @@ impl AptosRpc for AptosNode {
     fn get_transaction_by_version(
         &self,
         version: u64,
-    ) -> BoxFuture<'_, Result<Option<AptosTransaction>, Box<dyn std::error::Error + Send + Sync>>> {
+    ) -> BoxFuture<'_, Result<Option<AptosTransaction>, Box<dyn std::error::Error + Send + Sync>>>
+    {
         Box::pin(async move { self.get_transaction(version).await })
     }
 

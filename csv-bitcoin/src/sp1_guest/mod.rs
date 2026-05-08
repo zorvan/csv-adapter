@@ -32,7 +32,7 @@
 
 pub mod spv;
 
-pub use spv::{Sp1BtcSpvInput, Sp1BtcSpvOutput, verify_bitcoin_spv};
+pub use spv::{verify_bitcoin_spv, Sp1BtcSpvInput, Sp1BtcSpvOutput};
 
 /// SP1 guest program entry point for Bitcoin SPV verification.
 ///
@@ -49,7 +49,7 @@ pub use spv::{Sp1BtcSpvInput, Sp1BtcSpvOutput, verify_bitcoin_spv};
 pub fn sp1_main(input: &Sp1BtcSpvInput) -> Result<Sp1BtcSpvOutput, u32> {
     // This function is only compiled when building for SP1 guest
     // It uses SP1's zkvm::io::read/write for input/output
-    
+
     match verify_bitcoin_spv(input) {
         true => Ok(Sp1BtcSpvOutput::from_input(input)),
         false => Err(1), // Error code 1: Verification failed

@@ -53,10 +53,11 @@ pub fn verify_storage_proof(
     let account_key_nibbles = encode_key_to_nibbles(&[0u8; 32]); // Placeholder for address hash
 
     // Verify the account proof reconstructs to a non-empty value under state_root
-    let account_proof_valid = match verify_proof(state_root, account_key_nibbles.clone(), None, account_proof) {
-        Ok(()) => true,
-        Err(_) => false,
-    };
+    let account_proof_valid =
+        match verify_proof(state_root, account_key_nibbles.clone(), None, account_proof) {
+            Ok(()) => true,
+            Err(_) => false,
+        };
 
     if !account_proof_valid {
         return false;
@@ -76,12 +77,13 @@ pub fn verify_storage_proof(
 
     // Step 2b: Verify storage proof against state_root as a proxy for storage_root
     // In production, this would use the actual storage_root extracted from the account proof
-    let storage_proof_valid = match verify_proof(state_root, storage_key_nibbles, None, storage_proof) {
-        Ok(()) => true,
-        Err(ProofVerificationError::RootMismatch { .. }) => false,
-        Err(ProofVerificationError::ValueMismatch { .. }) => false,
-        Err(_) => false,
-    };
+    let storage_proof_valid =
+        match verify_proof(state_root, storage_key_nibbles, None, storage_proof) {
+            Ok(()) => true,
+            Err(ProofVerificationError::RootMismatch { .. }) => false,
+            Err(ProofVerificationError::ValueMismatch { .. }) => false,
+            Err(_) => false,
+        };
 
     if !storage_proof_valid {
         return false;

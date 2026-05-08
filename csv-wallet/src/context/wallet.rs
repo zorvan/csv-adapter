@@ -372,18 +372,26 @@ impl WalletContext {
         use csv_keys::memory::{Passphrase, SecretKey};
 
         // Derive address from private key
-        let address = crate::wallet_core::ChainAccount::derive_address(chain.clone(), private_key_hex)
-            .map_err(|e| format!("Failed to derive address: {}", e))?;
+        let address =
+            crate::wallet_core::ChainAccount::derive_address(chain.clone(), private_key_hex)
+                .map_err(|e| format!("Failed to derive address: {}", e))?;
 
         // Parse the private key bytes
-        let hex_clean = private_key_hex.strip_prefix("0x").unwrap_or(private_key_hex);
+        let hex_clean = private_key_hex
+            .strip_prefix("0x")
+            .unwrap_or(private_key_hex);
         let key_bytes = hex::decode(hex_clean).map_err(|e| format!("Invalid hex: {}", e))?;
         if key_bytes.len() != 32 {
-            return Err(format!("Private key must be 32 bytes, got {}", key_bytes.len()));
+            return Err(format!(
+                "Private key must be 32 bytes, got {}",
+                key_bytes.len()
+            ));
         }
 
-      // Create a SecretKey from the bytes
-        let key_arr: [u8; 32] = key_bytes.try_into().map_err(|_| "Invalid key length".to_string())?;
+        // Create a SecretKey from the bytes
+        let key_arr: [u8; 32] = key_bytes
+            .try_into()
+            .map_err(|_| "Invalid key length".to_string())?;
         let secret_key = SecretKey::new(key_arr);
 
         // Encrypt and store in browser keystore
@@ -401,7 +409,7 @@ impl WalletContext {
                 .map_err(|e| format!("Failed to store key: {}", e))?;
         }
 
-      #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(not(target_arch = "wasm32"))]
         {
             // For non-WASM builds, store in memory (production would use file system)
             let _ = (chain_name, secret_key, passphrase_obj);

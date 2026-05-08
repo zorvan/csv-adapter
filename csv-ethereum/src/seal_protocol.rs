@@ -15,8 +15,8 @@ use csv_core::error::Result as CoreResult;
 use csv_core::proof::{FinalityProof, ProofBundle};
 use csv_core::seal::CommitAnchor as CoreCommitAnchor;
 use csv_core::seal::SealPoint as CoreSealPoint;
-use csv_core::SealProtocol;
 use csv_core::Hash;
+use csv_core::SealProtocol;
 
 use crate::config::EthereumConfig;
 use crate::error::{EthereumError, EthereumResult};
@@ -139,7 +139,9 @@ impl EthereumSealProtocol {
             .get_transaction_receipt(tx_hash)
             .await
             .map_err(|e| ProtocolError::NetworkError(e.to_string()))?
-            .ok_or_else(|| ProtocolError::InclusionProofFailed("Transaction receipt not found".to_string()))?;
+            .ok_or_else(|| {
+                ProtocolError::InclusionProofFailed("Transaction receipt not found".to_string())
+            })?;
 
         // Step 5: Verify LOG event
         let has_valid_event = verify_seal_consumption_in_receipt(
@@ -161,7 +163,9 @@ impl EthereumSealProtocol {
 
         // Mark seal as consumed
         let registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
-        registry.mark_seal_used(&seal).map_err(ProtocolError::from)?;
+        registry
+            .mark_seal_used(&seal)
+            .map_err(ProtocolError::from)?;
 
         Ok(anchor)
     }
@@ -195,17 +199,19 @@ impl SealProtocol for EthereumSealProtocol {
                 })?;
 
             let handle = Handle::current();
-            
+
             // Build, sign, and broadcast the transaction
-            let tx_hash = handle.block_on(publish(real_rpc, &seal, *commitment.as_bytes()))
+            let tx_hash = handle
+                .block_on(publish(real_rpc, &seal, *commitment.as_bytes()))
                 .map_err(|e| ProtocolError::PublishFailed(e.to_string()))?;
 
             // Get the receipt and verify the SealUsed event
-            let receipt = handle.block_on(
-                self.rpc.get_transaction_receipt(tx_hash)
-            )
+            let receipt = handle
+                .block_on(self.rpc.get_transaction_receipt(tx_hash))
                 .map_err(|e| ProtocolError::NetworkError(e.to_string()))?
-                .ok_or_else(|| ProtocolError::PublishFailed("Transaction receipt not found".to_string()))?;
+                .ok_or_else(|| {
+                    ProtocolError::PublishFailed("Transaction receipt not found".to_string())
+                })?;
 
             let has_valid_event = verify_seal_consumption_in_receipt(
                 &receipt,
@@ -225,7 +231,9 @@ impl SealProtocol for EthereumSealProtocol {
 
             // Mark seal as consumed in local registry
             let registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
-            registry.mark_seal_used(&seal).map_err(ProtocolError::from)?;
+            registry
+                .mark_seal_used(&seal)
+                .map_err(ProtocolError::from)?;
 
             Ok(anchor)
         }
@@ -255,27 +263,37 @@ impl SealProtocol for EthereumSealProtocol {
                 .and_then(|any| any.downcast_ref::<EthereumNode>())
             {
                 let handle = Handle::current();
-                
-                // Get the block header for receipt root
-                let block_hash = handle.block_on(
-                    self.rpc.get_block_hash(anchor.block_number)
-                ).map_err(|e| {
-                    ProtocolError::InclusionProofFailed(format!("Failed to get block hash: {}", e))
-                })?;
 
-                let state_root = handle.block_on(
-                    self.rpc.get_block_state_root(block_hash)
-                ).map_err(|e| {
-                    ProtocolError::InclusionProofFailed(format!("Failed to get state root: {}", e))
-                })?;
+                // Get the block header for receipt root
+                let block_hash = handle
+                    .block_on(self.rpc.get_block_hash(anchor.block_number))
+                    .map_err(|e| {
+                        ProtocolError::InclusionProofFailed(format!(
+                            "Failed to get block hash: {}",
+                            e
+                        ))
+                    })?;
+
+                let state_root = handle
+                    .block_on(self.rpc.get_block_state_root(block_hash))
+                    .map_err(|e| {
+                        ProtocolError::InclusionProofFailed(format!(
+                            "Failed to get state root: {}",
+                            e
+                        ))
+                    })?;
 
                 // Get the receipt for the transaction
-                let receipt = handle.block_on(
-                    self.rpc.get_transaction_receipt(anchor.tx_hash)
-                ).map_err(|e| {
-                    ProtocolError::InclusionProofFailed(format!("Failed to get receipt: {}", e))
-                })?
-                .ok_or_else(|| ProtocolError::InclusionProofFailed("Transaction receipt not found".to_string()))?;
+                let receipt = handle
+                    .block_on(self.rpc.get_transaction_receipt(anchor.tx_hash))
+                    .map_err(|e| {
+                        ProtocolError::InclusionProofFailed(format!("Failed to get receipt: {}", e))
+                    })?
+                    .ok_or_else(|| {
+                        ProtocolError::InclusionProofFailed(
+                            "Transaction receipt not found".to_string(),
+                        )
+                    })?;
 
                 // Verify the receipt is in the correct block
                 if receipt.block_number != anchor.block_number {
@@ -320,13 +338,19 @@ impl SealProtocol for EthereumSealProtocol {
         {
             use tokio::runtime::Handle;
             let handle = Handle::current();
-            let is_finalized = handle.block_on(
-                self.finality_checker.is_finalized(anchor.block_number, self.rpc.as_ref())
-            ).unwrap_or(true);
+            let is_finalized = handle
+                .block_on(
+                    self.finality_checker
+                        .is_finalized(anchor.block_number, self.rpc.as_ref()),
+                )
+                .unwrap_or(true);
 
-            let confirmations = handle.block_on(
-                self.finality_checker.get_confirmations(anchor.block_number, self.rpc.as_ref())
-            ).unwrap_or(self.config.finality_depth);
+            let confirmations = handle
+                .block_on(
+                    self.finality_checker
+                        .get_confirmations(anchor.block_number, self.rpc.as_ref()),
+                )
+                .unwrap_or(self.config.finality_depth);
 
             Ok(EthereumFinalityProof::new(
                 confirmations,
@@ -388,8 +412,9 @@ impl SealProtocol for EthereumSealProtocol {
         let seal_ref = CoreSealPoint::new(anchor.tx_hash.to_vec(), Some(anchor.log_index))
             .map_err(|e| ProtocolError::Generic(e.to_string()))?;
 
-        let anchor_ref = CoreCommitAnchor::new(anchor.tx_hash.to_vec(), anchor.block_number, vec![])
-            .map_err(|e| ProtocolError::Generic(e.to_string()))?;
+        let anchor_ref =
+            CoreCommitAnchor::new(anchor.tx_hash.to_vec(), anchor.block_number, vec![])
+                .map_err(|e| ProtocolError::Generic(e.to_string()))?;
 
         let inclusion_proof = csv_core::InclusionProof::new(
             inclusion.merkle_proof.clone(),
@@ -428,9 +453,9 @@ impl SealProtocol for EthereumSealProtocol {
         {
             use tokio::runtime::Handle;
             let handle = Handle::current();
-            let current = handle.block_on(
-                self.rpc.block_number()
-            ).map_err(|e| ProtocolError::NetworkError(e.to_string()))?;
+            let current = handle
+                .block_on(self.rpc.block_number())
+                .map_err(|e| ProtocolError::NetworkError(e.to_string()))?;
             if anchor.block_number > current {
                 return Err(ProtocolError::ReorgInvalid(format!(
                     "Block {} beyond current {}",

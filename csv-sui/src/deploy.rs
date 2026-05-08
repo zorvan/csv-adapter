@@ -28,19 +28,20 @@ where
         .enable_all()
         .build()
         .map_err(|e| SuiError::RpcError(format!("Failed to create runtime: {}", e)))?;
-    rt.block_on(future).map_err(|e| SuiError::RpcError(e.to_string()))
+    rt.block_on(future)
+        .map_err(|e| SuiError::RpcError(e.to_string()))
 }
 
 #[cfg(feature = "sui-sdk-deploy")]
 use std::str::FromStr;
 #[cfg(feature = "sui-sdk-deploy")]
+use sui_crypto::ed25519::Ed25519PrivateKey;
+#[cfg(feature = "sui-sdk-deploy")]
 use sui_rpc::client::Client;
 #[cfg(feature = "sui-sdk-deploy")]
-use sui_sdk_types::{Address, Transaction, Ed25519Signature};
+use sui_sdk_types::{Address, Ed25519Signature, Transaction};
 #[cfg(feature = "sui-sdk-deploy")]
 use sui_transaction_builder::TransactionBuilder;
-#[cfg(feature = "sui-sdk-deploy")]
-use sui_crypto::ed25519::Ed25519PrivateKey;
 
 /// Sui package deployment result
 pub struct PackageDeployment {
@@ -87,33 +88,36 @@ impl PackageDeployer {
             .map_err(|e| SuiError::RpcError(format!("Failed to create gRPC client: {}", e)))?;
 
         // Get sender address from config
-        let sender = self.config.signer_address
-            .as_ref()
-            .ok_or_else(|| SuiError::ConfigurationError("No signer address configured".to_string()))?;
+        let sender = self.config.signer_address.as_ref().ok_or_else(|| {
+            SuiError::ConfigurationError("No signer address configured".to_string())
+        })?;
         let sender_address = Address::from_str(sender)
             .map_err(|e| SuiError::ConfigurationError(format!("Invalid address: {}", e)))?;
 
         // Build publish transaction using sui-transaction-builder
         // TransactionBuilder uses a mutable builder pattern
         let mut builder = TransactionBuilder::new();
-        
+
         // Set transaction parameters
         builder.set_sender(sender_address);
         builder.set_gas_budget(gas_budget);
-        
+
         // Add modules and dependencies for publishing
         let modules = vec![package_bytes.to_vec()];
         // Dependencies: 0x1 (Sui framework), 0x2 (Sui system) as Addresses
-        let dep1 = Address::from_str("0x1").map_err(|e| SuiError::ConfigurationError(format!("Invalid dep: {}", e)))?;
-        let dep2 = Address::from_str("0x2").map_err(|e| SuiError::ConfigurationError(format!("Invalid dep: {}", e)))?;
+        let dep1 = Address::from_str("0x1")
+            .map_err(|e| SuiError::ConfigurationError(format!("Invalid dep: {}", e)))?;
+        let dep2 = Address::from_str("0x2")
+            .map_err(|e| SuiError::ConfigurationError(format!("Invalid dep: {}", e)))?;
         let dependencies = vec![dep1, dep2];
-        
+
         // Call publish - this adds a publish command to the transaction
         builder.publish(modules, dependencies);
-        
+
         // Build the transaction
-        let transaction = builder.try_build()
-            .map_err(|e| SuiError::SerializationError(format!("Failed to build transaction: {}", e)))?;
+        let transaction = builder.try_build().map_err(|e| {
+            SuiError::SerializationError(format!("Failed to build transaction: {}", e))
+        })?;
 
         // Serialize transaction data for signing
         let tx_bytes = bcs::to_bytes(&transaction)
@@ -123,11 +127,14 @@ impl PackageDeployer {
         // Import the Signer trait to use try_sign
         use sui_crypto::Signer;
         let private_key = self.get_signer_private_key()?;
-        let signature: Ed25519Signature = private_key.try_sign(&tx_bytes)
+        let signature: Ed25519Signature = private_key
+            .try_sign(&tx_bytes)
             .map_err(|e| SuiError::RpcError(format!("Signing failed: {}", e)))?;
 
         // Execute the transaction via gRPC
-        let digest = self.execute_with_client(client, transaction, signature).await?;
+        let digest = self
+            .execute_with_client(client, transaction, signature)
+            .await?;
 
         // Return deployment result
         Ok(PackageDeployment {
@@ -138,7 +145,7 @@ impl PackageDeployer {
             dependencies: vec!["0x1".to_string(), "0x2".to_string()],
         })
     }
-    
+
     /// Execute transaction with gRPC client
     #[cfg(feature = "sui-sdk-deploy")]
     async fn execute_with_client(
@@ -153,7 +160,8 @@ impl PackageDeployer {
         Err(SuiError::FeatureNotEnabled(
             "Full gRPC transaction execution requires sui-rpc SDK updates. \
              Transaction construction and signing are complete but submission \
-             requires SDK support for the ExecuteTransaction endpoint.".to_string()
+             requires SDK support for the ExecuteTransaction endpoint."
+                .to_string(),
         ))
     }
 
@@ -165,27 +173,28 @@ impl PackageDeployer {
         _gas_budget: u64,
     ) -> SuiResult<PackageDeployment> {
         Err(SuiError::FeatureNotEnabled(
-            "Package deployment requires the 'sui-sdk-deploy' feature enabled".to_string()
+            "Package deployment requires the 'sui-sdk-deploy' feature enabled".to_string(),
         ))
     }
 
     /// Get the signer private key from configuration
     #[cfg(feature = "sui-sdk-deploy")]
     fn get_signer_private_key(&self) -> SuiResult<Ed25519PrivateKey> {
-        let private_key_bytes = self.config.signer_private_key
-            .as_ref()
-            .ok_or_else(|| SuiError::ConfigurationError("No signer private key configured".to_string()))?;
+        let private_key_bytes = self.config.signer_private_key.as_ref().ok_or_else(|| {
+            SuiError::ConfigurationError("No signer private key configured".to_string())
+        })?;
 
         if private_key_bytes.len() != 32 {
             return Err(SuiError::ConfigurationError(
-                "Invalid private key length - expected 32 bytes".to_string()
+                "Invalid private key length - expected 32 bytes".to_string(),
             ));
         }
 
         // Convert Vec<u8> to [u8; 32] for sui-crypto's Ed25519PrivateKey
-        let key_bytes: [u8; 32] = private_key_bytes.as_slice().try_into()
-            .map_err(|_| SuiError::ConfigurationError("Private key must be exactly 32 bytes".to_string()))?;
-        
+        let key_bytes: [u8; 32] = private_key_bytes.as_slice().try_into().map_err(|_| {
+            SuiError::ConfigurationError("Private key must be exactly 32 bytes".to_string())
+        })?;
+
         // Create sui-crypto's Ed25519PrivateKey directly from bytes
         Ok(Ed25519PrivateKey::new(key_bytes))
     }
@@ -218,7 +227,7 @@ impl PackageDeployer {
         ))
     }
 
-   /// Verify a package is deployed
+    /// Verify a package is deployed
     pub fn verify_package(&self, package_id: [u8; 32]) -> SuiResult<bool> {
         // Check if the object exists and is a package
         let rpc = self.rpc.clone_boxed();
@@ -228,7 +237,8 @@ impl PackageDeployer {
                 .build()
                 .unwrap();
             rt.block_on(rpc.get_object(package_id))
-        }).join();
+        })
+        .join();
         let obj = match result {
             Ok(v) => v.map_err(|e| SuiError::RpcError(e.to_string()))?,
             Err(e) => return Err(SuiError::RpcError(format!("Blocking task failed: {:?}", e))),

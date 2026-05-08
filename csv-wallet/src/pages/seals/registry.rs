@@ -35,10 +35,22 @@ pub fn SealRegistry() -> Element {
 
     // Calculate statistics
     let total_seals = seals.len();
-    let active_seals = seals.iter().filter(|s| s.status == SealStatus::Active).count();
-    let consumed_seals = seals.iter().filter(|s| s.status == SealStatus::Consumed).count();
-    let locked_seals = seals.iter().filter(|s| s.status == SealStatus::Locked).count();
-    let transferred_seals = seals.iter().filter(|s| s.status == SealStatus::Transferred).count();
+    let active_seals = seals
+        .iter()
+        .filter(|s| s.status == SealStatus::Active)
+        .count();
+    let consumed_seals = seals
+        .iter()
+        .filter(|s| s.status == SealStatus::Consumed)
+        .count();
+    let locked_seals = seals
+        .iter()
+        .filter(|s| s.status == SealStatus::Locked)
+        .count();
+    let transferred_seals = seals
+        .iter()
+        .filter(|s| s.status == SealStatus::Transferred)
+        .count();
 
     rsx! {
         div { class: "max-w-6xl mx-auto space-y-6",

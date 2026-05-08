@@ -173,7 +173,10 @@ impl AluVmAdapter {
                 arr[..state.data.len()].copy_from_slice(&state.data);
                 arr
             }));
-            state_map.insert(hash.as_bytes()[..16].try_into().unwrap_or([0u8; 16]), state.data.clone());
+            state_map.insert(
+                hash.as_bytes()[..16].try_into().unwrap_or([0u8; 16]),
+                state.data.clone(),
+            );
         }
 
         while pc < bytecode.len() {
@@ -297,9 +300,7 @@ impl AluVmAdapter {
                 }
                 Opcode::Jump => {
                     if pc + 1 >= bytecode.len() {
-                        return Err(VMError::InvalidBytecode(
-                            "JUMP without offset".to_string(),
-                        ));
+                        return Err(VMError::InvalidBytecode("JUMP without offset".to_string()));
                     }
                     let offset = u16::from_be_bytes([bytecode[pc], bytecode[pc + 1]]) as usize;
                     if offset >= bytecode.len() {
@@ -311,9 +312,7 @@ impl AluVmAdapter {
                 }
                 Opcode::JumpIf => {
                     if pc + 1 >= bytecode.len() {
-                        return Err(VMError::InvalidBytecode(
-                            "JUMPI without offset".to_string(),
-                        ));
+                        return Err(VMError::InvalidBytecode("JUMPI without offset".to_string()));
                     }
                     let offset = u16::from_be_bytes([bytecode[pc], bytecode[pc + 1]]) as usize;
                     pc += 2;
@@ -324,9 +323,7 @@ impl AluVmAdapter {
                 }
                 Opcode::Dup => {
                     if stack.is_empty() {
-                        return Err(VMError::ExecutionError(
-                            "DUP on empty stack".to_string(),
-                        ));
+                        return Err(VMError::ExecutionError("DUP on empty stack".to_string()));
                     }
                     stack.push(stack.last().unwrap().clone());
                 }
@@ -351,7 +348,7 @@ impl AluVmAdapter {
                             next_seal = parse_seal_from_data(&data);
                         }
                     }
-                   _status = ExecStatus::Return;
+                    _status = ExecStatus::Return;
                     break;
                 }
                 Opcode::Invalid(op) => {
@@ -368,9 +365,8 @@ impl AluVmAdapter {
             .map(|(i, data)| {
                 StateAssignment::new(
                     i as StateTypeId,
-                    SealPoint::new(vec![i as u8; 16], Some(1)).unwrap_or_else(|_| {
-                        SealPoint::new(vec![0u8; 16], Some(1)).unwrap()
-                    }),
+                    SealPoint::new(vec![i as u8; 16], Some(1))
+                        .unwrap_or_else(|_| SealPoint::new(vec![0u8; 16], Some(1)).unwrap()),
                     data.clone(),
                 )
             })
@@ -429,9 +425,8 @@ fn pop_bytes(stack: &mut Vec<Vec<u8>>) -> Result<Vec<u8>, VMError> {
 
 fn pop_big_uint(stack: &mut Vec<Vec<u8>>) -> Result<u64, VMError> {
     let bytes = pop_bytes(stack)?;
-    decode_integer(&bytes).ok_or_else(|| {
-        VMError::ExecutionError("Invalid integer on stack".to_string())
-    })
+    decode_integer(&bytes)
+        .ok_or_else(|| VMError::ExecutionError("Invalid integer on stack".to_string()))
 }
 
 fn parse_seal_from_data(data: &[u8]) -> Option<SealPoint> {
@@ -500,12 +495,9 @@ mod tests {
         let vm = AluVmAdapter::new(5);
         let inputs = make_inputs();
         let bytecode = vec![
-            0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x10,
-            0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x10,
-            0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x10,
-            0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x10,
-            0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x10,
-            0x00,
+            0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x10, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x10,
+            0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x10, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x10,
+            0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x10, 0x00,
         ];
         let result = vm.execute(&bytecode, inputs, &[]);
         assert!(result.is_err());

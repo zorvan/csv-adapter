@@ -9,15 +9,15 @@
 //!
 //! Both implementations are cryptographically equivalent and produce identical results.
 
-use sha2::{Digest, Sha256};
 use bitcoin_hashes::Hash as _;
+use sha2::{Digest, Sha256};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pure-Rust Merkle Tree Implementation (no `bitcoin` crate dependency)
 // ─────────────────────────────────────────────────────────────────────────────
 
-use bitcoin::{Txid, merkle_tree::PartialMerkleTree, blockdata::block::Header};
 use crate::types::BitcoinInclusionProof;
+use bitcoin::{blockdata::block::Header, merkle_tree::PartialMerkleTree, Txid};
 use csv_core::Hash as CoreHash;
 
 /// Double-SHA256 hash of two 32-byte inputs (Bitcoin Merkle node hash).
@@ -279,12 +279,7 @@ pub fn verify_merkle_proof_rust_bitcoin(
         return txid_bytes == merkle_root;
     }
     // Use the pure-Rust implementation which is fully correct
-    let proof = BitcoinInclusionProof::new(
-        merkle_branch.to_vec(),
-        *merkle_root,
-        tx_index,
-        0,
-    );
+    let proof = BitcoinInclusionProof::new(merkle_branch.to_vec(), *merkle_root, tx_index, 0);
     verify_merkle_proof(txid, merkle_root, &proof)
 }
 
@@ -347,7 +342,10 @@ pub fn verify_full_spv_proof_rust_bitcoin(
     let txid_obj = Txid::from_byte_array(*txid);
     let mut extracted_txids = Vec::new();
     let mut indexes = Vec::new();
-    if pmt.extract_matches(&mut extracted_txids, &mut indexes).is_err() {
+    if pmt
+        .extract_matches(&mut extracted_txids, &mut indexes)
+        .is_err()
+    {
         return false;
     }
     if !extracted_txids.contains(&txid_obj) {
@@ -404,10 +402,7 @@ fn extract_merkle_branch_from_pmt(pmt: &PartialMerkleTree, target_index: usize) 
     let mut indexes = Vec::new();
     if let Ok(_root) = pmt.extract_matches(&mut txids, &mut indexes) {
         // Rebuild the tree to find siblings for the target index
-        let mut current_level: Vec<[u8; 32]> = txids
-            .iter()
-            .map(|t| t.to_byte_array())
-            .collect();
+        let mut current_level: Vec<[u8; 32]> = txids.iter().map(|t| t.to_byte_array()).collect();
         let mut branch = Vec::new();
         let mut idx = target_index % current_level.len();
 
@@ -503,9 +498,7 @@ pub fn to_core_inclusion_proof(proof: &BitcoinInclusionProof) -> csv_core::Inclu
 }
 
 /// Convert core CSV inclusion proof to Bitcoin-specific type.
-pub fn from_core_inclusion_proof(
-    proof: &csv_core::InclusionProof,
-) -> BitcoinInclusionProof {
+pub fn from_core_inclusion_proof(proof: &csv_core::InclusionProof) -> BitcoinInclusionProof {
     let proof_bytes = &proof.proof_bytes;
     if proof_bytes.len() < 48 {
         return BitcoinInclusionProof::new(vec![], [0u8; 32], 0, 0);
@@ -614,8 +607,7 @@ mod tests {
     fn test_extract_merkle_proof_multiple_txs() {
         let txids = [[1u8; 32], [2u8; 32], [3u8; 32]];
         let block_hash = [4u8; 32];
-        let proof =
-            extract_merkle_proof_from_block(txids[1], &txids, block_hash, 200).unwrap();
+        let proof = extract_merkle_proof_from_block(txids[1], &txids, block_hash, 200).unwrap();
         assert_eq!(proof.tx_index, 1);
         assert!(!proof.merkle_branch.is_empty());
         // Verify the extracted proof
@@ -656,8 +648,7 @@ mod tests {
     #[test]
     fn test_from_core_inclusion_proof() {
         let core_proof =
-            csv_core::InclusionProof::new(vec![0xAB; 64], CoreHash::new([1u8; 32]), 5)
-                .unwrap();
+            csv_core::InclusionProof::new(vec![0xAB; 64], CoreHash::new([1u8; 32]), 5).unwrap();
         let bitcoin_proof = from_core_inclusion_proof(&core_proof);
         assert_eq!(bitcoin_proof.tx_index, 5);
     }
@@ -668,7 +659,12 @@ mod tests {
     fn test_rust_bitcoin_merkle_proof_single() {
         let txid = [1u8; 32];
         let merkle_root = txid;
-        assert!(verify_merkle_proof_rust_bitcoin(&txid, &merkle_root, &[], 0));
+        assert!(verify_merkle_proof_rust_bitcoin(
+            &txid,
+            &merkle_root,
+            &[],
+            0
+        ));
     }
 
     #[test]
@@ -716,9 +712,15 @@ mod tests {
     fn test_consistency_pure_vs_rust_bitcoin_merkle_root() {
         let txids_raw = [[1u8; 32], [2u8; 32], [3u8; 32], [4u8; 32]];
         let pure_root = compute_merkle_root(&txids_raw).unwrap();
-        let rust_txids: Vec<Txid> = txids_raw.iter().map(|t| Txid::from_byte_array(t).unwrap()).collect();
+        let rust_txids: Vec<Txid> = txids_raw
+            .iter()
+            .map(|t| Txid::from_byte_array(t).unwrap())
+            .collect();
         let rust_root = compute_merkle_root_rust_bitcoin(&rust_txids).unwrap();
-        assert_eq!(pure_root, rust_root, "Merkle root must be identical across implementations");
+        assert_eq!(
+            pure_root, rust_root,
+            "Merkle root must be identical across implementations"
+        );
     }
 
     #[test]
@@ -728,6 +730,11 @@ mod tests {
         let branch = compute_merkle_branch(&txids_raw[2], 2, &txids_raw).unwrap();
         let proof = BitcoinInclusionProof::new(branch.clone(), root, 2, 100);
         assert!(verify_merkle_proof(&txids_raw[2], &root, &proof));
-        assert!(verify_merkle_proof_rust_bitcoin(&txids_raw[2], &root, &branch, 2));
+        assert!(verify_merkle_proof_rust_bitcoin(
+            &txids_raw[2],
+            &root,
+            &branch,
+            2
+        ));
     }
 }

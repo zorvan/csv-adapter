@@ -18,11 +18,13 @@
 //! - Succinct: Proof size is constant regardless of block height
 //! - Verifiable: Anyone can verify without trusting Bitcoin RPC
 
+use bitcoin::hashes::Hash as BitcoinHash;
 use csv_core::hash::Hash;
 use csv_core::protocol_version::builtin;
 use csv_core::seal::SealPoint;
-use csv_core::zk_proof::{ChainWitness, ProofSystem, VerifierKey, ZkError, ZkProver, ZkPublicInputs, ZkSealProof};
-use bitcoin::hashes::Hash as BitcoinHash;
+use csv_core::zk_proof::{
+    ChainWitness, ProofSystem, VerifierKey, ZkError, ZkProver, ZkPublicInputs, ZkSealProof,
+};
 use sha2::{Digest, Sha256};
 
 /// Bitcoin SPV ZK Prover using SP1
@@ -114,20 +116,20 @@ impl ZkProver for BitcoinSpvProver {
         // Validate witness is for Bitcoin
         if witness.chain != *builtin::BITCOIN {
             return Err(ZkError::InvalidProof(
-                "BitcoinSpvProver only supports Bitcoin chain".to_string()
+                "BitcoinSpvProver only supports Bitcoin chain".to_string(),
             ));
         }
 
         // Validate witness data is present
         if witness.tx_data.is_empty() {
             return Err(ZkError::InvalidProof(
-                "Transaction data required for SPV proof".to_string()
+                "Transaction data required for SPV proof".to_string(),
             ));
         }
 
         if witness.inclusion_proof.is_empty() {
             return Err(ZkError::InvalidProof(
-                "Merkle inclusion proof required for SPV proof".to_string()
+                "Merkle inclusion proof required for SPV proof".to_string(),
             ));
         }
 

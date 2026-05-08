@@ -1,6 +1,6 @@
 //! Wallet metadata types.
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// Wallet metadata.
 #[derive(Debug, Clone, Serialize, Deserialize)]

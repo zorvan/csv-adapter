@@ -57,12 +57,14 @@ impl BlobCommitment {
 
     /// Parse from hex
     pub fn from_hex(hex_str: &str) -> Result<Self> {
-        let bytes = hex::decode(hex_str)
-            .map_err(|e| CelestiaError::CommitmentVerificationFailed(format!("Invalid hex: {}", e)))?;
+        let bytes = hex::decode(hex_str).map_err(|e| {
+            CelestiaError::CommitmentVerificationFailed(format!("Invalid hex: {}", e))
+        })?;
         if bytes.len() != 32 {
-            return Err(CelestiaError::CommitmentVerificationFailed(
-                format!("Expected 32 bytes, got {}", bytes.len())
-            ));
+            return Err(CelestiaError::CommitmentVerificationFailed(format!(
+                "Expected 32 bytes, got {}",
+                bytes.len()
+            )));
         }
         let mut arr = [0u8; 32];
         arr.copy_from_slice(&bytes);
@@ -148,7 +150,13 @@ impl CommitmentProof {
     }
 
     /// Set row proof data
-    pub fn with_row_proof(mut self, row_index: u32, share_index: u32, proof: Vec<[u8; 32]>, range: (u32, u32)) -> Self {
+    pub fn with_row_proof(
+        mut self,
+        row_index: u32,
+        share_index: u32,
+        proof: Vec<[u8; 32]>,
+        range: (u32, u32),
+    ) -> Self {
         self.row_index = row_index;
         self.share_index = share_index;
         self.row_proof = proof;
@@ -170,17 +178,17 @@ impl CommitmentProof {
         // Check that we have necessary components
         if self.row_root == [0u8; 32] {
             return Err(CelestiaError::CommitmentVerificationFailed(
-                "Missing row root".to_string()
+                "Missing row root".to_string(),
             ));
         }
         if self.data_root == [0u8; 32] {
             return Err(CelestiaError::CommitmentVerificationFailed(
-                "Missing data root".to_string()
+                "Missing data root".to_string(),
             ));
         }
         if self.block_hash == [0u8; 32] {
             return Err(CelestiaError::CommitmentVerificationFailed(
-                "Missing block hash".to_string()
+                "Missing block hash".to_string(),
             ));
         }
         Ok(())
@@ -188,11 +196,7 @@ impl CommitmentProof {
 
     /// Get the proof ID for this commitment
     pub fn proof_id(&self) -> crate::proof_id::ProofId {
-        crate::proof_id::ProofId::new(
-            self.height,
-            self.namespace,
-            *self.commitment.as_bytes(),
-        )
+        crate::proof_id::ProofId::new(self.height, self.namespace, *self.commitment.as_bytes())
     }
 }
 
@@ -271,7 +275,11 @@ impl HybridProof {
     }
 
     /// Create an IPFS-backed proof
-    pub fn ipfs_backed(anchor_proof: CommitmentProof, cid: impl Into<String>, dag_root: [u8; 32]) -> Self {
+    pub fn ipfs_backed(
+        anchor_proof: CommitmentProof,
+        cid: impl Into<String>,
+        dag_root: [u8; 32],
+    ) -> Self {
         Self::IpfsBacked {
             anchor_proof,
             cid: cid.into(),
@@ -328,10 +336,7 @@ pub struct FraudProof {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FraudEvidence {
     /// Share not found at claimed location
-    MissingShare {
-        row_index: u32,
-        share_index: u32,
-    },
+    MissingShare { row_index: u32, share_index: u32 },
     /// Invalid Merkle proof
     InvalidMerkleProof {
         proof_index: u32,
@@ -344,10 +349,7 @@ pub enum FraudEvidence {
         actual: Namespace,
     },
     /// Data not retrievable from IPFS
-    IpfsUnavailable {
-        cid: String,
-        error: String,
-    },
+    IpfsUnavailable { cid: String, error: String },
     /// Content hash mismatch (IPFS CID doesn't match content)
     ContentMismatch {
         cid: String,
@@ -384,12 +386,12 @@ impl FraudProof {
     pub fn verify_structure(&self) -> Result<()> {
         if self.challenger_signature.is_empty() {
             return Err(CelestiaError::FraudProofError(
-                "Missing challenger signature".to_string()
+                "Missing challenger signature".to_string(),
             ));
         }
         if self.challenged_commitment.as_bytes() == &[0u8; 32] {
             return Err(CelestiaError::FraudProofError(
-                "Invalid challenged commitment".to_string()
+                "Invalid challenged commitment".to_string(),
             ));
         }
         Ok(())
@@ -431,12 +433,9 @@ mod tests {
         let commitment = BlobCommitment::new([0u8; 32]);
 
         let proof = CommitmentProof::new(
-            12345,
-            ns,
-            commitment,
-            [1u8; 32],  // row_root
-            [2u8; 32],  // data_root
-            [3u8; 32],  // block_hash
+            12345, ns, commitment, [1u8; 32], // row_root
+            [2u8; 32], // data_root
+            [3u8; 32], // block_hash
         );
 
         assert_eq!(proof.height, 12345);
@@ -449,12 +448,8 @@ mod tests {
         let commitment = BlobCommitment::new([0u8; 32]);
 
         let proof = CommitmentProof::new(
-            12345,
-            ns,
-            commitment,
-            [0u8; 32],  // zero row_root - should fail
-            [2u8; 32],
-            [3u8; 32],
+            12345, ns, commitment, [0u8; 32], // zero row_root - should fail
+            [2u8; 32], [3u8; 32],
         );
 
         assert!(proof.verify_structure().is_err());
@@ -477,8 +472,12 @@ mod tests {
     fn test_hybrid_proof() {
         let ns = Namespace::bitcoin_stark();
         let celestia_proof = CommitmentProof::new(
-            12345, ns, BlobCommitment::new([0u8; 32]),
-            [1u8; 32], [2u8; 32], [3u8; 32]
+            12345,
+            ns,
+            BlobCommitment::new([0u8; 32]),
+            [1u8; 32],
+            [2u8; 32],
+            [3u8; 32],
         );
 
         let direct = HybridProof::direct(celestia_proof.clone());
@@ -498,8 +497,7 @@ mod tests {
             share_index: 10,
         };
 
-        let fraud = FraudProof::new(12345, commitment, evidence)
-            .with_signature(vec![1, 2, 3]);
+        let fraud = FraudProof::new(12345, commitment, evidence).with_signature(vec![1, 2, 3]);
 
         assert_eq!(fraud.challenged_height, 12345);
         assert!(fraud.verify_structure().is_ok());
@@ -525,8 +523,12 @@ mod tests {
         let commitment = BlobCommitment::new([0xABu8; 32]);
 
         let proof = CommitmentProof::new(
-            12345, ns.clone(), commitment,
-            [1u8; 32], [2u8; 32], [3u8; 32]
+            12345,
+            ns.clone(),
+            commitment,
+            [1u8; 32],
+            [2u8; 32],
+            [3u8; 32],
         );
 
         let proof_id = proof.proof_id();

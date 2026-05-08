@@ -75,7 +75,7 @@ pub fn CrossChainTransfer() -> Element {
                 dest_balance_loading.set(true);
                 let addr = addr.clone();
                 let chain_for_balance = to_chain_val.clone();
-               spawn(async move {
+                spawn(async move {
                     use crate::services::chain_api::ChainApi;
                     let api = ChainApi::default();
                     if let Ok(balance_str) = api.get_balance(&addr, chain_for_balance).await {
@@ -92,11 +92,11 @@ pub fn CrossChainTransfer() -> Element {
     // Check if destination account has minimum balance for gas (in raw chain units)
     // Sui: ~0.01 SUI = 10_000_000 MIST, Aptos: ~0.01 APT = 1_000_000 octas
     let min_dest_balance_raw = match to_chain.read().as_str() {
-        "sui" => 10_000_000u64,     // 0.01 SUI in MIST
-        "aptos" => 1_000_000u64,  // 0.01 APT in octas
+        "sui" => 10_000_000u64,                 // 0.01 SUI in MIST
+        "aptos" => 1_000_000u64,                // 0.01 APT in octas
         "ethereum" => 1_000_000_000_000_000u64, // ~0.001 ETH in wei
-        "solana" => 1_000_000u64, // ~0.001 SOL in lamports
-        _ => 0u64,                      // Bitcoin doesn't need pre-funded destination for minting
+        "solana" => 1_000_000u64,               // ~0.001 SOL in lamports
+        _ => 0u64, // Bitcoin doesn't need pre-funded destination for minting
     };
     let dest_has_enough_balance = *dest_balance_raw.read() >= min_dest_balance_raw;
 
@@ -256,7 +256,7 @@ pub fn CrossChainTransfer() -> Element {
                 let signer = NativeWallet::new(account.address.clone());
                 let service = BlockchainService::new(BlockchainConfig::default());
 
-               // Determine destination owner (default to same address)
+                // Determine destination owner (default to same address)
                 let dest_addr: String = if dest.is_empty() {
                     signer.address().to_string()
                 } else {
@@ -274,7 +274,7 @@ pub fn CrossChainTransfer() -> Element {
                 let from_for_contracts = from.clone();
                 let source_contracts = wallet_ctx.contracts_for_chain(from_for_contracts);
                 if !source_contracts.is_empty() {
-                 if let Some(contract) = source_contracts.first() {
+                    if let Some(contract) = source_contracts.first() {
                         let from_for_insert = from.clone();
                         contracts.insert(
                             from_for_insert,
@@ -314,7 +314,14 @@ pub fn CrossChainTransfer() -> Element {
                 let from_for_exec = from.clone();
                 let to_for_exec = to.clone();
                 match service
-                    .execute_cross_chain_transfer(from_for_exec, to_for_exec, &sanad, &dest_addr, &contracts, &signer)
+                    .execute_cross_chain_transfer(
+                        from_for_exec,
+                        to_for_exec,
+                        &sanad,
+                        &dest_addr,
+                        &contracts,
+                        &signer,
+                    )
                     .await
                 {
                     Ok(transfer_result) => {
@@ -327,9 +334,11 @@ pub fn CrossChainTransfer() -> Element {
                             contracts.get(&from).map(|c| c.contract_address.clone());
                         let dest_contract = contracts.get(&to).map(|c| c.contract_address.clone());
 
-                  // Format fees with appropriate chain units
-                        let source_fee_str = Some(transfer_result.source_fee.parse::<u64>().unwrap_or(0));
-                        let dest_fee_str = Some(transfer_result.dest_fee.parse::<u64>().unwrap_or(0));
+                        // Format fees with appropriate chain units
+                        let source_fee_str =
+                            Some(transfer_result.source_fee.parse::<u64>().unwrap_or(0));
+                        let dest_fee_str =
+                            Some(transfer_result.dest_fee.parse::<u64>().unwrap_or(0));
 
                         // Create linked Seal record
                         let seal_ref = format!("seal_{}", &transfer_id[..16]);
@@ -408,7 +417,9 @@ pub fn CrossChainTransfer() -> Element {
                             proof_type: proof_type.to_string(),
                             proof_system: None,
                             verified: true,
-                            proof_data: Some(serde_json::to_string(&proof_data).unwrap_or_default()),
+                            proof_data: Some(
+                                serde_json::to_string(&proof_data).unwrap_or_default(),
+                            ),
                             block_height: None,
                             created_at: now,
                             verified_at: Some(now),

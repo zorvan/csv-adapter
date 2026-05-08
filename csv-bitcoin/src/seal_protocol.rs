@@ -23,15 +23,17 @@ use csv_core::proof::{FinalityProof, ProofBundle};
 use csv_core::sanad::SanadId;
 use csv_core::seal::CommitAnchor as CoreCommitAnchor;
 use csv_core::seal::SealPoint as CoreSealPoint;
-use csv_core::SealProtocol;
 use csv_core::Hash;
+use csv_core::SealProtocol;
 
 use crate::config::BitcoinConfig;
 use crate::error::{BitcoinError, BitcoinResult};
 use crate::rpc::BitcoinRpc;
 use crate::seal::SealRegistry;
 use crate::tx_builder::CommitmentTxBuilder;
-use crate::types::{BitcoinCommitAnchor, BitcoinFinalityProof, BitcoinInclusionProof, BitcoinSealPoint};
+use crate::types::{
+    BitcoinCommitAnchor, BitcoinFinalityProof, BitcoinInclusionProof, BitcoinSealPoint,
+};
 use crate::wallet::SealWallet;
 
 /// Bitcoin implementation of the SealProtocol trait with HD wallet support
@@ -80,10 +82,10 @@ impl BitcoinSealProtocol {
 
         // Create wallet from xpub if provided, otherwise generate random for testing
         let wallet = match &config.xpub {
-            Some(xpub_str) => {
-                SealWallet::from_xpub(xpub_str, config.network.to_bitcoin_network())
-                    .map_err(|e| BitcoinError::RpcError(format!("Wallet creation from xpub failed: {}", e)))?
-            }
+            Some(xpub_str) => SealWallet::from_xpub(xpub_str, config.network.to_bitcoin_network())
+                .map_err(|e| {
+                    BitcoinError::RpcError(format!("Wallet creation from xpub failed: {}", e))
+                })?,
             None => {
                 // Generate random wallet for testing/signet scenarios
                 // Production usage should always provide xpub
@@ -95,7 +97,10 @@ impl BitcoinSealProtocol {
         log::info!(
             "Initialized Bitcoin adapter for network {:?} (magic={:02x}{:02x}{:02x}{:02x})",
             config.network,
-            magic[0], magic[1], magic[2], magic[3]
+            magic[0],
+            magic[1],
+            magic[2],
+            magic[3]
         );
 
         Ok(Self {
@@ -264,7 +269,9 @@ impl BitcoinSealProtocol {
                 account,
                 gap_limit,
             )
-            .map_err(|e| ProtocolError::Generic(format!("Failed to scan chain for UTXOs: {}", e)))?;
+            .map_err(|e| {
+                ProtocolError::Generic(format!("Failed to scan chain for UTXOs: {}", e))
+            })?;
 
         log::info!(
             "Discovered {} UTXOs on account {}",
@@ -344,17 +351,17 @@ impl BitcoinSealProtocol {
     }
 
     /// Find a seal for a given sanad_id
-    /// 
-    /// Searches through the wallet's UTXOs to find a seal (UTXO) that is 
+    ///
+    /// Searches through the wallet's UTXOs to find a seal (UTXO) that is
     /// associated with the given sanad_id. Returns the seal reference if found.
     pub fn find_seal_for_sanad(&self, sanad_id: &SanadId) -> Option<BitcoinSealPoint> {
         let _sanad_bytes = sanad_id.as_bytes();
-        
+
         for utxo in self.wallet.list_utxos() {
             let outpoint = utxo.outpoint;
             let utxo_key = format!("{}:{}", hex::encode(outpoint.txid), outpoint.vout);
             let seal_id = format!("seal:{}", utxo_key);
-            
+
             let derived_sanad = SanadId::from_bytes(seal_id.as_bytes());
             if derived_sanad == *sanad_id {
                 return Some(BitcoinSealPoint {
@@ -364,7 +371,7 @@ impl BitcoinSealProtocol {
                 });
             }
         }
-        
+
         None
     }
 
@@ -520,8 +527,8 @@ impl SealProtocol for BitcoinSealProtocol {
         transition_payload_hash: Hash,
         seal_point: &Self::SealPoint,
     ) -> Hash {
-        let core_seal =
-            CoreSealPoint::new(seal_point.txid.to_vec(), seal_point.nonce).expect("valid seal reference");
+        let core_seal = CoreSealPoint::new(seal_point.txid.to_vec(), seal_point.nonce)
+            .expect("valid seal reference");
         Commitment::simple(
             contract_id,
             previous_commitment,

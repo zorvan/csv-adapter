@@ -56,11 +56,7 @@ impl DeterministicVM for PassthroughVM {
             .owned_inputs
             .iter()
             .map(|state| {
-                StateAssignment::new(
-                    state.type_id,
-                    state.seal.clone(),
-                    state.data.clone(),
-                )
+                StateAssignment::new(state.type_id, state.seal.clone(), state.data.clone())
             })
             .collect();
 

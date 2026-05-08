@@ -3,8 +3,8 @@
 //! Each account belongs to a specific chain and uses secure keystore references.
 //! Private keys are never stored in memory longer than necessary for signing.
 
-use csv_store::state::ChainId;
 use csv_keys::bip44::derive_address_from_chain_id;
+use csv_store::state::ChainId;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -83,8 +83,11 @@ impl ChainAccount {
         if bytes.len() != 32 {
             return Err(format!("Private key must be 32 bytes, got {}", bytes.len()));
         }
-        let bytes_arr: [u8; 32] = bytes.try_into().map_err(|_| "Invalid key length".to_string())?;
-        derive_address_from_chain_id(&bytes_arr, &chain).map_err(|e| format!("Address derivation failed: {}", e))
+        let bytes_arr: [u8; 32] = bytes
+            .try_into()
+            .map_err(|_| "Invalid key length".to_string())?;
+        derive_address_from_chain_id(&bytes_arr, &chain)
+            .map_err(|e| format!("Address derivation failed: {}", e))
     }
 }
 

@@ -57,8 +57,9 @@ impl SolanaProgram {
             commitment,
         };
 
-        let data = serialize(&instruction_data)
-            .map_err(|e| SolanaError::Serialization(format!("Failed to serialize instruction: {}", e)))?;
+        let data = serialize(&instruction_data).map_err(|e| {
+            SolanaError::Serialization(format!("Failed to serialize instruction: {}", e))
+        })?;
 
         Ok(Instruction::new_with_bytes(
             self.program_id,
@@ -85,8 +86,9 @@ impl SolanaProgram {
             metadata,
         };
 
-        let data = serialize(&instruction_data)
-            .map_err(|e| SolanaError::Serialization(format!("Failed to serialize instruction: {}", e)))?;
+        let data = serialize(&instruction_data).map_err(|e| {
+            SolanaError::Serialization(format!("Failed to serialize instruction: {}", e))
+        })?;
 
         Ok(Instruction::new_with_bytes(
             self.program_id,
@@ -112,8 +114,9 @@ impl SolanaProgram {
             new_owner,
         };
 
-        let data = serialize(&instruction_data)
-            .map_err(|e| SolanaError::Serialization(format!("Failed to serialize instruction: {}", e)))?;
+        let data = serialize(&instruction_data).map_err(|e| {
+            SolanaError::Serialization(format!("Failed to serialize instruction: {}", e))
+        })?;
 
         Ok(Instruction::new_with_bytes(
             self.program_id,
@@ -142,8 +145,9 @@ impl SolanaProgram {
             destination_chain,
         };
 
-        let data = serialize(&instruction_data)
-            .map_err(|e| SolanaError::Serialization(format!("Failed to serialize instruction: {}", e)))?;
+        let data = serialize(&instruction_data).map_err(|e| {
+            SolanaError::Serialization(format!("Failed to serialize instruction: {}", e))
+        })?;
 
         Ok(Instruction::new_with_bytes(
             self.program_id,
@@ -193,8 +197,9 @@ impl SolanaProgram {
 
     /// Parse instruction data into a CsvInstruction
     pub fn parse_instruction_data(&self, data: &[u8]) -> SolanaResult<CsvInstruction> {
-        let instruction: CsvInstruction = bincode::deserialize(data)
-            .map_err(|e| SolanaError::Deserialization(format!("Failed to parse instruction: {}", e)))?;
+        let instruction: CsvInstruction = bincode::deserialize(data).map_err(|e| {
+            SolanaError::Deserialization(format!("Failed to parse instruction: {}", e))
+        })?;
         Ok(instruction)
     }
 

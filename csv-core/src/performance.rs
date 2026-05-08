@@ -3,10 +3,10 @@
 //! Provides caching, bloom filters, and parallel processing to improve
 //! proof verification and seal registry operations by 2-5x.
 
-use core::sync::atomic::{AtomicU64, Ordering};
 use crate::collections::HashMap;
-use std::sync::Arc;
+use core::sync::atomic::{AtomicU64, Ordering};
 use spin::RwLock;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use crate::hash::Hash;
@@ -333,7 +333,9 @@ impl BloomFilter {
             false_positive_rate,
             &[0u8; 32], // Default seed for deterministic behavior
         )
-        .expect("Invalid bloom filter parameters: capacity must be > 0, fp_rate must be 0 < rate < 1");
+        .expect(
+            "Invalid bloom filter parameters: capacity must be > 0, fp_rate must be 0 < rate < 1",
+        );
         Self {
             filter,
             capacity,
@@ -361,7 +363,10 @@ impl BloomFilter {
     /// Get filter statistics
     pub fn stats(&self) -> FilterStats {
         FilterStats {
-            bit_count: bloomfilter::Bloom::<[u8]>::compute_bitmap_size(self.capacity, self.false_positive_rate),
+            bit_count: bloomfilter::Bloom::<[u8]>::compute_bitmap_size(
+                self.capacity,
+                self.false_positive_rate,
+            ),
             hash_count: self.filter.number_of_hash_functions() as usize,
             false_positive_rate: self.false_positive_rate,
         }

@@ -23,8 +23,8 @@ use csv_core::error::Result as CoreResult;
 use csv_core::proof::{FinalityProof, ProofBundle};
 use csv_core::seal::CommitAnchor as CoreCommitAnchor;
 use csv_core::seal::SealPoint as CoreSealPoint;
-use csv_core::SealProtocol;
 use csv_core::Hash;
+use csv_core::SealProtocol;
 
 use crate::checkpoint::CheckpointVerifier;
 use crate::config::{AptosConfig, AptosNetwork};
@@ -168,7 +168,8 @@ impl AptosSealProtocol {
                     seal.account_address,
                     &resource_type,
                     rpc.as_ref(),
-                ).await
+                )
+                .await
             })
         };
 
@@ -196,10 +197,13 @@ impl AptosSealProtocol {
         expiration_secs: u64,
         module_address: &str,
         commitment: [u8; 32],
-    ) -> Result<aptos_sdk::transaction::types::RawTransaction, Box<dyn std::error::Error + Send + Sync>> {
-        use aptos_sdk::transaction::EntryFunction;
+    ) -> Result<
+        aptos_sdk::transaction::types::RawTransaction,
+        Box<dyn std::error::Error + Send + Sync>,
+    > {
         use aptos_sdk::transaction::payload::TransactionPayload;
         use aptos_sdk::transaction::types::RawTransaction;
+        use aptos_sdk::transaction::EntryFunction;
         use aptos_sdk::types::{AccountAddress, ChainId, MoveModuleId};
 
         // Parse module address
@@ -218,7 +222,7 @@ impl AptosSealProtocol {
         let entry_function = EntryFunction::new(
             module_id,
             "consume_seal",
-            vec![], // type arguments
+            vec![],               // type arguments
             vec![commitment_arg], // arguments
         );
 
@@ -274,11 +278,20 @@ impl AptosSealProtocol {
         // Get account sequence number from RPC
         let rt = Handle::current();
         let (sender, sequence_number, ledger) = rt.block_on(async {
-            let sender = self.rpc.sender_address().await
+            let sender = self
+                .rpc
+                .sender_address()
+                .await
                 .map_err(|e| format!("Failed to get sender address: {}", e))?;
-            let sequence_number = self.rpc.get_account_sequence_number(sender).await
+            let sequence_number = self
+                .rpc
+                .get_account_sequence_number(sender)
+                .await
                 .map_err(|e| format!("Failed to get sequence number: {}", e))?;
-            let ledger = self.rpc.get_ledger_info().await
+            let ledger = self
+                .rpc
+                .get_ledger_info()
+                .await
                 .map_err(|e| format!("Failed to get ledger info: {}", e))?;
             Ok::<_, Box<dyn std::error::Error + Send + Sync>>((sender, sequence_number, ledger))
         })?;
@@ -323,13 +336,15 @@ impl AptosSealProtocol {
 
         // Build proper BCS-serialized transaction for signing
         // Using aptos-sdk types for correct serialization
-        let raw_transaction = self.build_raw_transaction(
-            sender,
-            sequence_number,
-            expiration_secs,
-            module_address,
-            commitment,
-        ).map_err(|e| format!("Failed to build raw transaction: {}", e))?;
+        let raw_transaction = self
+            .build_raw_transaction(
+                sender,
+                sequence_number,
+                expiration_secs,
+                module_address,
+                commitment,
+            )
+            .map_err(|e| format!("Failed to build raw transaction: {}", e))?;
 
         // Serialize to BCS format for signing
         let signing_bytes = aptos_bcs::to_bytes(&raw_transaction)
@@ -441,18 +456,18 @@ impl SealProtocol for AptosSealProtocol {
             // Submit signed transaction via REST API
             let submit_result = {
                 let rt = Handle::current();
-                rt.block_on(async {
-                    self.rpc.submit_signed_transaction(tx_json).await
-                })
-            }.map_err(|e| ProtocolError::PublishFailed(format!("Failed to submit transaction: {}", e)))?;
+                rt.block_on(async { self.rpc.submit_signed_transaction(tx_json).await })
+            }
+            .map_err(|e| {
+                ProtocolError::PublishFailed(format!("Failed to submit transaction: {}", e))
+            })?;
 
             // Wait for transaction confirmation
             let tx = {
                 let rt = Handle::current();
-                rt.block_on(async {
-                    self.rpc.wait_for_transaction(submit_result).await
-                })
-            }.map_err(|e| ProtocolError::NetworkError(e.to_string()))?;
+                rt.block_on(async { self.rpc.wait_for_transaction(submit_result).await })
+            }
+            .map_err(|e| ProtocolError::NetworkError(e.to_string()))?;
 
             // Verify the emitted event matches the expected commitment
             let valid = {
@@ -462,9 +477,11 @@ impl SealProtocol for AptosSealProtocol {
                         tx.version,
                         &expected_event_data,
                         self.rpc.as_ref(),
-                    ).await
+                    )
+                    .await
                 })
-            }.map_err(|e: AptosError| ProtocolError::InclusionProofFailed(e.to_string()))?;
+            }
+            .map_err(|e: AptosError| ProtocolError::InclusionProofFailed(e.to_string()))?;
 
             if !valid {
                 return Err(ProtocolError::PublishFailed(
@@ -479,7 +496,11 @@ impl SealProtocol for AptosSealProtocol {
                 .mark_seal_used(&seal, version)
                 .map_err(ProtocolError::from)?;
 
-            Ok(AptosCommitAnchor::new(version, seal.account_address, version))
+            Ok(AptosCommitAnchor::new(
+                version,
+                seal.account_address,
+                version,
+            ))
         }
 
         #[cfg(not(feature = "rpc"))]
@@ -510,18 +531,20 @@ impl SealProtocol for AptosSealProtocol {
         #[cfg(feature = "rpc")]
         let tx = {
             let rt = Handle::current();
-            rt.block_on(async {
-                self.rpc.get_transaction(anchor.version).await
-            })
+            rt.block_on(async { self.rpc.get_transaction(anchor.version).await })
         }
-        .map_err(|e| ProtocolError::InclusionProofFailed(format!(
-            "Failed to fetch transaction at version {}: {}",
-            anchor.version, e
-        )))?
-        .ok_or_else(|| ProtocolError::InclusionProofFailed(format!(
-            "Transaction at version {} not found",
-            anchor.version
-        )))?;
+        .map_err(|e| {
+            ProtocolError::InclusionProofFailed(format!(
+                "Failed to fetch transaction at version {}: {}",
+                anchor.version, e
+            ))
+        })?
+        .ok_or_else(|| {
+            ProtocolError::InclusionProofFailed(format!(
+                "Transaction at version {} not found",
+                anchor.version
+            ))
+        })?;
 
         #[cfg(not(feature = "rpc"))]
         let tx = AptosTransaction {
@@ -552,13 +575,11 @@ impl SealProtocol for AptosSealProtocol {
         #[cfg(feature = "rpc")]
         let ledger_info = {
             let rt = Handle::current();
-            rt.block_on(async {
-                self.rpc.get_ledger_info().await
-            })
+            rt.block_on(async { self.rpc.get_ledger_info().await })
         }
-        .map_err(|e| ProtocolError::InclusionProofFailed(format!(
-            "Failed to fetch ledger info: {}", e
-        )))?;
+        .map_err(|e| {
+            ProtocolError::InclusionProofFailed(format!("Failed to fetch ledger info: {}", e))
+        })?;
 
         #[cfg(not(feature = "rpc"))]
         let ledger_info = AptosLedgerInfo {
@@ -602,11 +623,9 @@ impl SealProtocol for AptosSealProtocol {
         let is_certified = {
             let rt = Handle::current();
             match rt.block_on(async {
-                self.checkpoint_verifier.is_version_finalized_async(
-                    anchor.version,
-                    self.rpc.as_ref(),
-                    f_plus_one,
-                ).await
+                self.checkpoint_verifier
+                    .is_version_finalized_async(anchor.version, self.rpc.as_ref(), f_plus_one)
+                    .await
             }) {
                 Ok(info) => info.is_certified,
                 Err(e) => {
@@ -652,8 +671,9 @@ impl SealProtocol for AptosSealProtocol {
         transition_payload_hash: Hash,
         seal_point: &Self::SealPoint,
     ) -> Hash {
-        let core_seal = CoreSealPoint::new(seal_point.account_address.to_vec(), Some(seal_point.nonce))
-            .expect("valid seal reference");
+        let core_seal =
+            CoreSealPoint::new(seal_point.account_address.to_vec(), Some(seal_point.nonce))
+                .expect("valid seal reference");
         Commitment::simple(
             contract_id,
             previous_commitment,
@@ -674,8 +694,9 @@ impl SealProtocol for AptosSealProtocol {
         let seal_ref = CoreSealPoint::new(anchor.event_handle.to_vec(), Some(anchor.version))
             .map_err(|e| ProtocolError::Generic(e.to_string()))?;
 
-        let anchor_ref = CoreCommitAnchor::new(anchor.event_handle.to_vec(), anchor.version, vec![])
-            .map_err(|e| ProtocolError::Generic(e.to_string()))?;
+        let anchor_ref =
+            CoreCommitAnchor::new(anchor.event_handle.to_vec(), anchor.version, vec![])
+                .map_err(|e| ProtocolError::Generic(e.to_string()))?;
 
         let inclusion_proof = csv_core::InclusionProof::new(
             inclusion.transaction_proof,
@@ -713,9 +734,7 @@ impl SealProtocol for AptosSealProtocol {
         #[cfg(feature = "rpc")]
         let current_version = {
             let rt = Handle::current();
-            rt.block_on(async {
-                self.rpc.get_latest_version().await
-            })
+            rt.block_on(async { self.rpc.get_latest_version().await })
         }
         .map_err(|e| ProtocolError::NetworkError(e.to_string()))?;
 
@@ -772,7 +791,10 @@ impl AptosSealProtocol {
 
     /// Get event builder module address and event type for creating new builder
     pub(crate) fn event_builder_config(&self) -> ([u8; 32], String) {
-        (self.event_builder.module_address, self.event_builder.event_type.clone())
+        (
+            self.event_builder.module_address,
+            self.event_builder.event_type.clone(),
+        )
     }
 }
 

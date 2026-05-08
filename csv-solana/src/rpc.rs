@@ -16,10 +16,7 @@ pub trait SolanaRpc: Send + Sync {
     fn get_account(&self, pubkey: &Pubkey) -> SolanaResult<Account>;
 
     /// Get multiple accounts
-    fn get_multiple_accounts(
-        &self,
-        pubkeys: &[Pubkey],
-    ) -> SolanaResult<Vec<Option<Account>>>;
+    fn get_multiple_accounts(&self, pubkeys: &[Pubkey]) -> SolanaResult<Vec<Option<Account>>>;
 
     /// Get transaction with status
     fn get_transaction(&self, signature: &Signature) -> SolanaResult<String>;
@@ -34,17 +31,11 @@ pub trait SolanaRpc: Send + Sync {
     fn get_slot_with_commitment(&self, commitment: &str) -> SolanaResult<u64>;
 
     /// Get account changes between slots
-    fn get_account_changes(
-        &self,
-        from_slot: u64,
-        to_slot: u64,
-    ) -> SolanaResult<Vec<AccountChange>>;
+    fn get_account_changes(&self, from_slot: u64, to_slot: u64)
+        -> SolanaResult<Vec<AccountChange>>;
 
     /// Wait for transaction confirmation (polls with std::thread::sleep)
-    fn wait_for_confirmation(
-        &self,
-        signature: &Signature,
-    ) -> SolanaResult<ConfirmationStatus>;
+    fn wait_for_confirmation(&self, signature: &Signature) -> SolanaResult<ConfirmationStatus>;
 
     /// Get minimum balance for rent exemption
     fn get_minimum_balance_for_rent_exemption(&self, data_len: usize) -> SolanaResult<u64>;
@@ -96,10 +87,7 @@ impl SolanaRpc for MockSolanaRpc {
             .ok_or_else(|| SolanaError::AccountNotFound(pubkey.to_string()))
     }
 
-    fn get_multiple_accounts(
-        &self,
-        pubkeys: &[Pubkey],
-    ) -> SolanaResult<Vec<Option<Account>>> {
+    fn get_multiple_accounts(&self, pubkeys: &[Pubkey]) -> SolanaResult<Vec<Option<Account>>> {
         Ok(pubkeys
             .iter()
             .map(|pk| self.accounts.get(pk).cloned())
@@ -132,10 +120,7 @@ impl SolanaRpc for MockSolanaRpc {
         Ok(vec![])
     }
 
-    fn wait_for_confirmation(
-        &self,
-        _signature: &Signature,
-    ) -> SolanaResult<ConfirmationStatus> {
+    fn wait_for_confirmation(&self, _signature: &Signature) -> SolanaResult<ConfirmationStatus> {
         Ok(ConfirmationStatus::Confirmed)
     }
 
@@ -150,7 +135,11 @@ impl SolanaRpc for MockSolanaRpc {
 
     fn get_balance(&self, pubkey: &Pubkey) -> SolanaResult<u64> {
         // Return test balance from configured accounts or default
-        Ok(self.accounts.get(pubkey).map(|a| a.lamports).unwrap_or(1_000_000_000))
+        Ok(self
+            .accounts
+            .get(pubkey)
+            .map(|a| a.lamports)
+            .unwrap_or(1_000_000_000))
     }
 
     fn clone_boxed(&self) -> Box<dyn SolanaRpc> {

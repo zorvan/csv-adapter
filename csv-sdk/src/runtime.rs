@@ -45,10 +45,8 @@ use sha2::Digest as Sha2Digest;
 use sha3::Digest;
 
 use csv_core::{
-    ChainBackend,
-    BalanceInfo, TransactionInfo, TransactionStatus,
-    DeploymentStatus, SanadOperationResult,
-    SanadId, Hash, ProofBundle, ChainId,
+    BalanceInfo, ChainBackend, ChainId, DeploymentStatus, Hash, ProofBundle, SanadId,
+    SanadOperationResult, TransactionInfo, TransactionStatus,
 };
 
 use crate::client::ClientRef;
@@ -133,13 +131,13 @@ impl ChainRuntime {
         address: &str,
     ) -> Result<BalanceInfo, CsvError> {
         let adapter = self.get_adapter(chain.clone()).await?;
-        
+
         adapter
             .get_balance(address)
             .await
             .map_err(|e| CsvError::ProtocolError {
                 chain: chain.clone(),
-                    message: format!("Balance query failed: {}", e),
+                message: format!("Balance query failed: {}", e),
             })
     }
 
@@ -152,13 +150,13 @@ impl ChainRuntime {
         tx_hash: &str,
     ) -> Result<TransactionInfo, CsvError> {
         let adapter = self.get_adapter(chain.clone()).await?;
-        
+
         adapter
             .get_transaction(tx_hash)
             .await
             .map_err(|e| CsvError::ProtocolError {
                 chain: chain.clone(),
-                    message: format!("Transaction query failed: {}", e),
+                message: format!("Transaction query failed: {}", e),
             })
     }
 
@@ -172,13 +170,13 @@ impl ChainRuntime {
         key_id: &str,
     ) -> Result<Vec<u8>, CsvError> {
         let adapter = self.get_adapter(chain.clone()).await?;
-        
+
         adapter
             .sign_transaction(unsigned_tx, key_id)
             .await
             .map_err(|e| CsvError::ProtocolError {
                 chain: chain.clone(),
-                    message: format!("Transaction signing failed: {}", e),
+                message: format!("Transaction signing failed: {}", e),
             })
     }
 
@@ -192,13 +190,13 @@ impl ChainRuntime {
         signed_tx: &[u8],
     ) -> Result<String, CsvError> {
         let adapter = self.get_adapter(chain.clone()).await?;
-        
+
         adapter
             .submit_transaction(signed_tx)
             .await
             .map_err(|e| CsvError::ProtocolError {
                 chain: chain.clone(),
-                    message: format!("Transaction broadcast failed: {}", e),
+                message: format!("Transaction broadcast failed: {}", e),
             })
     }
 
@@ -213,13 +211,13 @@ impl ChainRuntime {
         block_height: u64,
     ) -> Result<csv_core::InclusionProof, CsvError> {
         let adapter = self.get_adapter(chain.clone()).await?;
-        
+
         adapter
             .build_inclusion_proof(commitment, block_height)
             .await
             .map_err(|e| CsvError::ProtocolError {
                 chain: chain.clone(),
-                    message: format!("Proof generation failed: {}", e),
+                message: format!("Proof generation failed: {}", e),
             })
     }
 
@@ -234,13 +232,13 @@ impl ChainRuntime {
         config: serde_json::Value,
     ) -> Result<DeploymentStatus, CsvError> {
         let adapter = self.get_adapter(chain.clone()).await?;
-        
+
         adapter
             .deploy_lock_contract(admin_address, config)
             .await
             .map_err(|e| CsvError::ProtocolError {
                 chain: chain.clone(),
-                    message: format!("Contract deployment failed: {}", e),
+                message: format!("Contract deployment failed: {}", e),
             })
     }
 
@@ -253,13 +251,13 @@ impl ChainRuntime {
         contract_address: &str,
     ) -> Result<bool, CsvError> {
         let adapter = self.get_adapter(chain.clone()).await?;
-        
+
         adapter
             .verify_deployment(contract_address)
             .await
             .map_err(|e| CsvError::ProtocolError {
                 chain: chain.clone(),
-                    message: format!("Deployment verification failed: {}", e),
+                message: format!("Deployment verification failed: {}", e),
             })
     }
 
@@ -275,13 +273,13 @@ impl ChainRuntime {
         metadata: serde_json::Value,
     ) -> Result<SanadOperationResult, CsvError> {
         let adapter = self.get_adapter(chain.clone()).await?;
-        
+
         adapter
             .create_sanad(owner, asset_class, asset_id, metadata)
             .await
             .map_err(|e| CsvError::ProtocolError {
                 chain: chain.clone(),
-                    message: format!("Sanad creation failed: {}", e),
+                message: format!("Sanad creation failed: {}", e),
             })
     }
 
@@ -295,13 +293,13 @@ impl ChainRuntime {
         owner_key_id: &str,
     ) -> Result<SanadOperationResult, CsvError> {
         let adapter = self.get_adapter(chain.clone()).await?;
-        
+
         adapter
             .consume_sanad(&sanad_id, owner_key_id)
             .await
             .map_err(|e| CsvError::ProtocolError {
                 chain: chain.clone(),
-                    message: format!("Sanad consumption failed: {}", e),
+                message: format!("Sanad consumption failed: {}", e),
             })
     }
 
@@ -316,13 +314,13 @@ impl ChainRuntime {
         owner_key_id: &str,
     ) -> Result<SanadOperationResult, CsvError> {
         let adapter = self.get_adapter(chain.clone()).await?;
-        
+
         adapter
             .lock_sanad(&sanad_id, destination_chain, owner_key_id)
             .await
             .map_err(|e| CsvError::ProtocolError {
                 chain: chain.clone(),
-                    message: format!("Sanad lock failed: {}", e),
+                message: format!("Sanad lock failed: {}", e),
             })
     }
 
@@ -350,13 +348,13 @@ impl ChainRuntime {
         value: Option<u64>,
     ) -> Result<csv_core::SealPoint, CsvError> {
         let adapter = self.get_adapter(chain.clone()).await?;
-        
+
         // Delegate to the adapter's create_seal method
         adapter
             .create_seal(value)
             .map_err(|e| CsvError::ProtocolError {
                 chain: chain.clone(),
-                    message: format!("Seal creation failed: {}", e),
+                message: format!("Seal creation failed: {}", e),
             })
     }
 
@@ -372,13 +370,13 @@ impl ChainRuntime {
         new_owner: &str,
     ) -> Result<SanadOperationResult, CsvError> {
         let adapter = self.get_adapter(chain.clone()).await?;
-        
+
         adapter
             .mint_sanad(source_chain, &source_sanad_id, lock_proof, new_owner)
             .await
             .map_err(|e| CsvError::ProtocolError {
                 chain: chain.clone(),
-                    message: format!("Sanad mint failed: {}", e),
+                message: format!("Sanad mint failed: {}", e),
             })
     }
 
@@ -393,13 +391,13 @@ impl ChainRuntime {
         timeout_secs: u64,
     ) -> Result<TransactionStatus, CsvError> {
         let adapter = self.get_adapter(chain.clone()).await?;
-        
+
         adapter
             .confirm_transaction(tx_hash, required_confirmations, timeout_secs)
             .await
             .map_err(|e| CsvError::ProtocolError {
                 chain: chain.clone(),
-                    message: format!("Transaction confirmation failed: {}", e),
+                message: format!("Transaction confirmation failed: {}", e),
             })
     }
 
@@ -409,13 +407,13 @@ impl ChainRuntime {
     /// This replaces raw HTTP JSON-RPC calls in wallet and CLI.
     pub async fn get_fee_estimate(&self, chain: ChainId) -> Result<u64, CsvError> {
         let adapter = self.get_adapter(chain.clone()).await?;
-        
+
         adapter
             .get_fee_estimate()
             .await
             .map_err(|e| CsvError::ProtocolError {
                 chain: chain.clone(),
-                    message: format!("Fee estimate query failed: {}", e),
+                message: format!("Fee estimate query failed: {}", e),
             })
     }
 
@@ -423,7 +421,11 @@ impl ChainRuntime {
     ///
     /// Uses ChainQuery trait to get the account transaction count.
     /// This replaces raw HTTP JSON-RPC calls in wallet and CLI.
-    pub async fn get_transaction_count(&self, chain: ChainId, address: &str) -> Result<u64, CsvError> {
+    pub async fn get_transaction_count(
+        &self,
+        chain: ChainId,
+        address: &str,
+    ) -> Result<u64, CsvError> {
         let adapter = self.get_adapter(chain.clone()).await?;
 
         // Use the ChainQuery trait's get_account_nonce method
@@ -433,7 +435,7 @@ impl ChainRuntime {
             .await
             .map_err(|e| CsvError::ProtocolError {
                 chain: chain.clone(),
-                    message: format!("Failed to get transaction count: {}", e),
+                message: format!("Failed to get transaction count: {}", e),
             })
     }
 
@@ -453,7 +455,10 @@ impl ChainRuntime {
     ///
     /// # Returns
     /// Serialized transaction data ready for signing
-    #[deprecated(since = "0.4.0", note = "Use chain-specific contract call methods instead")]
+    #[deprecated(
+        since = "0.4.0",
+        note = "Use chain-specific contract call methods instead"
+    )]
     pub async fn build_contract_call(
         &self,
         _chain: ChainId,
@@ -509,12 +514,14 @@ impl ChainRuntime {
         let adapter = self.get_adapter(chain_for_error.clone()).await?;
 
         // Query the chain for the inclusion proof at the latest block
-        let block_height = adapter.get_latest_block_height().await.map_err(|e| {
-            CsvError::ProtocolError {
-                chain: chain.clone(),
-                message: format!("Failed to get latest block height: {}", e),
-            }
-        })?;
+        let block_height =
+            adapter
+                .get_latest_block_height()
+                .await
+                .map_err(|e| CsvError::ProtocolError {
+                    chain: chain.clone(),
+                    message: format!("Failed to get latest block height: {}", e),
+                })?;
 
         // Create commitment from sanad_id (the sanad's hash is the commitment)
         let commitment = csv_core::hash::Hash::new(*sanad_id.as_bytes());
@@ -538,13 +545,14 @@ impl ChainRuntime {
         };
 
         // Build finality proof using the transaction hash
-        let finality_proof = adapter
-            .build_finality_proof(&tx_hash)
-            .await
-            .map_err(|e| CsvError::ProtocolError {
-                chain: chain.clone(),
-                message: format!("Failed to build finality proof: {}", e),
-            })?;
+        let finality_proof =
+            adapter
+                .build_finality_proof(&tx_hash)
+                .await
+                .map_err(|e| CsvError::ProtocolError {
+                    chain: chain.clone(),
+                    message: format!("Failed to build finality proof: {}", e),
+                })?;
 
         // Create a simple DAG segment with the sanad commitment
         use csv_core::dag::{DAGNode, DAGSegment};
@@ -562,27 +570,34 @@ impl ChainRuntime {
         let proof_bundle = ProofBundle::new(
             dag_segment,
             vec![], // Signatures will be added by the caller
-            csv_core::seal::SealPoint::new(seal_id.clone(), None)
-                .map_err(|e| CsvError::ProtocolError {
+            csv_core::seal::SealPoint::new(seal_id.clone(), None).map_err(|e| {
+                CsvError::ProtocolError {
                     chain: chain.clone(),
                     message: format!("Failed to create seal ref: {}", e),
-                })?,
-            csv_core::seal::CommitAnchor::new(seal_id, block_height, inclusion_proof.proof_bytes.clone())
-                .map_err(|e| CsvError::ProtocolError {
-                    chain: chain.clone(),
-                    message: format!("Failed to create anchor ref: {}", e),
-                })?,
+                }
+            })?,
+            csv_core::seal::CommitAnchor::new(
+                seal_id,
+                block_height,
+                inclusion_proof.proof_bytes.clone(),
+            )
+            .map_err(|e| CsvError::ProtocolError {
+                chain: chain.clone(),
+                message: format!("Failed to create anchor ref: {}", e),
+            })?,
             inclusion_proof,
             finality_proof,
         )
         .map_err(|e| CsvError::ProtocolError {
             chain: chain.clone(),
-                    message: format!("Failed to create proof bundle: {}", e),
+            message: format!("Failed to create proof bundle: {}", e),
         })?;
 
         log::info!(
             "Generated proof bundle for sanad {:?} on {:?} at block {}",
-            sanad_id, chain.clone(), block_height
+            sanad_id,
+            chain.clone(),
+            block_height
         );
 
         Ok(proof_bundle)
@@ -615,11 +630,15 @@ impl ChainRuntime {
             .verify_inclusion_proof(&proof_bundle.inclusion_proof, &commitment)
             .map_err(|e| CsvError::ProtocolError {
                 chain: chain.clone(),
-                    message: format!("Inclusion proof verification failed: {}", e),
+                message: format!("Inclusion proof verification failed: {}", e),
             })?;
 
         if !inclusion_valid {
-            log::warn!("Inclusion proof invalid for sanad {:?} on {:?}", sanad_id, chain);
+            log::warn!(
+                "Inclusion proof invalid for sanad {:?} on {:?}",
+                sanad_id,
+                chain
+            );
             return Ok(false);
         }
 
@@ -629,11 +648,15 @@ impl ChainRuntime {
             .verify_finality_proof(&proof_bundle.finality_proof, &tx_hash)
             .map_err(|e| CsvError::ProtocolError {
                 chain: chain.clone(),
-                    message: format!("Finality proof verification failed: {}", e),
+                message: format!("Finality proof verification failed: {}", e),
             })?;
 
         if !finality_valid {
-            log::warn!("Finality proof invalid for sanad {:?} on {:?}", sanad_id, chain);
+            log::warn!(
+                "Finality proof invalid for sanad {:?} on {:?}",
+                sanad_id,
+                chain
+            );
             return Ok(false);
         }
 
@@ -653,37 +676,45 @@ impl ChainRuntime {
                 seal_check_data.is_consumed
             } else {
                 // Unknown seal - assume not consumed
-                log::debug!("Seal {} not in pre-fetched data - assuming not consumed", hex::encode(seal_id));
+                log::debug!(
+                    "Seal {} not in pre-fetched data - assuming not consumed",
+                    hex::encode(seal_id)
+                );
                 false
             }
         };
 
         // Use the core proof verification pipeline for signatures and seal check
-        match csv_core::verify_proof(
-            proof_bundle,
-            seal_checker,
-            signature_scheme,
-        ) {
+        match csv_core::verify_proof(proof_bundle, seal_checker, signature_scheme) {
             Ok(()) => {
-                log::info!("Proof bundle verified successfully for sanad {:?} on {:?}", sanad_id, chain);
+                log::info!(
+                    "Proof bundle verified successfully for sanad {:?} on {:?}",
+                    sanad_id,
+                    chain
+                );
                 Ok(true)
             }
             Err(e) => {
-                log::warn!("Proof verification failed for sanad {:?} on {:?}: {}", sanad_id, chain.clone(), e);
+                log::warn!(
+                    "Proof verification failed for sanad {:?} on {:?}: {}",
+                    sanad_id,
+                    chain.clone(),
+                    e
+                );
                 Ok(false)
             }
         }
     }
 
     /// Pre-fetch seal consumption data to avoid locking in async closure.
-    /// 
+    ///
     /// This fetches the sanad record from the store synchronously BEFORE entering
     /// the verification closure, preventing the async deadlock risk.
     async fn pre_fetch_seal_data(&self, sanad_id: &SanadId) -> Result<SealCheckData, CsvError> {
         // Clone the Arc to avoid capturing self in the spawned task
         let store_arc = Arc::clone(&self.client.store);
         let sanad_id_clone: csv_core::sanad::SanadId = sanad_id.clone();
-        
+
         // Run the store access in a blocking task since it uses std::sync::Mutex
         let is_consumed = tokio::task::spawn_blocking(move || {
             let store = store_arc.lock().map_err(|e| e.to_string())?;
@@ -696,7 +727,7 @@ impl ChainRuntime {
         .await
         .map_err(|e| CsvError::StoreError(format!("Task join error: {}", e)))?
         .map_err(|e| CsvError::StoreError(e))?;
-        
+
         Ok(SealCheckData {
             sanad_id: sanad_id.clone(),
             is_consumed,
@@ -764,15 +795,17 @@ impl AdapterBuilder {
         use csv_ethereum::seal_protocol::EthereumSealProtocol;
 
         // Create the SealProtocol first (this is the protocol primitive)
-        let seal = EthereumSealProtocol::from_config(config, rpc, csv_seal_address)
-            .map_err(|e| CsvError::ProtocolError {
-                chain: ChainId::new("ethereum"),
-                message: format!("Failed to create Ethereum seal protocol: {}", e),
+        let seal =
+            EthereumSealProtocol::from_config(config, rpc, csv_seal_address).map_err(|e| {
+                CsvError::ProtocolError {
+                    chain: ChainId::new("ethereum"),
+                    message: format!("Failed to create Ethereum seal protocol: {}", e),
+                }
             })?;
 
         // Create ChainOperations from SealProtocol (this implements ChainBackend)
-        let operations = EthereumBackend::from_seal_protocol(&seal)
-            .map_err(|e| CsvError::ProtocolError {
+        let operations =
+            EthereumBackend::from_seal_protocol(&seal).map_err(|e| CsvError::ProtocolError {
                 chain: ChainId::new("ethereum"),
                 message: format!("Failed to create Ethereum chain operations: {}", e),
             })?;
@@ -790,14 +823,14 @@ impl AdapterBuilder {
         use csv_sui::ops::SuiBackend;
         use csv_sui::seal_protocol::SuiSealProtocol;
 
-        let seal = SuiSealProtocol::from_config(config, rpc)
-            .map_err(|e| CsvError::ProtocolError {
+        let seal =
+            SuiSealProtocol::from_config(config, rpc).map_err(|e| CsvError::ProtocolError {
                 chain: ChainId::new("sui"),
                 message: format!("Failed to create Sui seal protocol: {}", e),
             })?;
 
-        let operations = SuiBackend::from_seal_protocol(&seal)
-            .map_err(|e| CsvError::ProtocolError {
+        let operations =
+            SuiBackend::from_seal_protocol(&seal).map_err(|e| CsvError::ProtocolError {
                 chain: ChainId::new("sui"),
                 message: format!("Failed to create Sui chain operations: {}", e),
             })?;
@@ -815,14 +848,14 @@ impl AdapterBuilder {
         use csv_aptos::ops::AptosBackend;
         use csv_aptos::seal_protocol::AptosSealProtocol;
 
-        let seal = AptosSealProtocol::from_config(config, rpc)
-            .map_err(|e| CsvError::ProtocolError {
+        let seal =
+            AptosSealProtocol::from_config(config, rpc).map_err(|e| CsvError::ProtocolError {
                 chain: ChainId::new("aptos"),
                 message: format!("Failed to create Aptos seal protocol: {}", e),
             })?;
 
-        let operations = AptosBackend::from_seal_protocol(&seal)
-            .map_err(|e| CsvError::ProtocolError {
+        let operations =
+            AptosBackend::from_seal_protocol(&seal).map_err(|e| CsvError::ProtocolError {
                 chain: ChainId::new("aptos"),
                 message: format!("Failed to create Aptos chain operations: {}", e),
             })?;
@@ -841,14 +874,14 @@ impl AdapterBuilder {
         use csv_solana::seal_protocol::SolanaSealProtocol;
 
         // Solana now uses from_config() following the standard runtime pattern
-        let seal = SolanaSealProtocol::from_config(config, rpc)
-            .map_err(|e| CsvError::ProtocolError {
+        let seal =
+            SolanaSealProtocol::from_config(config, rpc).map_err(|e| CsvError::ProtocolError {
                 chain: ChainId::new("solana"),
                 message: format!("Failed to create Solana seal protocol: {}", e),
             })?;
 
-        let operations = SolanaBackend::from_seal_protocol(&seal)
-            .map_err(|e| CsvError::ProtocolError {
+        let operations =
+            SolanaBackend::from_seal_protocol(&seal).map_err(|e| CsvError::ProtocolError {
                 chain: ChainId::new("solana"),
                 message: format!("Failed to create Solana chain operations: {}", e),
             })?;
@@ -867,14 +900,14 @@ impl AdapterBuilder {
         use csv_bitcoin::seal_protocol::BitcoinSealProtocol;
 
         // Bitcoin uses from_config() following the standard runtime pattern
-        let seal = BitcoinSealProtocol::from_config(config, rpc)
-            .map_err(|e| CsvError::ProtocolError {
+        let seal =
+            BitcoinSealProtocol::from_config(config, rpc).map_err(|e| CsvError::ProtocolError {
                 chain: ChainId::new("bitcoin"),
                 message: format!("Failed to create Bitcoin seal protocol: {}", e),
             })?;
 
-        let operations = BitcoinBackend::from_seal_protocol(&seal)
-            .map_err(|e| CsvError::ProtocolError {
+        let operations =
+            BitcoinBackend::from_seal_protocol(&seal).map_err(|e| CsvError::ProtocolError {
                 chain: ChainId::new("bitcoin"),
                 message: format!("Failed to create Bitcoin chain operations: {}", e),
             })?;
@@ -915,7 +948,7 @@ impl RuntimeManager {
         let client_ref = Arc::new(ClientRef::new());
         let chain_runtime = ChainRuntime::new(client_ref);
         let builder = AdapterBuilder::new();
-        
+
         Self {
             config,
             chain_runtime,
@@ -960,11 +993,7 @@ impl RuntimeManager {
 // Helper functions for encoding contract calls
 
 /// Encode an Ethereum contract call using ABI format
-fn encode_eth_contract_call(
-    _contract: &str,
-    function: &str,
-    args: Vec<Vec<u8>>,
-) -> Vec<u8> {
+fn encode_eth_contract_call(_contract: &str, function: &str, args: Vec<Vec<u8>>) -> Vec<u8> {
     // Simple ABI encoding: function selector (4 bytes) + encoded arguments
     // In production, this would use the ethabi or alloy-sol-types crate
     let mut data = Vec::new();

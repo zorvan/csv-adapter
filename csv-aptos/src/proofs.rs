@@ -203,7 +203,9 @@ impl StateProofVerifier {
             let rt = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
-                .map_err(|e| AptosError::CheckpointFailed(format!("Failed to build runtime: {}", e)))?;
+                .map_err(|e| {
+                    AptosError::CheckpointFailed(format!("Failed to build runtime: {}", e))
+                })?;
             rt.block_on(async { rpc.get_resource(address, resource_type, None).await })
         }
         .map_err(|e| AptosError::StateProofFailed(format!("Failed to fetch resource: {}", e)))?;
@@ -242,10 +244,14 @@ impl StateProofVerifier {
             let rt = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
-                .map_err(|e| AptosError::CheckpointFailed(format!("Failed to build runtime: {}", e)))?;
+                .map_err(|e| {
+                    AptosError::CheckpointFailed(format!("Failed to build runtime: {}", e))
+                })?;
             rt.block_on(async { rpc.get_resource(address, resource_type, None).await })
         }
-        .map_err(|e| AptosError::StateProofFailed(format!("Failed to verify resource consumption: {}", e)))?;
+        .map_err(|e| {
+            AptosError::StateProofFailed(format!("Failed to verify resource consumption: {}", e))
+        })?;
         // Resource is consumed when it no longer exists
         match resource {
             Some(_) => Ok(false), // Still exists, not consumed
@@ -303,7 +309,9 @@ impl EventProofVerifier {
             let rt = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
-                .map_err(|e| AptosError::CheckpointFailed(format!("Failed to build runtime: {}", e)))?;
+                .map_err(|e| {
+                    AptosError::CheckpointFailed(format!("Failed to build runtime: {}", e))
+                })?;
             rt.block_on(async { rpc.get_transaction_by_version(tx_version).await })
         }
         .map_err(|e| AptosError::EventProofFailed(format!("Failed to get transaction: {}", e)))?;

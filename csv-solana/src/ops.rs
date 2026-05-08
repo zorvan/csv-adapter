@@ -21,9 +21,9 @@ use csv_core::signature::SignatureScheme;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Signature;
 
-use crate::seal_protocol::SolanaSealProtocol;
 use crate::config::Network;
 use crate::rpc::SolanaRpc;
+use crate::seal_protocol::SolanaSealProtocol;
 use crate::types::ConfirmationStatus;
 
 /// Solana chain operations implementation
@@ -51,7 +51,8 @@ impl SolanaBackend {
 
     /// Create from SolanaSealProtocol
     pub fn from_seal_protocol(seal: &SolanaSealProtocol) -> ChainOpResult<Self> {
-        let rpc = seal.get_rpc()
+        let rpc = seal
+            .get_rpc()
             .map_err(|e| ChainOpError::RpcError(format!("Failed to get RPC: {}", e)))?;
         Ok(Self {
             rpc: rpc.clone_boxed(),
@@ -132,7 +133,10 @@ impl ChainQuery for SolanaBackend {
         // Parse the transaction string to build TransactionInfo
         // In a real implementation, this would deserialize the transaction data
         let slot = 0u64; // Would be extracted from tx_str
-        let status = TransactionStatus::Confirmed { block_height: slot, confirmations: 32 };
+        let status = TransactionStatus::Confirmed {
+            block_height: slot,
+            confirmations: 32,
+        };
 
         Ok(TransactionInfo {
             hash: hash.to_string(),
@@ -227,7 +231,7 @@ impl ChainQuery for SolanaBackend {
     async fn get_account_nonce(&self, _address: &str) -> ChainOpResult<u64> {
         // Solana does not use account nonces - it uses recent blockhashes for transaction uniqueness
         Err(ChainOpError::CapabilityUnavailable(
-            "Solana does not support account nonces (uses recent blockhash)".to_string()
+            "Solana does not support account nonces (uses recent blockhash)".to_string(),
         ))
     }
 
@@ -255,14 +259,16 @@ impl ChainSigner for SolanaBackend {
     async fn sign_transaction(&self, _tx_data: &[u8], _key_id: &str) -> ChainOpResult<Vec<u8>> {
         Err(ChainOpError::CapabilityUnavailable(
             "Direct transaction signing not available. \
-             Use an external keystore with the key_id reference.".to_string(),
+             Use an external keystore with the key_id reference."
+                .to_string(),
         ))
     }
 
     async fn sign_message(&self, _message: &[u8], _key_id: &str) -> ChainOpResult<Vec<u8>> {
         Err(ChainOpError::CapabilityUnavailable(
             "Direct message signing not available. \
-             Use an external keystore with the key_id reference.".to_string(),
+             Use an external keystore with the key_id reference."
+                .to_string(),
         ))
     }
 
@@ -290,7 +296,7 @@ impl ChainSigner for SolanaBackend {
         let mut sig_bytes = [0u8; 64];
         sig_bytes.copy_from_slice(signature);
 
-        use ed25519_dalek::{VerifyingKey, Signature, Verifier};
+        use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 
         // Convert bytes to proper types
         let verifying_key = VerifyingKey::from_bytes(&pubkey_bytes)
@@ -346,16 +352,14 @@ impl ChainBroadcaster for SolanaBackend {
             // Use wait_for_confirmation for better status detection
             match self.rpc().wait_for_confirmation(&sig) {
                 Ok(ConfirmationStatus::Finalized) => {
-                    let slot = self.rpc().get_latest_slot()
-                        .unwrap_or(0);
+                    let slot = self.rpc().get_latest_slot().unwrap_or(0);
                     return Ok(TransactionStatus::Confirmed {
                         block_height: slot,
                         confirmations: 32,
                     });
                 }
                 Ok(ConfirmationStatus::Confirmed) => {
-                    let slot = self.rpc().get_latest_slot()
-                        .unwrap_or(0);
+                    let slot = self.rpc().get_latest_slot().unwrap_or(0);
                     return Ok(TransactionStatus::Confirmed {
                         block_height: slot,
                         confirmations: 1,
@@ -410,7 +414,8 @@ impl ChainDeployer for SolanaBackend {
 
         Err(ChainOpError::CapabilityUnavailable(
             "Lock contract deployment requires program deployment. \
-             Use deploy_or_publish_seal_program() with compiled BPF bytecode.".to_string(),
+             Use deploy_or_publish_seal_program() with compiled BPF bytecode."
+                .to_string(),
         ))
     }
 
@@ -424,7 +429,8 @@ impl ChainDeployer for SolanaBackend {
 
         Err(ChainOpError::CapabilityUnavailable(
             "Mint contract deployment requires program deployment. \
-             Same program handles both lock and mint in Solana.".to_string(),
+             Same program handles both lock and mint in Solana."
+                .to_string(),
         ))
     }
 
@@ -439,7 +445,8 @@ impl ChainDeployer for SolanaBackend {
         Err(ChainOpError::CapabilityUnavailable(
             "Program deployment requires signed transaction. \
              Use deploy_csv_program() with compiled BPF bytecode \
-             or external tools (solana program deploy).".to_string(),
+             or external tools (solana program deploy)."
+                .to_string(),
         ))
     }
 
@@ -480,8 +487,10 @@ impl ChainProofProvider for SolanaBackend {
         // Use slot as position and create placeholder block hash
         let block_hash = Hash::new([0u8; 32]);
 
-        Ok(CoreInclusionProof::new(proof_bytes, block_hash, block_height)
-            .map_err(|e| ChainOpError::ProofVerificationError(e.to_string()))?)
+        Ok(
+            CoreInclusionProof::new(proof_bytes, block_hash, block_height)
+                .map_err(|e| ChainOpError::ProofVerificationError(e.to_string()))?,
+        )
     }
 
     fn verify_inclusion_proof(
@@ -518,9 +527,10 @@ impl ChainProofProvider for SolanaBackend {
 
         // Verify the commitment appears in the proof data
         // This is a simplified check - real implementation would verify merkle path
-        let has_commitment = proof.proof_bytes.windows(32).any(|window| {
-            window == commitment.as_bytes()
-        });
+        let has_commitment = proof
+            .proof_bytes
+            .windows(32)
+            .any(|window| window == commitment.as_bytes());
 
         if !has_commitment && !proof.proof_bytes.is_empty() {
             // Try matching as string representation
@@ -556,7 +566,9 @@ impl ChainProofProvider for SolanaBackend {
                     confirmations,
                     true, // Solana has deterministic finality after 32 slots
                 )
-                .map_err(|e| ChainOpError::InvalidInput(format!("Invalid finality proof: {}", e)))?)
+                .map_err(|e| {
+                    ChainOpError::InvalidInput(format!("Invalid finality proof: {}", e))
+                })?)
             }
             _ => Err(ChainOpError::ProofVerificationError(
                 "Transaction not finalized".to_string(),
@@ -564,13 +576,10 @@ impl ChainProofProvider for SolanaBackend {
         }
     }
 
-     fn verify_finality_proof(
-        &self,
-        _proof: &FinalityProof,
-        _tx_hash: &str,
-    ) -> ChainOpResult<bool> {
+    fn verify_finality_proof(&self, _proof: &FinalityProof, _tx_hash: &str) -> ChainOpResult<bool> {
         // Get current slot using sync RPC call
-        let _latest = self.rpc()
+        let _latest = self
+            .rpc()
             .get_latest_slot()
             .map_err(|e| ChainOpError::RpcError(format!("Failed to get slot: {}", e)))?;
 
@@ -594,8 +603,10 @@ impl ChainProofProvider for SolanaBackend {
         commitment: &Hash,
     ) -> ChainOpResult<bool> {
         let inclusion_valid = self.verify_inclusion_proof(inclusion_proof, commitment)?;
-        let finality_valid =
-            self.verify_finality_proof(finality_proof, &format!("{}", hex::encode(inclusion_proof.block_hash.as_bytes())))?;
+        let finality_valid = self.verify_finality_proof(
+            finality_proof,
+            &format!("{}", hex::encode(inclusion_proof.block_hash.as_bytes())),
+        )?;
 
         Ok(inclusion_valid && finality_valid)
     }
@@ -617,7 +628,8 @@ impl ChainSanadOps for SolanaBackend {
 
         Err(ChainOpError::CapabilityUnavailable(
             "Sanad creation requires signed transaction. \
-             Construct and submit a transaction to create the seal account.".to_string(),
+             Construct and submit a transaction to create the seal account."
+                .to_string(),
         ))
     }
 
@@ -631,7 +643,8 @@ impl ChainSanadOps for SolanaBackend {
 
         Err(ChainOpError::CapabilityUnavailable(
             "Sanad consumption requires signed transaction. \
-             Construct and submit a transaction to close the seal account.".to_string(),
+             Construct and submit a transaction to close the seal account."
+                .to_string(),
         ))
     }
 
@@ -647,7 +660,8 @@ impl ChainSanadOps for SolanaBackend {
 
         Err(ChainOpError::CapabilityUnavailable(
             "Sanad locking requires signed transaction. \
-             Construct and submit a transaction to lock the seal account.".to_string(),
+             Construct and submit a transaction to lock the seal account."
+                .to_string(),
         ))
     }
 
@@ -665,7 +679,8 @@ impl ChainSanadOps for SolanaBackend {
 
         Err(ChainOpError::CapabilityUnavailable(
             "Sanad minting requires signed transaction. \
-             Verify lock proof, then construct and submit mint transaction.".to_string(),
+             Verify lock proof, then construct and submit mint transaction."
+                .to_string(),
         ))
     }
 
@@ -679,7 +694,8 @@ impl ChainSanadOps for SolanaBackend {
 
         Err(ChainOpError::CapabilityUnavailable(
             "Sanad refund requires signed transaction. \
-             Construct and submit a transaction to refund the locked seal.".to_string(),
+             Construct and submit a transaction to refund the locked seal."
+                .to_string(),
         ))
     }
 
@@ -695,7 +711,8 @@ impl ChainSanadOps for SolanaBackend {
 
         Err(ChainOpError::CapabilityUnavailable(
             "Metadata recording requires signed transaction. \
-             Construct and submit a transaction to update seal metadata.".to_string(),
+             Construct and submit a transaction to update seal metadata."
+                .to_string(),
         ))
     }
 

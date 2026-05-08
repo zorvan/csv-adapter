@@ -76,7 +76,7 @@ pub async fn mint_sanad_on_chain(
         #[cfg(all(feature = "sui", feature = "rpc"))]
         "sui" => {
             use csv_sui::mint::mint_sanad;
-            
+
             mint_sanad(
                 rpc_url,
                 contract,
@@ -89,22 +89,30 @@ pub async fn mint_sanad_on_chain(
             .await
             .map_err(|e| CrossChainError::ProtocolError(format!("{:?}", e)))
         }
-        
+
         #[cfg(not(all(feature = "sui", feature = "rpc")))]
         "sui" => {
             // Suppress unused variable warnings when feature is not enabled
-            let _ = (rpc_url, contract, private_key, sanad_id, commitment, source_chain, source_seal_ref);
+            let _ = (
+                rpc_url,
+                contract,
+                private_key,
+                sanad_id,
+                commitment,
+                source_chain,
+                source_seal_ref,
+            );
             Err(CrossChainError::FeatureNotEnabled(
-                "Sui cross-chain mint requires 'sui' and 'rpc' features.".to_string()
+                "Sui cross-chain mint requires 'sui' and 'rpc' features.".to_string(),
             ))
         }
-        
+
         #[cfg(feature = "solana")]
         "solana" => {
             use csv_solana::mint::mint_sanad_from_hex_key;
             // Solana requires state_root parameter - use zero hash as default
             let state_root = Hash::new([0u8; 32]);
-            
+
             mint_sanad_from_hex_key(
                 rpc_url,
                 contract,
@@ -117,19 +125,35 @@ pub async fn mint_sanad_on_chain(
             )
             .map_err(|e| CrossChainError::ProtocolError(format!("{:?}", e)))
         }
-        
+
         #[cfg(not(feature = "solana"))]
         "solana" => {
             // Suppress unused variable warnings when feature is not enabled
-            let _ = (rpc_url, contract, private_key, sanad_id, commitment, source_chain, source_seal_ref);
+            let _ = (
+                rpc_url,
+                contract,
+                private_key,
+                sanad_id,
+                commitment,
+                source_chain,
+                source_seal_ref,
+            );
             Err(CrossChainError::FeatureNotEnabled(
-                "Solana cross-chain mint requires 'solana' feature.".to_string()
+                "Solana cross-chain mint requires 'solana' feature.".to_string(),
             ))
         }
-        
+
         _ => {
             // Suppress unused variable warnings for unsupported chains
-            let _ = (rpc_url, contract, private_key, sanad_id, commitment, source_chain, source_seal_ref);
+            let _ = (
+                rpc_url,
+                contract,
+                private_key,
+                sanad_id,
+                commitment,
+                source_chain,
+                source_seal_ref,
+            );
             Err(CrossChainError::ChainNotSupported(format!(
                 "Cross-chain mint not available for {:?}",
                 chain

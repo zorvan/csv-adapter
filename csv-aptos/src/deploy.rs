@@ -118,8 +118,11 @@ impl ModuleDeployer {
 
         // Submit via HTTP RPC
         let client = reqwest::Client::new();
-        let submit_url = format!("{}/v1/transactions", self.config.rpc_url.trim_end_matches('/'));
-        
+        let submit_url = format!(
+            "{}/v1/transactions",
+            self.config.rpc_url.trim_end_matches('/')
+        );
+
         let txn_resp: serde_json::Value = client
             .post(&submit_url)
             .json(&signed_txn)
@@ -188,7 +191,7 @@ impl ModuleDeployer {
         _module_name: &str,
     ) -> AptosResult<ModuleDeployment> {
         Err(AptosError::RpcError(
-            "Module deployment requires the 'rpc' feature".to_string()
+            "Module deployment requires the 'rpc' feature".to_string(),
         ))
     }
 

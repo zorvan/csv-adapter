@@ -7,7 +7,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-
 use csv_core::ChainId;
 
 /// Network identifier for chain endpoints.

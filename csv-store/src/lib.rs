@@ -17,9 +17,9 @@ pub mod browser_storage;
 // Re-exports from state module
 pub use state::{
     Chain, ChainConfig, ContractRecord, FaucetConfig, GasAccount, Network, ProofRecord,
-    SanadStatus, SealRecord, StateStorage, StorageBackend, StorageError,
-    TransactionRecord, TransactionStatus, TransactionType, TransferRecord, TransferStatus,
-    WalletAccount, WalletConfig,
+    SanadStatus, SealRecord, StateStorage, StorageBackend, StorageError, TransactionRecord,
+    TransactionStatus, TransactionType, TransferRecord, TransferStatus, WalletAccount,
+    WalletConfig,
 };
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "file-storage"))]
@@ -319,29 +319,28 @@ impl SanadStore for SqliteSealStore {
         let mut stmt = conn
             .prepare(
                 "SELECT chain, owner, sanad_data, consumed, recorded_at, consumed_at 
-                 FROM sanads WHERE sanad_id = ?1"
+                 FROM sanads WHERE sanad_id = ?1",
             )
             .map_err(|e| StoreError::IoError(e.to_string()))?;
 
-        let result = stmt
-            .query_row(params![sanad_id.0.as_bytes()], |row| {
-                let chain: String = row.get(0)?;
-                let owner: Vec<u8> = row.get(1)?;
-                let sanad_data: Vec<u8> = row.get(2)?;
-                let consumed: i64 = row.get(3)?;
-                let recorded_at: i64 = row.get(4)?;
-                let consumed_at: Option<i64> = row.get(5)?;
+        let result = stmt.query_row(params![sanad_id.0.as_bytes()], |row| {
+            let chain: String = row.get(0)?;
+            let owner: Vec<u8> = row.get(1)?;
+            let sanad_data: Vec<u8> = row.get(2)?;
+            let consumed: i64 = row.get(3)?;
+            let recorded_at: i64 = row.get(4)?;
+            let consumed_at: Option<i64> = row.get(5)?;
 
-                Ok(SanadRecord {
-                    sanad_id: sanad_id.clone(),
-                    chain,
-                    owner,
-                    sanad_data,
-                    consumed: consumed != 0,
-                    recorded_at: recorded_at as u64,
-                    consumed_at: consumed_at.map(|t| t as u64),
-                })
-            });
+            Ok(SanadRecord {
+                sanad_id: sanad_id.clone(),
+                chain,
+                owner,
+                sanad_data,
+                consumed: consumed != 0,
+                recorded_at: recorded_at as u64,
+                consumed_at: consumed_at.map(|t| t as u64),
+            })
+        });
 
         match result {
             Ok(record) => Ok(Some(record)),
@@ -355,7 +354,7 @@ impl SanadStore for SqliteSealStore {
         let mut stmt = conn
             .prepare(
                 "SELECT sanad_id, owner, sanad_data, consumed, recorded_at, consumed_at 
-                 FROM sanads WHERE chain = ?1"
+                 FROM sanads WHERE chain = ?1",
             )
             .map_err(|e| StoreError::IoError(e.to_string()))?;
 
@@ -393,7 +392,7 @@ impl SanadStore for SqliteSealStore {
         let mut stmt = conn
             .prepare(
                 "SELECT sanad_id, chain, sanad_data, consumed, recorded_at, consumed_at 
-                 FROM sanads WHERE owner = ?1"
+                 FROM sanads WHERE owner = ?1",
             )
             .map_err(|e| StoreError::IoError(e.to_string()))?;
 
@@ -469,7 +468,7 @@ impl SanadStore for SqliteSealStore {
         let mut stmt = conn
             .prepare(
                 "SELECT sanad_id, chain, owner, sanad_data, recorded_at, consumed_at 
-                 FROM sanads WHERE consumed = 1"
+                 FROM sanads WHERE consumed = 1",
             )
             .map_err(|e| StoreError::IoError(e.to_string()))?;
 
@@ -507,7 +506,7 @@ impl SanadStore for SqliteSealStore {
         let mut stmt = conn
             .prepare(
                 "SELECT sanad_id, chain, owner, sanad_data, recorded_at 
-                 FROM sanads WHERE consumed = 0"
+                 FROM sanads WHERE consumed = 0",
             )
             .map_err(|e| StoreError::IoError(e.to_string()))?;
 

@@ -5,8 +5,8 @@ use crate::context::use_wallet_context;
 use crate::hooks::{format_balance_display, AccountBalance};
 use crate::pages::common::*;
 use crate::routes::Route;
-pub use csv_store::state::ChainId;
 use crate::wallet::account::ChainAccount;
+pub use csv_store::state::ChainId;
 use dioxus::prelude::*;
 use std::collections::HashMap;
 
@@ -95,7 +95,7 @@ pub fn Dashboard() -> Element {
         .iter()
         .filter(|t| t.status == TransferStatus::Completed)
         .count();
-   let accounts_for_rsx = accounts.clone();
+    let accounts_for_rsx = accounts.clone();
 
     rsx! {
         div { class: "space-y-6",

@@ -70,7 +70,6 @@
 #![allow(missing_docs)]
 #![allow(dead_code)]
 
-pub mod namespace;
 pub mod blob;
 pub mod client;
 pub mod commitment;
@@ -78,6 +77,7 @@ pub mod da_layer;
 pub mod error;
 pub mod ipfs;
 pub mod metadata;
+pub mod namespace;
 pub mod proof_id;
 pub mod rpc;
 pub mod seal_protocol;
@@ -87,22 +87,24 @@ pub mod types;
 pub mod node;
 
 // Core types
-pub use namespace::Namespace;
 pub use blob::{Blob, BlobWithMetadata};
-pub use proof_id::{ProofId, ProofLocation};
-pub use commitment::{BlobCommitment, CommitmentProof, FraudProof, FraudEvidence};
-pub use types::{CelestiaSealPoint, CelestiaAnchor, CelestiaFinalityProof, CelestiaMetadata};
+pub use commitment::{BlobCommitment, CommitmentProof, FraudEvidence, FraudProof};
 pub use error::CelestiaError;
+pub use namespace::Namespace;
+pub use proof_id::{ProofId, ProofLocation};
+pub use types::{CelestiaAnchor, CelestiaFinalityProof, CelestiaMetadata, CelestiaSealPoint};
 
 // Client and DA
-pub use client::{CelestiaClient, ClientConfig, create_test_client};
-pub use da_layer::{DataAvailabilityLayer, DaLayerConfig, CelestiaRpc, CelestiaDaLayer};
+pub use client::{create_test_client, CelestiaClient, ClientConfig};
+pub use da_layer::{CelestiaDaLayer, CelestiaRpc, DaLayerConfig, DataAvailabilityLayer};
 
 // IPFS
-pub use ipfs::{IpfsCid, IpfsClient, IpfsReference, HybridStorageInfo, MockIpfsClient};
+pub use ipfs::{HybridStorageInfo, IpfsCid, IpfsClient, IpfsReference, MockIpfsClient};
 
 // Metadata
-pub use metadata::{SanadMetadata, ProofInfo, VerificationRequirements, ChallengeRecord, MetadataBatch};
+pub use metadata::{
+    ChallengeRecord, MetadataBatch, ProofInfo, SanadMetadata, VerificationRequirements,
+};
 
 // Seal Protocol
 pub use seal_protocol::{CelestiaSealProtocol, CelestiaSealProtocolBuilder};

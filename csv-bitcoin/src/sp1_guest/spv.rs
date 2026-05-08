@@ -4,11 +4,11 @@
 //! that can run inside the SP1 zkVM. It verifies that a transaction was
 //! included in a Bitcoin block without requiring a full node.
 
+use bitcoin::hashes::{sha256d, Hash as BitcoinHash};
 use csv_core::hash::Hash;
 use csv_core::protocol_version::builtin;
 use csv_core::seal::SealPoint;
-use csv_core::zk_proof::{ZkPublicInputs, ZkSealProof, ProofSystem, VerifierKey};
-use bitcoin::hashes::{Hash as BitcoinHash, sha256d};
+use csv_core::zk_proof::{ProofSystem, VerifierKey, ZkPublicInputs, ZkSealProof};
 
 /// Input to the SP1 Bitcoin SPV guest program
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -154,20 +154,20 @@ impl Sp1BtcSpvOutput {
 pub fn verify_bitcoin_spv(input: &Sp1BtcSpvInput) -> bool {
     // Step 1: Compute txid from transaction data
     let _txid = input.compute_txid();
-    
+
     // Step 2: Verify the Merkle branch
     let computed_merkle_root = input.compute_merkle_root();
     let expected_merkle_root = input.get_merkle_root_from_header();
-    
+
     if computed_merkle_root != expected_merkle_root {
         return false;
     }
-    
+
     // Step 3: Verify the block header hash
     if !input.verify_block_hash() {
         return false;
     }
-    
+
     // Step 4: Verify the seal reference matches the transaction
     // The seal_ref should contain the OutPoint (txid + vout) being spent
     // This is a simplified check - in production, you'd parse the transaction
@@ -175,7 +175,7 @@ pub fn verify_bitcoin_spv(input: &Sp1BtcSpvInput) -> bool {
     if input.seal_ref.id.len() < 32 {
         return false;
     }
-    
+
     // All checks passed
     true
 }
@@ -202,10 +202,10 @@ mod tests {
         let seal = SealPoint::new(vec![0xAB; 32], Some(0)).unwrap();
         let input = Sp1BtcSpvInput::new(
             vec![0x01, 0x00, 0x00, 0x00], // Simplified tx data
-            vec![[0xCD; 32]], // Single merkle branch node
-            0, // Position 0
-            [0u8; 80], // Empty block header
-            [0u8; 32], // Expected block hash
+            vec![[0xCD; 32]],             // Single merkle branch node
+            0,                            // Position 0
+            [0u8; 80],                    // Empty block header
+            [0u8; 32],                    // Expected block hash
             800_000,
             seal,
             Hash::new([0xEF; 32]),
@@ -220,7 +220,7 @@ mod tests {
         let mut header = [0u8; 80];
         // Set merkle root in header (bytes 36-68)
         header[36..68].copy_from_slice(&[0x12; 32]);
-        
+
         let seal = SealPoint::new(vec![0xAB; 32], Some(0)).unwrap();
         let input = Sp1BtcSpvInput::new(
             vec![0x01; 4],
@@ -251,7 +251,7 @@ mod tests {
             seal.clone(),
             Hash::new([0xEF; 32]),
         );
-        
+
         let input2 = Sp1BtcSpvInput::new(
             vec![0x01, 0x02, 0x03],
             vec![],
@@ -274,7 +274,7 @@ mod tests {
             vec![0x01; 4],
             vec![],
             0,
-            [0u8; 80], // Empty header
+            [0u8; 80],  // Empty header
             [0xFF; 32], // Non-matching expected hash
             800_000,
             seal,
@@ -291,7 +291,7 @@ mod tests {
         let hash1 = double_sha256(data);
         let hash2 = double_sha256(data);
         assert_eq!(hash1, hash2);
-        
+
         // Different data should produce different hash
         let hash3 = double_sha256(b"different");
         assert_ne!(hash1, hash3);

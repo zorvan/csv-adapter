@@ -25,7 +25,7 @@ use crate::blob::{Blob, BlobWithMetadata};
 use crate::commitment::{BlobCommitment, CommitmentProof, FraudProof};
 use crate::error::{CelestiaError, Result};
 use crate::ipfs::{IpfsCid, IpfsClient, IpfsReference};
-use crate::metadata::{SanadMetadata, MetadataBatch};
+use crate::metadata::{MetadataBatch, SanadMetadata};
 use crate::namespace::Namespace;
 use crate::proof_id::{ProofId, ProofLocation};
 use crate::types::{CelestiaFinalityProof, CelestiaHeader};
@@ -115,9 +115,9 @@ impl Default for DaLayerConfig {
             namespace: Namespace::metadata(),
             ipfs_api: Some("http://localhost:5001".to_string()),
             ipfs_pinning: None,
-            ipfs_threshold: 1024 * 1024, // 1MB
+            ipfs_threshold: 1024 * 1024,             // 1MB
             max_celestia_blob_size: 2 * 1024 * 1024, // 2MB
-            confirmation_depth: 1, // Tendermint has instant finality
+            confirmation_depth: 1,                   // Tendermint has instant finality
             enable_sampling: true,
             sample_count: 15,
         }
@@ -171,7 +171,12 @@ pub trait CelestiaRpc: Send + Sync {
     async fn submit_blob(&self, namespace: Namespace, data: &[u8]) -> Result<(u64, [u8; 32])>;
 
     /// Get blob by height and namespace
-    async fn get_blob(&self, height: u64, namespace: Namespace, commitment: [u8; 32]) -> Result<Vec<u8>>;
+    async fn get_blob(
+        &self,
+        height: u64,
+        namespace: Namespace,
+        commitment: [u8; 32],
+    ) -> Result<Vec<u8>>;
 
     /// Get latest height
     async fn get_latest_height(&self) -> Result<u64>;
@@ -180,7 +185,11 @@ pub trait CelestiaRpc: Send + Sync {
     async fn get_header(&self, height: u64) -> Result<CelestiaHeader>;
 
     /// Get commitment proof
-    async fn get_commitment_proof(&self, height: u64, commitment: [u8; 32]) -> Result<CommitmentProof>;
+    async fn get_commitment_proof(
+        &self,
+        height: u64,
+        commitment: [u8; 32],
+    ) -> Result<CommitmentProof>;
 
     /// Get finality proof
     async fn get_finality_proof(&self, height: u64) -> Result<CelestiaFinalityProof>;
@@ -189,7 +198,9 @@ pub trait CelestiaRpc: Send + Sync {
 /// Mock Celestia RPC for testing
 #[derive(Clone, Debug, Default)]
 pub struct MockCelestiaRpc {
-    storage: std::sync::Arc<tokio::sync::RwLock<std::collections::HashMap<(u64, String, [u8; 32]), Vec<u8>>>>,
+    storage: std::sync::Arc<
+        tokio::sync::RwLock<std::collections::HashMap<(u64, String, [u8; 32]), Vec<u8>>>,
+    >,
     current_height: std::sync::Arc<tokio::sync::RwLock<u64>>,
 }
 
@@ -197,7 +208,9 @@ impl MockCelestiaRpc {
     /// Create new mock
     pub fn new() -> Self {
         Self {
-            storage: std::sync::Arc::new(tokio::sync::RwLock::new(std::collections::HashMap::new())),
+            storage: std::sync::Arc::new(
+                tokio::sync::RwLock::new(std::collections::HashMap::new()),
+            ),
             current_height: std::sync::Arc::new(tokio::sync::RwLock::new(0)),
         }
     }
@@ -222,18 +235,31 @@ impl CelestiaRpc for MockCelestiaRpc {
         let commitment = BlobCommitment::compute(&namespace, data);
 
         let mut storage = self.storage.write().await;
-        storage.insert((height, namespace.to_hex(), *commitment.as_bytes()), data.to_vec());
+        storage.insert(
+            (height, namespace.to_hex(), *commitment.as_bytes()),
+            data.to_vec(),
+        );
 
         Ok((height, *commitment.as_bytes()))
     }
 
-    async fn get_blob(&self, height: u64, namespace: Namespace, commitment: [u8; 32]) -> Result<Vec<u8>> {
+    async fn get_blob(
+        &self,
+        height: u64,
+        namespace: Namespace,
+        commitment: [u8; 32],
+    ) -> Result<Vec<u8>> {
         let storage = self.storage.read().await;
-        storage.get(&(height, namespace.to_hex(), commitment))
+        storage
+            .get(&(height, namespace.to_hex(), commitment))
             .cloned()
-            .ok_or_else(|| CelestiaError::DataNotFound(
-                format!("Blob at height {} with commitment {:.8} not found", height, hex::encode(&commitment[..4]))
-            ))
+            .ok_or_else(|| {
+                CelestiaError::DataNotFound(format!(
+                    "Blob at height {} with commitment {:.8} not found",
+                    height,
+                    hex::encode(&commitment[..4])
+                ))
+            })
     }
 
     async fn get_latest_height(&self) -> Result<u64> {
@@ -249,24 +275,27 @@ impl CelestiaRpc for MockCelestiaRpc {
         ))
     }
 
-    async fn get_commitment_proof(&self, height: u64, commitment: [u8; 32]) -> Result<CommitmentProof> {
+    async fn get_commitment_proof(
+        &self,
+        height: u64,
+        commitment: [u8; 32],
+    ) -> Result<CommitmentProof> {
         let namespace = Namespace::metadata();
         Ok(CommitmentProof::new(
             height,
             namespace,
             BlobCommitment::new(commitment),
-            [height as u8; 32],  // row_root
-            [height as u8; 32],  // data_root
-            [height as u8; 32],  // block_hash
+            [height as u8; 32], // row_root
+            [height as u8; 32], // data_root
+            [height as u8; 32], // block_hash
         ))
     }
 
     async fn get_finality_proof(&self, height: u64) -> Result<CelestiaFinalityProof> {
-        Ok(CelestiaFinalityProof::new(
-            height,
-            [height as u8; 32],
-            [height as u8; 32],
-        ).with_quorum(vec![vec![1, 2, 3]]))
+        Ok(
+            CelestiaFinalityProof::new(height, [height as u8; 32], [height as u8; 32])
+                .with_quorum(vec![vec![1, 2, 3]]),
+        )
     }
 }
 
@@ -305,7 +334,8 @@ where
             let anchor_data = ipfs_ref.to_anchor_bytes();
 
             // Anchor on Celestia
-            let (height, commitment) = self.celestia_client
+            let (height, commitment) = self
+                .celestia_client
                 .submit_blob(blob.namespace, &anchor_data)
                 .await?;
 
@@ -315,7 +345,8 @@ where
             ))
         } else {
             // Direct Celestia storage
-            let (height, commitment) = self.celestia_client
+            let (height, commitment) = self
+                .celestia_client
                 .submit_blob(blob.namespace, &blob.data)
                 .await?;
 
@@ -337,13 +368,14 @@ where
             ProofLocation::Celestia { proof_id } => Ok(proof_id),
             ProofLocation::Hybrid { metadata_id, .. } => Ok(metadata_id),
             _ => Err(CelestiaError::InternalError(
-                "Unexpected IPFS-only location from submit".to_string()
+                "Unexpected IPFS-only location from submit".to_string(),
             )),
         }
     }
 
     async fn get_blob(&self, proof_id: &ProofId) -> Result<Blob> {
-        let data = self.celestia_client
+        let data = self
+            .celestia_client
             .get_blob(proof_id.height, proof_id.namespace, proof_id.commitment)
             .await?;
 
@@ -352,7 +384,8 @@ where
 
     async fn verify_availability(&self, proof_id: &ProofId, samples: u32) -> Result<bool> {
         // For mock/testing, just check if data exists
-        let result = self.celestia_client
+        let result = self
+            .celestia_client
             .get_blob(proof_id.height, proof_id.namespace, proof_id.commitment)
             .await;
 
@@ -382,7 +415,7 @@ where
     async fn store_on_ipfs(&self, data: &[u8], namespace: Namespace) -> Result<ProofLocation> {
         let Some(ipfs) = self.ipfs_client.as_ref() else {
             return Err(CelestiaError::FeatureNotEnabled(
-                "IPFS not configured".to_string()
+                "IPFS not configured".to_string(),
             ));
         };
 
@@ -390,7 +423,8 @@ where
         let ipfs_ref = IpfsReference::new(cid.clone(), data.len() as u64);
         let anchor_data = ipfs_ref.to_anchor_bytes();
 
-        let (height, commitment) = self.celestia_client
+        let (height, commitment) = self
+            .celestia_client
             .submit_blob(namespace, &anchor_data)
             .await?;
 
@@ -400,7 +434,7 @@ where
     async fn get_from_ipfs(&self, cid: &IpfsCid) -> Result<Vec<u8>> {
         let Some(ipfs) = self.ipfs_client.as_ref() else {
             return Err(CelestiaError::FeatureNotEnabled(
-                "IPFS not configured".to_string()
+                "IPFS not configured".to_string(),
             ));
         };
 
@@ -415,10 +449,9 @@ where
 
     async fn get_metadata(&self, proof_id: &ProofId) -> Result<SanadMetadata> {
         let blob = self.get_blob(proof_id).await?;
-        let json = String::from_utf8(blob.data)
-            .map_err(|e| CelestiaError::DeserializationError(
-                format!("Invalid UTF8 in metadata: {}", e)
-            ))?;
+        let json = String::from_utf8(blob.data).map_err(|e| {
+            CelestiaError::DeserializationError(format!("Invalid UTF8 in metadata: {}", e))
+        })?;
         SanadMetadata::from_json(&json)
     }
 
@@ -447,7 +480,7 @@ mod tests {
     use super::*;
     use crate::blob::Blob;
     use crate::ipfs::MockIpfsClient;
-    use crate::proof_info::ProofInfo;
+    use crate::metadata::ProofInfo;
 
     async fn setup_test_da() -> CelestiaDaLayer<MockCelestiaRpc, MockIpfsClient> {
         let celestia = MockCelestiaRpc::new();

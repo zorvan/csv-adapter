@@ -4,16 +4,16 @@
 //! enabling Sui to be used through the unified chain adapter interface.
 
 use async_trait::async_trait;
-use csv_core::driver::{
-    AccountModel, ChainDriver, ChainCapabilities, ChainError, ChainResult, RpcClient, Wallet,
-};
-use ed25519_dalek::Verifier;
 use csv_core::chain_config::ChainConfig;
+use csv_core::driver::{
+    AccountModel, ChainCapabilities, ChainDriver, ChainError, ChainResult, RpcClient, Wallet,
+};
 use csv_core::ChainId;
+use ed25519_dalek::Verifier;
 
-use crate::seal_protocol::SuiSealProtocol;
 use crate::config::{SuiConfig, SuiNetwork};
 use crate::rpc::SuiRpc;
+use crate::seal_protocol::SuiSealProtocol;
 
 /// Sui RPC client wrapper implementing the core RpcClient trait
 pub struct SuiRpcClient {
@@ -41,9 +41,8 @@ impl RpcClient for SuiRpcClient {
         }
 
         // Parse the transaction length prefix
-        let tx_len = u32::from_le_bytes([
-            signed_tx[0], signed_tx[1], signed_tx[2], signed_tx[3],
-        ]) as usize;
+        let tx_len =
+            u32::from_le_bytes([signed_tx[0], signed_tx[1], signed_tx[2], signed_tx[3]]) as usize;
 
         if signed_tx.len() < 4 + tx_len + 64 + 32 {
             return Err(ChainError::InvalidInput(
@@ -55,7 +54,7 @@ impl RpcClient for SuiRpcClient {
         let signature = signed_tx[4 + tx_len..4 + tx_len + 64].to_vec();
         let public_key = signed_tx[4 + tx_len + 64..4 + tx_len + 64 + 32].to_vec();
 
-       // Submit via execute_signed_transaction
+        // Submit via execute_signed_transaction
         let digest = self
             .inner
             .execute_signed_transaction(tx_bytes, signature, public_key)
@@ -70,7 +69,7 @@ impl RpcClient for SuiRpcClient {
         let digest_bytes = hex::decode(hash.trim_start_matches("0x"))
             .map_err(|e| ChainError::InvalidInput(format!("Invalid digest: {}", e)))?;
 
-       let _tx = self
+        let _tx = self
             .inner
             .get_transaction_block(
                 digest_bytes
@@ -99,8 +98,8 @@ impl RpcClient for SuiRpcClient {
 
     #[cfg(feature = "rpc")]
     async fn get_balance(&self, address: &str) -> ChainResult<u64> {
-        use serde_json::{json, Value};
         use reqwest::Client;
+        use serde_json::{json, Value};
 
         // Parse Sui address
         let addr_bytes = hex::decode(address.trim_start_matches("0x"))
@@ -168,7 +167,9 @@ impl RpcClient for SuiRpcClient {
 
         // Log successful balance query for audit trail
         #[cfg(target_arch = "wasm32")]
-        web_sys::console::log_1(&format!("Sui balance for {}: {} MIST", addr_hex, total_balance).into());
+        web_sys::console::log_1(
+            &format!("Sui balance for {}: {} MIST", addr_hex, total_balance).into(),
+        );
 
         #[cfg(not(target_arch = "wasm32"))]
         log::info!("Sui balance for {}: {} MIST", addr_hex, total_balance);
@@ -179,12 +180,11 @@ impl RpcClient for SuiRpcClient {
     #[cfg(not(feature = "rpc"))]
     async fn get_balance(&self, _address: &str) -> ChainResult<u64> {
         Err(ChainError::CapabilityUnavailable(
-            "Sui balance query requires the 'rpc' feature".to_string()
+            "Sui balance query requires the 'rpc' feature".to_string(),
         ))
     }
 
-
-   async fn get_chain_info(&self) -> ChainResult<serde_json::Value> {
+    async fn get_chain_info(&self) -> ChainResult<serde_json::Value> {
         let checkpoint_seq = self
             .inner
             .get_latest_checkpoint_sequence_number()
@@ -200,10 +200,11 @@ impl RpcClient for SuiRpcClient {
     async fn is_transaction_confirmed(&self, hash: &str) -> ChainResult<bool> {
         let digest_bytes = hex::decode(hash.trim_start_matches("0x"))
             .map_err(|e| ChainError::InvalidInput(format!("Invalid digest: {}", e)))?;
-        let digest: [u8; 32] = digest_bytes.try_into()
+        let digest: [u8; 32] = digest_bytes
+            .try_into()
             .map_err(|_| ChainError::InvalidInput("Digest must be 32 bytes".to_string()))?;
 
-       let tx = self
+        let tx = self
             .inner
             .get_transaction_block(digest)
             .await
@@ -266,24 +267,24 @@ impl Wallet for SuiWallet {
     fn verify_signature(&self, data: &[u8], signature: &[u8]) -> bool {
         // Verify Ed25519 signature using the wallet's verifying key
         // Sui uses Ed25519 for transaction and message signatures
-        
+
         // If we have the signing key, derive the verifying key
         if let Some(signing_key) = &self.signing_key {
             let verifying_key = signing_key.verifying_key();
-            
+
             // Ed25519 signatures are 64 bytes
             if signature.len() != 64 {
                 return false;
             }
-            
+
             // Convert signature bytes to Signature type
             let sig_bytes: [u8; 64] = match signature.try_into() {
                 Ok(bytes) => bytes,
                 Err(_) => return false,
             };
-            
+
             let signature = ed25519_dalek::Signature::from_bytes(&sig_bytes);
-            
+
             // Verify the signature
             match verifying_key.verify(data, &signature) {
                 Ok(()) => true,
@@ -374,7 +375,9 @@ impl ChainDriver for SuiSealProtocol {
 
     async fn create_client(&self, config: &ChainConfig) -> ChainResult<Box<dyn RpcClient>> {
         // Create Sui RPC client from chain configuration
-        let rpc_url = config.rpc_endpoints.first()
+        let rpc_url = config
+            .rpc_endpoints
+            .first()
             .ok_or_else(|| ChainError::InvalidInput("RPC endpoint required".to_string()))?;
 
         // Create the RPC client based on configuration
@@ -410,7 +413,8 @@ impl ChainDriver for SuiSealProtocol {
                 } else {
                     return Err(ChainError::InvalidInput(
                         "No signer_address configured and no signing key available. \
-                         Either set config.signer_address or provide a signing key.".to_string()
+                         Either set config.signer_address or provide a signing key."
+                            .to_string(),
                     ));
                 }
             }
@@ -425,9 +429,10 @@ impl ChainDriver for SuiSealProtocol {
         // Validate the address format (Sui addresses are 32 bytes / 64 hex chars + 0x prefix)
         let addr_without_prefix = address.trim_start_matches("0x");
         if addr_without_prefix.len() != 64 || hex::decode(addr_without_prefix).is_err() {
-            return Err(ChainError::InvalidInput(
-                format!("Invalid Sui address format: {}. Expected 0x + 64 hex characters.", address)
-            ));
+            return Err(ChainError::InvalidInput(format!(
+                "Invalid Sui address format: {}. Expected 0x + 64 hex characters.",
+                address
+            )));
         }
 
         #[cfg(feature = "rpc")]
@@ -491,7 +496,9 @@ pub fn create_sui_adapter(config: &ChainConfig) -> ChainResult<SuiSealProtocol> 
     #[cfg(all(not(test), feature = "rpc"))]
     {
         use crate::node::SuiNode;
-        let rpc_url = config.rpc_endpoints.first()
+        let rpc_url = config
+            .rpc_endpoints
+            .first()
             .ok_or_else(|| ChainError::InvalidInput("RPC endpoint required".to_string()))?;
         let rpc = Box::new(SuiNode::new(rpc_url));
         SuiSealProtocol::from_config(sui_config, rpc)

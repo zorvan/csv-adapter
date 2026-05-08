@@ -5,15 +5,15 @@
 
 use async_trait::async_trait;
 use base64::Engine;
-use csv_core::driver::{
-    AccountModel, ChainDriver, ChainCapabilities, ChainError, ChainResult, RpcClient, Wallet,
-};
 use csv_core::chain_config::ChainConfig;
+use csv_core::driver::{
+    AccountModel, ChainCapabilities, ChainDriver, ChainError, ChainResult, RpcClient, Wallet,
+};
 use csv_core::ChainId;
 
-use crate::seal_protocol::AptosSealProtocol;
 use crate::config::{AptosConfig, AptosNetwork};
 use crate::rpc::AptosRpc;
+use crate::seal_protocol::AptosSealProtocol;
 
 /// Aptos RPC client wrapper implementing the core RpcClient trait
 pub struct AptosRpcClient {
@@ -50,8 +50,9 @@ impl RpcClient for AptosRpcClient {
             .map_err(|e| ChainError::RpcError(format!("Aptos API request failed: {}", e)))?;
 
         let status = response.status();
-        let aptos_response: serde_json::Value = response.json().await
-            .map_err(|e| ChainError::SerializationError(format!("Failed to parse Aptos response: {}", e)))?;
+        let aptos_response: serde_json::Value = response.json().await.map_err(|e| {
+            ChainError::SerializationError(format!("Failed to parse Aptos response: {}", e))
+        })?;
 
         if !status.is_success() {
             let error_msg = aptos_response
@@ -64,7 +65,9 @@ impl RpcClient for AptosRpcClient {
         let tx_hash = aptos_response
             .get("hash")
             .and_then(|h| h.as_str())
-            .ok_or_else(|| ChainError::RpcError("Aptos API returned no transaction hash".to_string()))?;
+            .ok_or_else(|| {
+                ChainError::RpcError("Aptos API returned no transaction hash".to_string())
+            })?;
 
         Ok(tx_hash.to_string())
     }
@@ -72,7 +75,7 @@ impl RpcClient for AptosRpcClient {
     #[cfg(not(feature = "rpc"))]
     async fn send_transaction(&self, _tx: &[u8]) -> ChainResult<String> {
         Err(ChainError::CapabilityUnavailable(
-            "Aptos transaction submission requires the 'rpc' feature".to_string()
+            "Aptos transaction submission requires the 'rpc' feature".to_string(),
         ))
     }
 
@@ -277,7 +280,9 @@ impl Wallet for AptosWallet {
         let derived_address = format!("0x{}", hex::encode(addr));
 
         #[cfg(target_arch = "wasm32")]
-        web_sys::console::log_1(&format!("Imported Aptos key, address: {}", derived_address).into());
+        web_sys::console::log_1(
+            &format!("Imported Aptos key, address: {}", derived_address).into(),
+        );
 
         #[cfg(not(target_arch = "wasm32"))]
         log::info!("Imported Aptos key, address: {}", derived_address);
@@ -340,7 +345,9 @@ impl ChainDriver for AptosSealProtocol {
 
     async fn create_client(&self, config: &ChainConfig) -> ChainResult<Box<dyn RpcClient>> {
         // Create Aptos RPC client from chain configuration
-        let rpc_url = config.rpc_endpoints.first()
+        let rpc_url = config
+            .rpc_endpoints
+            .first()
             .ok_or_else(|| ChainError::InvalidInput("RPC endpoint required".to_string()))?;
 
         #[cfg(feature = "rpc")]
@@ -421,7 +428,9 @@ pub fn create_aptos_adapter(config: &ChainConfig) -> ChainResult<AptosSealProtoc
     #[cfg(all(not(test), feature = "rpc"))]
     {
         use crate::node::AptosNode;
-        let rpc_url = config.rpc_endpoints.first()
+        let rpc_url = config
+            .rpc_endpoints
+            .first()
             .ok_or_else(|| ChainError::InvalidInput("RPC endpoint required".to_string()))?;
         let rpc = Box::new(AptosNode::new(rpc_url));
         AptosSealProtocol::from_config(aptos_config, rpc)

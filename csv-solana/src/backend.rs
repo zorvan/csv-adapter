@@ -4,18 +4,18 @@
 //! enabling Solana to be used through the unified chain adapter interface.
 
 use async_trait::async_trait;
-use csv_core::driver::{
-    AccountModel, ChainDriver, ChainCapabilities, ChainError, ChainResult, RpcClient, Wallet,
-};
 use csv_core::chain_config::ChainConfig;
+use csv_core::driver::{
+    AccountModel, ChainCapabilities, ChainDriver, ChainError, ChainResult, RpcClient, Wallet,
+};
 use csv_core::ChainId;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::{Signature, Signer};
 use std::str::FromStr;
 
-use crate::seal_protocol::SolanaSealProtocol;
 use crate::config::{Network, SolanaConfig};
 use crate::rpc::SolanaRpc;
+use crate::seal_protocol::SolanaSealProtocol;
 use crate::wallet::ProgramWallet;
 
 /// Solana RPC client wrapper implementing the core RpcClient trait

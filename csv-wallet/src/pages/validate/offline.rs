@@ -17,8 +17,8 @@
 use crate::pages::common::*;
 use crate::routes::Route;
 use csv_core::proof::ProofBundle;
-use csv_core::verifier::verify_proof;
 use csv_core::signature::SignatureScheme;
+use csv_core::verifier::verify_proof;
 use dioxus::prelude::*;
 
 /// Offline verification page - pure cryptographic verification
@@ -146,7 +146,14 @@ fn perform_offline_verification(input: &str) -> VerificationResult {
         details: if json_valid {
             "Valid ProofBundle structure".to_string()
         } else {
-            format!("Invalid JSON: {}", bundle_result.as_ref().err().map(|e| e.to_string()).unwrap_or_default())
+            format!(
+                "Invalid JSON: {}",
+                bundle_result
+                    .as_ref()
+                    .err()
+                    .map(|e| e.to_string())
+                    .unwrap_or_default()
+            )
         },
     });
 
@@ -203,7 +210,8 @@ fn perform_offline_verification(input: &str) -> VerificationResult {
         name: "Inclusion Proof".to_string(),
         passed: inclusion_valid,
         details: if inclusion_valid {
-            format!("Inclusion proof valid ({} bytes, block hash: {})",
+            format!(
+                "Inclusion proof valid ({} bytes, block hash: {})",
                 bundle.inclusion_proof.proof_bytes.len(),
                 hex::encode(&bundle.inclusion_proof.block_hash.as_bytes()[..8])
             )
@@ -219,9 +227,15 @@ fn perform_offline_verification(input: &str) -> VerificationResult {
         name: "Finality Proof".to_string(),
         passed: finality_valid,
         details: if finality_valid {
-            format!("Finality confirmed with {} confirmations", bundle.finality_proof.confirmations)
+            format!(
+                "Finality confirmed with {} confirmations",
+                bundle.finality_proof.confirmations
+            )
         } else {
-            format!("Insufficient confirmations: {} (need at least 6)", bundle.finality_proof.confirmations)
+            format!(
+                "Insufficient confirmations: {} (need at least 6)",
+                bundle.finality_proof.confirmations
+            )
         },
     });
 
@@ -231,7 +245,8 @@ fn perform_offline_verification(input: &str) -> VerificationResult {
         name: "Seal Registry Check".to_string(),
         passed: seal_valid,
         details: if seal_valid {
-            format!("Seal valid: {} ({} bytes)",
+            format!(
+                "Seal valid: {} ({} bytes)",
                 hex::encode(&bundle.seal_ref.id[..8.min(bundle.seal_ref.id.len())]),
                 bundle.seal_ref.id.len()
             )
@@ -255,8 +270,16 @@ fn perform_offline_verification(input: &str) -> VerificationResult {
 
 /// Verification result display
 fn verification_result_section(result: &VerificationResult) -> Element {
-    let status_color = if result.success { "var(--proof-valid)" } else { "var(--proof-invalid)" };
-    let status_bg = if result.success { "bg-green-900/20 border-green-500/30" } else { "bg-red-900/20 border-red-500/30" };
+    let status_color = if result.success {
+        "var(--proof-valid)"
+    } else {
+        "var(--proof-invalid)"
+    };
+    let status_bg = if result.success {
+        "bg-green-900/20 border-green-500/30"
+    } else {
+        "bg-red-900/20 border-red-500/30"
+    };
 
     rsx! {
         div { class: "{card_class()} p-6",

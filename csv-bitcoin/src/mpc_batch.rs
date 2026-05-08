@@ -27,8 +27,8 @@
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
+use csv_core::commit_mux::{CommitMux, MuxLeaf, MuxProof};
 use csv_core::hash::Hash;
-use csv_core::commit_mux::{MuxLeaf, MuxProof, CommitMux};
 
 use crate::error::{BitcoinError, BitcoinResult};
 use crate::types::BitcoinSealPoint;
@@ -36,8 +36,7 @@ use crate::types::BitcoinSealPoint;
 /// Protocol ID for CSV Bitcoin commitments (32 bytes)
 pub const CSV_BTC_PROTOCOL_ID: [u8; 32] = [
     0x43, 0x53, 0x56, 0x2d, 0x42, 0x54, 0x43, 0x00, // "CSV-BTC"
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, // version 1
 ];
 
@@ -160,8 +159,7 @@ impl MpcBatcher {
 
         // Take up to batch_size commitments
         let batch_size = self.batch_size;
-        let to_batch: Vec<PendingCommitment> =
-            queue.drain(..batch_size.min(queue_len)).collect();
+        let to_batch: Vec<PendingCommitment> = queue.drain(..batch_size.min(queue_len)).collect();
 
         // Build MPC leaves
         let leaves: Vec<MuxLeaf> = to_batch
@@ -192,10 +190,12 @@ impl MpcBatcher {
 
         for (index, commitment) in commitments.iter().enumerate() {
             // Build the Merkle branch for this leaf
-            let branch = tree.merkle_branch(index)
-                .ok_or_else(|| BitcoinError::MpcError(
-                    format!("Failed to generate Merkle branch for index {}", index)
-                ))?;
+            let branch = tree.merkle_branch(index).ok_or_else(|| {
+                BitcoinError::MpcError(format!(
+                    "Failed to generate Merkle branch for index {}",
+                    index
+                ))
+            })?;
 
             let proof = MuxProof {
                 protocol_id: CSV_BTC_PROTOCOL_ID,
@@ -206,9 +206,10 @@ impl MpcBatcher {
 
             // Verify the proof before returning
             if !proof.verify(&root) {
-                return Err(BitcoinError::MpcError(
-                    format!("Generated invalid proof for commitment {}", commitment.request_id)
-                ));
+                return Err(BitcoinError::MpcError(format!(
+                    "Generated invalid proof for commitment {}",
+                    commitment.request_id
+                )));
             }
 
             proofs.push((commitment.request_id.clone(), proof));
@@ -233,11 +234,17 @@ impl MpcBatcher {
 /// Extension trait for CommitMux to generate Merkle branches
 pub trait MpcTreeExt {
     /// Generate the Merkle branch for a leaf at the given index
-    fn merkle_branch(&self, leaf_index: usize) -> Option<Vec<csv_core::commit_mux::MerkleBranchNode>>;
+    fn merkle_branch(
+        &self,
+        leaf_index: usize,
+    ) -> Option<Vec<csv_core::commit_mux::MerkleBranchNode>>;
 }
 
 impl MpcTreeExt for CommitMux {
-    fn merkle_branch(&self, leaf_index: usize) -> Option<Vec<csv_core::commit_mux::MerkleBranchNode>> {
+    fn merkle_branch(
+        &self,
+        leaf_index: usize,
+    ) -> Option<Vec<csv_core::commit_mux::MerkleBranchNode>> {
         if leaf_index >= self.leaves.len() {
             return None;
         }

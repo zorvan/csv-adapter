@@ -75,7 +75,7 @@ impl EthereumGroth16Verifier {
         // Validate proof structure
         if proof_bytes.len() < 192 {
             return Err(ZkError::InvalidProof(
-                "Groth16 proof too short (need at least 192 bytes)".to_string()
+                "Groth16 proof too short (need at least 192 bytes)".to_string(),
             ));
         }
 
@@ -102,8 +102,8 @@ impl EthereumGroth16Verifier {
 
         // In mock mode, we verify that the proof was generated consistently
         // with the public inputs (deterministic check)
-        let consistent = proof_fingerprint == expected_fingerprint ||
-            (proof_bytes.len() >= 200 && proof_bytes[192..].contains(&0xAA));
+        let consistent = proof_fingerprint == expected_fingerprint
+            || (proof_bytes.len() >= 200 && proof_bytes[192..].contains(&0xAA));
 
         Ok(consistent)
     }
@@ -113,9 +113,10 @@ impl ZkVerifier for EthereumGroth16Verifier {
     fn verify(&self, proof: &ZkSealProof) -> Result<ZkPublicInputs, ZkError> {
         // Check proof system is Groth16
         if proof.verifier_key.proof_system != ProofSystem::Groth16 {
-            return Err(ZkError::UnsupportedSystem(
-                format!("Expected Groth16, got {:?}", proof.verifier_key.proof_system)
-            ));
+            return Err(ZkError::UnsupportedSystem(format!(
+                "Expected Groth16, got {:?}",
+                proof.verifier_key.proof_system
+            )));
         }
 
         // Check verifier key matches
@@ -132,7 +133,7 @@ impl ZkVerifier for EthereumGroth16Verifier {
             Ok(proof.public_inputs.clone())
         } else {
             Err(ZkError::VerificationFailed(
-                "Groth16 proof verification failed - pairing check did not match".to_string()
+                "Groth16 proof verification failed - pairing check did not match".to_string(),
             ))
         }
     }
@@ -232,8 +233,8 @@ pub fn generate_verifier_contract_bytecode() -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use csv_core::seal::SealPoint;
     use csv_core::hash::Hash;
+    use csv_core::seal::SealPoint;
 
     #[test]
     fn test_groth16_verifier_creation() {
@@ -278,9 +279,15 @@ mod tests {
         // Create a proof with wrong proof system (SP1 instead of Groth16)
         let proof = ZkSealProof::new(
             vec![0u8; 200],
-            VerifierKey::new(builtin::ETHEREUM.clone(), vec![0u8; 64], ProofSystem::SP1, 1),
+            VerifierKey::new(
+                builtin::ETHEREUM.clone(),
+                vec![0u8; 64],
+                ProofSystem::SP1,
+                1,
+            ),
             public_inputs,
-        ).unwrap();
+        )
+        .unwrap();
 
         let result = verifier.verify(&proof);
         assert!(result.is_err());

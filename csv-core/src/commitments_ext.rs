@@ -8,10 +8,10 @@
 //! **Note:** ZK-proof verification is NOT implemented yet.
 //! This module provides type infrastructure for indexing and querying.
 
-use serde::{Deserialize, Serialize};
-use std::str::FromStr;
 use crate::hash::Hash;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::str::FromStr;
 
 // ---------------------------------------------------------------------------
 // Commitment Scheme Types

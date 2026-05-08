@@ -11,20 +11,21 @@
 use async_trait::async_trait;
 use csv_core::backend::{
     BalanceInfo, ChainBroadcaster, ChainDeployer, ChainOpError, ChainOpResult, ChainProofProvider,
-    ChainQuery, ChainSanadOps, ChainSigner, ContractStatus, DeploymentStatus, FinalityStatus, SanadOperationResult, TransactionInfo, TransactionStatus,
+    ChainQuery, ChainSanadOps, ChainSigner, ContractStatus, DeploymentStatus, FinalityStatus,
+    SanadOperationResult, TransactionInfo, TransactionStatus,
 };
 use csv_core::hash::Hash;
 use csv_core::proof::{FinalityProof, InclusionProof as CoreInclusionProof};
 use csv_core::sanad::SanadId;
 use csv_core::signature::SignatureScheme;
-use ed25519_dalek::{VerifyingKey, Verifier};
+use ed25519_dalek::{Verifier, VerifyingKey};
 
-use crate::seal_protocol::SuiSealProtocol;
 use crate::config::SuiConfig;
 use crate::deploy::{PackageDeployer, PackageDeployment};
 use crate::error::SuiError;
 use crate::proofs::CommitmentEventBuilder;
 use crate::rpc::{SuiRpc, SuiTransactionBlock};
+use crate::seal_protocol::SuiSealProtocol;
 
 /// Block on an async future in a sync context.
 fn block_on_async<F: std::future::Future<Output = R> + Send + 'static, R: Send + 'static>(
@@ -47,7 +48,8 @@ where
         .enable_all()
         .build()
         .map_err(|e| ChainOpError::RpcError(format!("Failed to create runtime: {}", e)))?;
-    rt.block_on(future).map_err(|e| ChainOpError::RpcError(e.to_string()))
+    rt.block_on(future)
+        .map_err(|e| ChainOpError::RpcError(e.to_string()))
 }
 
 /// Sui chain operations implementation
@@ -76,8 +78,9 @@ impl SuiBackend {
 
         // Build event builder with default package ID
         let package_id = [0u8; 32];
-        let event_builder = CommitmentEventBuilder::new(package_id, "csv_seal::AnchorEvent".to_string());
-        
+        let event_builder =
+            CommitmentEventBuilder::new(package_id, "csv_seal::AnchorEvent".to_string());
+
         Self {
             rpc,
             config,
@@ -126,11 +129,9 @@ impl SuiBackend {
                 block_height: tx.checkpoint.unwrap_or(0),
                 confirmations: 1, // Sui has immediate finality
             },
-            crate::rpc::SuiExecutionStatus::Failure { error } => {
-                TransactionStatus::Failed {
-                    reason: error.clone(),
-                }
-            }
+            crate::rpc::SuiExecutionStatus::Failure { error } => TransactionStatus::Failed {
+                reason: error.clone(),
+            },
         };
 
         TransactionInfo {
@@ -221,7 +222,9 @@ impl ChainQuery for SuiBackend {
                     .rpc()
                     .get_latest_checkpoint_sequence_number()
                     .await
-                    .map_err(|e| ChainOpError::RpcError(format!("Failed to get checkpoint: {}", e)))?;
+                    .map_err(|e| {
+                        ChainOpError::RpcError(format!("Failed to get checkpoint: {}", e))
+                    })?;
 
                 let finality_depth = latest_checkpoint.saturating_sub(block_height);
 
@@ -294,7 +297,7 @@ impl ChainQuery for SuiBackend {
         // Sui uses an object-based model, not account nonces
         // Object sequence numbers are per-object, not per-account
         Err(ChainOpError::CapabilityUnavailable(
-            "Sui does not support account nonces (uses object model)".to_string()
+            "Sui does not support account nonces (uses object model)".to_string(),
         ))
     }
 
@@ -339,7 +342,8 @@ impl ChainSigner for SuiBackend {
         // 3. Return the signature without exposing the private key
         Err(ChainOpError::CapabilityUnavailable(
             "Direct transaction signing not available. \
-             Use an external keystore with the key_id reference.".to_string(),
+             Use an external keystore with the key_id reference."
+                .to_string(),
         ))
     }
 
@@ -347,7 +351,8 @@ impl ChainSigner for SuiBackend {
         // Same pattern as sign_transaction
         Err(ChainOpError::CapabilityUnavailable(
             "Direct message signing not available. \
-             Use an external keystore with the key_id reference.".to_string(),
+             Use an external keystore with the key_id reference."
+                .to_string(),
         ))
     }
 
@@ -406,9 +411,8 @@ impl ChainBroadcaster for SuiBackend {
 
         // Parse the signed transaction
         // Format: [tx_bytes_len:4][tx_bytes][signature:64][public_key:32]
-        let tx_len = u32::from_le_bytes([
-            signed_tx[0], signed_tx[1], signed_tx[2], signed_tx[3],
-        ]) as usize;
+        let tx_len =
+            u32::from_le_bytes([signed_tx[0], signed_tx[1], signed_tx[2], signed_tx[3]]) as usize;
 
         if signed_tx.len() < 4 + tx_len + 64 + 32 {
             return Err(ChainOpError::InvalidInput(
@@ -574,11 +578,8 @@ impl ChainDeployer for SuiBackend {
         program_bytes: &[u8],
         _admin_address: &str,
     ) -> ChainOpResult<DeploymentStatus> {
-         // Use the SDK-based deployer for Move package publishing
-        let deployer = PackageDeployer::new(
-            self.config.clone(),
-            self.rpc.clone_boxed(),
-        );
+        // Use the SDK-based deployer for Move package publishing
+        let deployer = PackageDeployer::new(self.config.clone(), self.rpc.clone_boxed());
 
         // Gas budget from config or default
         let gas_budget = self.config.transaction.max_gas_budget;
@@ -677,7 +678,7 @@ impl ChainProofProvider for SuiBackend {
         let mut digest = [0u8; 32];
         digest.copy_from_slice(&digest_bytes);
 
-          // Verify checkpoint exists
+        // Verify checkpoint exists
         let rpc = self.rpc.clone_boxed();
         let position = proof.position;
         let result = std::thread::spawn(move || {
@@ -686,7 +687,8 @@ impl ChainProofProvider for SuiBackend {
                 .build()
                 .unwrap();
             rt.block_on(rpc.get_checkpoint(position))
-        }).join();
+        })
+        .join();
         match result {
             Ok(Ok(Some(cp))) => Ok(cp.digest == digest),
             _ => Ok(false),
@@ -704,7 +706,9 @@ impl ChainProofProvider for SuiBackend {
                     .rpc()
                     .get_checkpoint(finality_block)
                     .await
-                    .map_err(|e| ChainOpError::RpcError(format!("Failed to get checkpoint: {}", e)))?
+                    .map_err(|e| {
+                        ChainOpError::RpcError(format!("Failed to get checkpoint: {}", e))
+                    })?
                     .ok_or_else(|| ChainOpError::RpcError("Checkpoint not found".to_string()))?;
 
                 // Build checkpoint certificate proof
@@ -723,19 +727,16 @@ impl ChainProofProvider for SuiBackend {
         }
     }
 
-    fn verify_finality_proof(
-        &self,
-        proof: &FinalityProof,
-        tx_hash: &str,
-    ) -> ChainOpResult<bool> {
+    fn verify_finality_proof(&self, proof: &FinalityProof, tx_hash: &str) -> ChainOpResult<bool> {
         // Verify the checkpoint certificate
         let _ = tx_hash;
 
         // Deserialize checkpoint
-        let checkpoint: crate::rpc::SuiCheckpoint = match serde_json::from_slice(&proof.finality_data) {
-            Ok(cp) => cp,
-            Err(_) => return Ok(false),
-        };
+        let checkpoint: crate::rpc::SuiCheckpoint =
+            match serde_json::from_slice(&proof.finality_data) {
+                Ok(cp) => cp,
+                Err(_) => return Ok(false),
+            };
 
         // Verify checkpoint is certified
         if !checkpoint.certified {
@@ -747,7 +748,7 @@ impl ChainProofProvider for SuiBackend {
             return Ok(false);
         }
 
-           // Verify checkpoint is old enough for finality
+        // Verify checkpoint is old enough for finality
         let rpc = self.rpc.clone_boxed();
         let result = std::thread::spawn(move || {
             let rt = tokio::runtime::Builder::new_current_thread()
@@ -755,10 +756,18 @@ impl ChainProofProvider for SuiBackend {
                 .build()
                 .unwrap();
             rt.block_on(rpc.get_latest_checkpoint_sequence_number())
-        }).join();
+        })
+        .join();
         let latest = match result {
-            Ok(v) => v.map_err(|e| ChainOpError::RpcError(format!("Failed to get latest checkpoint: {}", e)))?,
-            Err(e) => return Err(ChainOpError::RpcError(format!("Blocking task failed: {:?}", e))),
+            Ok(v) => v.map_err(|e| {
+                ChainOpError::RpcError(format!("Failed to get latest checkpoint: {}", e))
+            })?,
+            Err(e) => {
+                return Err(ChainOpError::RpcError(format!(
+                    "Blocking task failed: {:?}",
+                    e
+                )))
+            }
         };
 
         let depth = latest.saturating_sub(checkpoint.sequence_number);
@@ -777,8 +786,10 @@ impl ChainProofProvider for SuiBackend {
     ) -> ChainOpResult<bool> {
         // Verify both proofs
         let inclusion_valid = self.verify_inclusion_proof(inclusion_proof, commitment)?;
-        let finality_valid =
-            self.verify_finality_proof(finality_proof, &format!("0x{}", hex::encode(inclusion_proof.block_hash.as_bytes())))?;
+        let finality_valid = self.verify_finality_proof(
+            finality_proof,
+            &format!("0x{}", hex::encode(inclusion_proof.block_hash.as_bytes())),
+        )?;
 
         Ok(inclusion_valid && finality_valid)
     }
@@ -808,7 +819,8 @@ impl ChainSanadOps for SuiBackend {
         Err(ChainOpError::CapabilityUnavailable(
             "Sanad creation requires a signed transaction. \
              Construct a transaction to create the sanad object, \
-             then use submit_transaction() to execute.".to_string(),
+             then use submit_transaction() to execute."
+                .to_string(),
         ))
     }
 
@@ -828,7 +840,8 @@ impl ChainSanadOps for SuiBackend {
         Err(ChainOpError::CapabilityUnavailable(
             "Sanad consumption requires a signed transaction. \
              Construct a transaction to consume the sanad object, \
-             then use submit_transaction() to execute.".to_string(),
+             then use submit_transaction() to execute."
+                .to_string(),
         ))
     }
 
@@ -850,7 +863,8 @@ impl ChainSanadOps for SuiBackend {
         Err(ChainOpError::CapabilityUnavailable(
             "Sanad locking requires a signed transaction. \
              Construct a transaction to lock the sanad object, \
-             then use submit_transaction() to execute.".to_string(),
+             then use submit_transaction() to execute."
+                .to_string(),
         ))
     }
 
@@ -874,7 +888,8 @@ impl ChainSanadOps for SuiBackend {
         Err(ChainOpError::CapabilityUnavailable(
             "Sanad minting requires a signed transaction. \
              Construct a transaction to mint the sanad object after \
-             verifying the lock proof, then use submit_transaction() to execute.".to_string(),
+             verifying the lock proof, then use submit_transaction() to execute."
+                .to_string(),
         ))
     }
 
@@ -894,7 +909,8 @@ impl ChainSanadOps for SuiBackend {
         Err(ChainOpError::CapabilityUnavailable(
             "Sanad refund requires a signed transaction. \
              Construct a transaction to refund the locked sanad, \
-             then use submit_transaction() to execute.".to_string(),
+             then use submit_transaction() to execute."
+                .to_string(),
         ))
     }
 
@@ -915,7 +931,8 @@ impl ChainSanadOps for SuiBackend {
         Err(ChainOpError::CapabilityUnavailable(
             "Metadata recording requires a signed transaction. \
              Construct a transaction to update the sanad metadata, \
-             then use submit_transaction() to execute.".to_string(),
+             then use submit_transaction() to execute."
+                .to_string(),
         ))
     }
 
@@ -931,9 +948,12 @@ impl ChainSanadOps for SuiBackend {
         let object_info = match self.rpc().get_object(*object_id).await {
             Ok(Some(obj)) => Some(obj),
             Ok(None) => None,
-            Err(e) => return Err(ChainOpError::RpcError(format!(
-                "Failed to query sanad state: {}", e
-            ))),
+            Err(e) => {
+                return Err(ChainOpError::RpcError(format!(
+                    "Failed to query sanad state: {}",
+                    e
+                )))
+            }
         };
 
         // Determine actual state from object info
@@ -957,33 +977,38 @@ impl From<SuiError> for ChainOpError {
     fn from(err: SuiError) -> Self {
         match err {
             SuiError::RpcError(msg) => ChainOpError::RpcError(msg),
-            SuiError::ObjectUsed(msg) => ChainOpError::InvalidInput(format!("Object used: {}", msg)),
+            SuiError::ObjectUsed(msg) => {
+                ChainOpError::InvalidInput(format!("Object used: {}", msg))
+            }
             SuiError::StateProofFailed(msg) => ChainOpError::ProofVerificationError(msg),
             SuiError::EventProofFailed(msg) => ChainOpError::ProofVerificationError(msg),
-            SuiError::CheckpointFailed(msg) => ChainOpError::TransactionError(format!("Checkpoint failed: {}", msg)),
-            SuiError::TransactionFailed(msg) => ChainOpError::TransactionError(msg),
-            SuiError::SerializationError(msg) => ChainOpError::InvalidInput(format!("Serialization: {}", msg)),
-            SuiError::ConfirmationTimeout { tx_digest, timeout_ms } => {
-                ChainOpError::Timeout(format!(
-                    "Transaction {} timed out after {}ms", tx_digest, timeout_ms
-                ))
+            SuiError::CheckpointFailed(msg) => {
+                ChainOpError::TransactionError(format!("Checkpoint failed: {}", msg))
             }
+            SuiError::TransactionFailed(msg) => ChainOpError::TransactionError(msg),
+            SuiError::SerializationError(msg) => {
+                ChainOpError::InvalidInput(format!("Serialization: {}", msg))
+            }
+            SuiError::ConfirmationTimeout {
+                tx_digest,
+                timeout_ms,
+            } => ChainOpError::Timeout(format!(
+                "Transaction {} timed out after {}ms",
+                tx_digest, timeout_ms
+            )),
             SuiError::ReorgDetected { checkpoint } => {
                 ChainOpError::TransactionError(format!("Reorg at checkpoint {}", checkpoint))
             }
-            SuiError::NetworkMismatch { expected, actual } => {
-                ChainOpError::UnsupportedChain(format!(
-                    "Network mismatch: expected {}, got {}", expected, actual
-                ))
-            }
+            SuiError::NetworkMismatch { expected, actual } => ChainOpError::UnsupportedChain(
+                format!("Network mismatch: expected {}, got {}", expected, actual),
+            ),
             SuiError::ConfigurationError(msg) => {
                 ChainOpError::InvalidInput(format!("Sui config error: {}", msg))
             }
-            SuiError::FeatureNotEnabled(feature) => {
-                ChainOpError::CapabilityUnavailable(format!(
-                    "Feature '{}' not enabled - rebuild with required feature", feature
-                ))
-            }
+            SuiError::FeatureNotEnabled(feature) => ChainOpError::CapabilityUnavailable(format!(
+                "Feature '{}' not enabled - rebuild with required feature",
+                feature
+            )),
             SuiError::CoreError(e) => ChainOpError::Unknown(format!("Core error: {}", e)),
         }
     }
@@ -1026,8 +1051,8 @@ mod tests {
         let config = SuiConfig::new(SuiNetwork::Testnet);
         let ops = SuiBackend::new(rpc, config);
 
-          // Generate a keypair
-        use ed25519_dalek::{SigningKey, Signer};
+        // Generate a keypair
+        use ed25519_dalek::{Signer, SigningKey};
         let signing_key = SigningKey::generate(&mut rand::rngs::OsRng);
         let verifying_key = signing_key.verifying_key();
 
@@ -1043,7 +1068,11 @@ mod tests {
         // Wrong message should fail
         let wrong_message = b"wrong message";
         let result = ops
-            .verify_signature(wrong_message, &signature.to_bytes(), &verifying_key.to_bytes())
+            .verify_signature(
+                wrong_message,
+                &signature.to_bytes(),
+                &verifying_key.to_bytes(),
+            )
             .unwrap();
         assert!(!result);
     }

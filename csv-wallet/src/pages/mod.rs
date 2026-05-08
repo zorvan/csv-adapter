@@ -63,7 +63,8 @@ pub use tests::{RunScenario, RunTests, Test};
 
 // Re-exports from validate module
 pub use validate::{
-    OfflineVerify, Validate, ValidateCommitmentChain, ValidateConsignment, ValidateProof, ValidateSeal,
+    OfflineVerify, Validate, ValidateCommitmentChain, ValidateConsignment, ValidateProof,
+    ValidateSeal,
 };
 
 // Re-exports from zk_proofs module (Phase 5)

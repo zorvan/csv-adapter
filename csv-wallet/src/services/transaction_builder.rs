@@ -76,12 +76,11 @@ fn build_eth_transaction_data(
     tx_data.extend_from_slice(&gas_limit.to_le_bytes());
 
     // To address (20 bytes)
-    let to_bytes = hex::decode(to.trim_start_matches("0x"))
-        .map_err(|e| BlockchainError {
-            message: format!("Invalid to address: {}", e),
-            chain: Some(ChainId::new("ethereum")),
-            code: Some(400),
-        })?;
+    let to_bytes = hex::decode(to.trim_start_matches("0x")).map_err(|e| BlockchainError {
+        message: format!("Invalid to address: {}", e),
+        chain: Some(ChainId::new("ethereum")),
+        code: Some(400),
+    })?;
     if to_bytes.len() != 20 {
         return Err(BlockchainError {
             message: "Ethereum address must be 20 bytes".to_string(),
@@ -170,7 +169,8 @@ pub fn build_btc_transaction_with_utxos(
     let (recipient_script, is_p2wpkh) = parse_bitcoin_address(recipient)?;
 
     // Select UTXOs
-    let (selected_utxos, total_input) = select_utxos(utxos, amount, fee_rate, op_return_data.is_some(), strategy)?;
+    let (selected_utxos, total_input) =
+        select_utxos(utxos, amount, fee_rate, op_return_data.is_some(), strategy)?;
 
     if selected_utxos.is_empty() {
         return Err(BlockchainError {
@@ -181,7 +181,11 @@ pub fn build_btc_transaction_with_utxos(
     }
 
     // Calculate fee
-    let tx_size = estimate_tx_size(selected_utxos.len(), 2, op_return_data.map(|d| d.len()).unwrap_or(0));
+    let tx_size = estimate_tx_size(
+        selected_utxos.len(),
+        2,
+        op_return_data.map(|d| d.len()).unwrap_or(0),
+    );
     let fee = tx_size as u64 * fee_rate;
 
     // Calculate change
@@ -213,7 +217,8 @@ pub fn build_btc_transaction_with_utxos(
     }
 
     // Change output (if significant amount)
-    if change > 546 { // Dust threshold
+    if change > 546 {
+        // Dust threshold
         let change_script = if is_p2wpkh {
             parse_bitcoin_address(change_address)?.0
         } else {
@@ -226,22 +231,24 @@ pub fn build_btc_transaction_with_utxos(
     }
 
     // Build the transaction
-    let inputs: Result<Vec<TxInput>, BlockchainError> = selected_utxos.into_iter().map(|u| {
-        let txid_bytes = hex::decode(&u.txid)
-            .map_err(|e| BlockchainError {
+    let inputs: Result<Vec<TxInput>, BlockchainError> = selected_utxos
+        .into_iter()
+        .map(|u| {
+            let txid_bytes = hex::decode(&u.txid).map_err(|e| BlockchainError {
                 message: format!("Invalid txid: {}", e),
                 chain: Some(ChainId::new("bitcoin")),
                 code: Some(400),
             })?;
-        Ok(TxInput {
-            txid: txid_bytes,
-            vout: u.vout,
-            sequence: 0xffffffff, // RBF disabled
-            witness: vec![],        // Will be filled during signing
+            Ok(TxInput {
+                txid: txid_bytes,
+                vout: u.vout,
+                sequence: 0xffffffff, // RBF disabled
+                witness: vec![],      // Will be filled during signing
+            })
         })
-    }).collect();
+        .collect();
     let inputs = inputs?;
-    
+
     let tx = BitcoinTransaction {
         version: 2,
         inputs,
@@ -302,7 +309,10 @@ fn select_utxos(
         return Err(BlockchainError {
             message: format!(
                 "Insufficient funds: have {}, need {} (target {} + fee ~{})",
-                total, required, target_amount, required - target_amount
+                total,
+                required,
+                target_amount,
+                required - target_amount
             ),
             chain: Some(ChainId::new("bitcoin")),
             code: Some(400),
@@ -343,8 +353,8 @@ fn parse_bitcoin_address(address: &str) -> Result<(Vec<u8>, bool), BlockchainErr
     use bitcoin::address::NetworkUnchecked;
 
     // Parse the address using bitcoin crate
-    let addr: Address<NetworkUnchecked> = Address::from_str(address)
-        .map_err(|e| BlockchainError {
+    let addr: Address<NetworkUnchecked> =
+        Address::from_str(address).map_err(|e| BlockchainError {
             message: format!("Invalid Bitcoin address: {}", e),
             chain: Some(ChainId::new("bitcoin")),
             code: Some(400),
@@ -462,7 +472,8 @@ fn build_btc_transaction_data(
     Err(BlockchainError {
         message: "build_btc_transaction_data is deprecated. Use build_btc_transaction_with_utxos \
                  which requires UTXO inputs. Fetch UTXOs via the chain adapter's \
-                 get_utxos_for_address method before building transactions.".to_string(),
+                 get_utxos_for_address method before building transactions."
+            .to_string(),
         chain: Some(ChainId::new("bitcoin")),
         code: Some(400),
     })
@@ -481,8 +492,8 @@ fn build_sui_transaction_data_simple(
     let mut tx_data = Vec::new();
 
     // Sender address (32 bytes)
-    let sender_bytes = hex::decode(sender.trim_start_matches("0x"))
-        .map_err(|e| BlockchainError {
+    let sender_bytes =
+        hex::decode(sender.trim_start_matches("0x")).map_err(|e| BlockchainError {
             message: format!("Invalid sender address: {}", e),
             chain: Some(ChainId::new("sui")),
             code: Some(400),
@@ -497,8 +508,8 @@ fn build_sui_transaction_data_simple(
     tx_data.extend_from_slice(&sender_bytes);
 
     // Package ID (32 bytes)
-    let package_bytes = hex::decode(package.trim_start_matches("0x"))
-        .map_err(|e| BlockchainError {
+    let package_bytes =
+        hex::decode(package.trim_start_matches("0x")).map_err(|e| BlockchainError {
             message: format!("Invalid package ID: {}", e),
             chain: Some(ChainId::new("sui")),
             code: Some(400),
@@ -525,8 +536,8 @@ fn build_aptos_transaction_data_simple(
     let mut tx_data = Vec::new();
 
     // Sender address (32 bytes)
-    let sender_bytes = hex::decode(sender.trim_start_matches("0x"))
-        .map_err(|e| BlockchainError {
+    let sender_bytes =
+        hex::decode(sender.trim_start_matches("0x")).map_err(|e| BlockchainError {
             message: format!("Invalid sender address: {}", e),
             chain: Some(ChainId::new("aptos")),
             code: Some(400),
@@ -544,8 +555,8 @@ fn build_aptos_transaction_data_simple(
     tx_data.extend_from_slice(&sequence_number.to_le_bytes());
 
     // Contract address (32 bytes)
-    let contract_bytes = hex::decode(contract.trim_start_matches("0x"))
-        .map_err(|e| BlockchainError {
+    let contract_bytes =
+        hex::decode(contract.trim_start_matches("0x")).map_err(|e| BlockchainError {
             message: format!("Invalid contract address: {}", e),
             chain: Some(ChainId::new("aptos")),
             code: Some(400),
@@ -604,7 +615,8 @@ pub fn build_solana_transaction_with_blockhash(
     }
 
     // Parse fee payer
-    let fee_payer_bytes = bs58::decode(fee_payer).into_vec()
+    let fee_payer_bytes = bs58::decode(fee_payer)
+        .into_vec()
         .map_err(|e| BlockchainError {
             message: format!("Invalid fee payer address: {}", e),
             chain: Some(ChainId::new("solana")),
@@ -627,11 +639,14 @@ pub fn build_solana_transaction_with_blockhash(
         },
         account_keys: build_account_keys(&fee_payer_bytes, &instructions),
         recent_blockhash: recent_blockhash.hash,
-        instructions: instructions.into_iter().map(|i| CompiledInstruction {
-            program_id_index: i.program_id_index,
-            accounts: i.accounts,
-            data: i.data,
-        }).collect(),
+        instructions: instructions
+            .into_iter()
+            .map(|i| CompiledInstruction {
+                program_id_index: i.program_id_index,
+                accounts: i.accounts,
+                data: i.data,
+            })
+            .collect(),
     };
 
     // Serialize unsigned transaction
@@ -673,12 +688,11 @@ pub async fn fetch_solana_blockhash(rpc_url: &str) -> Result<SolanaBlockhash, Bl
             code: Some(500),
         })?;
 
-    let rpc_response: serde_json::Value = response.json().await
-        .map_err(|e| BlockchainError {
-            message: format!("Failed to parse blockhash response: {}", e),
-            chain: Some(ChainId::new("solana")),
-            code: Some(500),
-        })?;
+    let rpc_response: serde_json::Value = response.json().await.map_err(|e| BlockchainError {
+        message: format!("Failed to parse blockhash response: {}", e),
+        chain: Some(ChainId::new("solana")),
+        code: Some(500),
+    })?;
 
     let blockhash_str = rpc_response
         .get("result")
@@ -691,7 +705,8 @@ pub async fn fetch_solana_blockhash(rpc_url: &str) -> Result<SolanaBlockhash, Bl
             code: Some(500),
         })?;
 
-    let blockhash_bytes = bs58::decode(blockhash_str).into_vec()
+    let blockhash_bytes = bs58::decode(blockhash_str)
+        .into_vec()
         .map_err(|e| BlockchainError {
             message: format!("Invalid blockhash encoding: {}", e),
             chain: Some(ChainId::new("solana")),
@@ -788,9 +803,7 @@ impl SolanaMessage {
 
 fn build_account_keys(fee_payer: &[u8], _instructions: &[SolanaInstruction]) -> Vec<[u8; 32]> {
     // Start with fee payer
-    let keys = vec![
-        fee_payer.try_into().expect("Fee payer is 32 bytes"),
-    ];
+    let keys = vec![fee_payer.try_into().expect("Fee payer is 32 bytes")];
 
     // Would add other accounts from instructions here
     // For now, just return fee payer
@@ -924,8 +937,6 @@ pub async fn discover_contracts(
     api_url: &str,
     filter: Option<&str>,
 ) -> Result<Vec<crate::services::blockchain::ContractDeployment>, BlockchainError> {
-    
-    
     match chain.as_str() {
         "ethereum" => discover_ethereum_contracts(address, api_url, filter).await,
         "solana" => discover_solana_programs(address, api_url, filter).await,
@@ -948,8 +959,7 @@ async fn discover_ethereum_contracts(
     use crate::services::blockchain::{ContractDeployment, ContractType};
 
     #[cfg(not(target_arch = "wasm32"))]
-    let client =
-reqwest::Client::new();
+    let client = reqwest::Client::new();
     let scan_blocks = 100u64; // Scan last 100 blocks
 
     // Get current block number
@@ -978,11 +988,15 @@ reqwest::Client::new();
     })?;
 
     let current_block = u64::from_str_radix(
-        result["result"].as_str().unwrap_or("0x0").trim_start_matches("0x"),
-        16
-    ).unwrap_or(0);
+        result["result"]
+            .as_str()
+            .unwrap_or("0x0")
+            .trim_start_matches("0x"),
+        16,
+    )
+    .unwrap_or(0);
 
-   let default_filter_type = filter.map(|f| match f.to_lowercase().as_str() {
+    let default_filter_type = filter.map(|f| match f.to_lowercase().as_str() {
         "registry" => ContractType::Registry,
         "bridge" => ContractType::Bridge,
         "lock" => ContractType::Lock,
@@ -1011,7 +1025,8 @@ reqwest::Client::new();
                             if let Some(tx_hash) = tx["hash"].as_str() {
                                 if let Some(contract_addr) = tx["contractAddress"].as_str() {
                                     // Use filter type or default to Registry
-                                    let contract_type = default_filter_type.unwrap_or_else(|| ContractType::Registry);
+                                    let contract_type = default_filter_type
+                                        .unwrap_or_else(|| ContractType::Registry);
 
                                     deployments.push(ContractDeployment {
                                         address: contract_addr.to_string(),
@@ -1055,15 +1070,16 @@ async fn discover_solana_programs(
     use crate::services::blockchain::{ContractDeployment, ContractType};
 
     #[cfg(not(target_arch = "wasm32"))]
-    let client =
-reqwest::Client::new();
+    let client = reqwest::Client::new();
 
-let default_contract_type = filter.map(|f| match f.to_lowercase().as_str() {
-        "registry" => ContractType::Registry,
-        "bridge" => ContractType::Bridge,
-        "lock" => ContractType::Lock,
-        _ => ContractType::Registry,
-    }).unwrap_or(ContractType::Registry);
+    let default_contract_type = filter
+        .map(|f| match f.to_lowercase().as_str() {
+            "registry" => ContractType::Registry,
+            "bridge" => ContractType::Bridge,
+            "lock" => ContractType::Lock,
+            _ => ContractType::Registry,
+        })
+        .unwrap_or(ContractType::Registry);
 
     // Use getProgramAccounts to find BPF Loader accounts (programs)
     let payload = serde_json::json!({
@@ -1109,12 +1125,12 @@ let default_contract_type = filter.map(|f| match f.to_lowercase().as_str() {
         for account in accounts.iter().take(10) {
             if let Some(pubkey) = account["pubkey"].as_str() {
                 // Check if account data indicates it's executable
-                let account_data = account["account"]["data"].as_array()
+                let account_data = account["account"]["data"]
+                    .as_array()
                     .and_then(|arr| arr.first())
                     .and_then(|v| v.as_str());
 
-                let is_executable = account["account"]["executable"].as_bool()
-                    .unwrap_or(false);
+                let is_executable = account["account"]["executable"].as_bool().unwrap_or(false);
 
                 if is_executable || account_data.is_some() {
                     deployments.push(ContractDeployment {
@@ -1140,19 +1156,18 @@ async fn discover_sui_packages(
     filter: Option<&str>,
 ) -> Result<Vec<crate::services::blockchain::ContractDeployment>, BlockchainError> {
     use crate::services::blockchain::ContractType;
-    
+
     // Query Sui RPC for objects owned by this address
     #[cfg(not(target_arch = "wasm32"))]
-    let client =
-reqwest::Client::new();
-    
+    let client = reqwest::Client::new();
+
     let payload = serde_json::json!({
         "jsonrpc": "2.0",
         "method": "sui_getOwnedObjects",
         "params": [address, {}],
         "id": 1
     });
-    
+
     let response = client
         .post(api_url)
         .json(&payload)
@@ -1163,25 +1178,25 @@ reqwest::Client::new();
             chain: Some(ChainId::new("sui")),
             code: Some(500),
         })?;
-    
+
     let _result: serde_json::Value = response.json().await.map_err(|e| BlockchainError {
         message: format!("Failed to parse response: {}", e),
         chain: Some(ChainId::new("sui")),
         code: Some(500),
     })?;
-    
+
     let _filter_type = filter.map(|f| match f.to_lowercase().as_str() {
         "registry" => ContractType::Registry,
         "bridge" => ContractType::Bridge,
         "lock" => ContractType::Lock,
         _ => ContractType::Registry,
     });
-    
+
     // Full implementation would:
     // 1. Filter for Move package objects
     // 2. Parse package metadata
     // 3. Check for CSV-related modules
-    
+
     Ok(Vec::new())
 }
 
@@ -1192,42 +1207,36 @@ async fn discover_aptos_modules(
     filter: Option<&str>,
 ) -> Result<Vec<crate::services::blockchain::ContractDeployment>, BlockchainError> {
     use crate::services::blockchain::ContractType;
-    
+
     // Query Aptos REST API for account modules
     #[cfg(not(target_arch = "wasm32"))]
-    let client =
-reqwest::Client::new();
-    
+    let client = reqwest::Client::new();
+
     let url = format!("{}/accounts/{}/modules", api_url, address);
-    
-    let response = client
-        .get(&url)
-        .send()
-        .await
-        .map_err(|e| BlockchainError {
-            message: format!("Failed to query modules: {}", e),
-            chain: Some(ChainId::new("aptos")),
-            code: Some(500),
-        })?;
-    
+
+    let response = client.get(&url).send().await.map_err(|e| BlockchainError {
+        message: format!("Failed to query modules: {}", e),
+        chain: Some(ChainId::new("aptos")),
+        code: Some(500),
+    })?;
+
     let _result: serde_json::Value = response.json().await.map_err(|e| BlockchainError {
         message: format!("Failed to parse response: {}", e),
         chain: Some(ChainId::new("aptos")),
         code: Some(500),
     })?;
-    
+
     let _filter_type = filter.map(|f| match f.to_lowercase().as_str() {
         "registry" => ContractType::Registry,
         "bridge" => ContractType::Bridge,
         "lock" => ContractType::Lock,
         _ => ContractType::Registry,
     });
-    
+
     // Full implementation would:
     // 1. Parse module bytecode for CSV-related entry functions
     // 2. Check module names for known patterns (csv_seal, lock, etc.)
     // 3. Filter by type if requested
-    
+
     Ok(Vec::new())
 }
-

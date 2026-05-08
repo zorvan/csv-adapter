@@ -381,17 +381,12 @@ impl OptimizedSealNullifier {
         consumption: SealConsumption,
     ) -> Result<(), Box<DoubleSpendError>> {
         let seal_key = consumption.seal_ref.to_vec();
-        let seal_hash = Hash::new(
-            seal_key
-                .as_slice()
-                .try_into()
-                .unwrap_or_else(|_| {
-                    let mut arr = [0u8; 32];
-                    let len = seal_key.len().min(32);
-                    arr[..len].copy_from_slice(&seal_key[..len]);
-                    arr
-                }),
-        );
+        let seal_hash = Hash::new(seal_key.as_slice().try_into().unwrap_or_else(|_| {
+            let mut arr = [0u8; 32];
+            let len = seal_key.len().min(32);
+            arr[..len].copy_from_slice(&seal_key[..len]);
+            arr
+        }));
 
         // Fast bloom filter check first (O(1))
         let might_exist = self.bloom_filter.might_contain(&seal_hash);
@@ -468,16 +463,12 @@ impl OptimizedSealNullifier {
             return cached.clone();
         }
 
-        let seal_hash = Hash::new(
-            key.as_slice()
-                .try_into()
-                .unwrap_or_else(|_| {
-                    let mut arr = [0u8; 32];
-                    let len = key.len().min(32);
-                    arr[..len].copy_from_slice(&key[..len]);
-                    arr
-                }),
-        );
+        let seal_hash = Hash::new(key.as_slice().try_into().unwrap_or_else(|_| {
+            let mut arr = [0u8; 32];
+            let len = key.len().min(32);
+            arr[..len].copy_from_slice(&key[..len]);
+            arr
+        }));
 
         // Fast bloom filter check (O(1)) - if negative, seal is definitely not consumed
         if !self.bloom_filter.might_contain(&seal_hash) {
@@ -508,16 +499,12 @@ impl OptimizedSealNullifier {
     /// Immutable version of check_seal_status (no caching).
     pub fn check_seal_status_immutable(&self, seal_ref: &SealPoint) -> SealStatus {
         let key = seal_ref.to_vec();
-        let seal_hash = Hash::new(
-            key.as_slice()
-                .try_into()
-                .unwrap_or_else(|_| {
-                    let mut arr = [0u8; 32];
-                    let len = key.len().min(32);
-                    arr[..len].copy_from_slice(&key[..len]);
-                    arr
-                }),
-        );
+        let seal_hash = Hash::new(key.as_slice().try_into().unwrap_or_else(|_| {
+            let mut arr = [0u8; 32];
+            let len = key.len().min(32);
+            arr[..len].copy_from_slice(&key[..len]);
+            arr
+        }));
 
         // Fast bloom filter check (O(1))
         if !self.bloom_filter.might_contain(&seal_hash) {
@@ -544,7 +531,12 @@ impl OptimizedSealNullifier {
     fn cache_status(&mut self, key: Vec<u8>, status: SealStatus) {
         if self.status_cache.len() >= self.max_cache_size {
             // Simple eviction: clear half the cache
-            let keys_to_remove: Vec<_> = self.status_cache.keys().take(self.max_cache_size / 2).cloned().collect();
+            let keys_to_remove: Vec<_> = self
+                .status_cache
+                .keys()
+                .take(self.max_cache_size / 2)
+                .cloned()
+                .collect();
             for k in keys_to_remove {
                 self.status_cache.remove(&k);
             }
@@ -555,17 +547,12 @@ impl OptimizedSealNullifier {
     /// Check if a seal has been consumed (anywhere) with O(1) bloom filter check.
     pub fn is_seal_consumed(&self, seal_ref: &SealPoint) -> bool {
         let seal_key = seal_ref.to_vec();
-        let seal_hash = Hash::new(
-            seal_key
-                .as_slice()
-                .try_into()
-                .unwrap_or_else(|_| {
-                    let mut arr = [0u8; 32];
-                    let len = seal_key.len().min(32);
-                    arr[..len].copy_from_slice(&seal_key[..len]);
-                    arr
-                }),
-        );
+        let seal_hash = Hash::new(seal_key.as_slice().try_into().unwrap_or_else(|_| {
+            let mut arr = [0u8; 32];
+            let len = seal_key.len().min(32);
+            arr[..len].copy_from_slice(&seal_key[..len]);
+            arr
+        }));
 
         // Fast bloom filter check first (O(1))
         if !self.bloom_filter.might_contain(&seal_hash) {
@@ -579,10 +566,7 @@ impl OptimizedSealNullifier {
     /// Get all consumption events for a specific seal.
     pub fn get_consumption_history(&self, seal_ref: &SealPoint) -> Vec<SealConsumption> {
         let key = seal_ref.to_vec();
-        self.consumed_seals
-            .get(&key)
-            .cloned()
-            .unwrap_or_default()
+        self.consumed_seals.get(&key).cloned().unwrap_or_default()
     }
 
     /// Get all seals consumed by a specific Sanad.
@@ -627,16 +611,12 @@ impl OptimizedSealNullifier {
         let mut new_filter = crate::performance::BloomFilter::new(capacity, 0.01);
 
         for key in self.consumed_seals.keys() {
-            let seal_hash = Hash::new(
-                key.as_slice()
-                    .try_into()
-                    .unwrap_or_else(|_| {
-                        let mut arr = [0u8; 32];
-                        let len = key.len().min(32);
-                        arr[..len].copy_from_slice(&key[..len]);
-                        arr
-                    }),
-            );
+            let seal_hash = Hash::new(key.as_slice().try_into().unwrap_or_else(|_| {
+                let mut arr = [0u8; 32];
+                let len = key.len().min(32);
+                arr[..len].copy_from_slice(&key[..len]);
+                arr
+            }));
             new_filter.insert(&seal_hash);
         }
 
@@ -703,7 +683,11 @@ mod tests {
         let seal_bytes = vec![0x01];
 
         // Consume on Bitcoin
-        let consumption1 = make_consumption(ChainId::new("bitcoin"), seal_bytes.clone(), sanad_id.clone());
+        let consumption1 = make_consumption(
+            ChainId::new("bitcoin"),
+            seal_bytes.clone(),
+            sanad_id.clone(),
+        );
         registry.record_consumption(consumption1).unwrap();
 
         // Try to consume on Ethereum (cross-chain double-spend)
@@ -752,7 +736,11 @@ mod tests {
         let seal_bytes = vec![0x01];
 
         // Consume on Bitcoin
-        let c1 = make_consumption(ChainId::new("bitcoin"), seal_bytes.clone(), sanad_id.clone());
+        let c1 = make_consumption(
+            ChainId::new("bitcoin"),
+            seal_bytes.clone(),
+            sanad_id.clone(),
+        );
         registry.record_consumption(c1).unwrap();
 
         // Try to consume on Ethereum (will be recorded in history but flagged as double-spend)
@@ -819,11 +807,19 @@ mod tests {
         let seal_bytes = vec![0x01];
 
         // Consume on Bitcoin
-        let c1 = make_consumption(ChainId::new("bitcoin"), seal_bytes.clone(), sanad_id.clone());
+        let c1 = make_consumption(
+            ChainId::new("bitcoin"),
+            seal_bytes.clone(),
+            sanad_id.clone(),
+        );
         registry.record_consumption(c1).unwrap();
 
         // Try same-chain double spend
-        let c2 = make_consumption(ChainId::new("bitcoin"), seal_bytes.clone(), sanad_id.clone());
+        let c2 = make_consumption(
+            ChainId::new("bitcoin"),
+            seal_bytes.clone(),
+            sanad_id.clone(),
+        );
         let result = registry.record_consumption(c2);
         assert!(result.is_err());
 
@@ -892,7 +888,11 @@ mod tests {
         // Verify all seals still detectable
         for i in 0..100u8 {
             let seal = SealPoint::new(vec![i], None).unwrap();
-            assert!(registry.is_seal_consumed(&seal), "Seal {} should be consumed", i);
+            assert!(
+                registry.is_seal_consumed(&seal),
+                "Seal {} should be consumed",
+                i
+            );
         }
 
         // Verify unconsumed seal still returns false

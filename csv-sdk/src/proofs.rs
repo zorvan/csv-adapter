@@ -75,7 +75,8 @@ impl ProofManager {
         // This will be implemented when the chain adapter proof providers are ready
         Err(CsvError::ProtocolError {
             chain,
-            message: "Proof generation requires chain adapter ProofProvider trait integration.".to_string()
+            message: "Proof generation requires chain adapter ProofProvider trait integration."
+                .to_string(),
         })
     }
 
@@ -121,5 +122,4 @@ impl ProofManager {
 
         Ok(valid)
     }
-
 }

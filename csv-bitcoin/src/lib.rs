@@ -7,25 +7,25 @@
 #![allow(missing_docs)]
 #![allow(dead_code)]
 
-pub mod seal_protocol;
-pub mod bip341;
 pub mod backend;
-pub mod ops;
+pub mod bip341;
 pub mod config;
 pub mod deploy;
 pub mod error;
 pub mod mpc_batch;
+pub mod ops;
 pub mod proofs;
 pub mod rpc;
 pub mod seal;
+pub mod seal_protocol;
 pub mod signatures;
+pub mod sp1_guest;
 pub mod spv;
 pub mod tapret;
 pub mod tx_builder;
 pub mod types;
 pub mod wallet;
 pub mod zk_prover;
-pub mod sp1_guest;
 
 #[cfg(feature = "rpc")]
 pub mod node;
@@ -33,31 +33,35 @@ pub mod node;
 #[cfg(feature = "signet-rest")]
 pub mod mempool_rpc;
 
-pub use seal_protocol::BitcoinSealProtocol;
-pub use bip341::{derive_output_key, generate_test_keypair, Bip341Error, TaprootOutput};
 pub use backend::{create_bitcoin_adapter, BitcoinRpcClient, BitcoinWallet};
+pub use bip341::{derive_output_key, generate_test_keypair, Bip341Error, TaprootOutput};
 pub use config::{BitcoinConfig, Network};
 pub use deploy::{deploy_csv_seal_contract, ContractDeployer, ContractDeployment};
 pub use rpc::BitcoinRpc;
+pub use seal_protocol::BitcoinSealProtocol;
+pub use sp1_guest::{
+    verify_bitcoin_spv, Sp1BtcSpvInput as Sp1GuestInput, Sp1BtcSpvOutput as Sp1GuestOutput,
+};
 pub use spv::SpvVerifier;
 pub use tapret::{
     mine_tapret_nonce, OpretCommitment, TapretCommitment, TapretError, TAPRET_SCRIPT_SIZE,
 };
 pub use tx_builder::{CommitmentData, CommitmentTxBuilder, TxBuilderError};
-pub use types::{BitcoinCommitAnchor, BitcoinFinalityProof, BitcoinInclusionProof, BitcoinSealPoint};
+pub use types::{
+    BitcoinCommitAnchor, BitcoinFinalityProof, BitcoinInclusionProof, BitcoinSealPoint,
+};
 pub use wallet::{Bip86Path, DerivedTaprootKey, SealWallet, WalletError, WalletUtxo};
 pub use zk_prover::{BitcoinSpvProver, Sp1BtcSpvInput};
-pub use sp1_guest::{Sp1BtcSpvInput as Sp1GuestInput, Sp1BtcSpvOutput as Sp1GuestOutput, verify_bitcoin_spv};
 
 // MPC batching for cost optimization
 pub use mpc_batch::{
-    MpcBatcher, MpcTreeExt, BatchedPublication, PendingCommitment, CSV_BTC_PROTOCOL_ID,
+    BatchedPublication, MpcBatcher, MpcTreeExt, PendingCommitment, CSV_BTC_PROTOCOL_ID,
 };
 
 // Ops exports
 pub use ops::{
-    BitcoinBackend, BitcoinChainBroadcaster, BitcoinChainDeployer, BitcoinChainProofProvider, BitcoinChainQuery,
-    BitcoinChainSanadOps, BitcoinChainSigner,
+    BitcoinBackend, BitcoinChainBroadcaster, BitcoinChainDeployer, BitcoinChainProofProvider,
+    BitcoinChainQuery, BitcoinChainSanadOps, BitcoinChainSigner,
 };
 
 #[cfg(feature = "rpc")]

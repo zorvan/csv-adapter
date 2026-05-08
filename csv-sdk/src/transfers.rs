@@ -108,7 +108,10 @@ impl TransferManager {
     /// * `transfer_id` — The transfer identifier returned by
     ///   [`TransferBuilder::execute()`].
     pub fn status(&self, transfer_id: &str) -> Result<crate::TransferStatus, CsvError> {
-        let transfers = self.transfers.lock().map_err(|e| CsvError::StoreError(e.to_string()))?;
+        let transfers = self
+            .transfers
+            .lock()
+            .map_err(|e| CsvError::StoreError(e.to_string()))?;
         match transfers.get(transfer_id) {
             Some(record) => Ok(record.status.clone()),
             None => Err(CsvError::TransferNotFound(transfer_id.to_string())),
@@ -117,7 +120,10 @@ impl TransferManager {
 
     /// List transfers matching the given filters.
     pub fn list(&self, filters: TransferFilters) -> Result<Vec<TransferRecord>, CsvError> {
-        let transfers = self.transfers.lock().map_err(|e| CsvError::StoreError(e.to_string()))?;
+        let transfers = self
+            .transfers
+            .lock()
+            .map_err(|e| CsvError::StoreError(e.to_string()))?;
         let mut result: Vec<TransferRecord> = transfers.values().cloned().collect();
 
         if let Some(from_chain) = filters.from_chain {
@@ -245,7 +251,10 @@ impl TransferBuilder {
         };
 
         // Record the transfer
-        let mut transfers = self.transfers.lock().map_err(|e| CsvError::StoreError(e.to_string()))?;
+        let mut transfers = self
+            .transfers
+            .lock()
+            .map_err(|e| CsvError::StoreError(e.to_string()))?;
         transfers.insert(transfer_id.clone(), record);
 
         Ok(transfer_id)

@@ -111,10 +111,8 @@ impl CommitmentTxBuilder {
         }
 
         // Build Tapret commitment output
-        let tapret = TapretCommitment::new(
-            self.protocol_id,
-            csv_core::hash::Hash::new(commitment_hash),
-        );
+        let tapret =
+            TapretCommitment::new(self.protocol_id, csv_core::hash::Hash::new(commitment_hash));
         let leaf_script = tapret.leaf_script();
 
         // Build Taproot tree with single tapret leaf at depth 0
@@ -205,10 +203,7 @@ impl CommitmentTxBuilder {
     }
 
     /// Build legacy commitment data (for backward compatibility)
-    pub fn build_commitment_data(
-        &self,
-        commitment: csv_core::hash::Hash,
-    ) -> CommitmentData {
+    pub fn build_commitment_data(&self, commitment: csv_core::hash::Hash) -> CommitmentData {
         let tapret = TapretCommitment::new(self.protocol_id, commitment);
         CommitmentData::Tapret {
             script: tapret.leaf_script(),

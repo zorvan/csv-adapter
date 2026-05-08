@@ -162,12 +162,7 @@ impl DeploymentManager {
     ) -> DeploymentResult<ContractDeployment> {
         use csv_ethereum::deploy::deploy_csv_lock as eth_deploy;
 
-        let result = eth_deploy(
-            rpc_url,
-            private_key_hex,
-            csv_ethereum::CSVLOCK_BYTECODE,
-        )
-        .await?;
+        let result = eth_deploy(rpc_url, private_key_hex, csv_ethereum::CSVLOCK_BYTECODE).await?;
 
         Ok(ContractDeployment {
             chain: ChainId::new("ethereum"),
@@ -420,7 +415,11 @@ impl DeploymentManager {
     /// Verify a deployment on any chain.
     ///
     /// This checks if the deployed contract/program exists on-chain.
-    pub async fn verify_deployment(&self, chain: ChainId, address: &[u8]) -> DeploymentResult<bool> {
+    pub async fn verify_deployment(
+        &self,
+        chain: ChainId,
+        address: &[u8],
+    ) -> DeploymentResult<bool> {
         match chain.as_str() {
             "ethereum" => {
                 // For Ethereum, check if code exists at address (contract)

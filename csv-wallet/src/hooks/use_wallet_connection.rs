@@ -65,7 +65,7 @@ impl WalletConnectionContext {
             return;
         }
 
-       // Real implementation would call eth_requestAccounts via JS interop
+        // Real implementation would call eth_requestAccounts via JS interop
         // For now, assume success
         match wallet_connection::connect_metamask().await {
             Ok(_native_wallet) => {
@@ -100,7 +100,7 @@ impl WalletConnectionContext {
             return;
         }
 
-      // Real implementation would call phantom.solana.connect()
+        // Real implementation would call phantom.solana.connect()
         let wallet = BrowserWallet {
             chain: Some(ChainId::new("solana")),
             address: String::new(), // Would come from wallet

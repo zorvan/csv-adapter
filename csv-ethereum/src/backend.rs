@@ -4,15 +4,15 @@
 //! enabling Ethereum to be used through the unified chain adapter interface.
 
 use async_trait::async_trait;
-use csv_core::driver::{
-    AccountModel, ChainDriver, ChainCapabilities, ChainError, ChainResult, RpcClient, Wallet,
-};
 use csv_core::chain_config::ChainConfig;
+use csv_core::driver::{
+    AccountModel, ChainCapabilities, ChainDriver, ChainError, ChainResult, RpcClient, Wallet,
+};
 use csv_core::ChainId;
 
-use crate::seal_protocol::EthereumSealProtocol;
 use crate::config::{EthereumConfig, Network};
 use crate::rpc::EthereumRpc;
+use crate::seal_protocol::EthereumSealProtocol;
 
 /// Ethereum RPC client wrapper implementing the core RpcClient trait
 pub struct EthereumRpcClient {
@@ -240,7 +240,9 @@ impl Wallet for EthereumWallet {
         let derived_address = format!("0x{}", hex::encode(addr));
 
         #[cfg(target_arch = "wasm32")]
-        web_sys::console::log_1(&format!("Imported Ethereum key, address: {}", derived_address).into());
+        web_sys::console::log_1(
+            &format!("Imported Ethereum key, address: {}", derived_address).into(),
+        );
 
         #[cfg(not(target_arch = "wasm32"))]
         log::info!("Imported Ethereum key, address: {}", derived_address);
@@ -287,14 +289,16 @@ impl ChainDriver for EthereumSealProtocol {
 
     async fn create_client(&self, config: &ChainConfig) -> ChainResult<Box<dyn RpcClient>> {
         // Create Ethereum RPC client from chain configuration
-        let rpc_url = config.rpc_endpoints.first()
+        let rpc_url = config
+            .rpc_endpoints
+            .first()
             .ok_or_else(|| ChainError::InvalidInput("RPC endpoint required".to_string()))?;
 
         // Create the RPC client based on configuration
         #[cfg(feature = "rpc")]
         {
-            use crate::node::EthereumNode;
             use crate::backend::EthereumRpcClient;
+            use crate::node::EthereumNode;
             let csv_seal_address = self.csv_seal_address;
             let rpc = EthereumNode::new(rpc_url, csv_seal_address)
                 .await
@@ -362,13 +366,15 @@ pub async fn create_ethereum_adapter(config: &ChainConfig) -> ChainResult<Ethere
     #[cfg(all(not(test), feature = "rpc"))]
     {
         use crate::EthereumNode;
-        let rpc_url = config.rpc_endpoints.first()
+        let rpc_url = config
+            .rpc_endpoints
+            .first()
             .ok_or_else(|| ChainError::InvalidInput("RPC endpoint required".to_string()))?;
         let csv_seal_address = [0u8; 20]; // Could be configured
         let rpc: Box<dyn EthereumRpc> = Box::new(
             EthereumNode::new(rpc_url, csv_seal_address)
                 .await
-                .map_err(|e| ChainError::RpcError(format!("{:?}", e)))?
+                .map_err(|e| ChainError::RpcError(format!("{:?}", e)))?,
         );
         EthereumSealProtocol::from_config(eth_config, rpc, csv_seal_address)
             .map_err(|e| ChainError::RpcError(format!("{:?}", e)))
@@ -378,7 +384,8 @@ pub async fn create_ethereum_adapter(config: &ChainConfig) -> ChainResult<Ethere
     #[cfg(not(any(test, feature = "rpc")))]
     {
         Err(ChainError::FeatureNotEnabled(
-            "Real Ethereum RPC requires the 'rpc' feature to be enabled in csv-adapter-ethereum".to_string(),
+            "Real Ethereum RPC requires the 'rpc' feature to be enabled in csv-adapter-ethereum"
+                .to_string(),
         ))
     }
 }

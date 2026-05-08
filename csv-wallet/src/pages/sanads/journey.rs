@@ -624,7 +624,12 @@ fn commitment_chain_section(_sanad: &TrackedSanad, proofs: &[ProofRecord]) -> El
 }
 
 /// A single commitment node in the timeline
-fn commitment_node(node: &CommitmentNode, index: usize, is_genesis: bool, is_latest: bool) -> Element {
+fn commitment_node(
+    node: &CommitmentNode,
+    index: usize,
+    is_genesis: bool,
+    is_latest: bool,
+) -> Element {
     let node_color = if is_genesis {
         "border-blue-500 bg-blue-900/20"
     } else if is_latest {
@@ -735,7 +740,8 @@ fn build_commitment_chain_from_proofs(proofs: &[ProofRecord]) -> Vec<CommitmentN
     if !chain.is_empty() {
         let genesis = CommitmentNode {
             hash: "genesis".to_string(),
-            previous_hash: "0x0000000000000000000000000000000000000000000000000000000000000000".to_string(),
+            previous_hash: "0x0000000000000000000000000000000000000000000000000000000000000000"
+                .to_string(),
             chain: chain[0].chain.clone(),
             anchor_tx: None,
             timestamp: None,

@@ -170,7 +170,7 @@ impl SanadMetadata {
         let expected_id = Self::compute_id(&self.proof_location, &self.proof_commitment);
         if self.id != expected_id {
             return Err(CelestiaError::MetadataValidationFailed(
-                "ID mismatch - possible tampering".to_string()
+                "ID mismatch - possible tampering".to_string(),
             ));
         }
 
@@ -182,7 +182,7 @@ impl SanadMetadata {
                 .as_secs();
             if now > expires {
                 return Err(CelestiaError::MetadataValidationFailed(
-                    "Metadata has expired".to_string()
+                    "Metadata has expired".to_string(),
                 ));
             }
         }
@@ -194,9 +194,15 @@ impl SanadMetadata {
     pub fn proof_id(&self) -> Option<ProofId> {
         match &self.proof_location {
             ProofLocation::Celestia { proof_id } => Some(*proof_id),
-            ProofLocation::IpfsBacked { anchor_height, namespace, .. } => {
-                Some(ProofId::new(*anchor_height, *namespace, *self.proof_commitment.as_bytes()))
-            }
+            ProofLocation::IpfsBacked {
+                anchor_height,
+                namespace,
+                ..
+            } => Some(ProofId::new(
+                *anchor_height,
+                *namespace,
+                *self.proof_commitment.as_bytes(),
+            )),
             ProofLocation::Hybrid { metadata_id, .. } => Some(*metadata_id),
         }
     }
@@ -381,10 +387,7 @@ pub struct MetadataIndex {
 
 impl MetadataIndex {
     /// Create a new index entry
-    pub fn new(
-        metadata: &SanadMetadata,
-        celestia_height: u64,
-    ) -> Self {
+    pub fn new(metadata: &SanadMetadata, celestia_height: u64) -> Self {
         let lookup_key = format!(
             "{}:{}:{}",
             metadata.source_chain,
@@ -499,13 +502,8 @@ mod tests {
         let commitment = BlobCommitment::new([0xABu8; 32]);
         let proof_info = create_test_proof_info();
 
-        let metadata = SanadMetadata::new(
-            "stark-proof",
-            "bitcoin",
-            location,
-            commitment,
-            proof_info,
-        );
+        let metadata =
+            SanadMetadata::new("stark-proof", "bitcoin", location, commitment, proof_info);
 
         assert_eq!(metadata.sanad_type, "stark-proof");
         assert_eq!(metadata.source_chain, "bitcoin");
@@ -519,13 +517,8 @@ mod tests {
         let commitment = BlobCommitment::new([0u8; 32]);
         let proof_info = create_test_proof_info();
 
-        let metadata = SanadMetadata::new(
-            "stark-proof",
-            "bitcoin",
-            location,
-            commitment,
-            proof_info,
-        );
+        let metadata =
+            SanadMetadata::new("stark-proof", "bitcoin", location, commitment, proof_info);
 
         assert!(metadata.uses_ipfs());
         assert_eq!(metadata.cid(), Some("QmTest123"));
@@ -547,13 +540,8 @@ mod tests {
             proof_info.clone(),
         );
 
-        let metadata2 = SanadMetadata::new(
-            "stark-proof",
-            "bitcoin",
-            location,
-            commitment,
-            proof_info,
-        );
+        let metadata2 =
+            SanadMetadata::new("stark-proof", "bitcoin", location, commitment, proof_info);
 
         assert_eq!(metadata1.id, metadata2.id);
     }
@@ -566,15 +554,10 @@ mod tests {
         let commitment = BlobCommitment::new([0u8; 32]);
         let proof_info = create_test_proof_info();
 
-        let metadata = SanadMetadata::new(
-            "stark-proof",
-            "bitcoin",
-            location,
-            commitment,
-            proof_info,
-        )
-        .with_target_chain("ethereum")
-        .with_expiration(9999999999);
+        let metadata =
+            SanadMetadata::new("stark-proof", "bitcoin", location, commitment, proof_info)
+                .with_target_chain("ethereum")
+                .with_expiration(9999999999);
 
         let json = metadata.to_json().unwrap();
         let recovered = SanadMetadata::from_json(&json).unwrap();
@@ -607,7 +590,10 @@ mod tests {
         let fraud_proof = crate::commitment::FraudProof::new(
             12345,
             BlobCommitment::new([0u8; 32]),
-            FraudEvidence::MissingShare { row_index: 0, share_index: 0 },
+            FraudEvidence::MissingShare {
+                row_index: 0,
+                share_index: 0,
+            },
         );
 
         let resolved = challenge.succeed(fraud_proof, "resolver1");
@@ -623,13 +609,8 @@ mod tests {
         let commitment = BlobCommitment::new([0u8; 32]);
         let proof_info = create_test_proof_info();
 
-        let metadata = SanadMetadata::new(
-            "stark-proof",
-            "bitcoin",
-            location,
-            commitment,
-            proof_info,
-        );
+        let metadata =
+            SanadMetadata::new("stark-proof", "bitcoin", location, commitment, proof_info);
 
         let index = MetadataIndex::new(&metadata, 12345);
         assert_eq!(index.sanad_type, "stark-proof");
@@ -647,8 +628,20 @@ mod tests {
         let proof_info = create_test_proof_info();
 
         let entries = vec![
-            SanadMetadata::new("stark-proof", "bitcoin", location.clone(), commitment, proof_info.clone()),
-            SanadMetadata::new("stark-proof", "bitcoin", location.clone(), commitment, proof_info.clone()),
+            SanadMetadata::new(
+                "stark-proof",
+                "bitcoin",
+                location.clone(),
+                commitment,
+                proof_info.clone(),
+            ),
+            SanadMetadata::new(
+                "stark-proof",
+                "bitcoin",
+                location.clone(),
+                commitment,
+                proof_info.clone(),
+            ),
             SanadMetadata::new("stark-proof", "bitcoin", location, commitment, proof_info),
         ];
 

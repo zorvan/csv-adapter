@@ -75,11 +75,7 @@ where
     }
 
     /// Create from configuration
-    pub fn from_config(
-        config: ClientConfig,
-        celestia_rpc: C,
-        ipfs_client: Option<I>,
-    ) -> Self {
+    pub fn from_config(config: ClientConfig, celestia_rpc: C, ipfs_client: Option<I>) -> Self {
         let da_layer = CelestiaDaLayer::new(config.da_config, celestia_rpc, ipfs_client);
         Self::new(da_layer, config.default_namespace)
     }
@@ -89,7 +85,11 @@ where
     /// # Arguments
     /// * `data` - Data to store
     /// * `namespace` - Optional namespace (uses default if None)
-    pub async fn store(&self, data: Vec<u8>, namespace: Option<Namespace>) -> Result<ProofLocation> {
+    pub async fn store(
+        &self,
+        data: Vec<u8>,
+        namespace: Option<Namespace>,
+    ) -> Result<ProofLocation> {
         let ns = namespace.unwrap_or(self.default_namespace);
         let blob = Blob::new(ns, data)?;
         let proof_id = self.da_layer.submit_blob(blob).await?;
@@ -99,7 +99,11 @@ where
     /// Store data on IPFS and anchor on Celestia
     ///
     /// Use this for large data that shouldn't go directly to Celestia.
-    pub async fn store_large(&self, data: Vec<u8>, namespace: Option<Namespace>) -> Result<ProofLocation> {
+    pub async fn store_large(
+        &self,
+        data: Vec<u8>,
+        namespace: Option<Namespace>,
+    ) -> Result<ProofLocation> {
         let ns = namespace.unwrap_or(self.default_namespace);
         self.da_layer.store_on_ipfs(&data, ns).await
     }
@@ -112,10 +116,9 @@ where
                 Ok(blob.data)
             }
             ProofLocation::IpfsBacked { .. } | ProofLocation::Hybrid { .. } => {
-                let cid_str = location.cid()
-                    .ok_or_else(|| CelestiaError::InvalidCid(
-                        "IPFS location missing CID".to_string()
-                    ))?;
+                let cid_str = location.cid().ok_or_else(|| {
+                    CelestiaError::InvalidCid("IPFS location missing CID".to_string())
+                })?;
                 let cid = IpfsCid::from_string(cid_str)?;
                 self.da_layer.get_from_ipfs(&cid).await
             }
@@ -161,9 +164,14 @@ where
     }
 
     /// Verify that retrieved data matches expected commitment
-    pub async fn verify_data(&self, location: &ProofLocation, expected: &BlobCommitment) -> Result<bool> {
+    pub async fn verify_data(
+        &self,
+        location: &ProofLocation,
+        expected: &BlobCommitment,
+    ) -> Result<bool> {
         let data = self.retrieve(location).await?;
-        let ns = location.namespace()
+        let ns = location
+            .namespace()
             .cloned()
             .unwrap_or(self.default_namespace);
         let computed = BlobCommitment::compute(&ns, &data);
@@ -251,16 +259,11 @@ where
 
     /// Build the client
     pub fn build(self) -> Result<CelestiaClient<C, I>> {
-        let celestia_rpc = self.celestia_rpc
-            .ok_or_else(|| CelestiaError::InvalidInput(
-                "Celestia RPC client required".to_string()
-            ))?;
+        let celestia_rpc = self.celestia_rpc.ok_or_else(|| {
+            CelestiaError::InvalidInput("Celestia RPC client required".to_string())
+        })?;
 
-        let da_layer = CelestiaDaLayer::new(
-            self.config.da_config,
-            celestia_rpc,
-            self.ipfs_client,
-        );
+        let da_layer = CelestiaDaLayer::new(self.config.da_config, celestia_rpc, self.ipfs_client);
 
         Ok(CelestiaClient::new(da_layer, self.config.default_namespace))
     }

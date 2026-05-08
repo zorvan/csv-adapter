@@ -291,9 +291,9 @@ impl From<AptosError> for csv_core::ProtocolError {
                 "Timeout waiting for tx {} after {}ms",
                 tx_hash, timeout_ms
             )),
-            AptosError::ReorgDetected { version } => csv_core::ProtocolError::ReorgInvalid(
-                format!("Reorg at version {}", version),
-            ),
+            AptosError::ReorgDetected { version } => {
+                csv_core::ProtocolError::ReorgInvalid(format!("Reorg at version {}", version))
+            }
             aptos_err => csv_core::ProtocolError::NetworkError(format!("{}", aptos_err)),
         }
     }

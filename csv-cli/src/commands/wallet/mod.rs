@@ -24,9 +24,11 @@ pub async fn execute(
             words,
             account,
         } => generate::cmd_init(network, words, account, config, state),
-        WalletAction::Import { phrase, network, account } => {
-            import::cmd_import(&phrase, network, account, config, state)
-        }
+        WalletAction::Import {
+            phrase,
+            network,
+            account,
+        } => import::cmd_import(&phrase, network, account, config, state),
         WalletAction::Export => export::cmd_export(config, state),
         WalletAction::Generate { chain, network } => {
             generate::cmd_generate(chain, network, config, state)

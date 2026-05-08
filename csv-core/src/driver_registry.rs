@@ -20,14 +20,14 @@
 //!
 //! When a feature is not enabled, the registry will return `None` for that chain.
 
-use std::any::Any;
 use crate::collections::HashMap;
+use std::any::Any;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::OnceLock;
 
-use crate::driver::ChainDriver;
 use crate::chain_config::{AccountModel, ChainCapabilities, ChainConfig, ChainConfigLoader};
+use crate::driver::ChainDriver;
 
 // Driver imports are commented out temporarily due to cyclic dependency issues
 // These will be re-enabled once the dependency cycle is resolved
@@ -122,7 +122,8 @@ pub trait DriverPlugin: Send + Sync + Any {
 /// `DriverRegistry`, providing both direct factory registration
 /// and plugin-based adapter creation from a single API.
 pub struct DriverRegistry {
-    factories: HashMap<String, Arc<dyn Fn(Option<ChainConfig>) -> Box<dyn ChainDriver> + Send + Sync>>,
+    factories:
+        HashMap<String, Arc<dyn Fn(Option<ChainConfig>) -> Box<dyn ChainDriver> + Send + Sync>>,
     plugins: HashMap<String, Arc<dyn DriverPlugin>>,
 }
 
@@ -329,7 +330,11 @@ impl DriverRegistry {
     }
 
     /// Register a factory that receives the discovered chain configuration.
-    pub fn register_with_config(&mut self, chain_id: &str, factory: Arc<dyn Fn(Option<ChainConfig>) -> Box<dyn ChainDriver> + Send + Sync>) {
+    pub fn register_with_config(
+        &mut self,
+        chain_id: &str,
+        factory: Arc<dyn Fn(Option<ChainConfig>) -> Box<dyn ChainDriver> + Send + Sync>,
+    ) {
         self.factories.insert(chain_id.to_string(), factory);
     }
 
@@ -502,10 +507,7 @@ impl DriverDiscovery {
     ///
     /// # Arguments
     /// * `chains_dir` — Path to directory containing chain configuration TOML files
-    pub fn discover_chains(
-        &mut self,
-        chains_dir: &Path,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn discover_chains(&mut self, chains_dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
         #[cfg(debug_assertions)]
         eprintln!("Discovering chains from: {}", chains_dir.display());
 
@@ -513,19 +515,13 @@ impl DriverDiscovery {
 
         for (chain_id, config) in self.config_loader.all_configs() {
             #[cfg(debug_assertions)]
-            eprintln!(
-                "Registering chain: {} ({})",
-                chain_id, config.chain_name
-            );
+            eprintln!("Registering chain: {} ({})", chain_id, config.chain_name);
             self.catalog
                 .register(chain_id.clone(), config.chain_name.clone());
         }
 
         #[cfg(debug_assertions)]
-        eprintln!(
-            "Successfully discovered {} chains",
-            self.catalog.len()
-        );
+        eprintln!("Successfully discovered {} chains", self.catalog.len());
 
         Ok(())
     }
@@ -551,10 +547,7 @@ impl DriverDiscovery {
     /// # Returns
     /// * `Some(driver)` — If a plugin can create a driver for this chain
     /// * `None` — If no plugin is registered for this chain
-    pub fn create_driver(
-        &self,
-        chain_id: &str,
-    ) -> Option<Box<dyn ChainDriver>> {
+    pub fn create_driver(&self, chain_id: &str) -> Option<Box<dyn ChainDriver>> {
         let config = self.get_chain_config(chain_id).cloned();
         self.registry.create_driver_with_config(chain_id, config)
     }

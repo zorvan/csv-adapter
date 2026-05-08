@@ -81,8 +81,7 @@ impl ProofId {
         }
 
         let height = u64::from_le_bytes([
-            bytes[0], bytes[1], bytes[2], bytes[3],
-            bytes[4], bytes[5], bytes[6], bytes[7],
+            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
         ]);
 
         let namespace = Namespace::from_slice(&bytes[8..36])?;
@@ -124,7 +123,9 @@ impl ProofId {
 
 impl core::fmt::Display for ProofId {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{}@{}:{:.16}",
+        write!(
+            f,
+            "{}@{}:{:.16}",
             self.height,
             self.namespace,
             hex::encode(&self.commitment[..8])
@@ -226,7 +227,11 @@ impl ProofLocation {
                 result.extend_from_slice(&proof_id.to_bytes());
                 result
             }
-            Self::IpfsBacked { anchor_height, cid, namespace } => {
+            Self::IpfsBacked {
+                anchor_height,
+                cid,
+                namespace,
+            } => {
                 let mut result = vec![0x02]; // Discriminant for IPFS
                 result.extend_from_slice(&anchor_height.to_le_bytes());
                 result.extend_from_slice(namespace.as_bytes());
@@ -235,7 +240,10 @@ impl ProofLocation {
                 result.extend_from_slice(cid_bytes);
                 result
             }
-            Self::Hybrid { metadata_id, data_cid } => {
+            Self::Hybrid {
+                metadata_id,
+                data_cid,
+            } => {
                 let mut result = vec![0x03]; // Discriminant for Hybrid
                 result.extend_from_slice(&metadata_id.to_bytes());
                 let cid_bytes = data_cid.as_bytes();
@@ -271,8 +279,7 @@ impl ProofLocation {
                     ));
                 }
                 let anchor_height = u64::from_le_bytes([
-                    bytes[1], bytes[2], bytes[3], bytes[4],
-                    bytes[5], bytes[6], bytes[7], bytes[8],
+                    bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7], bytes[8],
                 ]);
                 let namespace = Namespace::from_slice(&bytes[9..37])?;
                 let cid_len = u16::from_le_bytes([bytes[37], bytes[38]]) as usize;
@@ -281,11 +288,14 @@ impl ProofLocation {
                         "CID data truncated".to_string(),
                     ));
                 }
-                let cid = String::from_utf8(bytes[39..39 + cid_len].to_vec())
-                    .map_err(|e| CelestiaError::DeserializationError(
-                        format!("Invalid CID UTF8: {}", e)
-                    ))?;
-                Ok(Self::IpfsBacked { anchor_height, cid, namespace })
+                let cid = String::from_utf8(bytes[39..39 + cid_len].to_vec()).map_err(|e| {
+                    CelestiaError::DeserializationError(format!("Invalid CID UTF8: {}", e))
+                })?;
+                Ok(Self::IpfsBacked {
+                    anchor_height,
+                    cid,
+                    namespace,
+                })
             }
             0x03 => {
                 if bytes.len() < 1 + ProofId::SIZE + 2 {
@@ -295,21 +305,27 @@ impl ProofLocation {
                 }
                 let metadata_id = ProofId::from_bytes(&bytes[1..1 + ProofId::SIZE])?;
                 let cid_offset = 1 + ProofId::SIZE;
-                let cid_len = u16::from_le_bytes([bytes[cid_offset], bytes[cid_offset + 1]]) as usize;
+                let cid_len =
+                    u16::from_le_bytes([bytes[cid_offset], bytes[cid_offset + 1]]) as usize;
                 if bytes.len() < cid_offset + 2 + cid_len {
                     return Err(CelestiaError::DeserializationError(
                         "CID data truncated".to_string(),
                     ));
                 }
-                let data_cid = String::from_utf8(bytes[cid_offset + 2..cid_offset + 2 + cid_len].to_vec())
-                    .map_err(|e| CelestiaError::DeserializationError(
-                        format!("Invalid CID UTF8: {}", e)
-                    ))?;
-                Ok(Self::Hybrid { metadata_id, data_cid })
+                let data_cid =
+                    String::from_utf8(bytes[cid_offset + 2..cid_offset + 2 + cid_len].to_vec())
+                        .map_err(|e| {
+                            CelestiaError::DeserializationError(format!("Invalid CID UTF8: {}", e))
+                        })?;
+                Ok(Self::Hybrid {
+                    metadata_id,
+                    data_cid,
+                })
             }
-            _ => Err(CelestiaError::DeserializationError(
-                format!("Unknown ProofLocation discriminant: {}", bytes[0])
-            )),
+            _ => Err(CelestiaError::DeserializationError(format!(
+                "Unknown ProofLocation discriminant: {}",
+                bytes[0]
+            ))),
         }
     }
 }
@@ -320,10 +336,15 @@ impl core::fmt::Display for ProofLocation {
             Self::Celestia { proof_id } => {
                 write!(f, "Celestia({})", proof_id)
             }
-            Self::IpfsBacked { anchor_height, cid, .. } => {
+            Self::IpfsBacked {
+                anchor_height, cid, ..
+            } => {
                 write!(f, "IPFS@{}:{:.16}", anchor_height, cid)
             }
-            Self::Hybrid { metadata_id, data_cid } => {
+            Self::Hybrid {
+                metadata_id,
+                data_cid,
+            } => {
                 write!(f, "Hybrid({}/{:.16})", metadata_id, data_cid)
             }
         }

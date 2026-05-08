@@ -23,13 +23,16 @@ use csv_core::proof::{FinalityProof, ProofBundle};
 type SignedTransaction = (Vec<u8>, Vec<u8>, Vec<u8>);
 use csv_core::seal::CommitAnchor as CoreCommitAnchor;
 use csv_core::seal::SealPoint as CoreSealPoint;
-use csv_core::SealProtocol;
 use csv_core::Hash;
+use csv_core::SealProtocol;
 
 use crate::checkpoint::{CheckpointVerifier, CheckpointVerifierTrait};
 use crate::config::SuiConfig;
 use crate::error::{SuiError, SuiResult};
-use crate::proofs::{CommitmentEventBuilder, EventProofVerifier, EventProofVerifierTrait, StateProofVerifier, StateProofVerifierTrait};
+use crate::proofs::{
+    CommitmentEventBuilder, EventProofVerifier, EventProofVerifierTrait, StateProofVerifier,
+    StateProofVerifierTrait,
+};
 #[cfg(feature = "rpc")]
 use crate::rpc::SuiObject;
 use crate::rpc::SuiRpc;
@@ -58,7 +61,8 @@ where
         .enable_all()
         .build()
         .map_err(|e| SuiError::RpcError(format!("Failed to create runtime: {}", e)))?;
-    rt.block_on(future).map_err(|e| SuiError::RpcError(e.to_string()))
+    rt.block_on(future)
+        .map_err(|e| SuiError::RpcError(e.to_string()))
 }
 
 /// Sui implementation of the SealProtocol trait
@@ -346,12 +350,13 @@ impl SuiSealProtocol {
             )));
         }
 
-// Check on-chain object exists
+        // Check on-chain object exists
         let obj_id = seal.object_id;
-        let obj = self.run_with_rpc(move |rpc| async move {
-            StateProofVerifier::verify_object_exists(obj_id, rpc.as_ref()).await
-        })
-        .map_err(|e| SuiError::StateProofFailed(e.to_string()))?;
+        let obj = self
+            .run_with_rpc(move |rpc| async move {
+                StateProofVerifier::verify_object_exists(obj_id, rpc.as_ref()).await
+            })
+            .map_err(|e| SuiError::StateProofFailed(e.to_string()))?;
         if obj.is_none() {
             return Err(SuiError::StateProofFailed(format!(
                 "Seal object {} does not exist on-chain",
@@ -431,13 +436,14 @@ impl SuiSealProtocol {
             hex::encode(commitment),
         );
 
-           // Get gas objects and sender address from RPC
-        let (sender, gas_objects) = self.run_with_rpc(|rpc| async move {
-            let sender = rpc.sender_address().await?;
-            let gas_objects = rpc.get_gas_objects(sender).await?;
-            Ok::<_, Box<dyn std::error::Error + Send + Sync>>((sender, gas_objects))
-        })
-        .map_err(|e| format!("Failed to get gas data: {}", e))?;
+        // Get gas objects and sender address from RPC
+        let (sender, gas_objects) = self
+            .run_with_rpc(|rpc| async move {
+                let sender = rpc.sender_address().await?;
+                let gas_objects = rpc.get_gas_objects(sender).await?;
+                Ok::<_, Box<dyn std::error::Error + Send + Sync>>((sender, gas_objects))
+            })
+            .map_err(|e| format!("Failed to get gas data: {}", e))?;
 
         if gas_objects.is_empty() {
             return Err("No gas objects available for transaction".into());
@@ -482,13 +488,20 @@ impl SuiSealProtocol {
             .event_builder
             .build(*expected_commitment.as_bytes(), expected_seal.object_id);
 
-          let valid = self.run_with_rpc(|rpc| {
+        let valid = self
+            .run_with_rpc(|rpc| {
                 let expected_event_data = expected_event_data.to_vec();
                 let tx_digest = anchor.tx_digest;
                 async move {
-                    EventProofVerifier::verify_event_in_tx(tx_digest, &expected_event_data, rpc.as_ref()).await
+                    EventProofVerifier::verify_event_in_tx(
+                        tx_digest,
+                        &expected_event_data,
+                        rpc.as_ref(),
+                    )
+                    .await
                 }
-            }).map_err(|e: SuiError| ProtocolError::InclusionProofFailed(e.to_string()))?;
+            })
+            .map_err(|e: SuiError| ProtocolError::InclusionProofFailed(e.to_string()))?;
 
         if !valid {
             return Err(ProtocolError::InclusionProofFailed(
@@ -538,23 +551,33 @@ impl SealProtocol for SuiSealProtocol {
                     ))
                 })?;
 
- // Submit signed transaction via RPC
-            let (tx_digest, block) = self.run_with_rpc(|rpc| async move {
-                let tx_digest = rpc.execute_signed_transaction(tx_bytes, signature, public_key).await?;
-                let block = rpc.wait_for_transaction(tx_digest, 30_000).await?
-                    .ok_or_else(|| SuiError::RpcError("Transaction not found after submission".to_string()))?;
-                Ok::<_, Box<dyn std::error::Error + Send + Sync>>((tx_digest, block))
-            })
-            .map_err(|e| ProtocolError::PublishFailed(format!("Transaction failed: {}", e)))?;
+            // Submit signed transaction via RPC
+            let (tx_digest, block) = self
+                .run_with_rpc(|rpc| async move {
+                    let tx_digest = rpc
+                        .execute_signed_transaction(tx_bytes, signature, public_key)
+                        .await?;
+                    let block = rpc
+                        .wait_for_transaction(tx_digest, 30_000)
+                        .await?
+                        .ok_or_else(|| {
+                            SuiError::RpcError("Transaction not found after submission".to_string())
+                        })?;
+                    Ok::<_, Box<dyn std::error::Error + Send + Sync>>((tx_digest, block))
+                })
+                .map_err(|e| ProtocolError::PublishFailed(format!("Transaction failed: {}", e)))?;
 
             // Verify the emitted event matches the expected commitment
-            let valid = self.run_with_rpc(|rpc| {
-                let event_data = event_data.clone();
-                let tx_digest = tx_digest;
-                async move {
-                    EventProofVerifier::verify_event_in_tx(tx_digest, &event_data, rpc.as_ref()).await
-                }
-            }).map_err(|e: SuiError| ProtocolError::InclusionProofFailed(e.to_string()))?;
+            let valid = self
+                .run_with_rpc(|rpc| {
+                    let event_data = event_data.clone();
+                    let tx_digest = tx_digest;
+                    async move {
+                        EventProofVerifier::verify_event_in_tx(tx_digest, &event_data, rpc.as_ref())
+                            .await
+                    }
+                })
+                .map_err(|e: SuiError| ProtocolError::InclusionProofFailed(e.to_string()))?;
 
             if !valid {
                 return Err(ProtocolError::PublishFailed(
@@ -596,26 +619,30 @@ impl SealProtocol for SuiSealProtocol {
             anchor.checkpoint
         );
 
-// Fetch checkpoint info from the Sui node
-        let checkpoint_info = self.run_with_rpc(|rpc| async move {
-            rpc.get_checkpoint(anchor.checkpoint).await
-        }).map_err(|e| ProtocolError::InclusionProofFailed(format!("Failed to fetch checkpoint: {}", e)))?
-        .ok_or_else(|| {
-            ProtocolError::InclusionProofFailed(format!(
-                "Checkpoint {} not found",
-                anchor.checkpoint
-            ))
-        })?;
+        // Fetch checkpoint info from the Sui node
+        let checkpoint_info = self
+            .run_with_rpc(|rpc| async move { rpc.get_checkpoint(anchor.checkpoint).await })
+            .map_err(|e| {
+                ProtocolError::InclusionProofFailed(format!("Failed to fetch checkpoint: {}", e))
+            })?
+            .ok_or_else(|| {
+                ProtocolError::InclusionProofFailed(format!(
+                    "Checkpoint {} not found",
+                    anchor.checkpoint
+                ))
+            })?;
 
         // Verify the checkpoint is certified
         if !checkpoint_info.certified {
             let verifier = self.checkpoint_verifier.clone();
-            let is_certified = self.run_with_rpc(move |rpc| {
-                let cp_seq = anchor.checkpoint;
-                async move {
-                    verifier.is_checkpoint_certified(cp_seq, rpc.as_ref()).await
-                }
-            }).map_err(|e| ProtocolError::InclusionProofFailed(format!("Checkpoint check failed: {}", e)))?;
+            let is_certified = self
+                .run_with_rpc(move |rpc| {
+                    let cp_seq = anchor.checkpoint;
+                    async move { verifier.is_checkpoint_certified(cp_seq, rpc.as_ref()).await }
+                })
+                .map_err(|e| {
+                    ProtocolError::InclusionProofFailed(format!("Checkpoint check failed: {}", e))
+                })?;
 
             if !is_certified.is_certified {
                 return Err(ProtocolError::InclusionProofFailed(format!(
@@ -642,13 +669,15 @@ impl SealProtocol for SuiSealProtocol {
         );
 
         let verifier = self.checkpoint_verifier.clone();
-        let is_certified = self.run_with_rpc(move |rpc| {
-            let cp_seq = anchor.checkpoint;
-            async move {
-                verifier.is_checkpoint_certified(cp_seq, rpc.as_ref()).await
-            }
-        }).map_err(|e| ProtocolError::InclusionProofFailed(format!("Finality check failed: {}", e)))?
-        .is_certified;
+        let is_certified = self
+            .run_with_rpc(move |rpc| {
+                let cp_seq = anchor.checkpoint;
+                async move { verifier.is_checkpoint_certified(cp_seq, rpc.as_ref()).await }
+            })
+            .map_err(|e| {
+                ProtocolError::InclusionProofFailed(format!("Finality check failed: {}", e))
+            })?
+            .is_certified;
 
         Ok(SuiFinalityProof::new(anchor.checkpoint, is_certified))
     }
@@ -712,8 +741,9 @@ impl SealProtocol for SuiSealProtocol {
         let seal_ref = CoreSealPoint::new(anchor.object_id.to_vec(), Some(anchor.checkpoint))
             .map_err(|e| ProtocolError::Generic(e.to_string()))?;
 
-        let anchor_ref = CoreCommitAnchor::new(anchor.object_id.to_vec(), anchor.checkpoint, vec![])
-            .map_err(|e| ProtocolError::Generic(e.to_string()))?;
+        let anchor_ref =
+            CoreCommitAnchor::new(anchor.object_id.to_vec(), anchor.checkpoint, vec![])
+                .map_err(|e| ProtocolError::Generic(e.to_string()))?;
 
         let inclusion_proof = csv_core::InclusionProof::new(
             inclusion.object_proof,
@@ -748,9 +778,9 @@ impl SealProtocol for SuiSealProtocol {
             "Rollback requested for anchor at checkpoint {}",
             anchor.checkpoint
         );
-         let current_checkpoint = self.run_with_rpc(|rpc| async move {
-            rpc.get_latest_checkpoint_sequence_number().await
-        }).map_err(|e| ProtocolError::NetworkError(e.to_string()))?;
+        let current_checkpoint = self
+            .run_with_rpc(|rpc| async move { rpc.get_latest_checkpoint_sequence_number().await })
+            .map_err(|e| ProtocolError::NetworkError(e.to_string()))?;
 
         // If anchor checkpoint is beyond current tip, rollback
         if anchor.checkpoint > current_checkpoint {
@@ -797,7 +827,10 @@ impl SuiSealProtocol {
 
     /// Get event builder config for creating new builder (crate-visible)
     pub(crate) fn event_builder_config(&self) -> ([u8; 32], String) {
-        (self.event_builder.module_address, self.event_builder.event_type.clone())
+        (
+            self.event_builder.module_address,
+            self.event_builder.event_type.clone(),
+        )
     }
 }
 

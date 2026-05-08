@@ -47,7 +47,8 @@ impl SanadId {
     /// Panics if the slice is not exactly 32 bytes.
     #[inline]
     pub fn from_bytes(bytes: &[u8]) -> Self {
-        let array: [u8; 32] = bytes.try_into()
+        let array: [u8; 32] = bytes
+            .try_into()
             .expect("SanadId::from_bytes requires exactly 32 bytes");
         Self::new(array)
     }

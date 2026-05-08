@@ -52,8 +52,6 @@ impl std::str::FromStr for Network {
     }
 }
 
-
-
 /// Chain-specific configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChainConfig {

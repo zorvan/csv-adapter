@@ -8,6 +8,10 @@ use thiserror::Error;
 /// Errors that can occur when interacting with Celestia DA layer
 #[derive(Error, Debug, Clone, PartialEq)]
 pub enum CelestiaError {
+    /// Invalid input parameter
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
+
     /// Namespace error - invalid or malformed namespace
     #[error("Invalid namespace: {0}")]
     InvalidNamespace(String),

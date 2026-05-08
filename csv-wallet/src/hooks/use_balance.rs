@@ -99,7 +99,10 @@ pub fn format_balance_display(balance_raw: u64, chain: ChainId) -> String {
 }
 
 /// Legacy alias for backward compatibility - prefer format_balance_display.
-#[deprecated(since = "0.4.0", note = "Use format_balance_display with raw u64 instead")]
+#[deprecated(
+    since = "0.4.0",
+    note = "Use format_balance_display with raw u64 instead"
+)]
 pub fn format_balance(balance: f64, chain: ChainId) -> String {
     format_balance_display(balance as u64, chain)
 }

@@ -4,15 +4,15 @@
 //! enabling Bitcoin to be used through the unified chain adapter interface.
 
 use async_trait::async_trait;
-use csv_core::driver::{
-    AccountModel, ChainDriver, ChainCapabilities, ChainError, ChainResult, RpcClient, Wallet,
-};
 use csv_core::chain_config::ChainConfig;
+use csv_core::driver::{
+    AccountModel, ChainCapabilities, ChainDriver, ChainError, ChainResult, RpcClient, Wallet,
+};
 use csv_core::ChainId;
 
-use crate::seal_protocol::BitcoinSealProtocol;
 use crate::config::{BitcoinConfig, Network};
 use crate::rpc::BitcoinRpc;
+use crate::seal_protocol::BitcoinSealProtocol;
 use crate::wallet::SealWallet;
 
 /// Bitcoin RPC client wrapper implementing the core RpcClient trait

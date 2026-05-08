@@ -349,10 +349,7 @@ impl CsvEvent {
             block_height,
             tx_hash: tx_hash.to_string(),
             timestamp,
-            data: EventData::SanadMetadataRecorded {
-                sanad_id,
-                metadata,
-            },
+            data: EventData::SanadMetadataRecorded { sanad_id, metadata },
             metadata: None,
         }
     }
@@ -515,10 +512,7 @@ mod tests {
         assert_eq!(metadata_fields::ASSET_CLASS, "asset_class");
         assert_eq!(metadata_fields::ASSET_ID, "asset_id");
         assert_eq!(metadata_fields::METADATA, "metadata");
-        assert_eq!(
-            metadata_fields::DESTINATION_CHAIN,
-            "destination_chain"
-        );
+        assert_eq!(metadata_fields::DESTINATION_CHAIN, "destination_chain");
         assert_eq!(metadata_fields::SOURCE_CHAIN, "source_chain");
         assert_eq!(metadata_fields::BLOCK_HEIGHT, "block_height");
         assert_eq!(metadata_fields::TX_HASH, "tx_hash");

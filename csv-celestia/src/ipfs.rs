@@ -23,7 +23,7 @@
 
 use cid::Cid;
 use multibase::Base;
-use multihash::{Multihash, MultihashDigest};
+use multihash::Multihash;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -75,20 +75,25 @@ impl IpfsCid {
     /// - SHA2-256 multihash
     pub fn from_data(data: &[u8]) -> Result<Self> {
         if data.is_empty() {
-            return Err(CelestiaError::InvalidCid("Cannot create CID from empty data".to_string()));
+            return Err(CelestiaError::InvalidCid(
+                "Cannot create CID from empty data".to_string(),
+            ));
         }
         if data.len() > MAX_IPFS_DATA_SIZE {
-            return Err(CelestiaError::InvalidCid(
-                format!("Data too large: {} bytes (max: {})", data.len(), MAX_IPFS_DATA_SIZE)
-            ));
+            return Err(CelestiaError::InvalidCid(format!(
+                "Data too large: {} bytes (max: {})",
+                data.len(),
+                MAX_IPFS_DATA_SIZE
+            )));
         }
 
         // Compute SHA256 hash
         let hash_bytes: [u8; 32] = Sha256::digest(data).into();
 
         // Create multihash (SHA2-256 = 0x12)
-        let multihash = Multihash::wrap(0x12, &hash_bytes)
-            .map_err(|e| CelestiaError::InvalidCid(format!("Failed to create multihash: {:?}", e)))?;
+        let multihash = Multihash::wrap(0x12, &hash_bytes).map_err(|e| {
+            CelestiaError::InvalidCid(format!("Failed to create multihash: {:?}", e))
+        })?;
 
         // Create CID v1 with raw codec
         let cid = Cid::new_v1(0x55, multihash);
@@ -212,39 +217,46 @@ impl IpfsReference {
 
     /// Deserialize from anchor bytes
     pub fn from_anchor_bytes(bytes: &[u8]) -> Result<Self> {
-        if bytes.len() < 19 { // 2 + 1 (min cid) + 8 + 8 + 1
+        if bytes.len() < 19 {
+            // 2 + 1 (min cid) + 8 + 8 + 1
             return Err(CelestiaError::DeserializationError(
-                "Insufficient bytes for IPFS reference".to_string()
+                "Insufficient bytes for IPFS reference".to_string(),
             ));
         }
 
         let cid_len = u16::from_le_bytes([bytes[0], bytes[1]]) as usize;
         if bytes.len() < 2 + cid_len + 17 {
             return Err(CelestiaError::DeserializationError(
-                "CID data truncated".to_string()
+                "CID data truncated".to_string(),
             ));
         }
 
         let cid_str = String::from_utf8(bytes[2..2 + cid_len].to_vec())
-            .map_err(|e| CelestiaError::DeserializationError(
-                format!("Invalid CID UTF8: {}", e)
-            ))?;
+            .map_err(|e| CelestiaError::DeserializationError(format!("Invalid CID UTF8: {}", e)))?;
         let cid = IpfsCid::from_string(cid_str)?;
 
         let size_offset = 2 + cid_len;
         let size = u64::from_le_bytes([
-            bytes[size_offset], bytes[size_offset + 1],
-            bytes[size_offset + 2], bytes[size_offset + 3],
-            bytes[size_offset + 4], bytes[size_offset + 5],
-            bytes[size_offset + 6], bytes[size_offset + 7],
+            bytes[size_offset],
+            bytes[size_offset + 1],
+            bytes[size_offset + 2],
+            bytes[size_offset + 3],
+            bytes[size_offset + 4],
+            bytes[size_offset + 5],
+            bytes[size_offset + 6],
+            bytes[size_offset + 7],
         ]);
 
         let ts_offset = size_offset + 8;
         let timestamp = u64::from_le_bytes([
-            bytes[ts_offset], bytes[ts_offset + 1],
-            bytes[ts_offset + 2], bytes[ts_offset + 3],
-            bytes[ts_offset + 4], bytes[ts_offset + 5],
-            bytes[ts_offset + 6], bytes[ts_offset + 7],
+            bytes[ts_offset],
+            bytes[ts_offset + 1],
+            bytes[ts_offset + 2],
+            bytes[ts_offset + 3],
+            bytes[ts_offset + 4],
+            bytes[ts_offset + 5],
+            bytes[ts_offset + 6],
+            bytes[ts_offset + 7],
         ]);
 
         let pinned = bytes[ts_offset + 8] == 1;
@@ -297,10 +309,12 @@ impl HybridStorageInfo {
     /// Mark as checked
     pub fn mark_checked(mut self, available: bool) -> Self {
         self.ipfs_available = Some(available);
-        self.last_checked = Some(std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs());
+        self.last_checked = Some(
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs(),
+        );
         self
     }
 
@@ -327,41 +341,64 @@ impl HybridStorageInfo {
 /// - Browser-based (js-ipfs, helia)
 pub trait IpfsClient: Send + Sync {
     /// Store data on IPFS
-    fn put(&self, data: &[u8]) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<IpfsCid>> + Send + '_>>;
+    fn put(
+        &self,
+        data: &[u8],
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<IpfsCid>> + Send + '_>>;
 
     /// Retrieve data from IPFS
-    fn get(&self, cid: &IpfsCid) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<u8>>> + Send + '_>>;
+    fn get(
+        &self,
+        cid: &IpfsCid,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<u8>>> + Send + '_>>;
 
     /// Check if data is available
-    fn exists(&self, cid: &IpfsCid) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<bool>> + Send + '_>>;
+    fn exists(
+        &self,
+        cid: &IpfsCid,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<bool>> + Send + '_>>;
 
     /// Pin content to ensure persistence
-    fn pin(&self, cid: &IpfsCid) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + '_>>;
+    fn pin(
+        &self,
+        cid: &IpfsCid,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + '_>>;
 
     /// Unpin content
-    fn unpin(&self, cid: &IpfsCid) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + '_>>;
+    fn unpin(
+        &self,
+        cid: &IpfsCid,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + '_>>;
 
     /// Get content size without downloading
-    fn stat(&self, cid: &IpfsCid) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<u64>> + Send + '_>>;
+    fn stat(
+        &self,
+        cid: &IpfsCid,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<u64>> + Send + '_>>;
 }
 
 /// Mock IPFS client for testing
 #[derive(Clone, Debug, Default)]
 pub struct MockIpfsClient {
-    storage: std::sync::Arc<tokio::sync::RwLock<std::collections::HashMap<String, Vec<u8>>>>
+    storage: std::sync::Arc<tokio::sync::RwLock<std::collections::HashMap<String, Vec<u8>>>>,
 }
 
 impl MockIpfsClient {
     /// Create a new mock client
     pub fn new() -> Self {
         Self {
-            storage: std::sync::Arc::new(tokio::sync::RwLock::new(std::collections::HashMap::new()))
+            storage: std::sync::Arc::new(
+                tokio::sync::RwLock::new(std::collections::HashMap::new()),
+            ),
         }
     }
 }
 
 impl IpfsClient for MockIpfsClient {
-    fn put(&self, data: &[u8]) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<IpfsCid>> + Send + '_>> {
+    fn put(
+        &self,
+        data: &[u8],
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<IpfsCid>> + Send + '_>> {
         let data = data.to_vec();
         let storage = self.storage.clone();
         Box::pin(async move {
@@ -372,20 +409,25 @@ impl IpfsClient for MockIpfsClient {
         })
     }
 
-    fn get(&self, cid: &IpfsCid) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<u8>>> + Send + '_>> {
+    fn get(
+        &self,
+        cid: &IpfsCid,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<u8>>> + Send + '_>> {
         let cid_str = cid.cid.clone();
         let storage = self.storage.clone();
         Box::pin(async move {
             let guard = storage.read().await;
-            guard.get(&cid_str)
+            guard
+                .get(&cid_str)
                 .cloned()
-                .ok_or_else(|| CelestiaError::IpfsError(
-                    format!("CID not found: {}", cid_str)
-                ))
+                .ok_or_else(|| CelestiaError::IpfsError(format!("CID not found: {}", cid_str)))
         })
     }
 
-    fn exists(&self, cid: &IpfsCid) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<bool>> + Send + '_>> {
+    fn exists(
+        &self,
+        cid: &IpfsCid,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<bool>> + Send + '_>> {
         let cid_str = cid.cid.clone();
         let storage = self.storage.clone();
         Box::pin(async move {
@@ -394,24 +436,32 @@ impl IpfsClient for MockIpfsClient {
         })
     }
 
-    fn pin(&self, _cid: &IpfsCid) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + '_>> {
+    fn pin(
+        &self,
+        _cid: &IpfsCid,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + '_>> {
         Box::pin(async move { Ok(()) }) // Mock: always succeeds
     }
 
-    fn unpin(&self, _cid: &IpfsCid) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + '_>> {
+    fn unpin(
+        &self,
+        _cid: &IpfsCid,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + '_>> {
         Box::pin(async move { Ok(()) }) // Mock: always succeeds
     }
 
-    fn stat(&self, cid: &IpfsCid) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<u64>> + Send + '_>> {
+    fn stat(
+        &self,
+        cid: &IpfsCid,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<u64>> + Send + '_>> {
         let cid_str = cid.cid.clone();
         let storage = self.storage.clone();
         Box::pin(async move {
             let guard = storage.read().await;
-            guard.get(&cid_str)
+            guard
+                .get(&cid_str)
                 .map(|d| d.len() as u64)
-                .ok_or_else(|| CelestiaError::IpfsError(
-                    format!("CID not found: {}", cid_str)
-                ))
+                .ok_or_else(|| CelestiaError::IpfsError(format!("CID not found: {}", cid_str)))
         })
     }
 }
@@ -463,7 +513,10 @@ mod tests {
             .pinned();
 
         assert_eq!(reference.size, 9);
-        assert_eq!(reference.content_type, Some("application/octet-stream".to_string()));
+        assert_eq!(
+            reference.content_type,
+            Some("application/octet-stream".to_string())
+        );
         assert!(reference.pinned);
     }
 
@@ -491,12 +544,7 @@ mod tests {
 
         let cid = IpfsCid::from_data(b"large stark proof").unwrap();
         let reference = IpfsReference::new(cid, 1000000);
-        let info = HybridStorageInfo::new(
-            12345,
-            Namespace::bitcoin_stark(),
-            reference,
-            [0u8; 32],
-        );
+        let info = HybridStorageInfo::new(12345, Namespace::bitcoin_stark(), reference, [0u8; 32]);
 
         assert_eq!(info.anchor_height, 12345);
         assert_eq!(info.total_size(), 1000100); // 1M + 100 anchor

@@ -1,7 +1,7 @@
 //! Error types for CSV adapters
 
+use crate::mcp::{error_codes, FixAction, HasErrorSuggestion};
 use thiserror::Error;
-use crate::mcp::{HasErrorSuggestion, FixAction, error_codes};
 
 /// Result type alias for adapter operations
 pub type Result<T> = core::result::Result<T, ProtocolError>;
@@ -109,10 +109,10 @@ impl ProtocolError {
     pub fn is_transient(&self) -> bool {
         matches!(
             self,
-            ProtocolError::NetworkError(_) |
-            ProtocolError::PublishFailed(_) |
-            ProtocolError::FinalityNotReached(_) |
-            ProtocolError::ReorgInvalid(_)
+            ProtocolError::NetworkError(_)
+                | ProtocolError::PublishFailed(_)
+                | ProtocolError::FinalityNotReached(_)
+                | ProtocolError::ReorgInvalid(_)
         )
     }
 }
@@ -133,7 +133,9 @@ impl HasErrorSuggestion for ProtocolError {
             ProtocolError::InvalidConfig(_) => error_codes::CORE_INVALID_CONFIG,
             ProtocolError::VersionMismatch { .. } => error_codes::CORE_VERSION_MISMATCH,
             ProtocolError::DomainSeparatorMismatch => error_codes::CORE_DOMAIN_SEPARATOR_MISMATCH,
-            ProtocolError::SignatureVerificationFailed(_) => error_codes::CORE_SIGNATURE_VERIFICATION_FAILED,
+            ProtocolError::SignatureVerificationFailed(_) => {
+                error_codes::CORE_SIGNATURE_VERIFICATION_FAILED
+            }
             ProtocolError::InvalidInput(_) => error_codes::CORE_INVALID_CONFIG,
             ProtocolError::Generic(_) => error_codes::CORE_GENERIC,
         }
@@ -147,11 +149,13 @@ impl HasErrorSuggestion for ProtocolError {
         match self {
             ProtocolError::SealReplay(_) => {
                 "This seal has already been consumed. You cannot reuse a single-use seal. \
-                 Check the seal state or use a different seal.".to_string()
+                 Check the seal state or use a different seal."
+                    .to_string()
             }
             ProtocolError::InvalidSeal(_) => {
                 "The seal format is invalid. Verify the seal is properly constructed \
-                 and matches the expected format for this chain.".to_string()
+                 and matches the expected format for this chain."
+                    .to_string()
             }
             ProtocolError::SealNotAnchored(seal_id) => {
                 format!(
@@ -174,33 +178,38 @@ impl HasErrorSuggestion for ProtocolError {
                  1) The anchor has not been confirmed on-chain, \
                  2) The proof is for a different commitment, or \
                  3) A chain reorganization occurred. \
-                 Retry with a more recent anchor.".to_string()
+                 Retry with a more recent anchor."
+                    .to_string()
             }
             ProtocolError::FinalityNotReached(_) => {
                 "The required finality has not been reached. Wait for more confirmations \
-                 or lower the required finality threshold.".to_string()
+                 or lower the required finality threshold."
+                    .to_string()
             }
             ProtocolError::ReorgInvalid(_) => {
                 "The anchor was invalidated by a chain reorganization. \
-                 Republish the commitment at the new chain tip.".to_string()
+                 Republish the commitment at the new chain tip."
+                    .to_string()
             }
             ProtocolError::NetworkError(_) => {
                 "Network communication failed. Check your internet connection, \
-                 verify the RPC endpoint is accessible, or try a different node.".to_string()
+                 verify the RPC endpoint is accessible, or try a different node."
+                    .to_string()
             }
-            ProtocolError::PublishFailed(_) => {
-                "Failed to publish the transaction. Check: \
+            ProtocolError::PublishFailed(_) => "Failed to publish the transaction. Check: \
                  1) You have sufficient funds for gas fees, \
                  2) The transaction is properly signed, \
-                 3) The chain is accepting transactions.".to_string()
-            }
+                 3) The chain is accepting transactions."
+                .to_string(),
             ProtocolError::SerializationError(_) => {
                 "Data serialization/deserialization failed. Check the data format \
-                 matches the expected schema for this operation.".to_string()
+                 matches the expected schema for this operation."
+                    .to_string()
             }
             ProtocolError::InvalidConfig(_) => {
                 "The configuration is invalid. Review your config file and ensure \
-                 all required fields are present and correctly formatted.".to_string()
+                 all required fields are present and correctly formatted."
+                    .to_string()
             }
             ProtocolError::VersionMismatch { expected, actual } => {
                 format!(
@@ -211,18 +220,21 @@ impl HasErrorSuggestion for ProtocolError {
             }
             ProtocolError::DomainSeparatorMismatch => {
                 "The domain separator does not match. Ensure you are using \
-                 the correct network (mainnet vs testnet).".to_string()
+                 the correct network (mainnet vs testnet)."
+                    .to_string()
             }
             ProtocolError::SignatureVerificationFailed(_) => {
                 "Signature verification failed. Check: \
                  1) The message was not tampered with, \
                  2) The correct public key is being used, \
-                 3) The signature algorithm matches.".to_string()
+                 3) The signature algorithm matches."
+                    .to_string()
             }
             ProtocolError::InvalidInput(msg) => format!("Invalid input parameters: {}", msg),
             ProtocolError::Generic(_) => {
                 "An unexpected error occurred. Check the logs for details \
-                 or contact support with the error context.".to_string()
+                 or contact support with the error context."
+                    .to_string()
             }
         }
     }
@@ -233,30 +245,23 @@ impl HasErrorSuggestion for ProtocolError {
 
     fn fix_action(&self) -> Option<FixAction> {
         match self {
-            ProtocolError::NetworkError(_) => {
-                Some(FixAction::Retry {
-                    parameter_changes: crate::collections::HashMap::new(),
-                })
-            }
-            ProtocolError::FinalityNotReached(_) => {
-                Some(FixAction::WaitForConfirmations {
-                    confirmations: 6,
-                    estimated_seconds: 600,
-                })
-            }
-            ProtocolError::ReorgInvalid(_) => {
-                Some(FixAction::CheckState {
-                    url: "https://docs.csv.dev/reorg-handling".to_string(),
-                    what: "Check current chain tip and republish anchor".to_string(),
-                })
-            }
-            ProtocolError::PublishFailed(_) => {
-                Some(FixAction::Retry {
-                    parameter_changes: crate::collections::HashMap::from([
-                        ("check_gas".to_string(), "true".to_string()),
-                    ]),
-                })
-            }
+            ProtocolError::NetworkError(_) => Some(FixAction::Retry {
+                parameter_changes: crate::collections::HashMap::new(),
+            }),
+            ProtocolError::FinalityNotReached(_) => Some(FixAction::WaitForConfirmations {
+                confirmations: 6,
+                estimated_seconds: 600,
+            }),
+            ProtocolError::ReorgInvalid(_) => Some(FixAction::CheckState {
+                url: "https://docs.csv.dev/reorg-handling".to_string(),
+                what: "Check current chain tip and republish anchor".to_string(),
+            }),
+            ProtocolError::PublishFailed(_) => Some(FixAction::Retry {
+                parameter_changes: crate::collections::HashMap::from([(
+                    "check_gas".to_string(),
+                    "true".to_string(),
+                )]),
+            }),
             _ => None,
         }
     }

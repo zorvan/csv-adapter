@@ -7,10 +7,14 @@ pub(crate) type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
 /// Trait for Aptos RPC operations
 pub trait AptosRpc: Send + Sync + 'static {
-    fn get_ledger_info(&self) -> BoxFuture<'_, Result<AptosLedgerInfo, Box<dyn std::error::Error + Send + Sync>>>;
+    fn get_ledger_info(
+        &self,
+    ) -> BoxFuture<'_, Result<AptosLedgerInfo, Box<dyn std::error::Error + Send + Sync>>>;
 
     /// Get the sender's account address
-    fn sender_address(&self) -> BoxFuture<'_, Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>>>;
+    fn sender_address(
+        &self,
+    ) -> BoxFuture<'_, Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>>>;
 
     /// Get the account sequence number (transaction count)
     fn get_account_sequence_number(
@@ -18,7 +22,7 @@ pub trait AptosRpc: Send + Sync + 'static {
         address: [u8; 32],
     ) -> BoxFuture<'_, Result<u64, Box<dyn std::error::Error + Send + Sync>>>;
 
-   fn get_resource(
+    fn get_resource(
         &self,
         address: [u8; 32],
         resource_type: &str,
@@ -72,7 +76,9 @@ pub trait AptosRpc: Send + Sync + 'static {
         limit: u32,
     ) -> BoxFuture<'_, Result<Vec<AptosEvent>, Box<dyn std::error::Error + Send + Sync>>>;
 
-    fn get_latest_version(&self) -> BoxFuture<'_, Result<u64, Box<dyn std::error::Error + Send + Sync>>>;
+    fn get_latest_version(
+        &self,
+    ) -> BoxFuture<'_, Result<u64, Box<dyn std::error::Error + Send + Sync>>>;
 
     fn get_transaction_by_version(
         &self,
@@ -136,8 +142,14 @@ impl AptosResource {
 
         let value_bytes = &self.data[0..8];
         let balance = u64::from_le_bytes([
-            value_bytes[0], value_bytes[1], value_bytes[2], value_bytes[3],
-            value_bytes[4], value_bytes[5], value_bytes[6], value_bytes[7],
+            value_bytes[0],
+            value_bytes[1],
+            value_bytes[2],
+            value_bytes[3],
+            value_bytes[4],
+            value_bytes[5],
+            value_bytes[6],
+            value_bytes[7],
         ]);
 
         Some(balance)
@@ -257,7 +269,9 @@ impl MockAptosRpc {
 
 #[cfg(test)]
 impl AptosRpc for MockAptosRpc {
-    fn get_ledger_info(&self) -> BoxFuture<'_, Result<AptosLedgerInfo, Box<dyn std::error::Error + Send + Sync>>> {
+    fn get_ledger_info(
+        &self,
+    ) -> BoxFuture<'_, Result<AptosLedgerInfo, Box<dyn std::error::Error + Send + Sync>>> {
         Box::pin(async {
             Ok(AptosLedgerInfo {
                 chain_id: self.chain_id,
@@ -271,7 +285,9 @@ impl AptosRpc for MockAptosRpc {
         })
     }
 
-    fn sender_address(&self) -> BoxFuture<'_, Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>>> {
+    fn sender_address(
+        &self,
+    ) -> BoxFuture<'_, Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>>> {
         Box::pin(async { Ok(self.test_address) })
     }
 
@@ -279,9 +295,7 @@ impl AptosRpc for MockAptosRpc {
         &self,
         _address: [u8; 32],
     ) -> BoxFuture<'_, Result<u64, Box<dyn std::error::Error + Send + Sync>>> {
-        Box::pin(async {
-            Ok(self.tx_counter.load(std::sync::atomic::Ordering::SeqCst))
-        })
+        Box::pin(async { Ok(self.tx_counter.load(std::sync::atomic::Ordering::SeqCst)) })
     }
 
     fn get_resource(
@@ -289,7 +303,8 @@ impl AptosRpc for MockAptosRpc {
         address: [u8; 32],
         resource_type: &str,
         _position: Option<u64>,
-    ) -> BoxFuture<'_, Result<Option<AptosResource>, Box<dyn std::error::Error + Send + Sync>>> {
+    ) -> BoxFuture<'_, Result<Option<AptosResource>, Box<dyn std::error::Error + Send + Sync>>>
+    {
         let resource_type = resource_type.to_string();
         Box::pin(async move {
             Ok(self
@@ -304,17 +319,17 @@ impl AptosRpc for MockAptosRpc {
     fn get_transaction(
         &self,
         version: u64,
-    ) -> BoxFuture<'_, Result<Option<AptosTransaction>, Box<dyn std::error::Error + Send + Sync>>> {
-        Box::pin(async move {
-            Ok(self.transactions.lock().unwrap().get(&version).cloned())
-        })
+    ) -> BoxFuture<'_, Result<Option<AptosTransaction>, Box<dyn std::error::Error + Send + Sync>>>
+    {
+        Box::pin(async move { Ok(self.transactions.lock().unwrap().get(&version).cloned()) })
     }
 
     fn get_transactions(
         &self,
         start_version: u64,
         limit: u32,
-    ) -> BoxFuture<'_, Result<Vec<AptosTransaction>, Box<dyn std::error::Error + Send + Sync>>> {
+    ) -> BoxFuture<'_, Result<Vec<AptosTransaction>, Box<dyn std::error::Error + Send + Sync>>>
+    {
         Box::pin(async move {
             let transactions = self.transactions.lock().unwrap();
             Ok(transactions
@@ -432,10 +447,9 @@ impl AptosRpc for MockAptosRpc {
     fn get_block_by_version(
         &self,
         version: u64,
-    ) -> BoxFuture<'_, Result<Option<AptosBlockInfo>, Box<dyn std::error::Error + Send + Sync>>> {
-        Box::pin(async move {
-            Ok(self.blocks.lock().unwrap().get(&version).cloned())
-        })
+    ) -> BoxFuture<'_, Result<Option<AptosBlockInfo>, Box<dyn std::error::Error + Send + Sync>>>
+    {
+        Box::pin(async move { Ok(self.blocks.lock().unwrap().get(&version).cloned()) })
     }
 
     fn get_events_by_account(
@@ -456,17 +470,18 @@ impl AptosRpc for MockAptosRpc {
         })
     }
 
-    fn get_latest_version(&self) -> BoxFuture<'_, Result<u64, Box<dyn std::error::Error + Send + Sync>>> {
+    fn get_latest_version(
+        &self,
+    ) -> BoxFuture<'_, Result<u64, Box<dyn std::error::Error + Send + Sync>>> {
         Box::pin(async { Ok(self.latest_version) })
     }
 
     fn get_transaction_by_version(
         &self,
         version: u64,
-    ) -> BoxFuture<'_, Result<Option<AptosTransaction>, Box<dyn std::error::Error + Send + Sync>>> {
-        Box::pin(async move {
-            Ok(self.transactions.lock().unwrap().get(&version).cloned())
-        })
+    ) -> BoxFuture<'_, Result<Option<AptosTransaction>, Box<dyn std::error::Error + Send + Sync>>>
+    {
+        Box::pin(async move { Ok(self.transactions.lock().unwrap().get(&version).cloned()) })
     }
 
     fn publish_module(
@@ -501,7 +516,9 @@ impl AptosRpc for MockAptosRpc {
             transactions: std::sync::Mutex::new(self.transactions.lock().unwrap().clone()),
             events: std::sync::Mutex::new(self.events.lock().unwrap().clone()),
             blocks: std::sync::Mutex::new(self.blocks.lock().unwrap().clone()),
-            sent_transactions: std::sync::Mutex::new(self.sent_transactions.lock().unwrap().clone()),
+            sent_transactions: std::sync::Mutex::new(
+                self.sent_transactions.lock().unwrap().clone(),
+            ),
             next_tx_events: std::sync::Mutex::new(self.next_tx_events.lock().unwrap().clone()),
         })
     }
@@ -567,7 +584,10 @@ mod tests {
         };
         rpc.add_event("CSV::Seal", event.clone());
 
-        let fetched = rpc.get_events("CSV::Seal".to_string(), "0".to_string(), 10).await.unwrap();
+        let fetched = rpc
+            .get_events("CSV::Seal".to_string(), "0".to_string(), 10)
+            .await
+            .unwrap();
         assert_eq!(fetched.len(), 1);
     }
 

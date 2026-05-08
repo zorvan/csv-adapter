@@ -58,12 +58,9 @@ impl From<BitcoinError> for csv_core::ProtocolError {
                 csv_core::ProtocolError::InclusionProofFailed(msg)
             }
             BitcoinError::RegistryFull(msg) => csv_core::ProtocolError::Generic(msg),
-            BitcoinError::ReorgDetected { height, depth } => {
-                csv_core::ProtocolError::ReorgInvalid(format!(
-                    "Reorg at height {}, depth {}",
-                    height, depth
-                ))
-            }
+            BitcoinError::ReorgDetected { height, depth } => csv_core::ProtocolError::ReorgInvalid(
+                format!("Reorg at height {}, depth {}", height, depth),
+            ),
             BitcoinError::InsufficientConfirmations { got, need } => {
                 csv_core::ProtocolError::FinalityNotReached(format!(
                     "Got {} confirmations, need {}",
@@ -71,7 +68,9 @@ impl From<BitcoinError> for csv_core::ProtocolError {
                 ))
             }
             BitcoinError::InvalidInput(msg) => csv_core::ProtocolError::InvalidInput(msg),
-            BitcoinError::MpcError(msg) => csv_core::ProtocolError::Generic(format!("MPC: {}", msg)),
+            BitcoinError::MpcError(msg) => {
+                csv_core::ProtocolError::Generic(format!("MPC: {}", msg))
+            }
         }
     }
 }
@@ -171,7 +170,10 @@ impl HasErrorSuggestion for BitcoinError {
                 )
             }
             BitcoinError::InvalidInput(msg) => format!("Check the input parameters: {}", msg),
-            BitcoinError::MpcError(msg) => format!("MPC tree operation failed: {}. Check commitment data and retry.", msg),
+            BitcoinError::MpcError(msg) => format!(
+                "MPC tree operation failed: {}. Check commitment data and retry.",
+                msg
+            ),
             BitcoinError::CoreError(e) => e.suggested_fix(),
         }
     }

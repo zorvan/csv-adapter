@@ -317,7 +317,9 @@ mod tests {
             bcs_data: None,
         });
 
-        let result = StateProofVerifier::verify_object_exists([1u8; 32], &rpc).await.unwrap();
+        let result = StateProofVerifier::verify_object_exists([1u8; 32], &rpc)
+            .await
+            .unwrap();
         assert!(result.is_some());
         assert!(StateProofVerifier::verify_object_exists([99u8; 32], &rpc)
             .await
@@ -329,7 +331,9 @@ mod tests {
     async fn test_verify_object_consumed() {
         let rpc = MockSuiRpc::new(1000);
         // Object not in test data means it's "consumed"
-        assert!(StateProofVerifier::verify_object_consumed([99u8; 32], &rpc).await.unwrap());
+        assert!(StateProofVerifier::verify_object_consumed([99u8; 32], &rpc)
+            .await
+            .unwrap());
     }
 
     #[tokio::test]
@@ -349,10 +353,14 @@ mod tests {
         });
 
         assert!(
-            StateProofVerifier::verify_object_consumed_in_tx([1u8; 32], [2u8; 32], &rpc).await.unwrap()
+            StateProofVerifier::verify_object_consumed_in_tx([1u8; 32], [2u8; 32], &rpc)
+                .await
+                .unwrap()
         );
         assert!(
-            !StateProofVerifier::verify_object_consumed_in_tx([1u8; 32], [99u8; 32], &rpc).await.unwrap()
+            !StateProofVerifier::verify_object_consumed_in_tx([1u8; 32], [99u8; 32], &rpc)
+                .await
+                .unwrap()
         );
     }
 
@@ -411,6 +419,10 @@ mod tests {
         });
 
         // Failed transaction should not verify events
-        assert!(!EventProofVerifier::verify_event_in_tx([1u8; 32], &[], &rpc).await.unwrap());
+        assert!(
+            !EventProofVerifier::verify_event_in_tx([1u8; 32], &[], &rpc)
+                .await
+                .unwrap()
+        );
     }
 }

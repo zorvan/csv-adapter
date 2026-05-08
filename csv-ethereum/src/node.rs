@@ -15,7 +15,10 @@ mod real_rpc_impl {
     use csv_store::SqliteSealStore;
     use serde_json::json;
 
-    use crate::rpc::{EthereumRpc, LogEntry, RpcBlock, RpcTransaction, SingleStorageProof, StorageProof, TransactionReceipt};
+    use crate::rpc::{
+        EthereumRpc, LogEntry, RpcBlock, RpcTransaction, SingleStorageProof, StorageProof,
+        TransactionReceipt,
+    };
     use crate::seal_contract::CsvSealAbi;
     use crate::types::EthereumSealPoint;
 
@@ -170,8 +173,13 @@ mod real_rpc_impl {
             parse_hex_u64(&hex_str)
         }
 
-        async fn get_block_by_tag(&self, tag: &str) -> Result<Option<serde_json::Value>, AlloyRpcError> {
-            let result = self.rpc_call("eth_getBlockByNumber", json!([tag, false])).await?;
+        async fn get_block_by_tag(
+            &self,
+            tag: &str,
+        ) -> Result<Option<serde_json::Value>, AlloyRpcError> {
+            let result = self
+                .rpc_call("eth_getBlockByNumber", json!([tag, false]))
+                .await?;
             if result.is_null() {
                 return Ok(None);
             }
@@ -182,7 +190,9 @@ mod real_rpc_impl {
             &self,
             hash: &str,
         ) -> Result<Option<serde_json::Value>, AlloyRpcError> {
-            let result = self.rpc_call("eth_getBlockByHash", json!([hash, false])).await?;
+            let result = self
+                .rpc_call("eth_getBlockByHash", json!([hash, false]))
+                .await?;
             if result.is_null() {
                 return Ok(None);
             }
@@ -195,14 +205,17 @@ mod real_rpc_impl {
             keys: Vec<&str>,
             block_tag: &str,
         ) -> Result<serde_json::Value, AlloyRpcError> {
-            self.rpc_call("eth_getProof", json!([address, keys, block_tag])).await
+            self.rpc_call("eth_getProof", json!([address, keys, block_tag]))
+                .await
         }
 
         async fn get_tx_receipt_raw(
             &self,
             tx_hash: &str,
         ) -> Result<Option<serde_json::Value>, AlloyRpcError> {
-            let result = self.rpc_call("eth_getTransactionReceipt", json!([tx_hash])).await?;
+            let result = self
+                .rpc_call("eth_getTransactionReceipt", json!([tx_hash]))
+                .await?;
             if result.is_null() {
                 return Ok(None);
             }
@@ -210,7 +223,9 @@ mod real_rpc_impl {
         }
 
         async fn send_raw_tx_raw(&self, tx_data: &str) -> Result<String, AlloyRpcError> {
-            let val = self.rpc_call("eth_sendRawTransaction", json!([tx_data])).await?;
+            let val = self
+                .rpc_call("eth_sendRawTransaction", json!([tx_data]))
+                .await?;
             val.as_str()
                 .ok_or_else(|| AlloyRpcError::Rpc("Invalid tx hash response".to_string()))
                 .map(|s| s.to_string())
@@ -283,11 +298,13 @@ mod real_rpc_impl {
                 .collect();
             let block_tag = format!("0x{:x}", block_number);
 
-            let proof = self.get_proof_raw(
-                &addr_hex,
-                keys_hex.iter().map(|s| s.as_str()).collect(),
-                &block_tag,
-            ).await?;
+            let proof = self
+                .get_proof_raw(
+                    &addr_hex,
+                    keys_hex.iter().map(|s| s.as_str()).collect(),
+                    &block_tag,
+                )
+                .await?;
 
             let account_proof: Vec<Vec<u8>> = proof["accountProof"]
                 .as_array()
@@ -440,7 +457,9 @@ mod real_rpc_impl {
             block_number: u64,
         ) -> Result<Option<RpcBlock>, Box<dyn std::error::Error + Send + Sync>> {
             let tag = format!("0x{:x}", block_number);
-            let result = self.rpc_call("eth_getBlockByNumber", json!([tag, false])).await?;
+            let result = self
+                .rpc_call("eth_getBlockByNumber", json!([tag, false]))
+                .await?;
             if result.is_null() {
                 return Ok(None);
             }
@@ -448,7 +467,8 @@ mod real_rpc_impl {
                 number: block_number,
                 hash: parse_hex_bytes32(result["hash"].as_str().unwrap_or("0x0")),
                 state_root: parse_hex_bytes32(result["stateRoot"].as_str().unwrap_or("0x0")),
-                timestamp: parse_hex_u64(result["timestamp"].as_str().unwrap_or("0x0")).unwrap_or(0),
+                timestamp: parse_hex_u64(result["timestamp"].as_str().unwrap_or("0x0"))
+                    .unwrap_or(0),
             }))
         }
 
@@ -457,17 +477,26 @@ mod real_rpc_impl {
             tx_hash: [u8; 32],
         ) -> Result<Option<RpcTransaction>, Box<dyn std::error::Error + Send + Sync>> {
             let hash_hex = format!("0x{}", hex::encode(tx_hash));
-            let result = self.rpc_call("eth_getTransactionByHash", json!([hash_hex])).await?;
+            let result = self
+                .rpc_call("eth_getTransactionByHash", json!([hash_hex]))
+                .await?;
             if result.is_null() {
                 return Ok(None);
             }
 
             let from = parse_hex_bytes20(result["from"].as_str().unwrap_or("0x0"));
-            let to = result["to"].as_str().filter(|s| !s.is_empty() && *s != "null").map(parse_hex_bytes20);
+            let to = result["to"]
+                .as_str()
+                .filter(|s| !s.is_empty() && *s != "null")
+                .map(parse_hex_bytes20);
             let value = result["value"].as_str().and_then(|s| parse_hex_u64(s).ok());
-            let gas_price = result["gasPrice"].as_str().and_then(|s| parse_hex_u64(s).ok());
+            let gas_price = result["gasPrice"]
+                .as_str()
+                .and_then(|s| parse_hex_u64(s).ok());
             let gas = parse_hex_u64(result["gas"].as_str().unwrap_or("0x0")).unwrap_or(0);
-            let block_number = result["blockNumber"].as_str().and_then(|s| parse_hex_u64(s).ok());
+            let block_number = result["blockNumber"]
+                .as_str()
+                .and_then(|s| parse_hex_u64(s).ok());
 
             Ok(Some(RpcTransaction {
                 hash: tx_hash,
@@ -525,7 +554,9 @@ mod real_rpc_impl {
             address: [u8; 20],
         ) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
             let addr_hex = format!("0x{}", hex::encode(address));
-            let result = self.rpc_call("eth_getBalance", json!([addr_hex, "latest"])).await?;
+            let result = self
+                .rpc_call("eth_getBalance", json!([addr_hex, "latest"]))
+                .await?;
             let hex_str = result.as_str().ok_or("Invalid balance response")?;
             let balance = parse_hex_u64(hex_str)?;
             Ok(balance)
@@ -536,7 +567,9 @@ mod real_rpc_impl {
             address: [u8; 20],
         ) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
             let addr_hex = format!("0x{}", hex::encode(address));
-            let result = self.rpc_call("eth_getTransactionCount", json!([addr_hex, "latest"])).await?;
+            let result = self
+                .rpc_call("eth_getTransactionCount", json!([addr_hex, "latest"]))
+                .await?;
             let hex_str = result
                 .as_str()
                 .ok_or("Invalid transaction count response")?;
@@ -549,7 +582,9 @@ mod real_rpc_impl {
             address: [u8; 20],
         ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
             let addr_hex = format!("0x{}", hex::encode(address));
-            let result = self.rpc_call("eth_getCode", json!([addr_hex, "latest"])).await?;
+            let result = self
+                .rpc_call("eth_getCode", json!([addr_hex, "latest"]))
+                .await?;
             let hex_str = result.as_str().ok_or("Invalid code response")?;
             Ok(parse_hex_bytes(hex_str))
         }
@@ -577,7 +612,9 @@ mod real_rpc_impl {
 
         // Step 2: Get current nonce
         let signer_addr = format!("0x{}", hex::encode(signer.address()));
-        let nonce_str = rpc.rpc_call("eth_getTransactionCount", json!([signer_addr, "latest"])).await?;
+        let nonce_str = rpc
+            .rpc_call("eth_getTransactionCount", json!([signer_addr, "latest"]))
+            .await?;
         let nonce_str = nonce_str.as_str().ok_or("Invalid nonce response")?;
         let nonce = u64::from_str_radix(nonce_str.trim_start_matches("0x"), 16)
             .map_err(|e| format!("Failed to parse nonce: {}", e))?;

@@ -69,19 +69,19 @@ fn cmd_create(
     output::header(&format!("Creating Sanad on {}", chain));
 
     // Use the new runtime to create the sanad
+    use csv_core::ChainId;
     use csv_sdk::CsvClient;
     use csv_sdk::StoreBackend;
-    use csv_core::ChainId;
 
- // Map CLI Chain to core Chain
-     let core_chain = csv_core::ChainId::new(chain.as_str());
+    // Map CLI Chain to core Chain
+    let core_chain = csv_core::ChainId::new(chain.as_str());
 
-     // Build CSV client with the requested chain enabled
-     let client = CsvClient::builder()
-         .with_chain(core_chain.clone())
-         .with_store_backend(StoreBackend::InMemory)
-         .build()
-         .map_err(|e| anyhow::anyhow!("Failed to build CSV client: {}", e))?;
+    // Build CSV client with the requested chain enabled
+    let client = CsvClient::builder()
+        .with_chain(core_chain.clone())
+        .with_store_backend(StoreBackend::InMemory)
+        .build()
+        .map_err(|e| anyhow::anyhow!("Failed to build CSV client: {}", e))?;
 
     // Generate a commitment for the sanad
     let commitment_bytes: [u8; 32] = {
@@ -101,7 +101,7 @@ fn cmd_create(
     match client.sanads().create(commitment, core_chain) {
         Ok(sanad) => {
             let sanad_id_hex = hex::encode(sanad.id.as_bytes());
-            
+
             // Track the sanad in local state
             let tracked = SanadRecord {
                 id: sanad_id_hex.clone(),

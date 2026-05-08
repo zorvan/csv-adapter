@@ -6,10 +6,10 @@
 #[allow(clippy::module_inception)]
 #[cfg(feature = "rpc")]
 pub mod real_rpc_impl {
+    use solana_commitment_config::CommitmentConfig;
     use solana_sdk::{
         account::Account, pubkey::Pubkey, signature::Signature, transaction::Transaction,
     };
-    use solana_commitment_config::CommitmentConfig;
 
     use crate::error::{SolanaError, SolanaResult};
     use crate::rpc::SolanaRpc;
@@ -25,7 +25,10 @@ pub mod real_rpc_impl {
         /// Create new RPC client with default commitment
         pub fn new(rpc_url: &str) -> Self {
             let client = solana_rpc_client::rpc_client::RpcClient::new(rpc_url.to_string());
-            Self { client, url: rpc_url.to_string() }
+            Self {
+                client,
+                url: rpc_url.to_string(),
+            }
         }
 
         /// Create with specific commitment level
@@ -40,7 +43,10 @@ pub mod real_rpc_impl {
                 rpc_url.to_string(),
                 commitment_config,
             );
-            Self { client, url: rpc_url.to_string() }
+            Self {
+                client,
+                url: rpc_url.to_string(),
+            }
         }
 
         /// Get the underlying RPC client for advanced operations
@@ -56,10 +62,7 @@ pub mod real_rpc_impl {
                 .map_err(|e| SolanaError::Rpc(format!("Failed to get account {}: {}", pubkey, e)))
         }
 
-        fn get_multiple_accounts(
-            &self,
-            pubkeys: &[Pubkey],
-        ) -> SolanaResult<Vec<Option<Account>>> {
+        fn get_multiple_accounts(&self, pubkeys: &[Pubkey]) -> SolanaResult<Vec<Option<Account>>> {
             self.client
                 .get_multiple_accounts(pubkeys)
                 .map_err(|e| SolanaError::Rpc(format!("Failed to get multiple accounts: {}", e)))
@@ -67,14 +70,16 @@ pub mod real_rpc_impl {
 
         fn get_transaction(&self, signature: &Signature) -> SolanaResult<String> {
             // Use get_signature_status to check if transaction exists and return status info
-            let status = self
-                .client
-                .get_signature_status(signature)
-                .map_err(|e| SolanaError::Rpc(format!("Failed to get transaction status: {}", e)))?;
-            
+            let status = self.client.get_signature_status(signature).map_err(|e| {
+                SolanaError::Rpc(format!("Failed to get transaction status: {}", e))
+            })?;
+
             match status {
                 Some(Ok(())) => Ok(format!("Transaction {{ signature: {} }}", signature)),
-                Some(Err(e)) => Err(SolanaError::TransactionFailed(format!("Transaction failed: {:?}", e))),
+                Some(Err(e)) => Err(SolanaError::TransactionFailed(format!(
+                    "Transaction failed: {:?}",
+                    e
+                ))),
                 None => Err(SolanaError::Rpc("Transaction not found".to_string())),
             }
         }
@@ -115,10 +120,7 @@ pub mod real_rpc_impl {
             Ok(vec![])
         }
 
-        fn wait_for_confirmation(
-            &self,
-            signature: &Signature,
-        ) -> SolanaResult<ConfirmationStatus> {
+        fn wait_for_confirmation(&self, signature: &Signature) -> SolanaResult<ConfirmationStatus> {
             // Poll for confirmation with exponential backoff using std::thread::sleep
             let mut retries = 0;
             let max_retries = 30;
@@ -128,9 +130,15 @@ pub mod real_rpc_impl {
                 match self.client.get_signature_status(signature) {
                     Ok(Some(Ok(()))) => {
                         // Transaction confirmed - check if finalized by looking at block height
-                        match self.client.get_slot_with_commitment(CommitmentConfig::finalized()) {
+                        match self
+                            .client
+                            .get_slot_with_commitment(CommitmentConfig::finalized())
+                        {
                             Ok(finalized_slot) => {
-                                match self.client.get_slot_with_commitment(CommitmentConfig::confirmed()) {
+                                match self
+                                    .client
+                                    .get_slot_with_commitment(CommitmentConfig::confirmed())
+                                {
                                     Ok(confirmed_slot) => {
                                         if confirmed_slot <= finalized_slot {
                                             return Ok(ConfirmationStatus::Finalized);
@@ -145,13 +153,19 @@ pub mod real_rpc_impl {
                         }
                     }
                     Ok(Some(Err(e))) => {
-                        return Err(SolanaError::TransactionFailed(format!("Transaction failed: {:?}", e)));
+                        return Err(SolanaError::TransactionFailed(format!(
+                            "Transaction failed: {:?}",
+                            e
+                        )));
                     }
                     Ok(None) => {
                         // Transaction not found yet, wait
                     }
                     Err(e) => {
-                        return Err(SolanaError::Rpc(format!("Failed to get signature status: {}", e)));
+                        return Err(SolanaError::Rpc(format!(
+                            "Failed to get signature status: {}",
+                            e
+                        )));
                     }
                 }
 
@@ -159,7 +173,9 @@ pub mod real_rpc_impl {
                 std::thread::sleep(std::time::Duration::from_millis(500 * retries.min(10)));
             }
 
-            Err(SolanaError::Timeout("Transaction confirmation timeout".to_string()))
+            Err(SolanaError::Timeout(
+                "Transaction confirmation timeout".to_string(),
+            ))
         }
 
         fn get_minimum_balance_for_rent_exemption(&self, data_len: usize) -> SolanaResult<u64> {
@@ -175,9 +191,9 @@ pub mod real_rpc_impl {
         }
 
         fn get_balance(&self, pubkey: &Pubkey) -> SolanaResult<u64> {
-            self.client
-                .get_balance(pubkey)
-                .map_err(|e| SolanaError::Rpc(format!("Failed to get balance for {}: {}", pubkey, e)))
+            self.client.get_balance(pubkey).map_err(|e| {
+                SolanaError::Rpc(format!("Failed to get balance for {}: {}", pubkey, e))
+            })
         }
 
         fn clone_boxed(&self) -> Box<dyn SolanaRpc> {

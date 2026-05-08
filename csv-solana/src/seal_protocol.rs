@@ -6,7 +6,7 @@
 
 use csv_core::seal_protocol::SealProtocol;
 use csv_core::{
-    dag::DAGSegment, proof::ProofBundle, signature::SignatureScheme, ProtocolError, Hash, Result,
+    dag::DAGSegment, proof::ProofBundle, signature::SignatureScheme, Hash, ProtocolError, Result,
 };
 use sha2::{Digest, Sha256};
 use solana_sdk::pubkey::Pubkey;
@@ -16,8 +16,8 @@ use crate::config::SolanaConfig;
 use crate::error::{SolanaError, SolanaResult};
 use crate::rpc::SolanaRpc;
 use crate::types::{
-    AccountChange, ConfirmationStatus, SolanaCommitAnchor, SolanaFinalityProof, SolanaInclusionProof,
-    SolanaSealPoint,
+    AccountChange, ConfirmationStatus, SolanaCommitAnchor, SolanaFinalityProof,
+    SolanaInclusionProof, SolanaSealPoint,
 };
 use crate::wallet::ProgramWallet;
 
@@ -72,12 +72,12 @@ impl SolanaSealProtocol {
     ) -> crate::error::SolanaResult<Self> {
         // Build wallet from config keypair if provided
         let wallet = match &config.keypair {
-            Some(keypair_str) => {
-                Some(ProgramWallet::from_base58(keypair_str)
-                    .map_err(|e| crate::error::SolanaError::Wallet(
-                        format!("Failed to create wallet from keypair: {}", e)
-                    ))?)
-            }
+            Some(keypair_str) => Some(ProgramWallet::from_base58(keypair_str).map_err(|e| {
+                crate::error::SolanaError::Wallet(format!(
+                    "Failed to create wallet from keypair: {}",
+                    e
+                ))
+            })?),
             None => {
                 log::debug!("No keypair provided in config, wallet operations will be unavailable");
                 None
@@ -203,15 +203,13 @@ impl SealProtocol for SolanaSealProtocol {
         let rpc = self.check_rpc()?;
 
         // Get recent blockhash
-        let recent_blockhash = rpc.get_recent_blockhash()
+        let recent_blockhash = rpc
+            .get_recent_blockhash()
             .map_err(|e| SolanaError::Rpc(format!("Failed to get recent blockhash: {}", e)))?;
 
         // Create system program instruction to transfer lamports and create account
         let create_account_ix = system_instruction::create_account(
-            &owner,
-            &seal_pda,
-            lamports,
-            32, // data size for seal
+            &owner, &seal_pda, lamports, 32,     // data size for seal
             &owner, // owner program
         );
 
@@ -226,15 +224,18 @@ impl SealProtocol for SolanaSealProtocol {
         transaction.sign(&[&wallet.keypair], recent_blockhash);
 
         // Send transaction via RPC
-        let signature = rpc.send_transaction(&transaction)
+        let signature = rpc
+            .send_transaction(&transaction)
             .map_err(|e| SolanaError::Rpc(format!("Failed to send transaction: {}", e)))?;
 
         // Wait for confirmation
-        let _status = rpc.wait_for_confirmation(&signature)
+        let _status = rpc
+            .wait_for_confirmation(&signature)
             .map_err(|e| SolanaError::Rpc(format!("Transaction confirmation failed: {}", e)))?;
 
         // Get slot information
-        let _slot = rpc.get_latest_slot()
+        let _slot = rpc
+            .get_latest_slot()
             .map_err(|e| SolanaError::Rpc(format!("Failed to get slot: {}", e)))?;
 
         // Store seal reference locally for tracking
@@ -255,7 +256,8 @@ impl SealProtocol for SolanaSealProtocol {
         let commitment_pda = self.derive_commitment_pda(&hash);
 
         // Get recent blockhash
-        let recent_blockhash = rpc.get_recent_blockhash()
+        let recent_blockhash = rpc
+            .get_recent_blockhash()
             .map_err(|e| SolanaError::Rpc(format!("Failed to get recent blockhash: {}", e)))?;
 
         // Build instruction data with discriminator and commitment hash
@@ -274,25 +276,26 @@ impl SealProtocol for SolanaSealProtocol {
         );
 
         // Build transaction
-        let mut transaction = solana_sdk::transaction::Transaction::new_with_payer(
-            &[publish_ix],
-            Some(&owner),
-        );
+        let mut transaction =
+            solana_sdk::transaction::Transaction::new_with_payer(&[publish_ix], Some(&owner));
         transaction.message.recent_blockhash = recent_blockhash;
 
         // Sign transaction
         transaction.sign(&[&wallet.keypair], recent_blockhash);
 
         // Send transaction via RPC
-        let signature = rpc.send_transaction(&transaction)
+        let signature = rpc
+            .send_transaction(&transaction)
             .map_err(|e| SolanaError::Rpc(format!("Failed to send transaction: {}", e)))?;
 
         // Wait for confirmation
-        let _status = rpc.wait_for_confirmation(&signature)
+        let _status = rpc
+            .wait_for_confirmation(&signature)
             .map_err(|e| SolanaError::Rpc(format!("Transaction confirmation failed: {}", e)))?;
 
         // Get slot information
-        let slot = rpc.get_latest_slot()
+        let slot = rpc
+            .get_latest_slot()
             .map_err(|e| SolanaError::Rpc(format!("Failed to get slot: {}", e)))?;
 
         let anchor_ref = SolanaCommitAnchor {

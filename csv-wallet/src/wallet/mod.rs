@@ -17,6 +17,6 @@ pub mod storage;
 pub use account::ChainAccount;
 pub use context::WalletContext;
 pub use data::WalletData;
-pub use hd::{ExtendedWallet, BitcoinNetwork};
+pub use hd::{BitcoinNetwork, ExtendedWallet};
 pub use metadata::WalletMetadata;
 pub use storage::WalletStorage;

@@ -48,10 +48,9 @@ pub fn verify_aptos_signature(signature: &[u8], public_key: &[u8], message: &[u8
         })?;
 
     // Parse the signature
-    let sig =
-        ed25519_dalek::Signature::from_bytes(signature.try_into().map_err(|_| {
-            ProtocolError::SignatureVerificationFailed("Invalid signature".to_string())
-        })?);
+    let sig = ed25519_dalek::Signature::from_bytes(signature.try_into().map_err(|_| {
+        ProtocolError::SignatureVerificationFailed("Invalid signature".to_string())
+    })?);
 
     // Verify the signature
     use ed25519_dalek::Verifier;

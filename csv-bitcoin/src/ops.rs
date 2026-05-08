@@ -16,8 +16,8 @@ use csv_core::proof::{FinalityProof, InclusionProof as CoreInclusionProof};
 use csv_core::sanad::SanadId;
 use csv_core::signature::SignatureScheme;
 
-use crate::seal_protocol::BitcoinSealProtocol;
 use crate::rpc::BitcoinRpc;
+use crate::seal_protocol::BitcoinSealProtocol;
 use crate::types::BitcoinSealPoint;
 use csv_core::SealProtocol;
 
@@ -77,9 +77,12 @@ impl ChainQuery for BitcoinChainQuery {
         })
     }
 
-    async fn get_transaction(&self, tx_hash: &str) -> ChainOpResult<csv_core::backend::TransactionInfo> {
+    async fn get_transaction(
+        &self,
+        tx_hash: &str,
+    ) -> ChainOpResult<csv_core::backend::TransactionInfo> {
         use csv_core::backend::{TransactionInfo, TransactionStatus};
-        
+
         // Parse the txid
         let txid_bytes = hex::decode(tx_hash.trim_start_matches("0x"))
             .map_err(|e| ChainOpError::InvalidInput(format!("Invalid tx hash: {}", e)))?;
@@ -102,7 +105,10 @@ impl ChainQuery for BitcoinChainQuery {
         let status = if confirmations == 0 {
             TransactionStatus::Pending
         } else {
-            TransactionStatus::Confirmed { block_height: 0, confirmations: confirmations as u64 }
+            TransactionStatus::Confirmed {
+                block_height: 0,
+                confirmations: confirmations as u64,
+            }
         };
 
         Ok(TransactionInfo {
@@ -120,7 +126,7 @@ impl ChainQuery for BitcoinChainQuery {
 
     async fn get_finality(&self, tx_hash: &str) -> ChainOpResult<FinalityStatus> {
         let tx_info = self.get_transaction(tx_hash).await?;
-        
+
         match tx_info.status {
             csv_core::backend::TransactionStatus::Pending => Ok(FinalityStatus::Pending),
             csv_core::backend::TransactionStatus::Confirmed { block_height, .. } => {
@@ -168,7 +174,7 @@ impl ChainQuery for BitcoinChainQuery {
     async fn get_account_nonce(&self, _address: &str) -> ChainOpResult<u64> {
         // Bitcoin doesn't have account nonces - it uses UTXOs
         Err(ChainOpError::CapabilityUnavailable(
-            "Bitcoin does not support account nonces (uses UTXO model)".to_string()
+            "Bitcoin does not support account nonces (uses UTXO model)".to_string(),
         ))
     }
 
@@ -195,9 +201,9 @@ impl BitcoinChainSigner {
 impl ChainSigner for BitcoinChainSigner {
     fn derive_address(&self, public_key: &[u8]) -> ChainOpResult<String> {
         // Derive a Bitcoin Taproot (P2TR) address from a public key
-        use secp256k1::{PublicKey, XOnlyPublicKey};
         use bitcoin::address::Address;
         use bitcoin::key::TweakedPublicKey;
+        use secp256k1::{PublicKey, XOnlyPublicKey};
 
         let pub_key = PublicKey::from_slice(public_key)
             .map_err(|e| ChainOpError::InvalidInput(format!("Invalid public key: {}", e)))?;
@@ -206,24 +212,22 @@ impl ChainSigner for BitcoinChainSigner {
         let tweaked = TweakedPublicKey::dangerous_assume_tweaked(x_only_pubkey);
 
         // Build Taproot address (P2TR) - tweaked key path spend
-        let address = Address::p2tr_tweaked(
-            tweaked,
-            self.network,
-        );
+        let address = Address::p2tr_tweaked(tweaked, self.network);
 
         Ok(address.to_string())
     }
 
     async fn sign_transaction(&self, tx_data: &[u8], key_id: &str) -> ChainOpResult<Vec<u8>> {
         // Parse key_id as hex-encoded private key (32 bytes)
-        let key_bytes = hex::decode(key_id)
-            .map_err(|_| ChainOpError::SigningError(
-                "Invalid key_id format. Expected hex-encoded 32-byte key.".to_string()
-            ))?;
+        let key_bytes = hex::decode(key_id).map_err(|_| {
+            ChainOpError::SigningError(
+                "Invalid key_id format. Expected hex-encoded 32-byte key.".to_string(),
+            )
+        })?;
 
         if key_bytes.len() != 32 {
             return Err(ChainOpError::SigningError(
-                "Invalid key length. Expected 32 bytes.".to_string()
+                "Invalid key length. Expected 32 bytes.".to_string(),
             ));
         }
 
@@ -232,8 +236,9 @@ impl ChainSigner for BitcoinChainSigner {
 
         // Parse the transaction from bytes
         // Expected format: version (4) + marker+flag (2 for segwit) + inputs + outputs + witness + locktime
-        let tx = parse_bitcoin_tx(tx_data)
-            .map_err(|e| ChainOpError::InvalidInput(format!("Failed to parse transaction: {}", e)))?;
+        let tx = parse_bitcoin_tx(tx_data).map_err(|e| {
+            ChainOpError::InvalidInput(format!("Failed to parse transaction: {}", e))
+        })?;
 
         // Sign each input (P2WPKH)
         let secp = secp256k1::Secp256k1::new();
@@ -247,11 +252,12 @@ impl ChainSigner for BitcoinChainSigner {
             // Create sighash for P2WPKH: hash of the transaction with this input's scriptCode
             // For P2WPKH: scriptCode = 0x1976a914{20-byte-pubkey-hash}88ac
             // But for Taproot (P2TR), we use a different sighash algorithm
-            
+
             // Simplified: sign the tx hash directly for demonstration
             // Real implementation needs proper sighash computation per BIP-143 (SegWit) or BIP-341 (Taproot)
-            let sighash = compute_sighash(&tx, input, &pubkey_bytes)
-                .map_err(|e| ChainOpError::SigningError(format!("Failed to compute sighash: {}", e)))?;
+            let sighash = compute_sighash(&tx, input, &pubkey_bytes).map_err(|e| {
+                ChainOpError::SigningError(format!("Failed to compute sighash: {}", e))
+            })?;
 
             let message = secp256k1::Message::from_digest_slice(&sighash)
                 .map_err(|e| ChainOpError::SigningError(format!("Invalid sighash: {}", e)))?;
@@ -275,8 +281,8 @@ impl ChainSigner for BitcoinChainSigner {
         // The key_id should reference a private key in the keystore
         // For production, this would retrieve the key from secure storage
 
-        use secp256k1::{Message, Secp256k1, SecretKey};
         use bitcoin_hashes::{sha256d, Hash};
+        use secp256k1::{Message, Secp256k1, SecretKey};
 
         // Bitcoin message signing prefix
         const BITCOIN_SIGNED_MESSAGE_PREFIX: &[u8] = b"\x18Bitcoin Signed Message:\n";
@@ -287,14 +293,15 @@ impl ChainSigner for BitcoinChainSigner {
 
         // Parse key_id as hex-encoded secret key (for testing/development only)
         // In production, this should use the keystore crate
-        let key_bytes = hex::decode(key_id)
-            .map_err(|_| ChainOpError::SigningError(
-                "Invalid key_id format. Expected hex-encoded key reference.".to_string()
-            ))?;
+        let key_bytes = hex::decode(key_id).map_err(|_| {
+            ChainOpError::SigningError(
+                "Invalid key_id format. Expected hex-encoded key reference.".to_string(),
+            )
+        })?;
 
         if key_bytes.len() != 32 {
             return Err(ChainOpError::SigningError(
-                "Invalid key length. Expected 32 bytes.".to_string()
+                "Invalid key length. Expected 32 bytes.".to_string(),
             ));
         }
 
@@ -326,8 +333,8 @@ impl ChainSigner for BitcoinChainSigner {
         public_key: &[u8],
     ) -> ChainOpResult<bool> {
         // Verify a Bitcoin message signature using secp256k1
-        use secp256k1::{Message, Secp256k1, PublicKey, ecdsa::Signature};
         use bitcoin_hashes::{sha256d, Hash as BitcoinHash};
+        use secp256k1::{ecdsa::Signature, Message, PublicKey, Secp256k1};
 
         // Bitcoin message signing prefix
         const BITCOIN_SIGNED_MESSAGE_PREFIX: &[u8] = b"\x18Bitcoin Signed Message:\n";
@@ -339,7 +346,7 @@ impl ChainSigner for BitcoinChainSigner {
         // Parse signature (64 bytes compact format)
         if signature.len() != 64 {
             return Err(ChainOpError::InvalidInput(
-                "Signature must be 64 bytes in compact format".to_string()
+                "Signature must be 64 bytes in compact format".to_string(),
             ));
         }
 
@@ -412,14 +419,16 @@ impl ChainBroadcaster for BitcoinChainBroadcaster {
             let mut txid_array = [0u8; 32];
             txid_array.copy_from_slice(&txid_bytes);
 
-            let confirmations = self
-                .rpc
-                .get_tx_confirmations(txid_array)
-                .map_err(|e| ChainOpError::RpcError(format!("Failed to get confirmations: {}", e)))?;
+            let confirmations = self.rpc.get_tx_confirmations(txid_array).map_err(|e| {
+                ChainOpError::RpcError(format!("Failed to get confirmations: {}", e))
+            })?;
 
             if confirmations >= required_confirmations {
                 use csv_core::backend::TransactionStatus;
-                return Ok(TransactionStatus::Confirmed { block_height: 0, confirmations: confirmations as u64 });
+                return Ok(TransactionStatus::Confirmed {
+                    block_height: 0,
+                    confirmations: confirmations as u64,
+                });
             }
 
             if start.elapsed().as_secs() >= timeout_secs {
@@ -559,7 +568,6 @@ impl ChainProofProvider for BitcoinChainProofProvider {
 
     async fn build_finality_proof(&self, tx_hash: &str) -> ChainOpResult<FinalityProof> {
         // Build a finality proof (SPV proof of confirmation depth)
-        
 
         // Parse txid
         let txid_bytes = hex::decode(tx_hash.trim_start_matches("0x"))
@@ -613,11 +621,7 @@ impl ChainProofProvider for BitcoinChainProofProvider {
         })
     }
 
-    fn verify_finality_proof(
-        &self,
-        proof: &FinalityProof,
-        tx_hash: &str,
-    ) -> ChainOpResult<bool> {
+    fn verify_finality_proof(&self, proof: &FinalityProof, tx_hash: &str) -> ChainOpResult<bool> {
         // Verify a finality proof by checking confirmation depth and chain context
         // Bitcoin uses 6 confirmations as standard finality threshold
 
@@ -635,22 +639,22 @@ impl ChainProofProvider for BitcoinChainProofProvider {
         // Format could be: [block_header (80 bytes), confirmation_count (8 bytes)]
         if proof.finality_data.len() >= 88 {
             // Extract confirmation count from data if available
-            let data_confirmations = u64::from_le_bytes(
-                proof.finality_data[80..88].try_into()
-                    .unwrap_or([0u8; 8])
-            );
-            
+            let data_confirmations =
+                u64::from_le_bytes(proof.finality_data[80..88].try_into().unwrap_or([0u8; 8]));
+
             // Verify consistency between struct field and data
             if data_confirmations != proof.confirmations {
                 return Err(ChainOpError::ProofVerificationError(
-                    "Confirmation count mismatch in finality proof".to_string()
+                    "Confirmation count mismatch in finality proof".to_string(),
                 ));
             }
         }
 
         // Additional verification: ensure tx_hash is reasonable
         if tx_hash.len() != 64 && tx_hash.len() != 66 {
-            return Err(ChainOpError::InvalidInput("Invalid tx_hash format".to_string()));
+            return Err(ChainOpError::InvalidInput(
+                "Invalid tx_hash format".to_string(),
+            ));
         }
 
         Ok(true)
@@ -774,11 +778,11 @@ impl BitcoinChainSanadOps {
         lock_seal: BitcoinSealPoint,
         _owner_key: &[u8],
     ) -> Result<bitcoin::Transaction, String> {
-      let lock_outpoint = bitcoin::OutPoint {
-             txid: bitcoin::Txid::from_byte_array(lock_seal.txid),
-             vout: lock_seal.vout,
-         };
-        
+        let lock_outpoint = bitcoin::OutPoint {
+            txid: bitcoin::Txid::from_byte_array(lock_seal.txid),
+            vout: lock_seal.vout,
+        };
+
         // Build refund transaction that spends the lock UTXO
         let tx = bitcoin::Transaction {
             version: bitcoin::transaction::Version::TWO,
@@ -791,7 +795,7 @@ impl BitcoinChainSanadOps {
             }],
             output: vec![], // Would contain refund output to owner
         };
-        
+
         Ok(tx)
     }
 
@@ -803,7 +807,7 @@ impl BitcoinChainSanadOps {
     ) -> ChainOpResult<String> {
         // Sign and broadcast via RPC
         Err(ChainOpError::CapabilityUnavailable(
-            "Refund transaction signing requires wallet integration".to_string()
+            "Refund transaction signing requires wallet integration".to_string(),
         ))
     }
 
@@ -840,7 +844,7 @@ impl BitcoinChainSanadOps {
         _owner_key: &[u8],
     ) -> ChainOpResult<String> {
         Err(ChainOpError::CapabilityUnavailable(
-            "Lock transaction signing requires wallet integration".to_string()
+            "Lock transaction signing requires wallet integration".to_string(),
         ))
     }
 
@@ -851,10 +855,10 @@ impl BitcoinChainSanadOps {
         _metadata: &[u8],
         _owner_key: &[u8],
     ) -> Result<bitcoin::Transaction, String> {
-     let seal_outpoint = bitcoin::OutPoint {
-             txid: bitcoin::Txid::from_byte_array(seal.txid),
-             vout: seal.vout,
-         };
+        let seal_outpoint = bitcoin::OutPoint {
+            txid: bitcoin::Txid::from_byte_array(seal.txid),
+            vout: seal.vout,
+        };
         let op_return_script = bitcoin::ScriptBuf::new();
         let tx = bitcoin::Transaction {
             version: bitcoin::transaction::Version::TWO,
@@ -865,12 +869,10 @@ impl BitcoinChainSanadOps {
                 sequence: bitcoin::Sequence::from_consensus(0xffffffff),
                 witness: bitcoin::Witness::new(),
             }],
-            output: vec![
-                bitcoin::TxOut {
-                    value: bitcoin::Amount::from_sat(0),
-                    script_pubkey: op_return_script,
-                },
-            ],
+            output: vec![bitcoin::TxOut {
+                value: bitcoin::Amount::from_sat(0),
+                script_pubkey: op_return_script,
+            }],
         };
         Ok(tx)
     }
@@ -882,7 +884,7 @@ impl BitcoinChainSanadOps {
         _owner_key: &[u8],
     ) -> ChainOpResult<String> {
         Err(ChainOpError::CapabilityUnavailable(
-            "Metadata transaction signing requires wallet integration".to_string()
+            "Metadata transaction signing requires wallet integration".to_string(),
         ))
     }
 }
@@ -935,49 +937,61 @@ impl ChainSanadOps for BitcoinChainSanadOps {
     ) -> ChainOpResult<SanadOperationResult> {
         // Lock a sanad for cross-chain transfer by creating a lock UTXO
         // The lock UTXO contains the destination chain hash in its script
-        
+
         // Parse the destination chain to ensure it's valid
-        let _destination = destination_chain.parse::<csv_core::ChainId>()
-            .map_err(|_| ChainOpError::InvalidInput(format!("Invalid destination chain: {}", destination_chain)))?;
-        
+        let _destination = destination_chain
+            .parse::<csv_core::ChainId>()
+            .map_err(|_| {
+                ChainOpError::InvalidInput(format!(
+                    "Invalid destination chain: {}",
+                    destination_chain
+                ))
+            })?;
+
         // Get the sanad's associated UTXO (seal)
-        let seal = self.adapter.find_seal_for_sanad(sanad_id)
-            .ok_or_else(|| ChainOpError::InvalidInput(format!("Failed to find seal for sanad: {}", hex::encode(sanad_id.as_bytes()))))?;
-        
+        let seal = self.adapter.find_seal_for_sanad(sanad_id).ok_or_else(|| {
+            ChainOpError::InvalidInput(format!(
+                "Failed to find seal for sanad: {}",
+                hex::encode(sanad_id.as_bytes())
+            ))
+        })?;
+
         // Build lock transaction that:
         // 1. Spends the seal UTXO
         // 2. Creates a new UTXO with lock script containing destination commitment
         // 3. Uses CSV (CheckSequenceVerify) for timeout refund capability
-        
+
         // Parse owner key for signing
         let key_bytes = hex::decode(owner_key_id)
             .map_err(|_| ChainOpError::InvalidInput("Invalid owner key ID format".to_string()))?;
-        
+
         if key_bytes.len() != 32 {
-            return Err(ChainOpError::InvalidInput("Owner key must be 32 bytes".to_string()));
+            return Err(ChainOpError::InvalidInput(
+                "Owner key must be 32 bytes".to_string(),
+            ));
         }
-        
+
         // Build lock script that encodes the destination chain
         // This is a hash160 of the destination chain name
         use bitcoin_hashes::{sha256d, Hash};
         let dest_hash = sha256d::Hash::hash(destination_chain.as_bytes());
-        
+
         // Create the lock UTXO outpoint reference
-      let lock_outpoint = bitcoin::OutPoint {
-             txid: bitcoin::Txid::from_byte_array(seal.txid),
-             vout: seal.vout,
-         };
-        
+        let lock_outpoint = bitcoin::OutPoint {
+            txid: bitcoin::Txid::from_byte_array(seal.txid),
+            vout: seal.vout,
+        };
+
         // Build the lock transaction
-        let lock_tx = self.build_lock_transaction(
-            lock_outpoint,
-            &dest_hash,
-            &key_bytes,
-        ).map_err(|e| ChainOpError::TransactionError(format!("Failed to build lock tx: {}", e)))?;
-        
+        let lock_tx = self
+            .build_lock_transaction(lock_outpoint, &dest_hash, &key_bytes)
+            .map_err(|e| {
+                ChainOpError::TransactionError(format!("Failed to build lock tx: {}", e))
+            })?;
+
         // Sign and broadcast the lock transaction
         let signed_tx = self.sign_and_broadcast_lock(lock_tx, &key_bytes).await?;
-        
+
         Ok(SanadOperationResult {
             sanad_id: sanad_id.clone(),
             operation: csv_core::backend::SanadOperation::Lock,
@@ -990,9 +1004,9 @@ impl ChainSanadOps for BitcoinChainSanadOps {
                 "timeout_blocks": 144, // ~24 hours
             }),
         })
-     }
+    }
 
-     async fn mint_sanad(
+    async fn mint_sanad(
         &self,
         _source_chain: &str,
         _source_sanad_id: &SanadId,
@@ -1012,39 +1026,50 @@ impl ChainSanadOps for BitcoinChainSanadOps {
     ) -> ChainOpResult<SanadOperationResult> {
         // Refund a locked sanad after CSV timeout expires
         // This spends the lock UTXO back to the owner
-        
+
         // Parse owner key
         let key_bytes = hex::decode(owner_key_id)
             .map_err(|_| ChainOpError::InvalidInput("Invalid owner key ID format".to_string()))?;
-        
+
         if key_bytes.len() != 32 {
-            return Err(ChainOpError::InvalidInput("Owner key must be 32 bytes".to_string()));
+            return Err(ChainOpError::InvalidInput(
+                "Owner key must be 32 bytes".to_string(),
+            ));
         }
-        
+
         // Get the lock UTXO for this sanad
-        let lock_seal = self.adapter.find_seal_for_sanad(sanad_id)
-            .ok_or_else(|| ChainOpError::InvalidInput(format!("Failed to find lock seal for sanad: {}", hex::encode(sanad_id.as_bytes()))))?;
-        
+        let lock_seal = self.adapter.find_seal_for_sanad(sanad_id).ok_or_else(|| {
+            ChainOpError::InvalidInput(format!(
+                "Failed to find lock seal for sanad: {}",
+                hex::encode(sanad_id.as_bytes())
+            ))
+        })?;
+
         // Verify CSV timeout has expired (144 blocks = ~24 hours)
         let current_height = self.adapter.get_current_height();
         let csv_timeout = 144u64;
-        
+
         if current_height < csv_timeout {
-            return Err(ChainOpError::InvalidInput(
-                format!("CSV timeout not yet expired. Current: {}, Required: {}", 
-                    current_height, csv_timeout)
-            ));
+            return Err(ChainOpError::InvalidInput(format!(
+                "CSV timeout not yet expired. Current: {}, Required: {}",
+                current_height, csv_timeout
+            )));
         }
-        
+
         // Build refund transaction
         let lock_seal_txid = lock_seal.txid;
         let lock_seal_vout = lock_seal.vout;
-        let refund_tx = self.build_refund_transaction(lock_seal, &key_bytes)
-            .map_err(|e| ChainOpError::TransactionError(format!("Failed to build refund tx: {}", e)))?;
-        
+        let refund_tx = self
+            .build_refund_transaction(lock_seal, &key_bytes)
+            .map_err(|e| {
+                ChainOpError::TransactionError(format!("Failed to build refund tx: {}", e))
+            })?;
+
         // Sign and broadcast
-        let signed_tx = self.sign_and_broadcast_refund(refund_tx, &key_bytes).await?;
-        
+        let signed_tx = self
+            .sign_and_broadcast_refund(refund_tx, &key_bytes)
+            .await?;
+
         Ok(SanadOperationResult {
             sanad_id: sanad_id.clone(),
             operation: SanadOperation::Refund,
@@ -1067,36 +1092,48 @@ impl ChainSanadOps for BitcoinChainSanadOps {
     ) -> ChainOpResult<SanadOperationResult> {
         // Record metadata for a sanad using OP_RETURN
         // This creates a transaction with metadata in the witness or OP_RETURN
-        
+
         // Parse owner key
         let key_bytes = hex::decode(owner_key_id)
             .map_err(|_| ChainOpError::InvalidInput("Invalid owner key ID format".to_string()))?;
-        
+
         if key_bytes.len() != 32 {
-            return Err(ChainOpError::InvalidInput("Owner key must be 32 bytes".to_string()));
-        }
-        
-        // Get the seal for this sanad
-        let seal = self.adapter.find_seal_for_sanad(sanad_id)
-            .ok_or_else(|| ChainOpError::InvalidInput(format!("Failed to find seal for sanad: {}", hex::encode(sanad_id.as_bytes()))))?;
-        
-        // Serialize metadata to JSON and hash it
-        let metadata_bytes = serde_json::to_vec(&metadata)
-            .map_err(|e| ChainOpError::TransactionError(format!("Failed to serialize metadata: {}", e)))?;
-        
-        if metadata_bytes.len() > 80 {
             return Err(ChainOpError::InvalidInput(
-                "Metadata too large for OP_RETURN (max 80 bytes)".to_string()
+                "Owner key must be 32 bytes".to_string(),
             ));
         }
-        
+
+        // Get the seal for this sanad
+        let seal = self.adapter.find_seal_for_sanad(sanad_id).ok_or_else(|| {
+            ChainOpError::InvalidInput(format!(
+                "Failed to find seal for sanad: {}",
+                hex::encode(sanad_id.as_bytes())
+            ))
+        })?;
+
+        // Serialize metadata to JSON and hash it
+        let metadata_bytes = serde_json::to_vec(&metadata).map_err(|e| {
+            ChainOpError::TransactionError(format!("Failed to serialize metadata: {}", e))
+        })?;
+
+        if metadata_bytes.len() > 80 {
+            return Err(ChainOpError::InvalidInput(
+                "Metadata too large for OP_RETURN (max 80 bytes)".to_string(),
+            ));
+        }
+
         // Build metadata recording transaction
-        let metadata_tx = self.build_metadata_transaction(seal, &metadata_bytes, &key_bytes)
-            .map_err(|e| ChainOpError::TransactionError(format!("Failed to build metadata tx: {}", e)))?;
-        
+        let metadata_tx = self
+            .build_metadata_transaction(seal, &metadata_bytes, &key_bytes)
+            .map_err(|e| {
+                ChainOpError::TransactionError(format!("Failed to build metadata tx: {}", e))
+            })?;
+
         // Sign and broadcast
-        let signed_tx = self.sign_and_broadcast_metadata(metadata_tx, &key_bytes).await?;
-        
+        let signed_tx = self
+            .sign_and_broadcast_metadata(metadata_tx, &key_bytes)
+            .await?;
+
         Ok(SanadOperationResult {
             sanad_id: sanad_id.clone(),
             operation: SanadOperation::RecordMetadata,
@@ -1104,17 +1141,17 @@ impl ChainSanadOps for BitcoinChainSanadOps {
             block_height: self.adapter.get_current_height(),
             chain_id: "bitcoin".to_string(),
             metadata: metadata,
-       })
-     }
+        })
+    }
 
-     async fn verify_sanad_state(
+    async fn verify_sanad_state(
         &self,
         sanad_id: &SanadId,
         expected_state: &str,
     ) -> ChainOpResult<bool> {
         // Verify the current state of a sanad
         // This checks if the sanad's UTXO is still unspent and matches the expected state
-        
+
         // Get the seal for this sanad
         let seal = match self.adapter.find_seal_for_sanad(sanad_id) {
             Some(s) => s,
@@ -1126,28 +1163,29 @@ impl ChainSanadOps for BitcoinChainSanadOps {
                 };
             }
         };
-        
+
         // Check if the seal UTXO is still unspent via RPC
-      let seal_outpoint = bitcoin::OutPoint {
-             txid: bitcoin::Txid::from_byte_array(seal.txid),
-             vout: seal.vout,
-         };
-        
-        // Query RPC to check if UTXO is unspent
-        let rpc = self.adapter.rpc.as_ref().ok_or_else(|| {
-            ChainOpError::RpcError("RPC not available".to_string())
-        })?;
-        let is_unspent = rpc
-            .is_utxo_unspent(BitcoinHash::to_byte_array(seal_outpoint.txid), seal_outpoint.vout)
-            .map_err(|e| ChainOpError::RpcError(format!("Failed to check UTXO: {}", e)))?;
-        
-        // Match expected state
-        let actual_state = if is_unspent {
-            "active"
-        } else {
-            "consumed"
+        let seal_outpoint = bitcoin::OutPoint {
+            txid: bitcoin::Txid::from_byte_array(seal.txid),
+            vout: seal.vout,
         };
-        
+
+        // Query RPC to check if UTXO is unspent
+        let rpc = self
+            .adapter
+            .rpc
+            .as_ref()
+            .ok_or_else(|| ChainOpError::RpcError("RPC not available".to_string()))?;
+        let is_unspent = rpc
+            .is_utxo_unspent(
+                BitcoinHash::to_byte_array(seal_outpoint.txid),
+                seal_outpoint.vout,
+            )
+            .map_err(|e| ChainOpError::RpcError(format!("Failed to check UTXO: {}", e)))?;
+
+        // Match expected state
+        let actual_state = if is_unspent { "active" } else { "consumed" };
+
         Ok(actual_state == expected_state)
     }
 }
@@ -1198,9 +1236,12 @@ impl BitcoinBackend {
         let rpc = seal
             .rpc
             .as_ref()
-            .ok_or_else(|| ChainOpError::FeatureNotEnabled(
-                "RPC client not attached to seal protocol. Use from_config() to attach RPC.".to_string()
-            ))?
+            .ok_or_else(|| {
+                ChainOpError::FeatureNotEnabled(
+                    "RPC client not attached to seal protocol. Use from_config() to attach RPC."
+                        .to_string(),
+                )
+            })?
             .clone_boxed();
 
         // Extract network from seal protocol config (preserves BIP-86 coin type settings)
@@ -1245,7 +1286,10 @@ impl ChainQuery for BitcoinBackend {
         query.get_balance(address).await
     }
 
-    async fn get_transaction(&self, tx_hash: &str) -> ChainOpResult<csv_core::backend::TransactionInfo> {
+    async fn get_transaction(
+        &self,
+        tx_hash: &str,
+    ) -> ChainOpResult<csv_core::backend::TransactionInfo> {
         let query = BitcoinChainQuery::new(self.rpc.clone_boxed(), self.network);
         query.get_transaction(tx_hash).await
     }
@@ -1328,7 +1372,9 @@ impl ChainBroadcaster for BitcoinBackend {
         timeout_secs: u64,
     ) -> ChainOpResult<TransactionStatus> {
         let broadcaster = BitcoinChainBroadcaster::new(self.rpc.clone_boxed());
-        broadcaster.confirm_transaction(tx_hash, required_confirmations, timeout_secs).await
+        broadcaster
+            .confirm_transaction(tx_hash, required_confirmations, timeout_secs)
+            .await
     }
 
     async fn get_fee_estimate(&self) -> ChainOpResult<u64> {
@@ -1368,7 +1414,9 @@ impl ChainDeployer for BitcoinBackend {
         admin_address: &str,
     ) -> ChainOpResult<DeploymentStatus> {
         let deployer = BitcoinChainDeployer;
-        deployer.deploy_or_publish_seal_program(program_bytes, admin_address).await
+        deployer
+            .deploy_or_publish_seal_program(program_bytes, admin_address)
+            .await
     }
 
     async fn verify_deployment(&self, contract_address: &str) -> ChainOpResult<bool> {
@@ -1390,7 +1438,9 @@ impl ChainProofProvider for BitcoinBackend {
         block_height: u64,
     ) -> ChainOpResult<CoreInclusionProof> {
         let provider = BitcoinChainProofProvider::new(self.rpc.clone_boxed());
-        provider.build_inclusion_proof(commitment, block_height).await
+        provider
+            .build_inclusion_proof(commitment, block_height)
+            .await
     }
 
     fn verify_inclusion_proof(
@@ -1407,11 +1457,7 @@ impl ChainProofProvider for BitcoinBackend {
         provider.build_finality_proof(tx_hash).await
     }
 
-    fn verify_finality_proof(
-        &self,
-        proof: &FinalityProof,
-        tx_hash: &str,
-    ) -> ChainOpResult<bool> {
+    fn verify_finality_proof(&self, proof: &FinalityProof, tx_hash: &str) -> ChainOpResult<bool> {
         let provider = BitcoinChainProofProvider::new(self.rpc.clone_boxed());
         provider.verify_finality_proof(proof, tx_hash)
     }
@@ -1428,7 +1474,9 @@ impl ChainProofProvider for BitcoinBackend {
         commitment: &Hash,
     ) -> ChainOpResult<bool> {
         let provider = BitcoinChainProofProvider::new(self.rpc.clone_boxed());
-        provider.verify_proof_bundle(inclusion_proof, finality_proof, commitment).await
+        provider
+            .verify_proof_bundle(inclusion_proof, finality_proof, commitment)
+            .await
     }
 }
 
@@ -1467,7 +1515,8 @@ impl ChainSanadOps for BitcoinBackend {
         _owner_key_id: &str,
     ) -> ChainOpResult<SanadOperationResult> {
         Err(ChainOpError::CapabilityUnavailable(
-            "Sanad locking requires wallet. Use BitcoinSealProtocol directly for seal operations.".to_string()
+            "Sanad locking requires wallet. Use BitcoinSealProtocol directly for seal operations."
+                .to_string(),
         ))
     }
 
@@ -1479,7 +1528,7 @@ impl ChainSanadOps for BitcoinBackend {
         _new_owner: &str,
     ) -> ChainOpResult<SanadOperationResult> {
         Err(ChainOpError::UnsupportedChain(
-            "Bitcoin cannot mint wrapped sanads - it is a source chain".to_string()
+            "Bitcoin cannot mint wrapped sanads - it is a source chain".to_string(),
         ))
     }
 
@@ -1489,7 +1538,8 @@ impl ChainSanadOps for BitcoinBackend {
         _owner_key_id: &str,
     ) -> ChainOpResult<SanadOperationResult> {
         Err(ChainOpError::CapabilityUnavailable(
-            "Refund requires wallet. Use BitcoinSealProtocol directly for seal operations.".to_string()
+            "Refund requires wallet. Use BitcoinSealProtocol directly for seal operations."
+                .to_string(),
         ))
     }
 
@@ -1552,7 +1602,9 @@ fn parse_bitcoin_tx(data: &[u8]) -> Result<ParsedTx, String> {
 
     // Version (4 bytes)
     let version = u32::from_le_bytes(
-        data[offset..offset + 4].try_into().map_err(|_| "Invalid version")?
+        data[offset..offset + 4]
+            .try_into()
+            .map_err(|_| "Invalid version")?,
     );
     offset += 4;
 
@@ -1603,7 +1655,9 @@ fn parse_bitcoin_tx(data: &[u8]) -> Result<ParsedTx, String> {
         return Err("Transaction truncated".to_string());
     }
     let locktime = u32::from_le_bytes(
-        data[offset..offset + 4].try_into().map_err(|_| "Invalid locktime")?
+        data[offset..offset + 4]
+            .try_into()
+            .map_err(|_| "Invalid locktime")?,
     );
 
     Ok(ParsedTx {
@@ -1655,7 +1709,9 @@ fn parse_input(data: &[u8]) -> Result<(TxInput, usize), String> {
 
     // Vout (4 bytes)
     let vout = u32::from_le_bytes(
-        data[offset..offset + 4].try_into().map_err(|_| "Invalid vout")?
+        data[offset..offset + 4]
+            .try_into()
+            .map_err(|_| "Invalid vout")?,
     );
     offset += 4;
 
@@ -1675,16 +1731,21 @@ fn parse_input(data: &[u8]) -> Result<(TxInput, usize), String> {
         return Err("Input truncated".to_string());
     }
     let sequence = u32::from_le_bytes(
-        data[offset..offset + 4].try_into().map_err(|_| "Invalid sequence")?
+        data[offset..offset + 4]
+            .try_into()
+            .map_err(|_| "Invalid sequence")?,
     );
     offset += 4;
 
-    Ok((TxInput {
-        txid,
-        vout,
-        sequence,
-        script_sig,
-    }, offset))
+    Ok((
+        TxInput {
+            txid,
+            vout,
+            sequence,
+            script_sig,
+        },
+        offset,
+    ))
 }
 
 /// Parse a transaction output
@@ -1697,7 +1758,9 @@ fn parse_output(data: &[u8]) -> Result<(TxOutput, usize), String> {
 
     // Value (8 bytes)
     let value = u64::from_le_bytes(
-        data[offset..offset + 8].try_into().map_err(|_| "Invalid value")?
+        data[offset..offset + 8]
+            .try_into()
+            .map_err(|_| "Invalid value")?,
     );
     offset += 8;
 
@@ -1712,18 +1775,17 @@ fn parse_output(data: &[u8]) -> Result<(TxOutput, usize), String> {
     let script_pubkey = data[offset..offset + script_len as usize].to_vec();
     offset += script_len as usize;
 
-    Ok((TxOutput {
-        value,
-        script_pubkey,
-    }, offset))
+    Ok((
+        TxOutput {
+            value,
+            script_pubkey,
+        },
+        offset,
+    ))
 }
 
 /// Compute BIP-143 sighash for SegWit (P2WPKH) transactions
-fn compute_sighash(
-    tx: &ParsedTx,
-    input: &TxInput,
-    pubkey: &[u8],
-) -> Result<[u8; 32], String> {
+fn compute_sighash(tx: &ParsedTx, input: &TxInput, pubkey: &[u8]) -> Result<[u8; 32], String> {
     use bitcoin_hashes::{sha256d, Hash as BitcoinHash};
 
     // For P2WPKH, we need:
@@ -1802,7 +1864,8 @@ fn compute_sighash(
 
     // Compute double-SHA256
     let hash = sha256d::Hash::hash(&preimage);
-    let hash_bytes: [u8; 32] = AsRef::<[u8]>::as_ref(&hash).try_into()
+    let hash_bytes: [u8; 32] = AsRef::<[u8]>::as_ref(&hash)
+        .try_into()
         .map_err(|_| "Hash conversion failed".to_string())?;
     Ok(hash_bytes)
 }
@@ -1884,9 +1947,9 @@ async fn get_fee_estimate_rpc(rpc: &dyn BitcoinRpc) -> ChainOpResult<u64> {
     // Adjust based on target confirmation time
     // Lower target = higher fee
     let adjusted_fee_rate = match target_confirmations {
-        1 => estimated_fee_rate * 5,    // Next block: 5x
-        2..=3 => estimated_fee_rate * 3, // 2-3 blocks: 3x
-        4..=6 => estimated_fee_rate,     // 4-6 blocks: standard
+        1 => estimated_fee_rate * 5,                   // Next block: 5x
+        2..=3 => estimated_fee_rate * 3,               // 2-3 blocks: 3x
+        4..=6 => estimated_fee_rate,                   // 4-6 blocks: standard
         _ => std::cmp::max(1, estimated_fee_rate / 2), // Longer: discount
     };
 

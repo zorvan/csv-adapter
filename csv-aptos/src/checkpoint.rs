@@ -82,7 +82,9 @@ impl CheckpointVerifier {
             let rt = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
-                .map_err(|e| AptosError::CheckpointFailed(format!("Failed to build runtime: {}", e)))?;
+                .map_err(|e| {
+                    AptosError::CheckpointFailed(format!("Failed to build runtime: {}", e))
+                })?;
             rt.block_on(async { rpc.get_block_by_version(version).await })
         };
 
@@ -187,7 +189,9 @@ impl CheckpointVerifier {
             let rt = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
-                .map_err(|e| AptosError::CheckpointFailed(format!("Failed to build runtime: {}", e)))?;
+                .map_err(|e| {
+                    AptosError::CheckpointFailed(format!("Failed to build runtime: {}", e))
+                })?;
             rt.block_on(async { rpc.get_resource(address, resource_type, None).await })
         }
         .map_err(|e| AptosError::CheckpointFailed(format!("Failed to get resource: {}", e)))?;
@@ -211,7 +215,9 @@ impl CheckpointVerifier {
             let rt = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
-                .map_err(|e| AptosError::CheckpointFailed(format!("Failed to build runtime: {}", e)))?;
+                .map_err(|e| {
+                    AptosError::CheckpointFailed(format!("Failed to build runtime: {}", e))
+                })?;
             rt.block_on(async { rpc.get_transaction_by_version(tx_version).await })
         }
         .map_err(|e| AptosError::CheckpointFailed(format!("Failed to get transaction: {}", e)))?;
@@ -239,7 +245,9 @@ impl CheckpointVerifier {
             let rt = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
-                .map_err(|e| AptosError::CheckpointFailed(format!("Failed to build runtime: {}", e)))?;
+                .map_err(|e| {
+                    AptosError::CheckpointFailed(format!("Failed to build runtime: {}", e))
+                })?;
             rt.block_on(async { rpc.get_ledger_info().await })
         }
         .map_err(|e| AptosError::CheckpointFailed(format!("Failed to get ledger: {}", e)))?;

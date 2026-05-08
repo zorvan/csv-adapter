@@ -410,11 +410,7 @@ pub trait ChainProofProvider: Send + Sync {
     /// Verify a finality proof
     ///
     /// Returns true if the proof is valid and the transaction is finalized.
-    fn verify_finality_proof(
-        &self,
-        proof: &FinalityProof,
-        tx_hash: &str,
-    ) -> ChainOpResult<bool>;
+    fn verify_finality_proof(&self, proof: &FinalityProof, tx_hash: &str) -> ChainOpResult<bool>;
 
     /// Get the domain separator for proof generation
     fn domain_separator(&self) -> [u8; 32];
@@ -571,8 +567,16 @@ pub enum ChainCapability {
 }
 
 /// Blanket implementation to allow trait objects
-impl<T: ChainQuery + ChainSigner + ChainBroadcaster + ChainDeployer + ChainProofProvider + ChainSanadOps + Send + Sync>
-    ChainBackend for T
+impl<
+        T: ChainQuery
+            + ChainSigner
+            + ChainBroadcaster
+            + ChainDeployer
+            + ChainProofProvider
+            + ChainSanadOps
+            + Send
+            + Sync,
+    > ChainBackend for T
 {
     fn chain_id(&self) -> &'static str {
         "unknown"
@@ -603,10 +607,7 @@ mod tests {
     #[test]
     fn test_chain_op_error_display() {
         let err = ChainOpError::CapabilityUnavailable("test".into());
-        assert_eq!(
-            err.to_string(),
-            "Capability unavailable: test"
-        );
+        assert_eq!(err.to_string(), "Capability unavailable: test");
     }
 
     #[test]
@@ -622,7 +623,9 @@ mod tests {
     #[test]
     fn test_chain_capability_equality() {
         assert_eq!(ChainCapability::QueryBalance, ChainCapability::QueryBalance);
-        assert_ne!(ChainCapability::QueryBalance, ChainCapability::SignTransactions);
+        assert_ne!(
+            ChainCapability::QueryBalance,
+            ChainCapability::SignTransactions
+        );
     }
 }
-

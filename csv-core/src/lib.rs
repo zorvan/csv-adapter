@@ -56,9 +56,9 @@ pub mod collections;
 // Core types
 pub mod commitment;
 pub mod hash;
+pub mod sanad;
 pub mod seal;
-pub mod tagged_hash;
-pub mod sanad;      // Sanad/Title types (re-exported from title)
+pub mod tagged_hash; // Sanad/Title types (re-exported from title)
 
 // Advanced commitment types
 pub mod commitments_ext;
@@ -89,8 +89,8 @@ pub mod vm;
 // DAG and proof types - 🔒 STABLE
 pub mod dag;
 pub mod proof;
-pub mod verifier;
 pub mod signature;
+pub mod verifier;
 
 // Error handling and traits - 🔒 STABLE
 pub mod error;
@@ -116,9 +116,9 @@ pub mod state_store;
 pub mod validator;
 
 // Chain driver system for dynamic chain support
+pub mod chain_config;
 pub mod driver;
 pub mod driver_registry;
-pub mod chain_config;
 
 // RGB protocol compatibility (Sprint 5) - 🧪 EXPERIMENTAL
 #[cfg(feature = "experimental")]
@@ -147,8 +147,8 @@ pub use protocol_version::{
 
 pub use commitment::Commitment;
 pub use hash::Hash;
+pub use sanad::{OwnershipProof, Sanad, SanadError, SanadId};
 pub use seal::{CommitAnchor, SealPoint};
-pub use sanad::{Sanad, SanadError, SanadId, OwnershipProof};
 pub use signature::{parse_signatures_from_bytes, verify_signatures, Signature, SignatureScheme};
 
 // DAG and proofs
@@ -170,16 +170,15 @@ pub use backend::{
 
 // Event schemas (Production Guarantee Plan Phase 6)
 pub use events::{
-    CsvEvent, EventData, EventFilter, EventFinalityStatus, EventIndexer, EventIndexerRegistry,
-    event_names, metadata_fields,
+    event_names, metadata_fields, CsvEvent, EventData, EventFilter, EventFinalityStatus,
+    EventIndexer, EventIndexerRegistry,
 };
 
 // Cross-chain transfer
 pub use client::{ValidationClient, ValidationResult};
 pub use cross_chain::{CrossChainLockEvent, CrossChainRegistry, CrossChainRegistryEntry};
 pub use nullifier::{
-    SealNullifier, DoubleSpendError, OptimizedSealNullifier,
-    SealConsumption, SealStatus,
+    DoubleSpendError, OptimizedSealNullifier, SealConsumption, SealNullifier, SealStatus,
 };
 
 // ===========================================================================
@@ -192,7 +191,7 @@ pub use commitments_ext::{
 };
 
 // Agent-friendly types
-pub use mcp::{ErrorSuggestion, FixAction, HasErrorSuggestion, error_codes};
+pub use mcp::{error_codes, ErrorSuggestion, FixAction, HasErrorSuggestion};
 
 // Production hardening
 pub use hardening::{
@@ -219,19 +218,19 @@ pub use performance::{
     BloomFilter, CacheStats, FilterStats, PerformanceMetrics, PerformanceStats, ProofCache,
     SealRegistryFilter, SequentialVerifier, VerificationResult,
 };
-pub use store::{AnchorRecord, InMemorySealStore, SanadRecord, SanadStore, SealRecord, SealStore, StoreError};
+pub use store::{
+    AnchorRecord, InMemorySealStore, SanadRecord, SanadStore, SealRecord, SealStore, StoreError,
+};
 
 // Chain driver system (Beta API)
-pub use driver::{
-    ChainDriver, ChainDriverExt, ChainError, ChainResult, RpcClient, Wallet,
-};
 pub use chain_config::{AccountModel, ChainCapabilities, ChainConfig, ChainConfigLoader};
+pub use driver::{ChainDriver, ChainDriverExt, ChainError, ChainResult, RpcClient, Wallet};
 
 // Unified driver registry (Phase 2)
 pub use driver_registry::{
+    create_driver, global_factory, init_global_factory, is_chain_supported as is_driver_supported,
     BuiltDriverPlugin, DriverDiscovery, DriverMetadata, DriverPlugin, DriverPluginBuildError,
-    DriverPluginBuilder, DriverRegistry, create_driver, global_factory,
-    init_global_factory, is_chain_supported as is_driver_supported,
+    DriverPluginBuilder, DriverRegistry,
 };
 
 // ===========================================================================
@@ -241,7 +240,7 @@ pub use driver_registry::{
 /// Experimental module — feature-gated behind `experimental`.
 /// These APIs may change or be removed without notice.
 #[cfg(feature = "experimental")]
-pub use commit_mux::{MerkleBranchNode, MuxLeaf, MuxProof, CommitMux, ProtocolId};
+pub use commit_mux::{CommitMux, MerkleBranchNode, MuxLeaf, MuxProof, ProtocolId};
 
 /// Experimental module — feature-gated behind `experimental`.
 /// These APIs may change or be removed without notice.

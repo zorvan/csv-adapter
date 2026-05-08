@@ -4,8 +4,8 @@
 //! 1. Post-merge finalized checkpoint (deterministic finality)
 //! 2. Confirmation depth fallback (probabilistic finality)
 
-use async_trait::async_trait;
 use crate::rpc::EthereumRpc;
+use async_trait::async_trait;
 
 /// Finality configuration
 #[derive(Clone, Debug)]
@@ -100,7 +100,10 @@ impl FinalityCheckerTrait for FinalityChecker {
     ) -> Result<FinalityInfo, Box<dyn std::error::Error + Send + Sync>> {
         let current = rpc.block_number().await?;
         let confirmations = current.saturating_sub(block_number);
-        let checkpoint_finalized = rpc.get_finalized_block_number().await?.map(|f| block_number <= f);
+        let checkpoint_finalized = rpc
+            .get_finalized_block_number()
+            .await?
+            .map(|f| block_number <= f);
         let is_final = checkpoint_finalized.unwrap_or(false)
             || confirmations >= self.config.confirmation_depth;
 

@@ -2,7 +2,7 @@
 //!
 //! Provides chain RPC operations using csv-sdk runtime.
 
-use csv_sdk::runtime::{RuntimeManager, RuntimeConfig, ChainRuntime};
+use csv_sdk::runtime::{ChainRuntime, RuntimeConfig, RuntimeManager};
 use csv_store::state::ChainId;
 
 /// Chain API using csv-sdk runtime.
@@ -24,7 +24,7 @@ impl Clone for ChainApi {
         let runtime_config = RuntimeConfig::default();
         let runtime_manager = RuntimeManager::new(runtime_config);
         let runtime = runtime_manager.chain_runtime().clone();
-        
+
         Self { runtime }
     }
 }
@@ -72,7 +72,7 @@ impl ChainApi {
         let runtime_config = RuntimeConfig::default();
         let runtime_manager = RuntimeManager::new(runtime_config);
         let runtime = runtime_manager.chain_runtime().clone();
-        
+
         Self { runtime }
     }
 

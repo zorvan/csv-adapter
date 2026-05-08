@@ -31,7 +31,6 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-
 use csv_core::ChainId;
 #[cfg(feature = "tokio")]
 use tokio::sync::broadcast;
@@ -42,8 +41,8 @@ use crate::deploy::DeploymentManager;
 use crate::error::CsvError;
 #[cfg(feature = "tokio")]
 use crate::events::EventStream;
-use crate::runtime::ChainRuntime;
 use crate::proofs::ProofManager;
+use crate::runtime::ChainRuntime;
 use crate::sanads::SanadsManager;
 use crate::transfers::TransferManager;
 use crate::wallet::Wallet;
@@ -371,15 +370,25 @@ impl CsvClient {
     /// ```
     pub async fn init_adapters(&self, network: NetworkType) -> Result<(), CsvError> {
         for chain in &self.enabled_chains {
-            let adapter_result = Self::build_adapter_for_chain(chain.clone(), &self.config, network).await;
+            let adapter_result =
+                Self::build_adapter_for_chain(chain.clone(), &self.config, network).await;
 
             match adapter_result {
                 Ok(Some(adapter)) => {
-                    self.chain_runtime.register_adapter(chain.clone(), adapter).await;
-                    log::info!("Initialized adapter for chain: {:?} on {:?}", chain, network);
+                    self.chain_runtime
+                        .register_adapter(chain.clone(), adapter)
+                        .await;
+                    log::info!(
+                        "Initialized adapter for chain: {:?} on {:?}",
+                        chain,
+                        network
+                    );
                 }
                 Ok(None) => {
-                    log::debug!("Skipping adapter initialization for unsupported chain: {:?}", chain);
+                    log::debug!(
+                        "Skipping adapter initialization for unsupported chain: {:?}",
+                        chain
+                    );
                 }
                 Err(e) => {
                     log::warn!("Failed to initialize adapter for chain {:?}: {}", chain, e);
@@ -432,10 +441,19 @@ impl CsvClient {
                 // Create RPC client - this uses reqwest::blocking which needs its own runtime
                 // We must create it outside any async context to avoid runtime conflicts
                 let rpc = std::thread::spawn(move || {
-                    Box::new(csv_bitcoin::mempool_rpc::MempoolSignetRpc::with_url(rpc_url)) as Box<dyn csv_bitcoin::rpc::BitcoinRpc + Send + Sync>
-                }).join()
-                .map_err(|e| CsvError::ProtocolError { chain, message: format!("Thread panic: {:?}", e) })?;
-                _builder.bitcoin_from_config(btc_config, rpc).await.map(Some)
+                    Box::new(csv_bitcoin::mempool_rpc::MempoolSignetRpc::with_url(
+                        rpc_url,
+                    )) as Box<dyn csv_bitcoin::rpc::BitcoinRpc + Send + Sync>
+                })
+                .join()
+                .map_err(|e| CsvError::ProtocolError {
+                    chain,
+                    message: format!("Thread panic: {:?}", e),
+                })?;
+                _builder
+                    .bitcoin_from_config(btc_config, rpc)
+                    .await
+                    .map(Some)
             }
             #[cfg(feature = "ethereum")]
             "ethereum" => {
@@ -465,8 +483,18 @@ impl CsvClient {
                 let csv_seal_address = [0u8; 20]; // Default, should be configured
                 let rpc = csv_ethereum::node::EthereumNode::new(&rpc_url, csv_seal_address)
                     .await
-                    .map_err(|e| CsvError::ProtocolError { chain: ChainId::new("ethereum"), message: format!("Failed to create Ethereum RPC client: {}", e) })?;
-                _builder.ethereum_from_config(eth_config, Box::new(rpc) as Box<dyn csv_ethereum::rpc::EthereumRpc>, csv_seal_address).await.map(Some)
+                    .map_err(|e| CsvError::ProtocolError {
+                        chain: ChainId::new("ethereum"),
+                        message: format!("Failed to create Ethereum RPC client: {}", e),
+                    })?;
+                _builder
+                    .ethereum_from_config(
+                        eth_config,
+                        Box::new(rpc) as Box<dyn csv_ethereum::rpc::EthereumRpc>,
+                        csv_seal_address,
+                    )
+                    .await
+                    .map(Some)
             }
             #[cfg(feature = "sui")]
             "sui" => {
@@ -490,9 +518,15 @@ impl CsvClient {
                 let mut sui_config = csv_sui::config::SuiConfig::new(sui_network);
                 sui_config.rpc_url = rpc_url.clone();
                 // Seal contract package ID is required but not available - using placeholder
-                sui_config.seal_contract.package_id = Some("0x0000000000000000000000000000000000000000000000000000000000000000".to_string());
-                 let rpc = csv_sui::node::SuiNode::new(&rpc_url);
-                _builder.sui_from_config(sui_config, Box::new(rpc) as Box<dyn csv_sui::rpc::SuiRpc>).await.map(Some)
+                sui_config.seal_contract.package_id = Some(
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"
+                        .to_string(),
+                );
+                let rpc = csv_sui::node::SuiNode::new(&rpc_url);
+                _builder
+                    .sui_from_config(sui_config, Box::new(rpc) as Box<dyn csv_sui::rpc::SuiRpc>)
+                    .await
+                    .map(Some)
             }
             #[cfg(feature = "aptos")]
             "aptos" => {
@@ -515,8 +549,14 @@ impl CsvClient {
                     csv_aptos::config::AptosNetwork::Mainnet
                 };
                 aptos_config.rpc_url = rpc_url.clone();
-                  let rpc = csv_aptos::node::AptosNode::new(&rpc_url);
-                _builder.aptos_from_config(aptos_config, Box::new(rpc) as Box<dyn csv_aptos::rpc::AptosRpc>).await.map(Some)
+                let rpc = csv_aptos::node::AptosNode::new(&rpc_url);
+                _builder
+                    .aptos_from_config(
+                        aptos_config,
+                        Box::new(rpc) as Box<dyn csv_aptos::rpc::AptosRpc>,
+                    )
+                    .await
+                    .map(Some)
             }
             #[cfg(feature = "solana")]
             "solana" => {
@@ -546,7 +586,7 @@ impl CsvClient {
                     max_retries: 3,
                     timeout_seconds: 30,
                 };
-                  let rpc = Box::new(csv_solana::node::SolanaNode::new(&rpc_url));
+                let rpc = Box::new(csv_solana::node::SolanaNode::new(&rpc_url));
                 _builder.solana_from_config(sol_config, rpc).await.map(Some)
             }
             _ => Ok(None), // Skip unsupported chains
@@ -575,7 +615,7 @@ impl CsvClient {
             wallet: self.wallet.clone(),
             store: Arc::clone(&self.store),
             config: self.config.clone(),
-           event_tx: self.event_tx.clone(),
+            event_tx: self.event_tx.clone(),
             chain_runtime: Some(self.chain_runtime.clone()),
         }
     }
@@ -613,14 +653,14 @@ impl ClientRef {
         let event_tx = broadcast::channel(256).0;
         #[cfg(not(feature = "tokio"))]
         let event_tx = ();
-        
+
         Self {
             enabled_chains: HashSet::new(),
             wallet: None,
             store: Arc::new(std::sync::Mutex::new(crate::client::StoreHandle::InMemory(
-                csv_core::InMemorySealStore::new()
+                csv_core::InMemorySealStore::new(),
             ))),
-           config: Config::default(),
+            config: Config::default(),
             event_tx,
             chain_runtime: None,
         }

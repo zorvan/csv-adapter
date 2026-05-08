@@ -41,7 +41,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create a sanad to query
     let test_commitment = Hash::from([255u8; 32]);
-    let test_sanad = client.sanads().create(test_commitment, ChainId::new("bitcoin"))?;
+    let test_sanad = client
+        .sanads()
+        .create(test_commitment, ChainId::new("bitcoin"))?;
 
     let iterations = 1000;
     let start = Instant::now();
@@ -63,12 +65,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let start = Instant::now();
 
     // Create and transfer a sanad
-    let sanad = client.sanads().create(
-        Hash::from([42u8; 32]),
-        ChainId::new("bitcoin"),
-    )?;
+    let sanad = client
+        .sanads()
+        .create(Hash::from([42u8; 32]), ChainId::new("bitcoin"))?;
 
-    let transfer_id = client.transfers()
+    let transfer_id = client
+        .transfers()
         .cross_chain(sanad.id.clone(), ChainId::new("ethereum"))
         .to_address("0x1234567890abcdef".to_string())
         .execute()?;
@@ -86,7 +88,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sanads = client.sanads().list(SanadFilters::default())?;
     let list_duration = start.elapsed();
 
-    println!("  Listed {} sanads in {:.2?}\n", sanads.len(), list_duration);
+    println!(
+        "  Listed {} sanads in {:.2?}\n",
+        sanads.len(),
+        list_duration
+    );
 
     // Summary
     println!("=== Performance Summary ===");

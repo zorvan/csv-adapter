@@ -4,9 +4,9 @@
 
 use anyhow::Result;
 
-use csv_sdk::CsvClient;
 use csv_core::hash::Hash;
 use csv_core::ChainId;
+use csv_sdk::CsvClient;
 
 use crate::config::{Chain, Config};
 use crate::output;
@@ -26,7 +26,10 @@ pub fn cmd_transfer(
     let from_chain = to_core_chain(from.clone());
     let to_chain = to_core_chain(to.clone());
 
-    output::header(&format!("Cross-Chain Transfer: {:?} → {:?}", from_chain, to_chain));
+    output::header(&format!(
+        "Cross-Chain Transfer: {:?} → {:?}",
+        from_chain, to_chain
+    ));
 
     // Parse sanad ID
     let bytes = hex::decode(sanad_id.trim_start_matches("0x"))

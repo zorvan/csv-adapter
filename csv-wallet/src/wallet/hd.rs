@@ -4,10 +4,10 @@
 //! for multiple chains from a single seed.
 
 use crate::wallet::metadata::WalletMetadata;
-use csv_store::state::ChainId;
 use bip32::Mnemonic;
-use serde::{Serialize, Deserialize};
+use csv_store::state::ChainId;
 use rand::RngCore;
+use serde::{Deserialize, Serialize};
 
 // Re-export for convenience
 pub use crate::wallet::metadata::BitcoinNetwork;
@@ -21,7 +21,10 @@ pub struct ExtendedWallet {
     /// Mnemonic phrase
     pub mnemonic: String,
     /// Seed bytes (serialized as hex)
-    #[serde(serialize_with = "serialize_seed", deserialize_with = "deserialize_seed")]
+    #[serde(
+        serialize_with = "serialize_seed",
+        deserialize_with = "deserialize_seed"
+    )]
     pub seed: [u8; 64],
     /// Whether the wallet is locked (encrypted)
     pub is_locked: bool,
@@ -104,14 +107,18 @@ impl ExtendedWallet {
     }
 
     /// Derive a proper Taproot (P2TR) address using BIP-86
-    fn derive_taproot_address(&self, account_index: u32, address_index: u32) -> Result<String, String> {
-        use secp256k1::{Secp256k1, SecretKey};
+    fn derive_taproot_address(
+        &self,
+        account_index: u32,
+        address_index: u32,
+    ) -> Result<String, String> {
         use bitcoin::{
             bip32::{DerivationPath, ExtendedPrivKey},
-            Address, Network as BitcoinNetworkType,
             key::TapTweak,
             secp256k1::XOnlyPublicKey,
+            Address, Network as BitcoinNetworkType,
         };
+        use secp256k1::{Secp256k1, SecretKey};
 
         // Map our network to Bitcoin network type
         let btc_network = match self.bitcoin_network {
@@ -133,10 +140,8 @@ impl ExtendedWallet {
             _ => 1,
         };
 
-        let path_str = format!(
-            "m/86'/{coin_type}'/{account_index}'/0/{address_index}"
-        );
-        
+        let path_str = format!("m/86'/{coin_type}'/{account_index}'/0/{address_index}");
+
         let path: DerivationPath = path_str
             .parse()
             .map_err(|e| format!("Invalid derivation path: {}", e))?;
@@ -146,7 +151,7 @@ impl ExtendedWallet {
             .derive_priv(&secp, &path)
             .map_err(|e| format!("Key derivation failed: {}", e))?;
 
-      // Get the secret key and create XOnlyPublicKey via keypair
+        // Get the secret key and create XOnlyPublicKey via keypair
         let secret_key = child_key.private_key;
         let secret_key = bitcoin::secp256k1::SecretKey::from_slice(secret_key.as_ref())
             .map_err(|e| format!("Invalid secret key: {}", e))?;
@@ -164,11 +169,11 @@ impl ExtendedWallet {
 
     /// Get addresses for all chains.
     pub fn all_addresses(&self) -> Vec<(ChainId, String)> {
-        use secp256k1::{Secp256k1, SecretKey};
-        use ed25519_dalek::SigningKey;
-        use sha2::{Sha256, Digest};
-        use sha3::Keccak256;
         use blake2::Blake2b;
+        use ed25519_dalek::SigningKey;
+        use secp256k1::{Secp256k1, SecretKey};
+        use sha2::{Digest, Sha256};
+        use sha3::Keccak256;
 
         let mut addresses = Vec::new();
 
@@ -194,7 +199,10 @@ impl ExtendedWallet {
             let hash = hasher.finalize();
             let mut address = [0u8; 20];
             address.copy_from_slice(&hash[12..]);
-            addresses.push((ChainId::new("ethereum"), format!("0x{}", hex::encode(address))));
+            addresses.push((
+                ChainId::new("ethereum"),
+                format!("0x{}", hex::encode(address)),
+            ));
         }
 
         // Sui
@@ -219,14 +227,20 @@ impl ExtendedWallet {
         hasher.update(aptos_verifying.as_bytes());
         hasher.update(&[0x00]);
         let hash = hasher.finalize();
-        addresses.push((ChainId::new("aptos"), format!("0x{}", hex::encode(&hash[..]))));
+        addresses.push((
+            ChainId::new("aptos"),
+            format!("0x{}", hex::encode(&hash[..])),
+        ));
 
         // Solana
         let mut solana_key = [0u8; 32];
         solana_key.copy_from_slice(&self.seed[..32]);
         let solana_signing = SigningKey::from_bytes(&solana_key);
         let solana_verifying: ed25519_dalek::VerifyingKey = solana_signing.verifying_key();
-        addresses.push((ChainId::new("solana"), bs58::encode(solana_verifying.as_bytes()).into_string()));
+        addresses.push((
+            ChainId::new("solana"),
+            bs58::encode(solana_verifying.as_bytes()).into_string(),
+        ));
 
         addresses
     }
@@ -234,7 +248,8 @@ impl ExtendedWallet {
     /// Get address for a specific chain.
     pub fn address(&self, chain: ChainId) -> String {
         let addresses = self.all_addresses();
-        addresses.iter()
+        addresses
+            .iter()
             .find(|(c, _)| *c == chain)
             .map(|(_, addr)| addr.clone())
             .unwrap_or_default()

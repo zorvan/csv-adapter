@@ -101,7 +101,7 @@ impl ContractDeployer {
 
         if utxos.is_empty() {
             return Err(BitcoinError::InvalidInput(
-                "No UTXOs available for deployment. Fund the deployer address first.".to_string()
+                "No UTXOs available for deployment. Fund the deployer address first.".to_string(),
             ));
         }
 
@@ -113,9 +113,12 @@ impl ContractDeployer {
         let selected_utxo = utxos
             .into_iter()
             .find(|u| u.amount_sat >= total_needed)
-            .ok_or_else(|| BitcoinError::InvalidInput(
-                format!("No UTXO with sufficient funds. Need at least {} satoshis", total_needed)
-            ))?;
+            .ok_or_else(|| {
+                BitcoinError::InvalidInput(format!(
+                    "No UTXO with sufficient funds. Need at least {} satoshis",
+                    total_needed
+                ))
+            })?;
 
         // Build the deployment transaction
         // This creates a Taproot output that locks the contract
@@ -142,9 +145,9 @@ impl ContractDeployer {
             .output
             .iter()
             .position(|output| output.script_pubkey == contract_script_pubkey)
-            .ok_or_else(|| BitcoinError::InvalidInput(
-                "Contract output not found in transaction".to_string()
-            ))? as u32;
+            .ok_or_else(|| {
+                BitcoinError::InvalidInput("Contract output not found in transaction".to_string())
+            })? as u32;
 
         Ok(ContractDeployment {
             address: contract_address.to_string(),
@@ -220,9 +223,9 @@ impl ContractDeployer {
 
         // Add change output if significant
         if change_value > dust_limit {
-            let (change_key, _) = self.wallet
-                .next_address(0)
-                .map_err(|e| BitcoinError::RpcError(format!("Failed to derive change address: {}", e)))?;
+            let (change_key, _) = self.wallet.next_address(0).map_err(|e| {
+                BitcoinError::RpcError(format!("Failed to derive change address: {}", e))
+            })?;
             let change_address = &change_key.address;
 
             outputs.push(TxOut {

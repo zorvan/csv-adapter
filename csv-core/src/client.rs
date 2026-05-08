@@ -27,15 +27,13 @@ use alloc::vec::Vec;
 use sha2::{Digest, Sha256};
 
 use crate::commitment::Commitment;
-use crate::commitment_chain::{
-    verify_ordered_commitment_chain, ChainError, VerificationResult,
-};
+use crate::commitment_chain::{verify_ordered_commitment_chain, ChainError, VerificationResult};
 use crate::consignment::Consignment;
 use crate::cross_chain::InclusionProof as CrossChainInclusionProof;
 use crate::hash::Hash;
+use crate::nullifier::{ChainId, SealConsumption, SealNullifier, SealStatus};
 use crate::sanad::{Sanad, SanadError, SanadId};
 use crate::seal::SealPoint;
-use crate::nullifier::{ChainId, SealNullifier, SealConsumption, SealStatus};
 use crate::state_store::{
     ContractHistory, InMemoryStateStore, StateHistoryStore, StateTransitionRecord,
 };

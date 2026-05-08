@@ -130,7 +130,6 @@ impl SealPoint {
 
         Ok(Self { id, nonce })
     }
-
 }
 
 /// The anchor for a commitment on-chain.
@@ -310,10 +309,7 @@ mod tests {
         let large_id = vec![0u8; MAX_SEAL_ID_SIZE + 1];
         let result = SealPoint::new(large_id, Some(42));
         assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            "id exceeds maximum allowed size (1KB)"
-        );
+        assert_eq!(result.unwrap_err(), "id exceeds maximum allowed size (1KB)");
     }
 
     #[test]

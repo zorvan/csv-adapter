@@ -242,7 +242,13 @@ fn seal_sanad_display_long(seal: &SealRecord) -> String {
 }
 
 fn seal_filter_buttons(filter_chain: Signal<Option<ChainId>>) -> Element {
-    let chains = [ChainId::new("bitcoin"), ChainId::new("ethereum"), ChainId::new("sui"), ChainId::new("aptos"), ChainId::new("solana")];
+    let chains = [
+        ChainId::new("bitcoin"),
+        ChainId::new("ethereum"),
+        ChainId::new("sui"),
+        ChainId::new("aptos"),
+        ChainId::new("solana"),
+    ];
     let mut buttons = Vec::new();
     for chain in chains {
         let mut fc = filter_chain.clone();

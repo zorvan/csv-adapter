@@ -306,9 +306,9 @@ impl From<SuiError> for csv_core::ProtocolError {
                 "Timeout waiting for tx {} after {}ms",
                 tx_digest, timeout_ms
             )),
-            SuiError::ReorgDetected { checkpoint } => csv_core::ProtocolError::ReorgInvalid(
-                format!("Reorg at checkpoint {}", checkpoint),
-            ),
+            SuiError::ReorgDetected { checkpoint } => {
+                csv_core::ProtocolError::ReorgInvalid(format!("Reorg at checkpoint {}", checkpoint))
+            }
             sui_err => csv_core::ProtocolError::NetworkError(format!("{}", sui_err)),
         }
     }

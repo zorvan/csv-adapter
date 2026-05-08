@@ -82,14 +82,13 @@ impl CelestiaSealPoint {
 
     /// Convert to core SealPoint
     pub fn to_core_seal(&self) -> csv_core::seal::SealPoint {
-        csv_core::seal::SealPoint::new(
-            self.proof_id.to_bytes().to_vec(),
-            Some(self.height),
-        )
-        .unwrap_or_else(|_| csv_core::seal::SealPoint::new_unchecked(
-            self.proof_id.to_bytes().to_vec(),
-            Some(self.height),
-        ))
+        csv_core::seal::SealPoint::new(self.proof_id.to_bytes().to_vec(), Some(self.height))
+            .unwrap_or_else(|_| {
+                csv_core::seal::SealPoint::new_unchecked(
+                    self.proof_id.to_bytes().to_vec(),
+                    Some(self.height),
+                )
+            })
     }
 }
 
@@ -148,26 +147,26 @@ impl CelestiaAnchor {
     pub fn proof_id(&self) -> ProofId {
         match &self.location {
             ProofLocation::Celestia { proof_id } => *proof_id,
-            _ => ProofId::new(self.height, self.location.namespace().unwrap_or(Namespace::metadata()), *self.commitment.as_bytes()),
+            _ => ProofId::new(
+                self.height,
+                self.location
+                    .namespace()
+                    .cloned()
+                    .unwrap_or_else(Namespace::metadata),
+                *self.commitment.as_bytes(),
+            ),
         }
     }
 
     /// Convert to core CommitAnchor
     pub fn to_core_anchor(&self) -> csv_core::seal::CommitAnchor {
         let anchor_id = self.proof_id().to_bytes().to_vec();
-        let metadata = serde_json::to_vec(&self.location)
-            .unwrap_or_default();
+        let metadata = serde_json::to_vec(&self.location).unwrap_or_default();
 
-        csv_core::seal::CommitAnchor::new(
-            anchor_id.clone(),
-            self.height,
-            metadata.clone(),
-        )
-        .unwrap_or_else(|_| csv_core::seal::CommitAnchor::new_unchecked(
-            anchor_id,
-            self.height,
-            metadata,
-        ))
+        csv_core::seal::CommitAnchor::new(anchor_id.clone(), self.height, metadata.clone())
+            .unwrap_or_else(|_| {
+                csv_core::seal::CommitAnchor::new_unchecked(anchor_id, self.height, metadata)
+            })
     }
 
     /// Check if this uses IPFS
@@ -207,11 +206,7 @@ pub struct CelestiaFinalityProof {
 
 impl CelestiaFinalityProof {
     /// Create a new finality proof
-    pub fn new(
-        height: u64,
-        block_hash: [u8; 32],
-        data_root: [u8; 32],
-    ) -> Self {
+    pub fn new(height: u64, block_hash: [u8; 32], data_root: [u8; 32]) -> Self {
         Self {
             height,
             block_hash,
@@ -252,12 +247,12 @@ impl CelestiaFinalityProof {
     pub fn verify_structure(&self) -> Result<()> {
         if self.block_hash == [0u8; 32] {
             return Err(CelestiaError::InvalidProofId(
-                "Missing block hash".to_string()
+                "Missing block hash".to_string(),
             ));
         }
         if self.data_root == [0u8; 32] {
             return Err(CelestiaError::InvalidProofId(
-                "Missing data root".to_string()
+                "Missing data root".to_string(),
             ));
         }
         Ok(())
@@ -270,19 +265,20 @@ impl CelestiaFinalityProof {
 
     /// Convert to core FinalityProof
     pub fn to_core_finality(&self) -> csv_core::proof::FinalityProof {
-        let finality_data = serde_json::to_vec(&self)
-            .unwrap_or_default();
+        let finality_data = serde_json::to_vec(&self).unwrap_or_default();
 
         csv_core::proof::FinalityProof::new(
             finality_data.clone(),
             self.quorum_signatures.len() as u64,
             true, // Tendermint has deterministic finality
         )
-        .unwrap_or_else(|_| csv_core::proof::FinalityProof::new_unchecked(
-            finality_data,
-            self.quorum_signatures.len() as u64,
-            true,
-        ))
+        .unwrap_or_else(|_| {
+            csv_core::proof::FinalityProof::new_unchecked(
+                finality_data,
+                self.quorum_signatures.len() as u64,
+                true,
+            )
+        })
     }
 }
 
@@ -334,7 +330,7 @@ impl CelestiaHeader {
         }
         if self.hash == [0u8; 32] {
             return Err(CelestiaError::InvalidProofId(
-                "Invalid block hash".to_string()
+                "Invalid block hash".to_string(),
             ));
         }
         Ok(())
@@ -422,6 +418,7 @@ impl CelestiaMetadata {
 mod tests {
     use super::*;
     use crate::proof_id::ProofLocation;
+    use sha2::Digest;
 
     #[test]
     fn test_celestia_seal_point() {
@@ -450,8 +447,7 @@ mod tests {
     fn test_celestia_seal_point_with_ipfs() {
         let ns = Namespace::bitcoin_stark();
         let proof_id = ProofId::new(12345, ns, [0u8; 32]);
-        let seal = CelestiaSealPoint::new(proof_id, 12345)
-            .with_ipfs("QmTest123");
+        let seal = CelestiaSealPoint::new(proof_id, 12345).with_ipfs("QmTest123");
 
         assert_eq!(seal.ipfs_cid, Some("QmTest123".to_string()));
     }
@@ -463,13 +459,7 @@ mod tests {
         let location = ProofLocation::Celestia { proof_id };
         let commitment = BlobCommitment::new([0u8; 32]);
 
-        let anchor = CelestiaAnchor::new(
-            location,
-            12345,
-            [1u8; 32],
-            commitment,
-            [2u8; 32],
-        );
+        let anchor = CelestiaAnchor::new(location, 12345, [1u8; 32], commitment, [2u8; 32]);
 
         assert_eq!(anchor.height, 12345);
         assert!(!anchor.uses_ipfs());
@@ -481,13 +471,7 @@ mod tests {
         let location = ProofLocation::ipfs_backed(12345, "QmTest", ns);
         let commitment = BlobCommitment::new([0u8; 32]);
 
-        let anchor = CelestiaAnchor::new(
-            location,
-            12345,
-            [1u8; 32],
-            commitment,
-            [2u8; 32],
-        );
+        let anchor = CelestiaAnchor::new(location, 12345, [1u8; 32], commitment, [2u8; 32]);
 
         assert!(anchor.uses_ipfs());
         assert_eq!(anchor.cid(), Some("QmTest"));
@@ -495,11 +479,7 @@ mod tests {
 
     #[test]
     fn test_celestia_finality_proof() {
-        let proof = CelestiaFinalityProof::new(
-            12345,
-            [1u8; 32],
-            [2u8; 32],
-        );
+        let proof = CelestiaFinalityProof::new(12345, [1u8; 32], [2u8; 32]);
 
         assert!(!proof.is_finalized());
         assert!(proof.verify_structure().is_ok());
@@ -511,9 +491,8 @@ mod tests {
     #[test]
     fn test_celestia_finality_proof_structure_failure() {
         let proof = CelestiaFinalityProof::new(
-            12345,
-            [0u8; 32],  // Invalid
-            [0u8; 32],  // Invalid
+            12345, [0u8; 32], // Invalid
+            [0u8; 32], // Invalid
         );
 
         assert!(proof.verify_structure().is_err());
@@ -521,12 +500,7 @@ mod tests {
 
     #[test]
     fn test_celestia_header() {
-        let header = CelestiaHeader::new(
-            "celestia",
-            12345,
-            [1u8; 32],
-            [2u8; 32],
-        );
+        let header = CelestiaHeader::new("celestia", 12345, [1u8; 32], [2u8; 32]);
 
         assert_eq!(header.chain_id, "celestia");
         assert_eq!(header.height, 12345);
@@ -540,13 +514,9 @@ mod tests {
         let proof_id = ProofId::new(12345, ns, [0u8; 32]);
         let location = ProofLocation::Celestia { proof_id };
 
-        let meta = CelestiaMetadata::new(
-            location,
-            "application/stark-proof",
-            1024,
-        )
-        .with_compression("gzip")
-        .with_expiration(9999999999);
+        let meta = CelestiaMetadata::new(location, "application/stark-proof", 1024)
+            .with_compression("gzip")
+            .with_expiration(9999999999);
 
         assert_eq!(meta.content_type, "application/stark-proof");
         assert_eq!(meta.original_size, 1024);
@@ -560,11 +530,7 @@ mod tests {
         let proof_id = ProofId::new(12345, ns, [0u8; 32]);
         let location = ProofLocation::Celestia { proof_id };
 
-        let mut meta = CelestiaMetadata::new(
-            location,
-            "application/stark-proof",
-            1024,
-        );
+        let mut meta = CelestiaMetadata::new(location, "application/stark-proof", 1024);
 
         let data = b"test data for checksum";
         let hash: [u8; 32] = sha2::Sha256::digest(data).into();

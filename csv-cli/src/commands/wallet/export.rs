@@ -13,12 +13,9 @@ pub fn cmd_export(_config: &Config, state: &UnifiedStateManager) -> Result<()> {
     output::header("Mnemonic Export");
 
     // Check if mnemonic is stored
-    let mnemonic = state
-        .storage
-        .wallet
-        .mnemonic
-        .as_ref()
-        .ok_or_else(|| anyhow::anyhow!("No mnemonic found. Initialize or import a wallet first."))?;
+    let mnemonic = state.storage.wallet.mnemonic.as_ref().ok_or_else(|| {
+        anyhow::anyhow!("No mnemonic found. Initialize or import a wallet first.")
+    })?;
 
     output::warning("WARNING: This mnemonic phrase controls all your wallet keys!");
     output::warning("Store it securely and never share it with anyone.");

@@ -1,13 +1,13 @@
 //! Wallet state hook.
 
 use crate::wallet_core::{ChainAccount, WalletData as Wallet};
-use csv_store::state::ChainId;
 use csv_keys::{
     bip39::{Mnemonic, MnemonicType},
     bip44::derive_all_chain_keys,
     browser_keystore::BrowserKeystore,
     memory::Seed,
 };
+use csv_store::state::ChainId;
 use dioxus::prelude::*;
 
 /// Wallet state.

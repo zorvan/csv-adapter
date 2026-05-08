@@ -145,9 +145,12 @@ impl CheckpointVerifierTrait for CheckpointVerifier {
 
     /// Get the latest certified checkpoint.
     async fn latest_certified_checkpoint(&self, rpc: &dyn SuiRpc) -> SuiResult<Option<u64>> {
-        let latest = rpc.get_latest_checkpoint_sequence_number().await.map_err(|e| {
-            SuiError::CheckpointFailed(format!("Failed to get latest checkpoint: {}", e))
-        })?;
+        let latest = rpc
+            .get_latest_checkpoint_sequence_number()
+            .await
+            .map_err(|e| {
+                SuiError::CheckpointFailed(format!("Failed to get latest checkpoint: {}", e))
+            })?;
 
         // Walk backwards to find the first certified checkpoint
         let max_lookback = self.config.max_epoch_lookback;

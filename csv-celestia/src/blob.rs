@@ -94,8 +94,7 @@ impl Blob {
 
     /// Get the cached commitment
     pub fn commitment(&self) -> [u8; 32] {
-        self.commitment
-            .unwrap_or_else(|| self.compute_commitment())
+        self.commitment.unwrap_or_else(|| self.compute_commitment())
     }
 
     /// Get commitment as hex string
@@ -229,9 +228,7 @@ impl BlobBundle {
     /// Create a new blob bundle from individual blobs
     pub fn new(blobs: Vec<Blob>) -> Result<Self> {
         if blobs.is_empty() {
-            return Err(CelestiaError::invalid_input(
-                "Blob bundle cannot be empty",
-            ));
+            return Err(CelestiaError::invalid_input("Blob bundle cannot be empty"));
         }
 
         let total_size: usize = blobs.iter().map(|b| b.size()).sum();
@@ -304,7 +301,10 @@ mod tests {
     #[test]
     fn test_empty_blob_fails() {
         let ns = Namespace::bitcoin_stark();
-        assert!(matches!(Blob::new(ns, vec![]), Err(CelestiaError::EmptyBlob)));
+        assert!(matches!(
+            Blob::new(ns, vec![]),
+            Err(CelestiaError::EmptyBlob)
+        ));
     }
 
     #[test]
@@ -387,7 +387,10 @@ mod tests {
         );
 
         assert_eq!(with_meta.description, Some("Test proof".to_string()));
-        assert_eq!(with_meta.content_type, Some("application/stark-proof".to_string()));
+        assert_eq!(
+            with_meta.content_type,
+            Some("application/stark-proof".to_string())
+        );
     }
 
     #[test]

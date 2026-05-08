@@ -3,8 +3,8 @@
 //! This module defines `StateStorage` (formerly `UnifiedStorage`),
 //! the central data structure for CSV application state.
 
-use super::core::{ChainConfig, Network};
 use super::core::ChainId;
+use super::core::{ChainConfig, Network};
 use super::domain::{
     ContractRecord, ProofRecord, SanadRecord, SealRecord, TransactionRecord, TransferRecord,
 };

@@ -74,7 +74,7 @@ use alloc::vec::Vec;
 
 use crate::consignment::Consignment;
 use crate::hash::Hash;
-use crate::nullifier::{ChainId, SealNullifier, SealConsumption, SealStatus};
+use crate::nullifier::{ChainId, SealConsumption, SealNullifier, SealStatus};
 use crate::state_store::InMemoryStateStore;
 
 #[cfg(feature = "experimental")]
@@ -390,10 +390,11 @@ impl ConsignmentValidator {
                 let vm_inputs = self.build_vm_inputs(transition, consignment);
                 let signatures: Vec<Vec<u8>> = transition.signatures.clone();
 
-                match self
-                    .vm
-                    .execute(&transition.validation_script, vm_inputs.clone(), &signatures)
-                {
+                match self.vm.execute(
+                    &transition.validation_script,
+                    vm_inputs.clone(),
+                    &signatures,
+                ) {
                     Ok(outputs) => {
                         // Validate outputs are consistent with inputs
                         if let Err(e) = self.vm.validate_outputs(&vm_inputs, &outputs) {
@@ -683,13 +684,7 @@ mod tests {
             vec![],
             vec![],
         );
-        let consignment = Consignment::new(
-            genesis,
-            vec![],
-            vec![],
-            vec![],
-            Hash::new([0x01; 32]),
-        );
+        let consignment = Consignment::new(genesis, vec![], vec![], vec![], Hash::new([0x01; 32]));
         let validator = ConsignmentValidator::new();
         let report = validator.validate_consignment(&consignment, ChainId::new("bitcoin"));
         // Empty consignment (genesis-only) should pass structural validation
@@ -767,8 +762,24 @@ mod tests {
             vec![],
         );
         let transitions = vec![
-            crate::transition::Transition::new(0, vec![], vec![], vec![], vec![], vec![0x01; 16], vec![]),
-            crate::transition::Transition::new(1, vec![], vec![], vec![], vec![], vec![0x02; 16], vec![]),
+            crate::transition::Transition::new(
+                0,
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![0x01; 16],
+                vec![],
+            ),
+            crate::transition::Transition::new(
+                1,
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                vec![0x02; 16],
+                vec![],
+            ),
         ];
         // Only one anchor for two transitions
         let anchors = vec![crate::consignment::Anchor::new(
@@ -777,13 +788,8 @@ mod tests {
             vec![0x02; 32],
             vec![0x03; 32],
         )];
-        let consignment = Consignment::new(
-            genesis,
-            transitions,
-            vec![],
-            anchors,
-            Hash::new([0x01; 32]),
-        );
+        let consignment =
+            Consignment::new(genesis, transitions, vec![], anchors, Hash::new([0x01; 32]));
         let validator = ConsignmentValidator::new();
         let report = validator.validate_consignment(&consignment, ChainId::new("bitcoin"));
         assert!(!report.passed, "Anchor count mismatch should be detected");
@@ -799,7 +805,15 @@ mod tests {
             vec![],
         );
         let tx_hash = Hash::new([0x01; 32]);
-        let transitions = vec![crate::transition::Transition::new(0, vec![], vec![], vec![], vec![], vec![0x01; 16], vec![])];
+        let transitions = vec![crate::transition::Transition::new(
+            0,
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+            vec![0x01; 16],
+            vec![],
+        )];
         // Anchor with empty inclusion proof
         let anchors = vec![crate::consignment::Anchor::new(
             CommitAnchor::new(tx_hash.to_vec(), 0, vec![]).unwrap(),
@@ -807,13 +821,8 @@ mod tests {
             vec![], // empty inclusion proof
             vec![0x03; 32],
         )];
-        let consignment = Consignment::new(
-            genesis,
-            transitions,
-            vec![],
-            anchors,
-            Hash::new([0x01; 32]),
-        );
+        let consignment =
+            Consignment::new(genesis, transitions, vec![], anchors, Hash::new([0x01; 32]));
         let validator = ConsignmentValidator::new();
         let report = validator.validate_consignment(&consignment, ChainId::new("bitcoin"));
         assert!(!report.passed, "Empty inclusion proof should be detected");

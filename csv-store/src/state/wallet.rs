@@ -122,10 +122,7 @@ impl FaucetConfig {
             Network::Main => None, // No faucets for mainnet
             _ => {
                 let (url, amount) = match chain.as_str() {
-                    "bitcoin" => (
-                        "https://signet.bc-2.jp",
-                        Some(100_000u64),
-                    ),
+                    "bitcoin" => ("https://signet.bc-2.jp", Some(100_000u64)),
                     "ethereum" => (
                         "https://sepoliafaucet.com",
                         Some(100_000_000_000_000_000u64),
@@ -138,10 +135,7 @@ impl FaucetConfig {
                         "https://faucet.testnet.aptoslabs.com/v1",
                         Some(100_000_000u64),
                     ),
-                    "solana" => (
-                        "https://faucet.devnet.solana.com",
-                        Some(1_000_000_000u64),
-                    ),
+                    "solana" => ("https://faucet.devnet.solana.com", Some(1_000_000_000u64)),
                     _ => return None,
                 };
                 Some(Self {

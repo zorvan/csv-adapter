@@ -89,13 +89,15 @@ impl SuiRpc for SuiNode {
         object_id: [u8; 32],
     ) -> Result<Option<SuiObject>, Box<dyn std::error::Error + Send + Sync>> {
         let id_hex = format!("0x{}", hex::encode(object_id));
-        let result = self.rpc_call(
-            "sui_getObject",
-            json!([
-                id_hex,
-                { "showContent": true, "showBcs": true, "showOwner": true }
-            ]),
-        ).await?;
+        let result = self
+            .rpc_call(
+                "sui_getObject",
+                json!([
+                    id_hex,
+                    { "showContent": true, "showBcs": true, "showOwner": true }
+                ]),
+            )
+            .await?;
 
         if result.get("data").is_none() || result["data"].is_null() {
             return Ok(None);
@@ -120,13 +122,15 @@ impl SuiRpc for SuiNode {
         digest: [u8; 32],
     ) -> Result<Option<SuiTransactionBlock>, Box<dyn std::error::Error + Send + Sync>> {
         let digest_hex = format!("0x{}", hex::encode(digest));
-        let result = self.rpc_call(
-            "sui_getTransactionBlock",
-            json!([
-                digest_hex,
-                { "showInput": true, "showEffects": true, "showEvents": true }
-            ]),
-        ).await?;
+        let result = self
+            .rpc_call(
+                "sui_getTransactionBlock",
+                json!([
+                    digest_hex,
+                    { "showInput": true, "showEffects": true, "showEvents": true }
+                ]),
+            )
+            .await?;
 
         if result.is_null() {
             return Ok(None);
@@ -194,13 +198,15 @@ impl SuiRpc for SuiNode {
         &self,
         sequence_number: u64,
     ) -> Result<Option<SuiCheckpoint>, Box<dyn std::error::Error + Send + Sync>> {
-        let result = self.rpc_call(
-            "sui_getCheckpoint",
-            json!([
-                sequence_number.to_string(),
-                { "showBcs": true, "showTransactions": false }
-            ]),
-        ).await?;
+        let result = self
+            .rpc_call(
+                "sui_getCheckpoint",
+                json!([
+                    sequence_number.to_string(),
+                    { "showBcs": true, "showTransactions": false }
+                ]),
+            )
+            .await?;
 
         if result.is_null() {
             return Ok(None);
@@ -223,16 +229,21 @@ impl SuiRpc for SuiNode {
     async fn get_latest_checkpoint_sequence_number(
         &self,
     ) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
-        let result = self.rpc_call("sui_getLatestCheckpointSequenceNumber", json!([])).await?;
+        let result = self
+            .rpc_call("sui_getLatestCheckpointSequenceNumber", json!([]))
+            .await?;
         Ok(result.as_str().unwrap_or("0").parse()?)
     }
 
     async fn sender_address(&self) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>> {
         // This method requires a configured signer with a known address
         // The SuiNode does not store signing keys - they must be provided externally
-        Err("CapabilityUnavailable: sender_address requires a configured signer. \
+        Err(
+            "CapabilityUnavailable: sender_address requires a configured signer. \
              Use SuiNode with an external key management system or \
-             configure a signer address explicitly.".into())
+             configure a signer address explicitly."
+                .into(),
+        )
     }
 
     async fn get_gas_objects(
@@ -240,14 +251,16 @@ impl SuiRpc for SuiNode {
         owner: [u8; 32],
     ) -> Result<Vec<SuiObject>, Box<dyn std::error::Error + Send + Sync>> {
         let owner_hex = format!("0x{}", hex::encode(owner));
-        let result = self.rpc_call(
-            "suix_getCoins",
-            json!([
-                owner_hex, null, // coin type (all coins)
-                null, // cursor
-                null  // limit
-            ]),
-        ).await?;
+        let result = self
+            .rpc_call(
+                "suix_getCoins",
+                json!([
+                    owner_hex, null, // coin type (all coins)
+                    null, // cursor
+                    null  // limit
+                ]),
+            )
+            .await?;
 
         if let Some(data) = result.get("data") {
             if let Some(coins) = data.as_array() {
@@ -286,19 +299,21 @@ impl SuiRpc for SuiNode {
         let sig_b64 = base64::engine::general_purpose::STANDARD.encode(&signature);
         let pk_b64 = base64::engine::general_purpose::STANDARD.encode(&public_key);
 
-        let result = self.rpc_call(
-            "sui_executeTransactionBlock",
-            json!([
-                tx_b64,
-                [sig_b64],
-                [pk_b64],
-                {
-                    "showInput": true,
-                    "showEffects": true,
-                    "showEvents": true
-                }
-            ]),
-        ).await?;
+        let result = self
+            .rpc_call(
+                "sui_executeTransactionBlock",
+                json!([
+                    tx_b64,
+                    [sig_b64],
+                    [pk_b64],
+                    {
+                        "showInput": true,
+                        "showEffects": true,
+                        "showEvents": true
+                    }
+                ]),
+            )
+            .await?;
 
         // Parse the response to get the transaction digest
         if let Some(digest) = result.get("digest").and_then(|d| d.as_str()) {
@@ -331,7 +346,9 @@ impl SuiRpc for SuiNode {
         }
     }
 
-    async fn get_ledger_info(&self) -> Result<SuiLedgerInfo, Box<dyn std::error::Error + Send + Sync>> {
+    async fn get_ledger_info(
+        &self,
+    ) -> Result<SuiLedgerInfo, Box<dyn std::error::Error + Send + Sync>> {
         let latest_checkpoint = self.get_latest_checkpoint_sequence_number().await?;
         let checkpoint = self.get_checkpoint(latest_checkpoint).await?;
 

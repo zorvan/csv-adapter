@@ -10,10 +10,10 @@ use anyhow::Result;
 use std::collections::HashMap;
 
 use csv_keys::{
+    bip44::{derive_address_from_key, derive_all_chain_keys},
     file_keystore::FileKeystore,
-    Mnemonic, MnemonicType,
-    bip44::{derive_all_chain_keys, derive_address_from_key},
     memory::Passphrase,
+    Mnemonic, MnemonicType,
 };
 
 /// Initialize wallet with one-command setup.
@@ -140,15 +140,16 @@ fn generate_wallet_for_chain(
     let core_chain = csv_core::ChainId::new(chain.as_str());
 
     // Convert mnemonic to seed
-    let mnemonic_obj = Mnemonic::from_phrase(mnemonic)
-        .map_err(|e| anyhow::anyhow!("Invalid mnemonic: {}", e))?;
+    let mnemonic_obj =
+        Mnemonic::from_phrase(mnemonic).map_err(|e| anyhow::anyhow!("Invalid mnemonic: {}", e))?;
     let seed = mnemonic_obj.to_seed(None);
 
     // Derive keys for all chains
     let keys = derive_all_chain_keys(seed.as_bytes(), account);
 
     // Get the key for the requested chain
-    let key = keys.get(&core_chain)
+    let key = keys
+        .get(&core_chain)
         .ok_or_else(|| anyhow::anyhow!("Failed to derive key for {:?}", chain))?;
 
     // Derive address from key
@@ -192,8 +193,9 @@ fn generate_bitcoin(network: Network, state: &mut UnifiedStateManager) -> Result
     let secret_key = SecretKey::new(key_bytes);
 
     // Derive Bitcoin address using the keystore runtime
-    let address = derive_address_from_key(secret_key.as_bytes(), &csv_core::ChainId::new("bitcoin"))
-        .map_err(|e| anyhow::anyhow!("Failed to derive address: {}", e))?;
+    let address =
+        derive_address_from_key(secret_key.as_bytes(), &csv_core::ChainId::new("bitcoin"))
+            .map_err(|e| anyhow::anyhow!("Failed to derive address: {}", e))?;
 
     state.store_address(Chain::new("bitcoin"), address.clone());
 
@@ -203,7 +205,9 @@ fn generate_bitcoin(network: Network, state: &mut UnifiedStateManager) -> Result
     output::kv("Derivation Path", "m/86'/0'/0'/0/0");
 
     println!();
-    output::warning("Your private key has been generated. Use 'csv wallet export' to view it securely.");
+    output::warning(
+        "Your private key has been generated. Use 'csv wallet export' to view it securely.",
+    );
 
     Ok(())
 }
@@ -217,8 +221,9 @@ fn generate_ethereum(state: &mut UnifiedStateManager) -> Result<()> {
     rand::rngs::OsRng.fill_bytes(&mut key_bytes);
     let secret_key = SecretKey::new(key_bytes);
 
-    let address = derive_address_from_key(secret_key.as_bytes(), &csv_core::ChainId::new("ethereum"))
-        .map_err(|e| anyhow::anyhow!("Failed to derive address: {}", e))?;
+    let address =
+        derive_address_from_key(secret_key.as_bytes(), &csv_core::ChainId::new("ethereum"))
+            .map_err(|e| anyhow::anyhow!("Failed to derive address: {}", e))?;
 
     state.store_address(Chain::new("ethereum"), address.clone());
 
@@ -226,7 +231,9 @@ fn generate_ethereum(state: &mut UnifiedStateManager) -> Result<()> {
     output::kv("Address", &address);
 
     println!();
-    output::warning("Your private key has been generated. Use 'csv wallet export' to view it securely.");
+    output::warning(
+        "Your private key has been generated. Use 'csv wallet export' to view it securely.",
+    );
 
     Ok(())
 }
@@ -249,7 +256,9 @@ fn generate_sui(state: &mut UnifiedStateManager) -> Result<()> {
     output::kv("Address", &address);
 
     println!();
-    output::warning("Your private key has been generated. Use 'csv wallet export' to view it securely.");
+    output::warning(
+        "Your private key has been generated. Use 'csv wallet export' to view it securely.",
+    );
 
     Ok(())
 }
@@ -272,7 +281,9 @@ fn generate_aptos(state: &mut UnifiedStateManager) -> Result<()> {
     output::kv("Address", &address);
 
     println!();
-    output::warning("Your private key has been generated. Use 'csv wallet export' to view it securely.");
+    output::warning(
+        "Your private key has been generated. Use 'csv wallet export' to view it securely.",
+    );
 
     Ok(())
 }
@@ -295,7 +306,9 @@ fn generate_solana(state: &mut UnifiedStateManager) -> Result<()> {
     output::kv("Address", &address);
 
     println!();
-    output::warning("Your private key has been generated. Use 'csv wallet export' to view it securely.");
+    output::warning(
+        "Your private key has been generated. Use 'csv wallet export' to view it securely.",
+    );
 
     Ok(())
 }

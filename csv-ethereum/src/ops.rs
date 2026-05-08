@@ -11,19 +11,20 @@
 use async_trait::async_trait;
 use csv_core::backend::{
     BalanceInfo, ChainBroadcaster, ChainDeployer, ChainOpError, ChainOpResult, ChainProofProvider,
-    ChainQuery, ChainSanadOps, ChainSigner, ContractStatus, DeploymentStatus, FinalityStatus, SanadOperationResult, TransactionInfo, TransactionStatus,
+    ChainQuery, ChainSanadOps, ChainSigner, ContractStatus, DeploymentStatus, FinalityStatus,
+    SanadOperationResult, TransactionInfo, TransactionStatus,
 };
 use csv_core::hash::Hash;
 use csv_core::proof::{FinalityProof, InclusionProof as CoreInclusionProof};
 use csv_core::sanad::SanadId;
 use csv_core::signature::SignatureScheme;
 
-use crate::seal_protocol::EthereumSealProtocol;
 use crate::config::EthereumConfig;
 use crate::finality::FinalityChecker;
 use crate::proofs::{CommitmentEventBuilder, EventProofVerifier};
 use crate::rpc::{EthereumRpc, RpcBlock, RpcTransaction};
 use crate::seal_contract::CsvSealAbi;
+use crate::seal_protocol::EthereumSealProtocol;
 
 /// Ethereum chain operations implementation
 pub struct EthereumBackend {
@@ -203,18 +204,18 @@ impl ChainQuery for EthereumBackend {
             .rpc()
             .get_transaction_receipt(hash)
             .await
-            .map_err(|e| ChainOpError::RpcError(format!("Failed to get receipt: {}", e)))? {
+            .map_err(|e| ChainOpError::RpcError(format!("Failed to get receipt: {}", e)))?
+        {
             Some(r) => r,
             None => return Ok(FinalityStatus::Pending),
         };
         let block_number = receipt.block_number;
 
         // Get latest block
-        let latest = self
-            .rpc()
-            .block_number()
-            .await
-            .map_err(|e| ChainOpError::RpcError(format!("Failed to get block number: {}", e)))?;
+        let latest =
+            self.rpc().block_number().await.map_err(|e| {
+                ChainOpError::RpcError(format!("Failed to get block number: {}", e))
+            })?;
 
         let confirmations = latest.saturating_sub(block_number) + 1;
 
@@ -307,7 +308,8 @@ impl ChainSigner for EthereumBackend {
     fn derive_address(&self, public_key: &[u8]) -> ChainOpResult<String> {
         if public_key.len() != 33 && public_key.len() != 65 {
             return Err(ChainOpError::InvalidInput(
-                "Secp256k1 public key must be 33 (compressed) or 65 (uncompressed) bytes".to_string(),
+                "Secp256k1 public key must be 33 (compressed) or 65 (uncompressed) bytes"
+                    .to_string(),
             ));
         }
 
@@ -325,7 +327,8 @@ impl ChainSigner for EthereumBackend {
         // by a secure keystore, not stored in this operations struct.
         Err(ChainOpError::CapabilityUnavailable(
             "Direct transaction signing not available. \
-             Use an external keystore with the key_id reference.".to_string(),
+             Use an external keystore with the key_id reference."
+                .to_string(),
         ))
     }
 
@@ -333,19 +336,20 @@ impl ChainSigner for EthereumBackend {
         // Sign an Ethereum personal message using ECDSA
         // Ethereum adds a prefix: "\x19Ethereum Signed Message:\n" + len(message) + message
 
-        use secp256k1::{Message, Secp256k1, SecretKey};
-        use sha3::{Keccak256, Digest};
         use secp256k1::ecdsa::RecoverableSignature;
+        use secp256k1::{Message, Secp256k1, SecretKey};
+        use sha3::{Digest, Keccak256};
 
         // Parse key_id as hex-encoded private key (production would use keystore)
-        let key_bytes = hex::decode(key_id)
-            .map_err(|_| ChainOpError::SigningError(
-                "Invalid key_id format. Expected hex-encoded key.".to_string()
-            ))?;
+        let key_bytes = hex::decode(key_id).map_err(|_| {
+            ChainOpError::SigningError(
+                "Invalid key_id format. Expected hex-encoded key.".to_string(),
+            )
+        })?;
 
         if key_bytes.len() != 32 {
             return Err(ChainOpError::SigningError(
-                "Invalid key length. Expected 32 bytes.".to_string()
+                "Invalid key length. Expected 32 bytes.".to_string(),
             ));
         }
 
@@ -384,8 +388,8 @@ impl ChainSigner for EthereumBackend {
         // Ethereum uses ECDSA with secp256k1
         // Signature format: r (32 bytes) || s (32 bytes) || v (1 byte, recovery id)
 
-        use secp256k1::{Message, Secp256k1, PublicKey, ecdsa::Signature};
-        use sha3::{Keccak256, Digest};
+        use secp256k1::{ecdsa::Signature, Message, PublicKey, Secp256k1};
+        use sha3::{Digest, Keccak256};
 
         if signature.len() != 65 {
             return Err(ChainOpError::InvalidInput(
@@ -398,7 +402,8 @@ impl ChainSigner for EthereumBackend {
             .map_err(|e| ChainOpError::InvalidInput(format!("Invalid public key: {}", e)))?;
 
         // Extract signature components
-        let r_s_bytes: [u8; 64] = signature[0..64].try_into()
+        let r_s_bytes: [u8; 64] = signature[0..64]
+            .try_into()
             .map_err(|_| ChainOpError::InvalidInput("Invalid signature length".to_string()))?;
         let _v = signature[64]; // Recovery id (27-30 for Ethereum)
 
@@ -518,11 +523,7 @@ impl ChainBroadcaster for EthereumBackend {
 
     async fn get_fee_estimate(&self) -> ChainOpResult<u64> {
         // Get current gas price - use a default if not available
-        let gas_price = self
-            .rpc()
-            .get_gas_price()
-            .await
-            .unwrap_or(20_000_000_000); // Default 20 Gwei
+        let gas_price = self.rpc().get_gas_price().await.unwrap_or(20_000_000_000); // Default 20 Gwei
 
         // Estimate gas limit for a typical transaction (21000 for simple transfer)
         let gas_limit = 21000;
@@ -564,7 +565,8 @@ impl ChainDeployer for EthereumBackend {
         Err(ChainOpError::CapabilityUnavailable(
             "Contract deployment requires signed transaction. \
              Use external deployment tools or implement full deployment flow \
-             with compiled contract bytecode.".to_string(),
+             with compiled contract bytecode."
+                .to_string(),
         ))
     }
 
@@ -579,7 +581,8 @@ impl ChainDeployer for EthereumBackend {
         // Same contract handles both lock and mint
         Err(ChainOpError::CapabilityUnavailable(
             "Mint contract deployment requires signed transaction. \
-             The CSV seal contract handles both lock and mint operations.".to_string(),
+             The CSV seal contract handles both lock and mint operations."
+                .to_string(),
         ))
     }
 
@@ -595,7 +598,8 @@ impl ChainDeployer for EthereumBackend {
         Err(ChainOpError::CapabilityUnavailable(
             "Seal program deployment requires signed transaction. \
              Use deploy_csv_seal_contract() with proper initialization \
-             or external deployment tools.".to_string(),
+             or external deployment tools."
+                .to_string(),
         ))
     }
 
@@ -617,11 +621,7 @@ impl ChainDeployer for EthereumBackend {
         let total_gas = base_cost + init_code_cost + runtime_estimate;
 
         // Get gas price - use a default if not available
-        let gas_price = self
-            .rpc()
-            .get_gas_price()
-            .await
-            .unwrap_or(20_000_000_000); // Default 20 Gwei
+        let gas_price = self.rpc().get_gas_price().await.unwrap_or(20_000_000_000); // Default 20 Gwei
 
         Ok(total_gas * gas_price)
     }
@@ -669,13 +669,14 @@ impl ChainProofProvider for EthereumBackend {
         {
             use tokio::runtime::Handle;
             let handle = Handle::current();
-            
+
             // Verify the block exists and has the expected state root
-            let block = handle.block_on(
-                self.rpc().get_block_by_number(proof.position)
-            )
+            let block = handle
+                .block_on(self.rpc().get_block_by_number(proof.position))
                 .map_err(|e| ChainOpError::RpcError(format!("Failed to get block: {}", e)))?
-                .ok_or_else(|| ChainOpError::ProofVerificationError("Block not found".to_string()))?;
+                .ok_or_else(|| {
+                    ChainOpError::ProofVerificationError("Block not found".to_string())
+                })?;
 
             // Verify state root matches
             if block.state_root.to_vec() != proof.proof_bytes {
@@ -687,16 +688,22 @@ impl ChainProofProvider for EthereumBackend {
             let commitment_bytes = commitment.as_bytes();
 
             // Check if commitment is present in proof_data
-            if !proof.proof_bytes.windows(commitment_bytes.len()).any(|window| window == commitment_bytes) {
+            if !proof
+                .proof_bytes
+                .windows(commitment_bytes.len())
+                .any(|window| window == commitment_bytes)
+            {
                 return Err(ChainOpError::ProofVerificationError(
-                    "Commitment not found in proof data".to_string()
+                    "Commitment not found in proof data".to_string(),
                 ));
             }
 
             // Verify transaction hash format
-            if proof.block_hash.as_bytes().is_empty() || format!("0x{}", hex::encode(proof.block_hash.as_bytes())).len() < 3 {
+            if proof.block_hash.as_bytes().is_empty()
+                || format!("0x{}", hex::encode(proof.block_hash.as_bytes())).len() < 3
+            {
                 return Err(ChainOpError::ProofVerificationError(
-                    "Invalid transaction hash format".to_string()
+                    "Invalid transaction hash format".to_string(),
                 ));
             }
 
@@ -727,9 +734,9 @@ impl ChainProofProvider for EthereumBackend {
                     .map_err(|e| ChainOpError::Unknown(format!("Serialization failed: {}", e)))?;
 
                 // Calculate confirmations
-                let latest = self.rpc().block_number()
-                    .await
-                    .map_err(|e| ChainOpError::RpcError(format!("Failed to get block number: {}", e)))?;
+                let latest = self.rpc().block_number().await.map_err(|e| {
+                    ChainOpError::RpcError(format!("Failed to get block number: {}", e))
+                })?;
                 let confirmations = latest.saturating_sub(finality_block) + 1;
 
                 Ok(FinalityProof::new(
@@ -737,7 +744,9 @@ impl ChainProofProvider for EthereumBackend {
                     confirmations,
                     confirmations >= self.config.finality_depth as u64,
                 )
-                .map_err(|e| ChainOpError::InvalidInput(format!("Invalid finality proof: {}", e)))?)
+                .map_err(|e| {
+                    ChainOpError::InvalidInput(format!("Invalid finality proof: {}", e))
+                })?)
             }
             _ => Err(ChainOpError::ProofVerificationError(
                 "Transaction not finalized".to_string(),
@@ -745,19 +754,14 @@ impl ChainProofProvider for EthereumBackend {
         }
     }
 
-    fn verify_finality_proof(
-        &self,
-        proof: &FinalityProof,
-        tx_hash: &str,
-    ) -> ChainOpResult<bool> {
+    fn verify_finality_proof(&self, proof: &FinalityProof, tx_hash: &str) -> ChainOpResult<bool> {
         #[cfg(feature = "rpc")]
         {
             use tokio::runtime::Handle;
             let handle = Handle::current();
-            let _latest = handle.block_on(
-                self.rpc().block_number()
-            )
-                .map_err(|e| ChainOpError::RpcError(format!("Failed to get latest block: {}", e)))?;
+            let _latest = handle.block_on(self.rpc().block_number()).map_err(|e| {
+                ChainOpError::RpcError(format!("Failed to get latest block: {}", e))
+            })?;
 
             // Check confirmations from the proof
             if proof.confirmations < self.config.finality_depth as u64 && !proof.is_deterministic {
@@ -765,8 +769,9 @@ impl ChainProofProvider for EthereumBackend {
             }
 
             // The proof data contains the block info, verify it
-            let _block: RpcBlock = serde_json::from_slice(&proof.finality_data)
-                .map_err(|_| ChainOpError::InvalidInput("Invalid finality proof data".to_string()))?;
+            let _block: RpcBlock = serde_json::from_slice(&proof.finality_data).map_err(|_| {
+                ChainOpError::InvalidInput("Invalid finality proof data".to_string())
+            })?;
 
             // Verify transaction is in the block
             let _ = tx_hash;
@@ -792,8 +797,10 @@ impl ChainProofProvider for EthereumBackend {
         commitment: &Hash,
     ) -> ChainOpResult<bool> {
         let inclusion_valid = self.verify_inclusion_proof(inclusion_proof, commitment)?;
-        let finality_valid =
-            self.verify_finality_proof(finality_proof, &format!("0x{}", hex::encode(inclusion_proof.block_hash.as_bytes())))?;
+        let finality_valid = self.verify_finality_proof(
+            finality_proof,
+            &format!("0x{}", hex::encode(inclusion_proof.block_hash.as_bytes())),
+        )?;
 
         Ok(inclusion_valid && finality_valid)
     }
@@ -821,7 +828,8 @@ impl ChainSanadOps for EthereumBackend {
 
         Err(ChainOpError::CapabilityUnavailable(
             "Sanad creation requires a signed transaction to the CSV seal contract. \
-             Construct and submit a transaction calling the createSanad function.".to_string(),
+             Construct and submit a transaction calling the createSanad function."
+                .to_string(),
         ))
     }
 
@@ -840,7 +848,8 @@ impl ChainSanadOps for EthereumBackend {
 
         Err(ChainOpError::CapabilityUnavailable(
             "Sanad consumption requires a signed transaction to the CSV seal contract. \
-             Construct and submit a transaction calling the consumeSeal function.".to_string(),
+             Construct and submit a transaction calling the consumeSeal function."
+                .to_string(),
         ))
     }
 
@@ -861,7 +870,8 @@ impl ChainSanadOps for EthereumBackend {
 
         Err(ChainOpError::CapabilityUnavailable(
             "Sanad locking requires a signed transaction to the CSV seal contract. \
-             Construct and submit a transaction calling the lockSeal function.".to_string(),
+             Construct and submit a transaction calling the lockSeal function."
+                .to_string(),
         ))
     }
 
@@ -885,7 +895,8 @@ impl ChainSanadOps for EthereumBackend {
         Err(ChainOpError::CapabilityUnavailable(
             "Sanad minting requires a signed transaction to the CSV seal contract. \
              Verify the lock proof, then construct and submit a transaction \
-             calling the mintSeal function.".to_string(),
+             calling the mintSeal function."
+                .to_string(),
         ))
     }
 
@@ -903,7 +914,8 @@ impl ChainSanadOps for EthereumBackend {
 
         Err(ChainOpError::CapabilityUnavailable(
             "Sanad refund requires a signed transaction to the CSV seal contract. \
-             Construct and submit a transaction calling the refundSeal function.".to_string(),
+             Construct and submit a transaction calling the refundSeal function."
+                .to_string(),
         ))
     }
 
@@ -923,7 +935,8 @@ impl ChainSanadOps for EthereumBackend {
 
         Err(ChainOpError::CapabilityUnavailable(
             "Metadata recording requires a signed transaction to the CSV seal contract. \
-             Construct and submit a transaction calling the updateMetadata function.".to_string(),
+             Construct and submit a transaction calling the updateMetadata function."
+                .to_string(),
         ))
     }
 
@@ -950,7 +963,9 @@ impl ChainSanadOps for EthereumBackend {
             Ok(tx_info) => {
                 // Transaction found - check confirmations for state
                 let has_confirmations = match &tx_info.status {
-                    csv_core::backend::TransactionStatus::Confirmed { confirmations, .. } => *confirmations > 0,
+                    csv_core::backend::TransactionStatus::Confirmed { confirmations, .. } => {
+                        *confirmations > 0
+                    }
                     _ => false,
                 };
                 if has_confirmations {

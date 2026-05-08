@@ -20,7 +20,7 @@
 //!   └── keystore-<uuid>.json  # Individual encrypted key files
 //! ```
 
-use crate::keystore::{KeystoreFile, KdfType};
+use crate::keystore::{KdfType, KeystoreFile};
 use crate::memory::{Passphrase, SecretKey};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -292,7 +292,8 @@ impl FileKeystore {
         keystore.save_to(&file_path)?;
 
         // Update metadata
-        self.meta.add_key(id.to_string(), chain.to_string(), label.map(String::from));
+        self.meta
+            .add_key(id.to_string(), chain.to_string(), label.map(String::from));
 
         // Save metadata
         let meta_path = self.keystore_dir.join(Self::META_FILE);
@@ -457,11 +458,8 @@ impl FileKeystore {
         let file_path = self.keystore_dir.join(format!("keystore-{}.json", id));
         keystore.save_to(&file_path)?;
 
-        self.meta.add_key(
-            id.clone(),
-            chain.to_string(),
-            label.map(String::from),
-        );
+        self.meta
+            .add_key(id.clone(), chain.to_string(), label.map(String::from));
 
         let meta_path = self.keystore_dir.join(Self::META_FILE);
         let meta_json = serde_json::to_string_pretty(&self.meta)?;
@@ -517,8 +515,14 @@ mod tests {
         let key = SecretKey::random();
         let passphrase = Passphrase::new("test password");
 
-        ks.store_key("test-key", "ethereum", Some("Test ETH Key"), &key, &passphrase)
-            .unwrap();
+        ks.store_key(
+            "test-key",
+            "ethereum",
+            Some("Test ETH Key"),
+            &key,
+            &passphrase,
+        )
+        .unwrap();
 
         let retrieved = ks.retrieve_key("test-key", &passphrase).unwrap();
         assert_eq!(key.as_bytes(), retrieved.as_bytes());
@@ -602,9 +606,12 @@ mod tests {
             .unwrap();
 
         let exported = ks1.export_key("key-1", &passphrase).unwrap();
-        ks2.import_key(&exported, "ethereum", Some("Imported")).unwrap();
+        ks2.import_key(&exported, "ethereum", Some("Imported"))
+            .unwrap();
 
-        let retrieved = ks2.retrieve_key(&exported.id().to_string(), &passphrase).unwrap();
+        let retrieved = ks2
+            .retrieve_key(&exported.id().to_string(), &passphrase)
+            .unwrap();
         assert_eq!(key.as_bytes(), retrieved.as_bytes());
     }
 }

@@ -1,9 +1,9 @@
 //! Solana seal implementation for CSV
 
 use crate::error::{SolanaError, SolanaResult};
-use crate::types::{SolanaSealPoint, SolanaFinalityProof};
-use bincode::{serialize, deserialize};
-use serde::{Serialize, Deserialize};
+use crate::types::{SolanaFinalityProof, SolanaSealPoint};
+use bincode::{deserialize, serialize};
+use serde::{Deserialize, Serialize};
 
 /// Solana seal implementation
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47,29 +47,35 @@ impl SolanaSeal {
     pub fn verify(&self) -> SolanaResult<bool> {
         // Verify the account address is valid (not default pubkey)
         if self.seal_ref.account == solana_sdk::pubkey::Pubkey::default() {
-            return Err(SolanaError::InvalidInput("Invalid seal account address".to_string()));
+            return Err(SolanaError::InvalidInput(
+                "Invalid seal account address".to_string(),
+            ));
         }
 
         // If a finality proof is present, verify it
         if let Some(ref proof) = self.finality_proof {
             // Verify the proof's block hash is not empty
             if proof.block_hash.as_bytes().iter().all(|&b| b == 0) {
-                return Err(SolanaError::InvalidInput("Invalid finality proof: empty block hash".to_string()));
+                return Err(SolanaError::InvalidInput(
+                    "Invalid finality proof: empty block hash".to_string(),
+                ));
             }
 
             // Verify confirmation depth meets minimum requirements
             // Solana requires at least 31 confirmations for finality
             const MIN_FINALITY_DEPTH: u64 = 31;
             if proof.confirmation_depth < MIN_FINALITY_DEPTH {
-                return Err(SolanaError::InvalidInput(
-                    format!("Insufficient confirmation depth: {} < {}",
-                        proof.confirmation_depth, MIN_FINALITY_DEPTH)
-                ));
+                return Err(SolanaError::InvalidInput(format!(
+                    "Insufficient confirmation depth: {} < {}",
+                    proof.confirmation_depth, MIN_FINALITY_DEPTH
+                )));
             }
 
             // Verify the slot is reasonable (not zero)
             if proof.slot == 0 {
-                return Err(SolanaError::InvalidInput("Invalid finality proof: slot is zero".to_string()));
+                return Err(SolanaError::InvalidInput(
+                    "Invalid finality proof: slot is zero".to_string(),
+                ));
             }
         }
 
@@ -89,8 +95,9 @@ impl SolanaSeal {
 
     /// Deserialize seal from bytes using bincode
     pub fn deserialize(data: &[u8]) -> SolanaResult<Self> {
-        let seal: SolanaSeal = deserialize(data)
-            .map_err(|e| SolanaError::Serialization(format!("Failed to deserialize seal: {}", e)))?;
+        let seal: SolanaSeal = deserialize(data).map_err(|e| {
+            SolanaError::Serialization(format!("Failed to deserialize seal: {}", e))
+        })?;
         Ok(seal)
     }
 }

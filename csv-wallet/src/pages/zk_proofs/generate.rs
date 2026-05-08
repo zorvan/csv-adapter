@@ -260,8 +260,7 @@ fn generate_bitcoin_zk_proof(seal_ref: &str, sanad_id: &str) -> Result<ZkSealPro
     let seal_bytes = hex::decode(seal_ref.trim_start_matches("0x"))
         .map_err(|e| format!("Invalid seal reference: {}", e))?;
 
-    let seal = SealPoint::new(seal_bytes, None)
-        .map_err(|e| format!("Invalid seal: {}", e))?;
+    let seal = SealPoint::new(seal_bytes, None).map_err(|e| format!("Invalid seal: {}", e))?;
 
     // Create mock witness data
     // In production, this would come from actual Bitcoin transaction data
@@ -275,7 +274,8 @@ fn generate_bitcoin_zk_proof(seal_ref: &str, sanad_id: &str) -> Result<ZkSealPro
         timestamp: js_sys::Date::now() as u64 / 1000,
     };
 
-    prover.prove_seal_consumption(&seal, &witness)
+    prover
+        .prove_seal_consumption(&seal, &witness)
         .map_err(|e| format!("Proof generation failed: {}", e))
 }
 
@@ -293,10 +293,9 @@ fn generate_ethereum_zk_proof(_seal_ref: &str, _sanad_id: &str) -> Result<ZkSeal
     // For now, return a mock proof
     use csv_core::hash::Hash;
     use csv_core::seal::SealPoint;
-    use csv_core::zk_proof::{VerifierKey, ZkPublicInputs, ProofSystem};
+    use csv_core::zk_proof::{ProofSystem, VerifierKey, ZkPublicInputs};
 
-    let seal = SealPoint::new(vec![0xAB; 32], None)
-        .map_err(|e| format!("Invalid seal: {}", e))?;
+    let seal = SealPoint::new(vec![0xAB; 32], None).map_err(|e| format!("Invalid seal: {}", e))?;
 
     let verifier_key = VerifierKey::new(
         csv_core::ChainId::new("ethereum"),

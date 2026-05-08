@@ -87,20 +87,19 @@ impl SlotProof {
 
     /// Convert to core InclusionProof format
     pub fn to_inclusion_proof(&self, commitment: &Hash) -> InclusionProof {
-          let mut proof_data = Vec::with_capacity(128);
-     proof_data.extend_from_slice(&self.slot.to_le_bytes());
-     proof_data.extend_from_slice(self.signature.as_ref());
-     proof_data.extend_from_slice(self.block_hash.as_bytes());
-     proof_data.extend_from_slice(&self.confirmations.to_le_bytes());
-     proof_data.push(if self.finalized { 1u8 } else { 0u8 });
-     proof_data.extend_from_slice(commitment.as_bytes());
-     proof_data.extend_from_slice(self.instruction_data_hash.as_bytes());
+        let mut proof_data = Vec::with_capacity(128);
+        proof_data.extend_from_slice(&self.slot.to_le_bytes());
+        proof_data.extend_from_slice(self.signature.as_ref());
+        proof_data.extend_from_slice(self.block_hash.as_bytes());
+        proof_data.extend_from_slice(&self.confirmations.to_le_bytes());
+        proof_data.push(if self.finalized { 1u8 } else { 0u8 });
+        proof_data.extend_from_slice(commitment.as_bytes());
+        proof_data.extend_from_slice(self.instruction_data_hash.as_bytes());
 
-     InclusionProof::new(proof_data, self.block_hash, self.slot)
-         .unwrap_or_else(|e| {
-             tracing::error!("Failed to create inclusion proof: {}", e);
-             InclusionProof::new_unchecked(vec![], self.block_hash, self.slot)
-         })
+        InclusionProof::new(proof_data, self.block_hash, self.slot).unwrap_or_else(|e| {
+            tracing::error!("Failed to create inclusion proof: {}", e);
+            InclusionProof::new_unchecked(vec![], self.block_hash, self.slot)
+        })
     }
 
     /// Convert from core InclusionProof back to SlotProof
@@ -207,7 +206,7 @@ impl MultiAccountProof {
     /// Create a new multi-account proof
     pub fn new(slot: u64, parent_slot: u64, accounts: Vec<AccountProof>, finalized: bool) -> Self {
         let mut hasher = Sha256::new();
-             hasher.update(&slot.to_le_bytes());
+        hasher.update(&slot.to_le_bytes());
         hasher.update(&parent_slot.to_le_bytes());
         hasher.update(&[if finalized { 1u8 } else { 0u8 }]);
         for account in &accounts {
@@ -291,7 +290,8 @@ pub fn verify_inclusion_proof(proof: &InclusionProof, commitment: &Hash) -> bool
     // Verify the commitment is embedded in the proof
     // The commitment is stored at offset 112-144 in the proof bytes
     if proof.proof_bytes.len() >= 144 {
-        let proof_commitment: [u8; 32] = proof.proof_bytes[112..144].try_into().unwrap_or([0u8; 32]);
+        let proof_commitment: [u8; 32] =
+            proof.proof_bytes[112..144].try_into().unwrap_or([0u8; 32]);
         if proof_commitment != *commitment.as_bytes() {
             return false;
         }
@@ -307,11 +307,7 @@ pub fn verify_inclusion_proof(proof: &InclusionProof, commitment: &Hash) -> bool
 }
 
 /// Build a Solana finality proof from slot and confirmation data
-pub fn build_finality_proof(
-    slot: u64,
-    block_hash: Hash,
-    current_slot: u64,
-) -> FinalityProof {
+pub fn build_finality_proof(slot: u64, block_hash: Hash, current_slot: u64) -> FinalityProof {
     let confirmations = current_slot.saturating_sub(slot);
     let finalized = confirmations >= MIN_CONFIRMATIONS;
 
@@ -322,11 +318,10 @@ pub fn build_finality_proof(
     proof_data.push(if finalized { 1u8 } else { 0u8 });
     proof_data.extend_from_slice(block_hash.as_bytes());
 
-    FinalityProof::new(proof_data, confirmations, finalized)
-        .unwrap_or_else(|e| {
-            tracing::error!("Failed to create finality proof: {}", e);
-            FinalityProof::new_unchecked(vec![], confirmations, finalized)
-        })
+    FinalityProof::new(proof_data, confirmations, finalized).unwrap_or_else(|e| {
+        tracing::error!("Failed to create finality proof: {}", e);
+        FinalityProof::new_unchecked(vec![], confirmations, finalized)
+    })
 }
 
 /// Verify a Solana finality proof
@@ -385,9 +380,14 @@ mod tests {
         let instruction_data = vec![0xAB; 64];
 
         let proof = SlotProof::new(
-            1000, sig, block_hash, 32,
-            vec![Pubkey::default()], Pubkey::default(),
-            &instruction_data, 1_000_000,
+            1000,
+            sig,
+            block_hash,
+            32,
+            vec![Pubkey::default()],
+            Pubkey::default(),
+            &instruction_data,
+            1_000_000,
         );
 
         assert_eq!(proof.slot, 1000);
@@ -402,9 +402,14 @@ mod tests {
         let instruction_data = vec![0xAB; 64];
 
         let proof = SlotProof::new(
-            1000, sig, block_hash, 10,
-            vec![Pubkey::default()], Pubkey::default(),
-            &instruction_data, 1_000_000,
+            1000,
+            sig,
+            block_hash,
+            10,
+            vec![Pubkey::default()],
+            Pubkey::default(),
+            &instruction_data,
+            1_000_000,
         );
 
         assert!(!proof.finalized);
@@ -418,9 +423,14 @@ mod tests {
         let instruction_data = vec![0xAB; 64];
 
         let slot_proof = SlotProof::new(
-            1000, sig, block_hash, 32,
-            vec![Pubkey::default()], Pubkey::default(),
-            &instruction_data, 1_000_000,
+            1000,
+            sig,
+            block_hash,
+            32,
+            vec![Pubkey::default()],
+            Pubkey::default(),
+            &instruction_data,
+            1_000_000,
         );
 
         let commitment = Hash::new(instruction_data[..32].try_into().unwrap());
@@ -435,8 +445,13 @@ mod tests {
     fn test_account_proof_data_integrity() {
         let data = vec![0x12, 0x34, 0x56, 0x78];
         let proof = AccountProof::new(
-            1000, Pubkey::default(), 1_000_000,
-            Pubkey::default(), data.clone(), false, 0,
+            1000,
+            Pubkey::default(),
+            1_000_000,
+            Pubkey::default(),
+            data.clone(),
+            false,
+            0,
         );
 
         assert!(proof.verify_data_integrity());
@@ -450,8 +465,24 @@ mod tests {
     #[test]
     fn test_multi_account_proof_chain_continuity() {
         let accounts = vec![
-            AccountProof::new(1000, Pubkey::default(), 0, Pubkey::default(), vec![], false, 0),
-            AccountProof::new(1000, Pubkey::new_unique(), 1_000_000, Pubkey::default(), vec![0xAB], false, 0),
+            AccountProof::new(
+                1000,
+                Pubkey::default(),
+                0,
+                Pubkey::default(),
+                vec![],
+                false,
+                0,
+            ),
+            AccountProof::new(
+                1000,
+                Pubkey::new_unique(),
+                1_000_000,
+                Pubkey::default(),
+                vec![0xAB],
+                false,
+                0,
+            ),
         ];
 
         let proof = MultiAccountProof::new(1000, 999, accounts, true);
@@ -466,9 +497,14 @@ mod tests {
         let instruction_data = vec![0xAB; 64];
 
         let slot_proof = SlotProof::new(
-            1000, sig, block_hash, 32,
-            vec![Pubkey::default()], Pubkey::default(),
-            &instruction_data, 1_000_000,
+            1000,
+            sig,
+            block_hash,
+            32,
+            vec![Pubkey::default()],
+            Pubkey::default(),
+            &instruction_data,
+            1_000_000,
         );
 
         let commitment = Hash::new(instruction_data[..32].try_into().unwrap());
@@ -515,9 +551,14 @@ mod tests {
         let instruction_data = vec![0xAB; 64];
 
         let slot_proof = SlotProof::new(
-            900, sig, block_hash, 100,
-            vec![Pubkey::default()], Pubkey::default(),
-            &instruction_data, 1_000_000,
+            900,
+            sig,
+            block_hash,
+            100,
+            vec![Pubkey::default()],
+            Pubkey::default(),
+            &instruction_data,
+            1_000_000,
         );
 
         let commitment = Hash::new(instruction_data[..32].try_into().unwrap());
@@ -534,9 +575,14 @@ mod tests {
         let instruction_data = vec![0xAB; 64];
 
         let proof = build_inclusion_proof(
-            1000, sig, block_hash,
-            vec![Pubkey::default()], Pubkey::default(),
-            &instruction_data, 32, 1_000_000,
+            1000,
+            sig,
+            block_hash,
+            vec![Pubkey::default()],
+            Pubkey::default(),
+            &instruction_data,
+            32,
+            1_000_000,
         );
 
         assert!(!proof.proof_bytes.is_empty());
@@ -546,8 +592,24 @@ mod tests {
     #[test]
     fn test_multi_account_proof_verify_all() {
         let accounts = vec![
-            AccountProof::new(1000, Pubkey::default(), 0, Pubkey::default(), vec![0x01], false, 0),
-            AccountProof::new(1000, Pubkey::new_unique(), 1_000_000, Pubkey::default(), vec![0x02], false, 0),
+            AccountProof::new(
+                1000,
+                Pubkey::default(),
+                0,
+                Pubkey::default(),
+                vec![0x01],
+                false,
+                0,
+            ),
+            AccountProof::new(
+                1000,
+                Pubkey::new_unique(),
+                1_000_000,
+                Pubkey::default(),
+                vec![0x02],
+                false,
+                0,
+            ),
         ];
 
         let proof = MultiAccountProof::new(1000, 999, accounts, true);

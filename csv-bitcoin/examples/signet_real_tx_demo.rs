@@ -11,8 +11,8 @@
 use bitcoin::Network as BtcNetwork;
 use csv_adapter_bitcoin::mempool_rpc::MempoolSignetRpc;
 use csv_adapter_bitcoin::wallet::{Bip86Path, SealWallet};
-use csv_adapter_bitcoin::{BitcoinSealProtocol, BitcoinConfig, Network};
-use csv_core::{SealProtocol, Hash};
+use csv_adapter_bitcoin::{BitcoinConfig, BitcoinSealProtocol, Network};
+use csv_core::{Hash, SealProtocol};
 
 fn main() {
     println!("=== Bitcoin Signet Real Transaction Demo ===\n");

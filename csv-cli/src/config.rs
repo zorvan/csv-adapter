@@ -673,5 +673,4 @@ rpc_url = "missing bracket"
         assert_eq!(ChainId::new("aptos").to_string(), "aptos");
         assert_eq!(ChainId::new("solana").to_string(), "solana");
     }
-
 }

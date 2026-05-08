@@ -280,8 +280,8 @@ struct VerificationStep {
 /// Verify a ZK proof cryptographically
 fn verify_zk_proof(input: &str) -> Result<(ZkSealProof, bool), String> {
     // Parse the proof
-    let proof: ZkSealProof = serde_json::from_str(input)
-        .map_err(|e| format!("Invalid proof JSON: {}", e))?;
+    let proof: ZkSealProof =
+        serde_json::from_str(input).map_err(|e| format!("Invalid proof JSON: {}", e))?;
 
     // Verify based on proof system
     let valid = match proof.verifier_key.proof_system {
@@ -292,8 +292,8 @@ fn verify_zk_proof(input: &str) -> Result<(ZkSealProof, bool), String> {
         csv_core::zk_proof::ProofSystem::Groth16 => {
             #[cfg(feature = "csv-adapter-ethereum")]
             {
-                use csv_ethereum::zk_verifier::EthereumGroth16Verifier;
                 use csv_core::zk_proof::ZkVerifier;
+                use csv_ethereum::zk_verifier::EthereumGroth16Verifier;
                 // Use Ethereum Groth16 verifier
                 let verifier = EthereumGroth16Verifier::new();
                 verifier.verify(&proof).is_ok()

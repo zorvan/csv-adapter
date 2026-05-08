@@ -91,7 +91,7 @@ pub fn coin_type(chain: &ChainId) -> u32 {
         "sui" => 784,     // SLIP-44: SUI
         "aptos" => 637,   // SLIP-44: APT
         "solana" => 501,  // SLIP-44: SOL
-        _ => 0,                // Default to Bitcoin coin type for unknown chains
+        _ => 0,           // Default to Bitcoin coin type for unknown chains
     }
 }
 
@@ -147,7 +147,12 @@ pub fn derive_key_from_name(
         "sui" => ChainId::new("sui"),
         "aptos" => ChainId::new("aptos"),
         "solana" => ChainId::new("solana"),
-        _ => return Err(Bip44Error::InvalidPath(format!("Unknown chain: {}", chain_name))),
+        _ => {
+            return Err(Bip44Error::InvalidPath(format!(
+                "Unknown chain: {}",
+                chain_name
+            )))
+        }
     };
     derive_key(seed, &chain, account, address_index)
 }
@@ -287,7 +292,10 @@ pub fn derive_address_from_key(key_bytes: &[u8], chain: &ChainId) -> Result<Stri
 }
 
 /// Derive an address from a raw 32-byte private key for a specific chain (using ChainId).
-pub fn derive_address_from_chain_id(key_bytes: &[u8], chain_id: &ChainId) -> Result<String, Bip44Error> {
+pub fn derive_address_from_chain_id(
+    key_bytes: &[u8],
+    chain_id: &ChainId,
+) -> Result<String, Bip44Error> {
     match chain_id.as_str() {
         "bitcoin" | "ethereum" | "sui" | "aptos" | "solana" => {}
         _ => return Err(Bip44Error::UnsupportedChain(chain_id.clone())),

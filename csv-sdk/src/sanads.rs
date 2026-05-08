@@ -129,9 +129,11 @@ impl SanadsManager {
         };
 
         // Lock the store and save the sanad
-        let mut store = self.client.store.lock().map_err(|_| {
-            CsvError::StoreError("Failed to acquire store lock".to_string())
-        })?;
+        let mut store = self
+            .client
+            .store
+            .lock()
+            .map_err(|_| CsvError::StoreError("Failed to acquire store lock".to_string()))?;
         store.save_sanad(&record)?;
         drop(store); // Release lock before emitting event
 
@@ -151,18 +153,18 @@ impl SanadsManager {
     /// the local store for previously created or received Sanads.
     pub fn get(&self, sanad_id: &SanadId) -> Result<Option<Sanad>, CsvError> {
         // Query the local store for the Sanad by ID
-        let store = self.client.store.lock().map_err(|_| {
-            CsvError::StoreError("Failed to acquire store lock".to_string())
-        })?;
+        let store = self
+            .client
+            .store
+            .lock()
+            .map_err(|_| CsvError::StoreError("Failed to acquire store lock".to_string()))?;
 
         match store.get_sanad(sanad_id)? {
             Some(record) => {
                 // Deserialize the Sanad from stored data
-                let sanad = Sanad::from_canonical_bytes(&record.sanad_data)
-                    .map_err(|e| CsvError::SerializationError(format!(
-                        "Failed to deserialize Sanad: {:?}",
-                        e
-                    )))?;
+                let sanad = Sanad::from_canonical_bytes(&record.sanad_data).map_err(|e| {
+                    CsvError::SerializationError(format!("Failed to deserialize Sanad: {:?}", e))
+                })?;
                 Ok(Some(sanad))
             }
             None => Ok(None),
@@ -171,9 +173,11 @@ impl SanadsManager {
 
     /// List Sanads matching the given filters.
     pub fn list(&self, filters: SanadFilters) -> Result<Vec<Sanad>, CsvError> {
-        let store = self.client.store.lock().map_err(|_| {
-            CsvError::StoreError("Failed to acquire store lock".to_string())
-        })?;
+        let store = self
+            .client
+            .store
+            .lock()
+            .map_err(|_| CsvError::StoreError("Failed to acquire store lock".to_string()))?;
 
         // Get all sanads (we'll filter in memory for now - can optimize later)
         let records = store.list_active_sanads()?;

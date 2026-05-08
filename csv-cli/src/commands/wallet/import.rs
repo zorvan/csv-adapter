@@ -10,9 +10,9 @@ use crate::state::UnifiedStateManager;
 use anyhow::Result;
 use csv_core::ChainId as CoreChain;
 use csv_keys::{
-    file_keystore::FileKeystore,
     bip39::Mnemonic,
-    bip44::{derive_all_chain_keys, derive_address_from_key},
+    bip44::{derive_address_from_key, derive_all_chain_keys},
+    file_keystore::FileKeystore,
     memory::Passphrase,
 };
 use csv_store::state::WalletAccount;

@@ -12,7 +12,6 @@
 //! | Sui | 44' | 784' | m/44'/784'/0'/0'/i |
 //! | Aptos | 44' | 637' | m/44'/637'/0'/0'/i |
 
-
 use csv_core::ChainId;
 
 /// A unified wallet supporting multi-chain HD derivation (BIP-44).
@@ -238,7 +237,8 @@ impl Wallet {
 
             // Derive external address at specified account and index
             let path = Bip86Path::external(account, index);
-            let key = wallet.derive_key(&path)
+            let key = wallet
+                .derive_key(&path)
                 .expect("Failed to derive Bitcoin key");
 
             key.address.to_string()
@@ -247,7 +247,12 @@ impl Wallet {
         #[cfg(not(feature = "bitcoin"))]
         {
             // Fallback when bitcoin feature not enabled
-            format!("btc:seed-prefix-{}-{}-{}", hex::encode(&self.seed[..4]), account, index)
+            format!(
+                "btc:seed-prefix-{}-{}-{}",
+                hex::encode(&self.seed[..4]),
+                account,
+                index
+            )
         }
     }
 
@@ -340,7 +345,11 @@ impl WalletManager {
     /// - [`ChainNotSupported`] if the chain is not enabled.
     /// - [`ChainNotEnabled`] if RPC is not configured for this chain.
     /// - [`NetworkError`] if the RPC call fails.
-    pub async fn query_balance(&self, chain: ChainId, address: &str) -> Result<u64, crate::CsvError> {
+    pub async fn query_balance(
+        &self,
+        chain: ChainId,
+        address: &str,
+    ) -> Result<u64, crate::CsvError> {
         // Validate the address format for the chain
         if address.is_empty() {
             return Err(crate::CsvError::InvalidSanadId(

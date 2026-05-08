@@ -35,27 +35,27 @@
 #![allow(missing_docs)]
 #![allow(dead_code)]
 
-pub mod seal_protocol;
 pub mod backend;
-pub mod ops;
 pub mod checkpoint;
 pub mod config;
 pub mod deploy;
 pub mod error;
 pub mod mint;
+pub mod ops;
 pub mod proofs;
 pub mod rpc;
 pub mod seal;
+pub mod seal_protocol;
 pub mod signatures;
 pub mod types;
 
 #[cfg(feature = "rpc")]
 pub mod node;
 
-pub use seal_protocol::SuiSealProtocol;
 pub use backend::{create_sui_adapter, SuiWallet};
 pub use deploy::deploy_csv_seal_package;
 pub use deploy::{PackageDeployer, PackageDeployment};
+pub use seal_protocol::SuiSealProtocol;
 
 pub use checkpoint::CheckpointVerifier;
 pub use config::{CheckpointConfig, SealContractConfig, SuiConfig, SuiNetwork, TransactionConfig};
@@ -64,12 +64,12 @@ pub use deploy::publish_csv_package;
 pub use error::SuiError;
 #[cfg(feature = "rpc")]
 pub use mint::mint_sanad;
+#[cfg(feature = "rpc")]
+pub use node::SuiNode;
 pub use proofs::{
     CommitmentEventBuilder, EventProof, EventProofVerifier, StateProof, StateProofVerifier,
     TransactionProof,
 };
-#[cfg(feature = "rpc")]
-pub use node::SuiNode;
 #[cfg(test)]
 pub use rpc::MockSuiRpc;
 pub use rpc::{SuiCheckpoint, SuiEvent, SuiLedgerInfo, SuiObject, SuiRpc, SuiTransactionBlock};

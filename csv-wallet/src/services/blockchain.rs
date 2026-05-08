@@ -113,7 +113,7 @@ impl BlockchainService {
             .with_store_backend(csv_sdk::builder::StoreBackend::InMemory)
             .build()
             .expect("Failed to create CSV client");
-        
+
         Self { client }
     }
 
@@ -131,10 +131,10 @@ impl BlockchainService {
         let mut hash_bytes = [0u8; 32];
         hash_bytes.copy_from_slice(&hash_result);
         let _sanad_id_hash = csv_core::SanadId::new(hash_bytes);
-        
+
         // Create transfer via sdk
         let _transfer_manager = self.client.transfers();
-        
+
         // Return success with placeholder (actual implementation would use sdk)
         Ok(TransferResult {
             transfer_id: format!("local-{}-{}-to-{}", chain, sanad_id, to),
@@ -145,7 +145,7 @@ impl BlockchainService {
         })
     }
 
-   /// Execute cross-chain transfer.
+    /// Execute cross-chain transfer.
     pub async fn execute_cross_chain_transfer(
         &self,
         from_chain: ChainId,
@@ -159,10 +159,13 @@ impl BlockchainService {
         // The cross_chain method would be called like:
         // transfers.cross_chain(sanad_id, to_chain).execute()
         // For now, we just reference the transfers manager
-        
+
         // Create cross-chain transfer via sdk
         Ok(TransferResult {
-            transfer_id: format!("xchain-{}-{}-to-{}-{}", from_chain, sanad_id, to_chain, to_address),
+            transfer_id: format!(
+                "xchain-{}-{}-to-{}-{}",
+                from_chain, sanad_id, to_chain, to_address
+            ),
             source_fee: "0".to_string(),
             dest_fee: "0".to_string(),
             lock_tx_hash: "pending".to_string(),
@@ -178,7 +181,7 @@ impl Clone for BlockchainService {
             .with_store_backend(csv_sdk::builder::StoreBackend::InMemory)
             .build()
             .expect("Failed to create CSV client");
-        
+
         Self { client }
     }
 }
@@ -201,7 +204,7 @@ pub struct TransferResult {
 
 /// Wallet connection utilities stub.
 pub mod wallet_connection {
-    use super::{WalletType, ChainId, NativeWallet};
+    use super::{ChainId, NativeWallet, WalletType};
 
     /// Get recommended wallet type for a chain.
     pub fn recommended_wallet(_chain: ChainId) -> WalletType {

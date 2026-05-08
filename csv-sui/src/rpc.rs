@@ -69,7 +69,9 @@ pub trait SuiRpc: Send + Sync + 'static {
     ) -> Result<Option<SuiTransactionBlock>, Box<dyn std::error::Error + Send + Sync>>;
 
     /// Get ledger info
-    async fn get_ledger_info(&self) -> Result<SuiLedgerInfo, Box<dyn std::error::Error + Send + Sync>>;
+    async fn get_ledger_info(
+        &self,
+    ) -> Result<SuiLedgerInfo, Box<dyn std::error::Error + Send + Sync>>;
 
     /// Clone the RPC client for creating new boxed instances
     fn clone_boxed(&self) -> Box<dyn SuiRpc>;
@@ -135,8 +137,14 @@ impl SuiObject {
         // Parse u64 from last 8 bytes (little-endian)
         let value_bytes = &bcs_data[32..40];
         let balance = u64::from_le_bytes([
-            value_bytes[0], value_bytes[1], value_bytes[2], value_bytes[3],
-            value_bytes[4], value_bytes[5], value_bytes[6], value_bytes[7],
+            value_bytes[0],
+            value_bytes[1],
+            value_bytes[2],
+            value_bytes[3],
+            value_bytes[4],
+            value_bytes[5],
+            value_bytes[6],
+            value_bytes[7],
         ]);
 
         Some(balance)
@@ -342,7 +350,9 @@ impl SuiRpc for MockSuiRpc {
         Ok(None)
     }
 
-    async fn get_ledger_info(&self) -> Result<SuiLedgerInfo, Box<dyn std::error::Error + Send + Sync>> {
+    async fn get_ledger_info(
+        &self,
+    ) -> Result<SuiLedgerInfo, Box<dyn std::error::Error + Send + Sync>> {
         Ok(SuiLedgerInfo {
             latest_version: self.latest_checkpoint,
             latest_epoch: 1,
@@ -356,7 +366,9 @@ impl SuiRpc for MockSuiRpc {
             checkpoints: std::sync::Mutex::new(self.checkpoints.lock().unwrap().clone()),
             latest_checkpoint: self.latest_checkpoint,
             test_address: self.test_address,
-            tx_counter: std::sync::atomic::AtomicU64::new(self.tx_counter.load(std::sync::atomic::Ordering::SeqCst)),
+            tx_counter: std::sync::atomic::AtomicU64::new(
+                self.tx_counter.load(std::sync::atomic::Ordering::SeqCst),
+            ),
         })
     }
 

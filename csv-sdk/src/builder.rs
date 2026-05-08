@@ -187,7 +187,7 @@ impl ClientBuilder {
         let event_tx = ();
 
         // Create the chain runtime
-       // Note: ClientRef initially has no chain_runtime to avoid circular dependency
+        // Note: ClientRef initially has no chain_runtime to avoid circular dependency
         let client_ref = Arc::new(crate::client::ClientRef {
             enabled_chains: self.state.enabled_chains.clone(),
             wallet: self.state.wallet.clone(),

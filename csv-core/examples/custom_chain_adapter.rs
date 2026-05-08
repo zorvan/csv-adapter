@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use async_trait::async_trait;
 
 use csv_core::{
-    AccountModel, ChainDriver, ChainCapabilities, ChainConfig, ChainError,
-    ChainId, ChainResult, DriverRegistry, RpcClient, Wallet,
+    AccountModel, ChainCapabilities, ChainConfig, ChainDriver, ChainError, ChainId, ChainResult,
+    DriverRegistry, RpcClient, Wallet,
 };
 
 #[derive(Debug, Clone)]
@@ -34,11 +34,15 @@ impl ChainDriver for ExampleChainDriver {
     }
 
     async fn create_client(&self, _config: &ChainConfig) -> ChainResult<Box<dyn RpcClient>> {
-        Err(ChainError::FeatureNotEnabled("Example chain RPC client not available".to_string()))
+        Err(ChainError::FeatureNotEnabled(
+            "Example chain RPC client not available".to_string(),
+        ))
     }
 
     async fn create_wallet(&self, _config: &ChainConfig) -> ChainResult<Box<dyn Wallet>> {
-        Err(ChainError::FeatureNotEnabled("Example chain wallet not available".to_string()))
+        Err(ChainError::FeatureNotEnabled(
+            "Example chain wallet not available".to_string(),
+        ))
     }
 
     fn csv_program_id(&self) -> Option<&'static str> {

@@ -212,7 +212,10 @@ impl SanadStore for InMemorySealStore {
         Ok(())
     }
 
-    fn get_sanad(&self, sanad_id: &crate::sanad::SanadId) -> Result<Option<SanadRecord>, StoreError> {
+    fn get_sanad(
+        &self,
+        sanad_id: &crate::sanad::SanadId,
+    ) -> Result<Option<SanadRecord>, StoreError> {
         Ok(self
             .sanads
             .iter()
@@ -266,12 +269,7 @@ impl SanadStore for InMemorySealStore {
     }
 
     fn list_consumed_sanads(&self) -> Result<Vec<SanadRecord>, StoreError> {
-        Ok(self
-            .sanads
-            .iter()
-            .filter(|r| r.consumed)
-            .cloned()
-            .collect())
+        Ok(self.sanads.iter().filter(|r| r.consumed).cloned().collect())
     }
 
     fn list_active_sanads(&self) -> Result<Vec<SanadRecord>, StoreError> {
@@ -332,7 +330,10 @@ pub trait SanadStore: Send + Sync {
     fn save_sanad(&mut self, record: &SanadRecord) -> Result<(), StoreError>;
 
     /// Get a Sanad by its ID
-    fn get_sanad(&self, sanad_id: &crate::sanad::SanadId) -> Result<Option<SanadRecord>, StoreError>;
+    fn get_sanad(
+        &self,
+        sanad_id: &crate::sanad::SanadId,
+    ) -> Result<Option<SanadRecord>, StoreError>;
 
     /// List all Sanads for a specific chain
     fn list_sanads_by_chain(&self, chain: &str) -> Result<Vec<SanadRecord>, StoreError>;

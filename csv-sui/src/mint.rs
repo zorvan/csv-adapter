@@ -97,10 +97,12 @@ pub async fn mint_sanad(
     });
 
     // Execute the transaction
-    let tx_resp =
-        client.post(rpc_url).json(&tx_data).send().await.map_err(|e| {
-            SuiError::TransactionFailed(format!("Transaction request failed: {}", e))
-        })?;
+    let tx_resp = client
+        .post(rpc_url)
+        .json(&tx_data)
+        .send()
+        .await
+        .map_err(|e| SuiError::TransactionFailed(format!("Transaction request failed: {}", e)))?;
 
     let tx_result: serde_json::Value = tx_resp
         .json()

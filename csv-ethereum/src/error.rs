@@ -176,12 +176,9 @@ impl From<EthereumError> for csv_core::ProtocolError {
             EthereumError::InvalidReceiptProof(msg) => {
                 csv_core::ProtocolError::InclusionProofFailed(msg)
             }
-            EthereumError::ReorgDetected { block, depth } => {
-                csv_core::ProtocolError::ReorgInvalid(format!(
-                    "Reorg at block {}, depth {}",
-                    block, depth
-                ))
-            }
+            EthereumError::ReorgDetected { block, depth } => csv_core::ProtocolError::ReorgInvalid(
+                format!("Reorg at block {}, depth {}", block, depth),
+            ),
             EthereumError::InsufficientConfirmations { got, need } => {
                 csv_core::ProtocolError::FinalityNotReached(format!(
                     "Got {} confirmations, need {}",
@@ -192,9 +189,7 @@ impl From<EthereumError> for csv_core::ProtocolError {
                 csv_core::ProtocolError::Generic(format!("Wallet error: {}", msg))
             }
             EthereumError::ConfigError(msg) => csv_core::ProtocolError::InvalidConfig(msg),
-            EthereumError::DeploymentError(msg) => {
-                csv_core::ProtocolError::PublishFailed(msg)
-            }
+            EthereumError::DeploymentError(msg) => csv_core::ProtocolError::PublishFailed(msg),
         }
     }
 }

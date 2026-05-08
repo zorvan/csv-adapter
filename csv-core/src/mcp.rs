@@ -9,8 +9,8 @@
 //! - **Structured status**: All operations return machine-readable progress
 //! - **Fix suggestions**: Errors include actionable `FixAction` for autonomous resolution
 
-use serde::Serialize;
 use crate::collections::HashMap;
+use serde::Serialize;
 
 /// Trait for types that can provide machine-actionable error suggestions.
 ///

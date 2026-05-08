@@ -135,7 +135,13 @@ fn seal_status_badge_class(status: &SealStatus) -> &'static str {
 }
 
 fn sanad_filter_buttons(filter_chain: Signal<Option<ChainId>>) -> Element {
-    let chains = [ChainId::new("bitcoin"), ChainId::new("ethereum"), ChainId::new("sui"), ChainId::new("aptos"), ChainId::new("solana")];
+    let chains = [
+        ChainId::new("bitcoin"),
+        ChainId::new("ethereum"),
+        ChainId::new("sui"),
+        ChainId::new("aptos"),
+        ChainId::new("solana"),
+    ];
     let mut buttons = Vec::new();
     for chain in chains {
         let mut fc = filter_chain.clone();

@@ -35,39 +35,39 @@
 #![allow(missing_docs)]
 #![allow(dead_code)]
 
-pub mod seal_protocol;
 pub mod backend;
-pub mod ops;
 pub mod checkpoint;
 pub mod config;
 pub mod deploy;
 pub mod error;
 pub mod merkle;
+pub mod ops;
 pub mod proofs;
 pub mod rpc;
 pub mod seal;
+pub mod seal_protocol;
 pub mod signatures;
 pub mod types;
 
 #[cfg(feature = "rpc")]
 pub mod node;
 
-pub use seal_protocol::AptosSealProtocol;
 pub use backend::{create_aptos_adapter, AptosWallet};
 pub use deploy::deploy_csv_seal_module;
 pub use deploy::{ModuleDeployer, ModuleDeployment};
+pub use seal_protocol::AptosSealProtocol;
 
 pub use checkpoint::CheckpointVerifier;
 pub use config::{AptosConfig, AptosNetwork, CheckpointConfig};
 #[cfg(feature = "aptos-sdk")]
 pub use deploy::publish_csv_module;
 pub use error::AptosError;
+#[cfg(feature = "rpc")]
+pub use node::AptosNode;
 pub use proofs::{
     CommitmentEventBuilder, EventProof, EventProofVerifier, StateProof, StateProofVerifier,
     TransactionProof,
 };
-#[cfg(feature = "rpc")]
-pub use node::AptosNode;
 #[cfg(test)]
 pub use rpc::MockAptosRpc;
 pub use rpc::{

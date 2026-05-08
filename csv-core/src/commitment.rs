@@ -14,8 +14,8 @@ use alloc::vec::Vec;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::hash::Hash;
 use crate::commit_mux::CommitMux;
+use crate::hash::Hash;
 use crate::seal::SealPoint;
 use crate::tagged_hash::csv_tagged_hash;
 

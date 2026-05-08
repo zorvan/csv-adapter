@@ -152,9 +152,10 @@ impl RgbConsignmentValidator {
 
         // Check transitions - genesis has no transitions, so any transitions
         // with owned_inputs would indicate non-zero inputs
-        let has_transition_inputs = consignment.transitions.iter().any(|tx| {
-            !tx.owned_inputs.is_empty()
-        });
+        let has_transition_inputs = consignment
+            .transitions
+            .iter()
+            .any(|tx| !tx.owned_inputs.is_empty());
 
         has_seal_assignments || has_transition_inputs
     }
@@ -177,7 +178,11 @@ impl RgbConsignmentValidator {
         for (tx_idx, tx) in consignment.transitions.iter().enumerate() {
             for state_ref in &tx.owned_inputs {
                 // StateRef should reference a prior output
-                let key = format!("{}-{}", state_ref.type_id, hex::encode(state_ref.commitment.as_bytes()));
+                let key = format!(
+                    "{}-{}",
+                    state_ref.type_id,
+                    hex::encode(state_ref.commitment.as_bytes())
+                );
                 if !state_producers.contains_key(&key) && tx_idx > 0 {
                     // StateRef references a state not produced by genesis or prior transitions
                     errors.push(RgbValidationError::MissingStateInput {
@@ -231,7 +236,7 @@ impl RgbConsignmentValidator {
         errors
     }
 
-  /// Validate StateRef resolution
+    /// Validate StateRef resolution
     fn validate_state_refs(consignment: &Consignment) -> Vec<RgbValidationError> {
         let mut errors = Vec::new();
 
@@ -241,14 +246,23 @@ impl RgbConsignmentValidator {
 
         // Genesis states
         for assignment in consignment.genesis.owned_state.iter() {
-            let key = format!("g-{}-{}", assignment.type_id, hex::encode(assignment.seal.id.as_slice()));
+            let key = format!(
+                "g-{}-{}",
+                assignment.type_id,
+                hex::encode(assignment.seal.id.as_slice())
+            );
             produced_states.insert(key);
         }
 
         // Transition outputs
         for (tx_idx, tx) in consignment.transitions.iter().enumerate() {
             for (out_idx, assignment) in tx.owned_outputs.iter().enumerate() {
-                let key = format!("t-{}-{}-{}", tx_idx, out_idx, hex::encode(assignment.seal.id.as_slice()));
+                let key = format!(
+                    "t-{}-{}-{}",
+                    tx_idx,
+                    out_idx,
+                    hex::encode(assignment.seal.id.as_slice())
+                );
                 produced_states.insert(key);
             }
         }
@@ -256,7 +270,11 @@ impl RgbConsignmentValidator {
         // Validate all StateRefs in inputs are resolved
         for (tx_idx, tx) in consignment.transitions.iter().enumerate() {
             for input in &tx.owned_inputs {
-                let key = format!("{}-{}", input.type_id, hex::encode(input.commitment.as_bytes()));
+                let key = format!(
+                    "{}-{}",
+                    input.type_id,
+                    hex::encode(input.commitment.as_bytes())
+                );
                 if !produced_states.contains(&key) {
                     errors.push(RgbValidationError::MissingStateInput {
                         transition_index: tx_idx,
@@ -278,7 +296,9 @@ impl RgbConsignmentValidator {
         // Each anchor must reference a valid transition in the consignment
 
         // Build a set of transition IDs for anchor validation
-        let transition_ids: std::collections::HashSet<u16> = consignment.transitions.iter()
+        let transition_ids: std::collections::HashSet<u16> = consignment
+            .transitions
+            .iter()
             .map(|tx| tx.transition_id)
             .collect();
         let _ = transition_ids;
@@ -307,7 +327,9 @@ impl RgbConsignmentValidator {
 
         // Verify anchors are ordered consistently with transitions (by block_height)
         for i in 1..consignment.anchors.len() {
-            if consignment.anchors[i].anchor_ref.block_height < consignment.anchors[i-1].anchor_ref.block_height {
+            if consignment.anchors[i].anchor_ref.block_height
+                < consignment.anchors[i - 1].anchor_ref.block_height
+            {
                 errors.push(RgbValidationError::AnchorCommitmentMismatch {
                     anchor_index: i,
                     expected: Hash::new([0u8; 32]),

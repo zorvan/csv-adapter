@@ -220,7 +220,7 @@ impl MockEthereumRpc {
             timestamp: 0,
         };
         blocks.insert(block_number, block);
-        
+
         Self {
             block_number,
             finalized_block: Some(block_number.saturating_sub(64)),

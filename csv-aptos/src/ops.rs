@@ -12,8 +12,7 @@ use async_trait::async_trait;
 use csv_core::backend::{
     BalanceInfo, ChainBroadcaster, ChainDeployer, ChainOpError, ChainOpResult, ChainProofProvider,
     ChainQuery, ChainSanadOps, ChainSigner, ContractStatus, DeploymentStatus, FinalityStatus,
-    SanadOperationResult, TransactionInfo,
-    TransactionStatus,
+    SanadOperationResult, TransactionInfo, TransactionStatus,
 };
 use csv_core::hash::Hash;
 use csv_core::proof::{FinalityProof, InclusionProof as CoreInclusionProof};
@@ -21,10 +20,10 @@ use csv_core::sanad::SanadId;
 use csv_core::signature::SignatureScheme;
 use sha3::{Digest, Sha3_256};
 
-use crate::seal_protocol::AptosSealProtocol;
 use crate::config::AptosNetwork;
 use crate::proofs::CommitmentEventBuilder;
 use crate::rpc::{AptosLedgerInfo, AptosRpc, AptosTransaction};
+use crate::seal_protocol::AptosSealProtocol;
 
 /// Aptos chain operations implementation
 pub struct AptosBackend {
@@ -49,7 +48,7 @@ impl AptosBackend {
         // Build event builder with default module address
         let module_address = [0u8; 32];
         let event_builder = CommitmentEventBuilder::new(module_address, "CSV::AnchorEvent");
-        
+
         Self {
             rpc,
             network,
@@ -140,11 +139,14 @@ impl ChainQuery for AptosBackend {
         let token_balances = Vec::new();
 
         // Get the CoinStore resource directly for accurate balance
-        let coin_resource = self.rpc().get_resource(
-            addr,
-            "0x1::coin::CoinStore<0x1::aptos_coin::AptosCoin>",
-            None,
-        ).await;
+        let coin_resource = self
+            .rpc()
+            .get_resource(
+                addr,
+                "0x1::coin::CoinStore<0x1::aptos_coin::AptosCoin>",
+                None,
+            )
+            .await;
 
         if let Ok(Some(resource)) = coin_resource {
             // Parse coin balance from BCS-encoded resource data
@@ -184,11 +186,10 @@ impl ChainQuery for AptosBackend {
         match tx_info.status {
             TransactionStatus::Confirmed { block_height, .. } => {
                 // Get ledger info to verify
-                let ledger = self
-                    .rpc()
-                    .get_ledger_info()
-                    .await
-                    .map_err(|e| ChainOpError::RpcError(format!("Failed to get ledger: {}", e)))?;
+                let ledger =
+                    self.rpc().get_ledger_info().await.map_err(|e| {
+                        ChainOpError::RpcError(format!("Failed to get ledger: {}", e))
+                    })?;
 
                 // If transaction version is in current or older epoch, it's finalized
                 if block_height <= ledger.ledger_version {
@@ -209,11 +210,10 @@ impl ChainQuery for AptosBackend {
         let addr = self.parse_address(contract_address)?;
 
         // Check if a specific resource exists at address to determine if contract is deployed
-        let resource_result = self.rpc().get_resource(
-            addr,
-            "0x1::account::Account",
-            None,
-        ).await;
+        let resource_result = self
+            .rpc()
+            .get_resource(addr, "0x1::account::Account", None)
+            .await;
 
         let is_deployed = matches!(resource_result, Ok(Some(_)));
 
@@ -303,14 +303,16 @@ impl ChainSigner for AptosBackend {
     async fn sign_transaction(&self, _tx_data: &[u8], _key_id: &str) -> ChainOpResult<Vec<u8>> {
         Err(ChainOpError::CapabilityUnavailable(
             "Direct transaction signing not available. \
-             Use an external keystore with the key_id reference.".to_string(),
+             Use an external keystore with the key_id reference."
+                .to_string(),
         ))
     }
 
     async fn sign_message(&self, _message: &[u8], _key_id: &str) -> ChainOpResult<Vec<u8>> {
         Err(ChainOpError::CapabilityUnavailable(
             "Direct message signing not available. \
-             Use an external keystore with the key_id reference.".to_string(),
+             Use an external keystore with the key_id reference."
+                .to_string(),
         ))
     }
 
@@ -332,7 +334,7 @@ impl ChainSigner for AptosBackend {
             ));
         }
 
-        use ed25519_dalek::{VerifyingKey, Signature, Verifier};
+        use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 
         // Convert bytes to proper types
         let mut pubkey_bytes = [0u8; 32];
@@ -365,8 +367,9 @@ impl ChainBroadcaster for AptosBackend {
         // Aptos signed transaction is BCS-encoded
         // Submit via submit_signed_transaction
 
-        let signed_json = serde_json::from_slice(signed_tx)
-            .map_err(|e| ChainOpError::InvalidInput(format!("Invalid signed transaction: {}", e)))?;
+        let signed_json = serde_json::from_slice(signed_tx).map_err(|e| {
+            ChainOpError::InvalidInput(format!("Invalid signed transaction: {}", e))
+        })?;
 
         let hash = self
             .rpc()
@@ -453,7 +456,8 @@ impl ChainDeployer for AptosBackend {
 
         Err(ChainOpError::CapabilityUnavailable(
             "Lock contract deployment requires Move module publishing. \
-             Use deploy_or_publish_seal_program() with compiled Move bytecode.".to_string(),
+             Use deploy_or_publish_seal_program() with compiled Move bytecode."
+                .to_string(),
         ))
     }
 
@@ -467,7 +471,8 @@ impl ChainDeployer for AptosBackend {
 
         Err(ChainOpError::CapabilityUnavailable(
             "Mint contract deployment requires Move module publishing. \
-             Same module handles both lock and mint in Aptos.".to_string(),
+             Same module handles both lock and mint in Aptos."
+                .to_string(),
         ))
     }
 
@@ -482,7 +487,8 @@ impl ChainDeployer for AptosBackend {
         Err(ChainOpError::CapabilityUnavailable(
             "Seal program publishing requires signed transaction. \
              Use deploy_csv_seal_module() with compiled Move bytecode \
-             or external tools (aptos move publish).".to_string(),
+             or external tools (aptos move publish)."
+                .to_string(),
         ))
     }
 
@@ -525,7 +531,7 @@ impl ChainProofProvider for AptosBackend {
         let mut block_hash_bytes = [0u8; 32];
         let version_bytes = ledger.ledger_version.to_le_bytes();
         block_hash_bytes[..8].copy_from_slice(&version_bytes);
-        
+
         Ok(CoreInclusionProof {
             proof_bytes: event_data,
             block_hash: Hash::new(block_hash_bytes),
@@ -548,10 +554,8 @@ impl ChainProofProvider for AptosBackend {
                 .enable_all()
                 .build()
                 .map_err(|e| ChainOpError::RpcError(format!("Failed to build runtime: {}", e)))?;
-            rt.block_on(async {
-                rpc.get_ledger_info().await
-            })
-            .map_err(|e| ChainOpError::RpcError(format!("Failed to get ledger: {}", e)))?
+            rt.block_on(async { rpc.get_ledger_info().await })
+                .map_err(|e| ChainOpError::RpcError(format!("Failed to get ledger: {}", e)))?
         };
 
         #[cfg(not(feature = "rpc"))]
@@ -579,11 +583,10 @@ impl ChainProofProvider for AptosBackend {
 
         match finality {
             FinalityStatus::Finalized { finality_block, .. } => {
-                let ledger = self
-                    .rpc()
-                    .get_ledger_info()
-                    .await
-                    .map_err(|e| ChainOpError::RpcError(format!("Failed to get ledger: {}", e)))?;
+                let ledger =
+                    self.rpc().get_ledger_info().await.map_err(|e| {
+                        ChainOpError::RpcError(format!("Failed to get ledger: {}", e))
+                    })?;
 
                 let proof_data = serde_json::to_vec(&ledger)
                     .map_err(|e| ChainOpError::Unknown(format!("Serialization failed: {}", e)))?;
@@ -595,7 +598,9 @@ impl ChainProofProvider for AptosBackend {
                     confirmations,
                     true, // Aptos has deterministic finality via HotStuff
                 )
-                .map_err(|e| ChainOpError::InvalidInput(format!("Invalid finality proof: {}", e)))?)
+                .map_err(|e| {
+                    ChainOpError::InvalidInput(format!("Invalid finality proof: {}", e))
+                })?)
             }
             _ => Err(ChainOpError::ProofVerificationError(
                 "Transaction not finalized".to_string(),
@@ -603,11 +608,7 @@ impl ChainProofProvider for AptosBackend {
         }
     }
 
-    fn verify_finality_proof(
-        &self,
-        _proof: &FinalityProof,
-        _tx_hash: &str,
-    ) -> ChainOpResult<bool> {
+    fn verify_finality_proof(&self, _proof: &FinalityProof, _tx_hash: &str) -> ChainOpResult<bool> {
         // Verify epoch and round
         #[cfg(feature = "rpc")]
         let latest = {
@@ -616,10 +617,8 @@ impl ChainProofProvider for AptosBackend {
                 .enable_all()
                 .build()
                 .map_err(|e| ChainOpError::RpcError(format!("Failed to build runtime: {}", e)))?;
-            rt.block_on(async {
-                rpc.get_ledger_info().await
-            })
-            .map_err(|e| ChainOpError::RpcError(format!("Failed to get ledger: {}", e)))?
+            rt.block_on(async { rpc.get_ledger_info().await })
+                .map_err(|e| ChainOpError::RpcError(format!("Failed to get ledger: {}", e)))?
         };
 
         #[cfg(not(feature = "rpc"))]
@@ -653,8 +652,10 @@ impl ChainProofProvider for AptosBackend {
         commitment: &Hash,
     ) -> ChainOpResult<bool> {
         let inclusion_valid = self.verify_inclusion_proof(inclusion_proof, commitment)?;
-        let finality_valid =
-            self.verify_finality_proof(finality_proof, &format!("{}", hex::encode(inclusion_proof.block_hash.as_bytes())))?;
+        let finality_valid = self.verify_finality_proof(
+            finality_proof,
+            &format!("{}", hex::encode(inclusion_proof.block_hash.as_bytes())),
+        )?;
 
         Ok(inclusion_valid && finality_valid)
     }
@@ -676,7 +677,8 @@ impl ChainSanadOps for AptosBackend {
 
         Err(ChainOpError::CapabilityUnavailable(
             "Sanad creation requires signed transaction. \
-             Construct and submit a transaction to create the seal resource.".to_string(),
+             Construct and submit a transaction to create the seal resource."
+                .to_string(),
         ))
     }
 
@@ -690,7 +692,8 @@ impl ChainSanadOps for AptosBackend {
 
         Err(ChainOpError::CapabilityUnavailable(
             "Sanad consumption requires signed transaction. \
-             Construct and submit a transaction to consume the seal resource.".to_string(),
+             Construct and submit a transaction to consume the seal resource."
+                .to_string(),
         ))
     }
 
@@ -706,7 +709,8 @@ impl ChainSanadOps for AptosBackend {
 
         Err(ChainOpError::CapabilityUnavailable(
             "Sanad locking requires signed transaction. \
-             Construct and submit a transaction to lock the seal resource.".to_string(),
+             Construct and submit a transaction to lock the seal resource."
+                .to_string(),
         ))
     }
 
@@ -724,7 +728,8 @@ impl ChainSanadOps for AptosBackend {
 
         Err(ChainOpError::CapabilityUnavailable(
             "Sanad minting requires signed transaction. \
-             Verify lock proof, then construct and submit mint transaction.".to_string(),
+             Verify lock proof, then construct and submit mint transaction."
+                .to_string(),
         ))
     }
 
@@ -738,7 +743,8 @@ impl ChainSanadOps for AptosBackend {
 
         Err(ChainOpError::CapabilityUnavailable(
             "Sanad refund requires signed transaction. \
-             Construct and submit a transaction to refund the locked seal.".to_string(),
+             Construct and submit a transaction to refund the locked seal."
+                .to_string(),
         ))
     }
 
@@ -754,7 +760,8 @@ impl ChainSanadOps for AptosBackend {
 
         Err(ChainOpError::CapabilityUnavailable(
             "Metadata recording requires signed transaction. \
-             Construct and submit a transaction to update seal metadata.".to_string(),
+             Construct and submit a transaction to update seal metadata."
+                .to_string(),
         ))
     }
 
@@ -780,7 +787,11 @@ impl ChainSanadOps for AptosBackend {
 
         // Query account resources via RPC
         // Check if the account exists and has the expected resource
-        let account_exists = self.rpc().get_account_sequence_number(address_bytes).await.is_ok();
+        let account_exists = self
+            .rpc()
+            .get_account_sequence_number(address_bytes)
+            .await
+            .is_ok();
 
         if !account_exists {
             // Account doesn't exist - either never created or deleted
@@ -796,11 +807,7 @@ impl ChainSanadOps for AptosBackend {
         // 3. Compare with expected_state
 
         // Simplified check: account exists means "active"
-        let actual_state = if account_exists {
-            "active"
-        } else {
-            "consumed"
-        };
+        let actual_state = if account_exists { "active" } else { "consumed" };
 
         Ok(actual_state == expected_state)
     }

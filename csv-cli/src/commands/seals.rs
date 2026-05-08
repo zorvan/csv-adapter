@@ -7,10 +7,10 @@ use clap::Subcommand;
 
 use csv_sdk::CsvClient;
 
+use crate::commands::cross_chain::to_core_chain;
 use crate::config::{Chain, Config};
 use crate::output;
 use crate::state::{SealRecord, UnifiedStateManager};
-use crate::commands::cross_chain::to_core_chain;
 
 #[derive(Subcommand)]
 pub enum SealAction {
@@ -47,7 +47,11 @@ pub enum SealAction {
     },
 }
 
-pub fn execute(action: SealAction, _config: &Config, state: &mut UnifiedStateManager) -> Result<()> {
+pub fn execute(
+    action: SealAction,
+    _config: &Config,
+    state: &mut UnifiedStateManager,
+) -> Result<()> {
     match action {
         SealAction::Create { chain, value } => cmd_create(chain, value, state),
         SealAction::Consume { chain, seal_ref } => cmd_consume(chain, seal_ref, state),
@@ -56,11 +60,7 @@ pub fn execute(action: SealAction, _config: &Config, state: &mut UnifiedStateMan
     }
 }
 
-fn cmd_create(
-    chain: Chain,
-    value: Option<u64>,
-    state: &mut UnifiedStateManager,
-) -> Result<()> {
+fn cmd_create(chain: Chain, value: Option<u64>, state: &mut UnifiedStateManager) -> Result<()> {
     output::header(&format!("Creating Seal on {}", chain));
 
     let core_chain = to_core_chain(chain.clone());
@@ -113,11 +113,7 @@ fn generate_commitment() -> [u8; 32] {
     bytes
 }
 
-fn cmd_consume(
-    chain: Chain,
-    seal_ref: String,
-    state: &mut UnifiedStateManager,
-) -> Result<()> {
+fn cmd_consume(chain: Chain, seal_ref: String, state: &mut UnifiedStateManager) -> Result<()> {
     output::header(&format!("Consuming Seal on {}", chain));
 
     let seal_bytes = hex::decode(seal_ref.trim_start_matches("0x"))
@@ -145,7 +141,8 @@ fn cmd_consume(
         .try_into()
         .unwrap_or_else(|_| {
             let mut padded = [0u8; 32];
-            padded[..seal_bytes.len().min(32)].copy_from_slice(&seal_bytes[..seal_bytes.len().min(32)]);
+            padded[..seal_bytes.len().min(32)]
+                .copy_from_slice(&seal_bytes[..seal_bytes.len().min(32)]);
             padded
         });
     let sanad_id = csv_core::SanadId::new(sanad_id_bytes);
@@ -167,11 +164,7 @@ fn cmd_consume(
     Ok(())
 }
 
-fn cmd_verify(
-    chain: Chain,
-    seal_ref: String,
-    state: &UnifiedStateManager,
-) -> Result<()> {
+fn cmd_verify(chain: Chain, seal_ref: String, state: &UnifiedStateManager) -> Result<()> {
     output::header(&format!("Verifying Seal on {}", chain));
 
     let seal_bytes = hex::decode(seal_ref.trim_start_matches("0x"))
@@ -193,7 +186,8 @@ fn cmd_verify(
         .try_into()
         .unwrap_or_else(|_| {
             let mut padded = [0u8; 32];
-            padded[..seal_bytes.len().min(32)].copy_from_slice(&seal_bytes[..seal_bytes.len().min(32)]);
+            padded[..seal_bytes.len().min(32)]
+                .copy_from_slice(&seal_bytes[..seal_bytes.len().min(32)]);
             padded
         });
     let sanad_id = csv_core::SanadId::new(sanad_id_bytes);
@@ -204,7 +198,11 @@ fn cmd_verify(
     match sanads.get(&sanad_id) {
         Ok(Some(sanad)) => {
             // Sanad exists in the system
-            let status = if local_consumed || sanad.nullifier.is_some() { "Consumed" } else { "Unconsumed" };
+            let status = if local_consumed || sanad.nullifier.is_some() {
+                "Consumed"
+            } else {
+                "Unconsumed"
+            };
             output::kv("Chain", &chain.to_string());
             output::kv_hash("Seal", &seal_bytes);
             output::kv("Status", status);
@@ -218,7 +216,14 @@ fn cmd_verify(
             // Sanad not found in the system
             output::kv("Chain", &chain.to_string());
             output::kv_hash("Seal", &seal_bytes);
-            output::kv("Status", if local_consumed { "Consumed" } else { "Unknown" });
+            output::kv(
+                "Status",
+                if local_consumed {
+                    "Consumed"
+                } else {
+                    "Unknown"
+                },
+            );
 
             if local_consumed {
                 output::info("Seal was consumed locally but not found in runtime");
@@ -231,7 +236,14 @@ fn cmd_verify(
             output::warning(&format!("Provider query failed: {}", e));
             output::kv("Chain", &chain.to_string());
             output::kv_hash("Seal", &seal_bytes);
-            output::kv("Status", if local_consumed { "Consumed" } else { "Unconsumed" });
+            output::kv(
+                "Status",
+                if local_consumed {
+                    "Consumed"
+                } else {
+                    "Unconsumed"
+                },
+            );
         }
     }
 

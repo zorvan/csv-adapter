@@ -51,14 +51,8 @@ fn main() {
     let transferred = sanad.transfer(new_owner, transfer_salt);
 
     println!("\n3. Transferred Sanad:");
-    println!(
-        "   New ID: {}",
-        hex::encode(transferred.id.0.as_bytes())
-    );
-    println!(
-        "   New Owner: {}",
-        hex::encode(&transferred.owner.owner)
-    );
+    println!("   New ID: {}", hex::encode(transferred.id.0.as_bytes()));
+    println!("   New Owner: {}", hex::encode(&transferred.owner.owner));
 
     // Step 5: Verify the Sanad
     match transferred.verify() {

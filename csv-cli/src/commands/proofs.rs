@@ -3,7 +3,6 @@
 use anyhow::Result;
 use clap::Subcommand;
 
-
 use crate::config::{Chain, Config};
 use crate::output;
 use crate::state::UnifiedStateManager;
@@ -66,9 +65,9 @@ fn cmd_generate(
     config: &Config,
     _state: &UnifiedStateManager,
 ) -> Result<()> {
-    use csv_sdk::prelude::CsvClient;
     use csv_core::ChainId;
-    
+    use csv_sdk::prelude::CsvClient;
+
     use csv_core::sanad::SanadId;
 
     output::header(&format!("Generating Proof on {}", chain));
@@ -108,7 +107,9 @@ fn cmd_generate(
         let runtime = client.chain_runtime();
 
         // Generate the proof using the runtime
-        runtime.generate_proof(adapter_chain, &sanad_id_obj).await
+        runtime
+            .generate_proof(adapter_chain, &sanad_id_obj)
+            .await
             .map_err(|e| anyhow::anyhow!("Proof generation failed: {}", e))
     })?;
 
@@ -153,9 +154,9 @@ fn cmd_verify(
     _config: &Config,
     _state: &UnifiedStateManager,
 ) -> Result<()> {
-    use csv_sdk::prelude::CsvClient;
     use csv_core::ChainId;
-    use csv_core::{sanad::SanadId, proof::ProofBundle};
+    use csv_core::{proof::ProofBundle, sanad::SanadId};
+    use csv_sdk::prelude::CsvClient;
 
     output::header(&format!("Verifying Proof on {}", chain));
 
@@ -195,7 +196,9 @@ fn cmd_verify(
     let bytes = hex::decode(sanad_id_str.trim_start_matches("0x"))
         .map_err(|e| anyhow::anyhow!("Invalid Sanad ID in proof: {}", e))?;
     if bytes.len() < 32 {
-        return Err(anyhow::anyhow!("Sanad ID in proof must be at least 32 bytes"));
+        return Err(anyhow::anyhow!(
+            "Sanad ID in proof must be at least 32 bytes"
+        ));
     }
     let mut hash_bytes = [0u8; 32];
     hash_bytes.copy_from_slice(&bytes[..32]);
@@ -286,7 +289,9 @@ fn cmd_verify(
     let rt = tokio::runtime::Runtime::new()?;
     let valid = rt.block_on(async {
         let runtime = client.chain_runtime();
-        runtime.verify_proof_bundle(adapter_chain, &proof_bundle, &sanad_id).await
+        runtime
+            .verify_proof_bundle(adapter_chain, &proof_bundle, &sanad_id)
+            .await
             .map_err(|e| anyhow::anyhow!("Proof verification error: {}", e))
     })?;
 
@@ -296,7 +301,9 @@ fn cmd_verify(
         output::success("Proof verified successfully - cryptographic validation passed");
         Ok(())
     } else {
-        Err(anyhow::anyhow!("Proof verification failed - invalid or forged proof"))
+        Err(anyhow::anyhow!(
+            "Proof verification failed - invalid or forged proof"
+        ))
     }
 }
 

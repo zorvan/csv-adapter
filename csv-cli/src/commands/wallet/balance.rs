@@ -78,8 +78,8 @@ pub fn cmd_list(_config: &Config, state: &mut UnifiedStateManager) -> Result<()>
 /// This function uses only the unified CsvClient runtime, avoiding direct
 /// chain adapter dependencies per Phase 5 of the Production Guarantee Plan.
 async fn query_balance(chain: &Chain, address: &str, config: &Config) -> Result<f64> {
-    use csv_sdk::prelude::NetworkType;
     use csv_core::ChainId;
+    use csv_sdk::prelude::NetworkType;
 
     // Map CLI Chain to core Chain
     let core_chain = csv_core::ChainId::new(chain.as_str());
@@ -93,7 +93,7 @@ async fn query_balance(chain: &Chain, address: &str, config: &Config) -> Result<
 
     // Get chain runtime and query balance through the unified runtime
     let clean_address = address.strip_prefix("0x").unwrap_or(address);
-    
+
     // Initialize adapters with the correct network (testnet by default for CLI)
     let network = if config.network().is_testnet() {
         NetworkType::Testnet
@@ -103,14 +103,19 @@ async fn query_balance(chain: &Chain, address: &str, config: &Config) -> Result<
 
     // Execute async operations using the existing tokio runtime
     let balance_info = async {
-        client.init_adapters(network).await.map_err(|e| {
-            csv_sdk::CsvError::ProtocolError {
+        client
+            .init_adapters(network)
+            .await
+            .map_err(|e| csv_sdk::CsvError::ProtocolError {
                 chain: core_chain.clone(),
                 message: format!("Failed to initialize adapters: {}", e),
-            }
-        })?;
-        client.chain_runtime().get_balance(core_chain.clone(), clean_address).await
-    }.await;
+            })?;
+        client
+            .chain_runtime()
+            .get_balance(core_chain.clone(), clean_address)
+            .await
+    }
+    .await;
 
     match balance_info {
         Ok(balance_info) => Ok(balance_info.available as f64 / 1e8), // Convert from satoshis to BTC for Bitcoin, adjust for other chains as needed

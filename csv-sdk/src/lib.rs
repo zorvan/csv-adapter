@@ -72,19 +72,19 @@ pub mod cross_chain;
 pub mod deploy;
 pub mod error;
 pub mod events;
-pub mod runtime;
 pub mod prelude;
 pub mod proofs;
+pub mod runtime;
 pub mod sanads;
 pub mod transfers;
 pub mod wallet;
 
 // Re-export core types from csv-core (🔒 STABLE API only by default)
 pub use csv_core::{
-    CommitAnchor, Commitment, Consignment, CrossChainLockEvent, DAGNode, DAGSegment,
-    FinalityProof, Genesis, Hash, InclusionProof, OwnedState, OwnershipProof, ProofBundle,
-    Sanad, SanadId, Schema, SealPoint, SealProtocol, StateRef, Transition, CONSIGNMENT_VERSION,
-    SCHEMA_VERSION, ProtocolError, Result as CoreResult, StoreError,
+    CommitAnchor, Commitment, Consignment, CrossChainLockEvent, DAGNode, DAGSegment, FinalityProof,
+    Genesis, Hash, InclusionProof, OwnedState, OwnershipProof, ProofBundle, ProtocolError,
+    Result as CoreResult, Sanad, SanadId, Schema, SealPoint, SealProtocol, StateRef, StoreError,
+    Transition, CONSIGNMENT_VERSION, SCHEMA_VERSION,
 };
 
 // Re-export canonical protocol types (🔒 STABLE + 🟡 BETA)
@@ -101,13 +101,9 @@ pub use csv_core::protocol_version::{
 /// These APIs may change or be removed without notice.
 #[cfg(feature = "experimental")]
 pub mod experimental {
-    pub use csv_core::commit_mux::{MuxLeaf, MuxProof, CommitMux};
-    pub use csv_core::rgb::{
-        CrossChainError, RgbValidationError, RgbValidationResult,
-    };
-    pub use csv_core::vm::{
-        execute_transition, DeterministicVM, VMError, VMInputs, VMOutputs,
-    };
+    pub use csv_core::commit_mux::{CommitMux, MuxLeaf, MuxProof};
+    pub use csv_core::rgb::{CrossChainError, RgbValidationError, RgbValidationResult};
+    pub use csv_core::vm::{execute_transition, DeterministicVM, VMError, VMInputs, VMOutputs};
 }
 
 /// Re-export error types
@@ -120,7 +116,7 @@ pub use client::CsvClient;
 pub use builder::{ClientBuilder, StoreBackend};
 
 /// Re-export runtime types
-pub use runtime::{ChainRuntime, RuntimeManager, RuntimeConfig, AdapterBuilder};
+pub use runtime::{AdapterBuilder, ChainRuntime, RuntimeConfig, RuntimeManager};
 
 /// Re-export deployment types
 pub use deploy::{ContractDeployment, DeploymentError, DeploymentManager, DeploymentResult};
