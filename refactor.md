@@ -50,9 +50,9 @@
 
 | Phase | Status | Notes |
 |-------|--------|-------|
-| Phase 2: Registry Unification | IN PROGRESS | ChainRegistry removal, DriverRegistry integration |
-| Phase 3: WASM Unification | PARTIALLY STARTED | csv-core no_std ready, wallet stubs remain |
-| Phase 4: Explorer Decomposition | PARTIALLY DONE | Split into 4 sub-crates |
+| Phase 2: Registry Unification | **COMPLETE** | DriverRegistry integrated in csv-cli/chain_registry.rs |
+| Phase 3: WASM Unification | **COMPLETE** | csv-wallet services now use csv-sdk (BlockchainService, ChainApi integrated) |
+| Phase 4: Explorer Decomposition | **COMPLETE** | 5 sub-crates in separate workspace (api, indexer, shared, storage, ui) |
 | Phase 5: ZK & Celestia | NOT STARTED | Per gap analysis |
 | Phase 6: Repository Split | NOT STARTED | Per timing guidelines |
 
@@ -61,6 +61,7 @@
 ## Recent Changes (Session Log)
 
 ### Type System Unification
+
 - Fixed 30+ type mismatch errors in csv-cli where `Chain` (deprecated alias for `ChainId`) was being matched against string literals
 - Updated all match statements to use `.as_str()` pattern: `match chain.as_str() { "bitcoin" => ... }`
 - Fixed `ChainId::new()` vs `Chain::new()` usage across 10+ files
@@ -68,6 +69,7 @@
 - Fixed `ChainMetadata` struct to use `String` fields instead of `&'static str` for dynamic chain support
 
 ### csv-core Cleanup
+
 - Removed unused import `Deserialize` from mcp.rs
 - Removed unused import `alloc::string::String` from nullifier.rs  
 - Removed unused import `std::collections::HashMap` from driver.rs
@@ -77,9 +79,43 @@
 - Created missing basic_sanad.rs example
 
 ### csv-keys Test Fixes
+
 - Replaced deprecated `generate_mnemonic()` with `Mnemonic::generate(MnemonicType::Words12)`
 - Replaced `Keystore`/`KeystoreConfig` with `KeystoreFile`/`Passphrase`
 - Fixed `KeystoreError` variant usage to match actual enum definition
+
+### May 8, 2026 - Phase Verification
+
+- Verified **Phase 2: Registry Unification** is COMPLETE
+  - `csv-cli/src/chain_registry.rs` already uses `DriverRegistry` from csv-core
+  - No `ChainRegistry` struct exists to remove
+- Verified **Phase 4: Explorer Decomposition** is COMPLETE
+  - csv-explorer is a separate workspace with 5 sub-crates: api, indexer, shared, storage, ui
+  - All sub-crates have proper Cargo.toml with workspace dependencies
+- Verified main crates compile successfully:
+  - `csv-core` - lib compiles with only warnings
+  - `csv-cli` - bin compiles with only warnings
+  - `csv-wallet` - bin compiles with only warnings
+  - `csv-store` - lib compiles
+  - `csv-keys` - lib compiles
+
+### May 8, 2026 - Phase 3: WASM Unification
+
+- **BlockchainService** (`csv-wallet/src/services/blockchain.rs`)
+  - Replaced stub implementation with csv-sdk integration
+  - Now creates `CsvClient` with in-memory store backend
+  - Methods delegate to sdk transfer managers
+  - Added proper `Debug` and `Clone` implementations
+
+- **ChainApi** (`csv-wallet/src/services/chain_api.rs`)
+  - Replaced stub with csv-sdk `RuntimeManager` integration
+  - `get_balance()` now uses `ChainRuntime::get_balance()`
+  - Returns `BalanceInfo.total` as string
+  - Added proper `Debug`, `Clone`, and `Default` implementations
+
+- **Dependencies**
+  - Added `sha2` import for hashing operations
+  - Fixed incorrect method calls and field names
 
 ---
 
