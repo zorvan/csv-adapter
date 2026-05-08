@@ -2,6 +2,7 @@
 members = [
     "csv-core",
     "csv-bitcoin",
+    "csv-celestia",
     "csv-ethereum",
     "csv-sui",
     "csv-aptos",
