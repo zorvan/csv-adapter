@@ -41,6 +41,10 @@ rand = "0.8"
 bip32 = { version = "0.5", features = ["std", "mnemonic"] }
 bitcoin = { version = "0.32", default-features = false, features = ["serde", "rand-std", "std"] }
 
+# Ethereum RLP encoding - CRITICAL FIX: proper EIP-1559 encoding instead of manual byte concat
+rlp = "0.5"
+ethereum-types = "0.14"
+
 # Encryption
 aes-gcm = "0.10"
 zeroize = "1.3"

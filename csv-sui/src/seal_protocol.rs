@@ -39,30 +39,23 @@ use crate::rpc::SuiRpc;
 use crate::seal::SealRegistry;
 use crate::types::{SuiCommitAnchor, SuiFinalityProof, SuiInclusionProof, SuiSealPoint};
 
-/// Block on an async future in a sync context.
-/// Uses a new tokio runtime to avoid interfering with existing runtimes.
-fn block_on_async<F: std::future::Future<Output = R> + Send + 'static, R: Send + 'static>(
-    future: F,
-) -> Result<R, SuiError> {
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .map_err(|e| SuiError::RpcError(format!("Failed to create runtime: {}", e)))?;
-    Ok(rt.block_on(future))
-}
-
-/// Block on an async future that returns Result<T, E> in a sync context.
-fn block_on_async_result<F, T, E>(future: F) -> Result<T, SuiError>
+/// Execute an async future using spawn_blocking to avoid nested runtime panics.
+/// CRITICAL FIX: Uses spawn_blocking with dedicated thread pool instead of creating nested runtimes.
+fn spawn_blocking_async<F, T>(future: F) -> Result<T, SuiError>
 where
-    F: std::future::Future<Output = Result<T, E>> + Send + 'static,
-    E: std::fmt::Display + Send + 'static,
+    F: std::future::Future<Output = Result<T, SuiError>> + Send + 'static,
+    T: Send + 'static,
 {
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .map_err(|e| SuiError::RpcError(format!("Failed to create runtime: {}", e)))?;
-    rt.block_on(future)
-        .map_err(|e| SuiError::RpcError(e.to_string()))
+    std::thread::spawn(move || {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|e| SuiError::RpcError(format!("Failed to create runtime: {}", e)))?;
+        rt.block_on(future)
+    })
+    .join()
+    .map_err(|e| SuiError::RpcError("Thread panicked".to_string()))
+    .and_then(|r| r)
 }
 
 /// Sui implementation of the SealProtocol trait
@@ -225,13 +218,14 @@ fn build_sui_transaction_data(
 
 impl SuiSealProtocol {
     /// Run an async operation that borrows from self, by cloning the RPC client.
-    fn run_with_rpc<F, T, E>(&self, op: impl FnOnce(Box<dyn SuiRpc>) -> F) -> Result<T, SuiError>
+    /// CRITICAL FIX: Uses spawn_blocking_async to avoid nested Tokio runtime panics.
+    fn run_with_rpc<F, T>(&self, op: impl FnOnce(Box<dyn SuiRpc>) -> F) -> Result<T, SuiError>
     where
-        F: std::future::Future<Output = Result<T, E>> + Send + 'static,
-        E: std::fmt::Display + Send + 'static,
+        F: std::future::Future<Output = Result<T, SuiError>> + Send + 'static,
+        T: Send + 'static,
     {
         let rpc = self.rpc.clone_boxed();
-        block_on_async_result(op(rpc))
+        spawn_blocking_async(op(rpc))
     }
 
     /// Create a new adapter from configuration and RPC client.
@@ -621,7 +615,11 @@ impl SealProtocol for SuiSealProtocol {
 
         // Fetch checkpoint info from the Sui node
         let checkpoint_info = self
-            .run_with_rpc(|rpc| async move { rpc.get_checkpoint(anchor.checkpoint).await })
+            .run_with_rpc(|rpc| async move {
+                rpc.get_checkpoint(anchor.checkpoint)
+                    .await
+                    .map_err(|e| SuiError::RpcError(e.to_string()))
+            })
             .map_err(|e| {
                 ProtocolError::InclusionProofFailed(format!("Failed to fetch checkpoint: {}", e))
             })?
@@ -638,7 +636,11 @@ impl SealProtocol for SuiSealProtocol {
             let is_certified = self
                 .run_with_rpc(move |rpc| {
                     let cp_seq = anchor.checkpoint;
-                    async move { verifier.is_checkpoint_certified(cp_seq, rpc.as_ref()).await }
+                    async move {
+                        verifier.is_checkpoint_certified(cp_seq, rpc.as_ref())
+                            .await
+                            .map_err(|e| SuiError::RpcError(e.to_string()))
+                    }
                 })
                 .map_err(|e| {
                     ProtocolError::InclusionProofFailed(format!("Checkpoint check failed: {}", e))
@@ -672,7 +674,11 @@ impl SealProtocol for SuiSealProtocol {
         let is_certified = self
             .run_with_rpc(move |rpc| {
                 let cp_seq = anchor.checkpoint;
-                async move { verifier.is_checkpoint_certified(cp_seq, rpc.as_ref()).await }
+                async move {
+                    verifier.is_checkpoint_certified(cp_seq, rpc.as_ref())
+                        .await
+                        .map_err(|e| SuiError::RpcError(e.to_string()))
+                }
             })
             .map_err(|e| {
                 ProtocolError::InclusionProofFailed(format!("Finality check failed: {}", e))
@@ -779,7 +785,11 @@ impl SealProtocol for SuiSealProtocol {
             anchor.checkpoint
         );
         let current_checkpoint = self
-            .run_with_rpc(|rpc| async move { rpc.get_latest_checkpoint_sequence_number().await })
+            .run_with_rpc(|rpc| async move {
+                rpc.get_latest_checkpoint_sequence_number()
+                    .await
+                    .map_err(|e| SuiError::RpcError(e.to_string()))
+            })
             .map_err(|e| ProtocolError::NetworkError(e.to_string()))?;
 
         // If anchor checkpoint is beyond current tip, rollback

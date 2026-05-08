@@ -48,6 +48,9 @@ pub fn build_transaction(
 }
 
 /// Build Ethereum transaction data (EIP-1559 format)
+///
+/// CRITICAL FIX: Uses proper RLP encoding via rlp crate instead of broken manual byte concatenation.
+/// EIP-1559 transactions are encoded as: 0x02 || rlp([chain_id, nonce, max_priority_fee_per_gas, max_fee_per_gas, gas_limit, to, value, data, access_list, v, r, s])
 fn build_eth_transaction_data(
     to: &str,
     value: u64,
@@ -56,26 +59,10 @@ fn build_eth_transaction_data(
     gas_price: u64,
     gas_limit: u64,
 ) -> Result<Vec<u8>, BlockchainError> {
-    // Simple EIP-1559 transaction encoding
-    // In production, this uses RLP encoding via the ethereum adapter
-    let mut tx_data = Vec::new();
+    use ethereum_types::{H160, U256};
+    use rlp::RlpStream;
 
-    // ChainId ID (for mainnet = 1, for now encode as 0 for any chain)
-    tx_data.extend_from_slice(&[0u8; 8]);
-
-    // Nonce (8 bytes)
-    tx_data.extend_from_slice(&nonce.to_le_bytes());
-
-    // Max priority fee per gas (8 bytes)
-    tx_data.extend_from_slice(&gas_price.to_le_bytes());
-
-    // Max fee per gas (8 bytes)
-    tx_data.extend_from_slice(&gas_price.to_le_bytes());
-
-    // Gas limit (8 bytes)
-    tx_data.extend_from_slice(&gas_limit.to_le_bytes());
-
-    // To address (20 bytes)
+    // Parse to address
     let to_bytes = hex::decode(to.trim_start_matches("0x")).map_err(|e| BlockchainError {
         message: format!("Invalid to address: {}", e),
         chain: Some(ChainId::new("ethereum")),
@@ -88,14 +75,32 @@ fn build_eth_transaction_data(
             code: Some(400),
         });
     }
-    tx_data.extend_from_slice(&to_bytes);
+    let to_addr = H160::from_slice(&to_bytes);
 
-    // Value (8 bytes)
-    tx_data.extend_from_slice(&value.to_le_bytes());
+    // Convert values to U256 (big-endian for RLP)
+    let chain_id = U256::from(1u64); // Mainnet default
+    let nonce_u256 = U256::from(nonce);
+    let max_priority_fee = U256::from(gas_price);
+    let max_fee_per_gas = U256::from(gas_price);
+    let gas_limit_u256 = U256::from(gas_limit);
+    let value_u256 = U256::from(value);
 
-    // Data length + data
-    tx_data.extend_from_slice(&(data.len() as u64).to_le_bytes());
-    tx_data.extend_from_slice(&data);
+    // Build EIP-1559 transaction fields for unsigned tx (no signature yet)
+    // [chain_id, nonce, max_priority_fee_per_gas, max_fee_per_gas, gas_limit, to, value, data, access_list]
+    let mut stream = RlpStream::new_list(9);
+    stream.append(&chain_id);
+    stream.append(&nonce_u256);
+    stream.append(&max_priority_fee);
+    stream.append(&max_fee_per_gas);
+    stream.append(&gas_limit_u256);
+    stream.append(&to_addr);
+    stream.append(&value_u256);
+    stream.append(&data);
+    stream.begin_list(0); // Empty access list
+
+    // EIP-1559 transaction type prefix: 0x02 || RLP encoding
+    let mut tx_data = vec![0x02]; // EIP-1559 transaction type
+    tx_data.extend_from_slice(&stream.out());
 
     Ok(tx_data)
 }

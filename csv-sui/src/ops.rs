@@ -27,29 +27,25 @@ use crate::proofs::CommitmentEventBuilder;
 use crate::rpc::{SuiRpc, SuiTransactionBlock};
 use crate::seal_protocol::SuiSealProtocol;
 
-/// Block on an async future in a sync context.
-fn block_on_async<F: std::future::Future<Output = R> + Send + 'static, R: Send + 'static>(
-    future: F,
-) -> ChainOpResult<R> {
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .map_err(|e| ChainOpError::RpcError(format!("Failed to create runtime: {}", e)))?;
-    Ok(rt.block_on(future))
-}
-
-/// Block on an async future that returns Result<T, E> in a sync context.
-fn block_on_async_result<F, T, E>(future: F) -> ChainOpResult<T>
+/// Execute an async future using a dedicated thread to avoid nested runtime panics.
+/// CRITICAL FIX: Uses std::thread::spawn instead of creating nested Tokio runtimes.
+fn spawn_blocking_async<F, T, E>(future: F) -> ChainOpResult<T>
 where
     F: std::future::Future<Output = Result<T, E>> + Send + 'static,
+    T: Send + 'static,
     E: std::fmt::Display + Send + 'static,
 {
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .map_err(|e| ChainOpError::RpcError(format!("Failed to create runtime: {}", e)))?;
-    rt.block_on(future)
-        .map_err(|e| ChainOpError::RpcError(e.to_string()))
+    std::thread::spawn(move || {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|e| ChainOpError::RpcError(format!("Failed to create runtime: {}", e)))?;
+        rt.block_on(future)
+            .map_err(|e| ChainOpError::RpcError(e.to_string()))
+    })
+    .join()
+    .map_err(|_| ChainOpError::RpcError("Thread panicked".to_string()))
+    .and_then(|r| r)
 }
 
 /// Sui chain operations implementation

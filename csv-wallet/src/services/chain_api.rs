@@ -5,6 +5,29 @@
 use csv_sdk::runtime::{ChainRuntime, RuntimeConfig, RuntimeManager};
 use csv_store::state::ChainId;
 
+/// Errors that can occur during chain API operations.
+#[derive(Debug, Clone)]
+pub enum ChainApiError {
+    /// Balance query failed - DO NOT silently return zero.
+    BalanceUnavailable {
+        chain: String,
+        address: String,
+        source: String,
+    },
+}
+
+impl std::fmt::Display for ChainApiError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ChainApiError::BalanceUnavailable { chain, address, source } => {
+                write!(f, "Balance unavailable for {} on {}: {}", address, chain, source)
+            }
+        }
+    }
+}
+
+impl std::error::Error for ChainApiError {}
+
 /// Chain API using csv-sdk runtime.
 pub struct ChainApi {
     runtime: ChainRuntime,
@@ -77,14 +100,16 @@ impl ChainApi {
     }
 
     /// Get balance for an address.
-    pub async fn get_balance(&self, address: &str, chain: ChainId) -> Result<String, String> {
+    pub async fn get_balance(&self, address: &str, chain: ChainId) -> Result<String, ChainApiError> {
+        let chain_str = chain.as_str().to_string();
         // Use csv-sdk runtime to query balance
         match self.runtime.get_balance(chain, address).await {
             Ok(balance_info) => Ok(balance_info.total.to_string()),
-            Err(_) => {
-                // Fallback: return 0 if query fails (for compatibility during transition)
-                Ok("0".to_string())
-            }
+            Err(e) => Err(ChainApiError::BalanceUnavailable {
+                chain: chain_str,
+                address: address.to_string(),
+                source: e.to_string(),
+            }),
         }
     }
 }
