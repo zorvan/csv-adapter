@@ -5,6 +5,26 @@ use crate::context::types::*;
 use crate::storage::{self, LocalStorageManager, UNIFIED_STORAGE_KEY, WALLET_MNEMONIC_KEY};
 use crate::wallet_core::{ChainAccount, WalletData};
 use dioxus::prelude::*;
+use std::sync::OnceLock;
+
+#[cfg(target_arch = "wasm32")]
+use csv_store::{EncryptedStorageManager, seal_nullifier_storage};
+
+/// Shared seal encryption key, set during wallet unlock.
+static SEAL_ENCRYPTION_KEY: OnceLock<[u8; 32]> = OnceLock::new();
+
+/// Set the seal encryption key derived from the wallet password.
+/// This should be called after wallet unlock.
+#[cfg(target_arch = "wasm32")]
+pub fn set_seal_encryption_key(key: [u8; 32]) {
+    SEAL_ENCRYPTION_KEY.set(key).ok();
+}
+
+/// Get the seal encryption key if available.
+#[cfg(target_arch = "wasm32")]
+pub fn get_seal_encryption_key() -> Option<[u8; 32]> {
+    SEAL_ENCRYPTION_KEY.get().copied()
+}
 
 /// Wallet context.
 #[derive(Clone)]
@@ -13,6 +33,8 @@ pub struct WalletContext {
     store: Option<LocalStorageManager>,
     loaded: Signal<bool>,
     selected_contract: Signal<Option<ContractRecord>>,
+    #[cfg(target_arch = "wasm32")]
+    encrypted_seal_store: std::sync::Arc<std::sync::Mutex<Option<EncryptedStorageManager>>>,
 }
 
 impl PartialEq for WalletContext {
@@ -35,10 +57,51 @@ impl WalletContext {
             store,
             loaded,
             selected_contract,
+            #[cfg(target_arch = "wasm32")]
+            encrypted_seal_store: std::sync::Arc::new(std::sync::Mutex::new(None)),
         };
         ctx.load_persisted();
+        #[cfg(target_arch = "wasm32")]
+        ctx.init_encrypted_seal_store_from_key();
         ctx.loaded.set(true);
         ctx
+    }
+
+    /// Initialize the encrypted seal storage with a derived key.
+    /// This should be called after wallet unlock with the user's password.
+    #[cfg(target_arch = "wasm32")]
+    pub fn init_encrypted_seal_store(&self, seal_key: [u8; 32]) {
+        let store = seal_nullifier_storage(seal_key);
+        *self.encrypted_seal_store.lock().unwrap() = Some(store);
+    }
+
+    /// Initialize encrypted seal store from the shared key (set during unlock).
+    #[cfg(target_arch = "wasm32")]
+    fn init_encrypted_seal_store_from_key(&self) {
+        if let Some(key) = get_seal_encryption_key() {
+            self.init_encrypted_seal_store(key);
+        }
+    }
+
+    /// Migrate existing plaintext seals to encrypted storage.
+    #[cfg(target_arch = "wasm32")]
+    pub async fn migrate_seals_to_encrypted(&self) -> Result<usize, String> {
+        let sealed = self.encrypted_seal_store.lock().unwrap();
+        let store = sealed.as_ref().ok_or("Encrypted seal store not initialized")?;
+
+        let current_seals = self.seals();
+        let mut count = 0;
+
+        for seal in current_seals {
+            let key = format!("seal:{}", seal.seal_ref);
+            if let Err(e) = store.save(&key, &seal).await {
+                web_sys::console::error_1(&format!("Failed to encrypt seal {}: {:?}", seal.seal_ref, e).into());
+            } else {
+                count += 1;
+            }
+        }
+
+        Ok(count)
     }
 
     /// Check if wallet data has been loaded from storage.
@@ -523,16 +586,22 @@ impl WalletContext {
     }
 
     pub fn add_seal(&mut self, seal: SealRecord) {
-        self.state.write().seals.push(seal);
+        self.state.write().seals.push(seal.clone());
         self.save_persisted();
+        #[cfg(target_arch = "wasm32")]
+        self.save_seal_to_encrypted_store(seal);
     }
 
     pub fn consume_seal(&mut self, seal_ref: &str) -> bool {
         let mut s = self.state.write();
         if let Some(seal) = s.seals.iter_mut().find(|s| s.seal_ref == seal_ref) {
             seal.status = SealStatus::Consumed;
+            #[cfg(target_arch = "wasm32")]
+            let seal_clone = seal.clone();
             drop(s);
             self.save_persisted();
+            #[cfg(target_arch = "wasm32")]
+            self.save_seal_to_encrypted_store(seal_clone);
             true
         } else {
             false
@@ -544,8 +613,12 @@ impl WalletContext {
         if let Some(seal) = s.seals.iter_mut().find(|s| s.seal_ref == seal_ref) {
             seal.status = SealStatus::Locked;
             seal.content = Some(serde_json::to_string(&content).unwrap_or_default());
+            #[cfg(target_arch = "wasm32")]
+            let seal_clone = seal.clone();
             drop(s);
             self.save_persisted();
+            #[cfg(target_arch = "wasm32")]
+            self.save_seal_to_encrypted_store(seal_clone);
             true
         } else {
             false
@@ -570,6 +643,8 @@ impl WalletContext {
         drop(s);
         if removed {
             self.save_persisted();
+            #[cfg(target_arch = "wasm32")]
+            self.remove_seal_from_encrypted_store(seal_ref);
         }
         removed
     }
@@ -591,6 +666,39 @@ impl WalletContext {
             .iter()
             .find(|s| s.seal_ref == seal_ref)
             .map(|s| s.status.clone())
+    }
+
+    /// Save a seal to the encrypted IndexedDB store (wasm32 only).
+    /// This is async but called synchronously here for simplicity - the save is fire-and-forget.
+    #[cfg(target_arch = "wasm32")]
+    fn save_seal_to_encrypted_store(&self, seal: SealRecord) {
+        let sealed = self.encrypted_seal_store.lock().unwrap();
+        if let Some(store) = sealed.as_ref() {
+            let key = format!("seal:{}", seal.seal_ref);
+            let store = store.clone();
+            let seal_clone = seal.clone();
+            // Fire-and-forget async save - we don't block the UI on this
+            wasm_bindgen_futures::spawn_local(async move {
+                if let Err(e) = store.save(&key, &seal_clone).await {
+                    web_sys::console::error_1(&format!("Failed to save encrypted seal: {:?}", e).into());
+                }
+            });
+        }
+    }
+
+    /// Remove a seal from the encrypted IndexedDB store (wasm32 only).
+    #[cfg(target_arch = "wasm32")]
+    fn remove_seal_from_encrypted_store(&self, seal_ref: &str) {
+        let sealed = self.encrypted_seal_store.lock().unwrap();
+        if let Some(store) = sealed.as_ref() {
+            let key = format!("seal:{}", seal_ref);
+            let store = store.clone();
+            wasm_bindgen_futures::spawn_local(async move {
+                if let Err(e) = store.delete(&key).await {
+                    web_sys::console::error_1(&format!("Failed to delete encrypted seal: {:?}", e).into());
+                }
+            });
+        }
     }
 
     pub fn add_proof(&mut self, proof: ProofRecord) {

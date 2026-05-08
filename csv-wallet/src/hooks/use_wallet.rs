@@ -2,6 +2,8 @@
 
 #[cfg(target_arch = "wasm32")]
 use crate::core::seal_storage::derive_key_from_passphrase;
+#[cfg(target_arch = "wasm32")]
+use crate::context::wallet::set_seal_encryption_key;
 use crate::wallet_core::{ChainAccount, WalletData as Wallet};
 use csv_keys::{
     bip39::{Mnemonic, MnemonicType},
@@ -221,10 +223,8 @@ impl WalletContext {
         #[cfg(target_arch = "wasm32")]
         {
             let seal_key = derive_key_from_passphrase(password);
-            let _encrypted_store = seal_nullifier_storage(seal_key);
-            // Store is ready for use; seal pages will find it via the
-            // EncryptedSealManager created with this key at usage time.
-            web_sys::console::log_1(&"Encrypted seal storage initialized".into());
+            set_seal_encryption_key(seal_key);
+            web_sys::console::log_1(&"Encrypted seal storage key derived and stored".into());
         }
 
         Ok(())
