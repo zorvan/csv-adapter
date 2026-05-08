@@ -12,7 +12,7 @@
 //! # #[tokio::main]
 //! # async fn main() -> Result<()> {
 //! # let client = CsvClient::builder()
-//! #     .with_chain(Chain::Bitcoin)
+//! #     .with_chain(ChainId::new("bitcoin"))
 //! #     .with_store_backend(StoreBackend::InMemory)
 //! #     .build()?;
 //! let mut events = client.watch();
@@ -36,7 +36,7 @@
 //! # }
 //! ```
 
-use csv_core::{Chain, SanadId};
+use csv_core::{ChainId, SanadId};
 #[cfg(feature = "tokio")]
 use tokio::sync::broadcast;
 
@@ -49,7 +49,7 @@ pub enum Event {
         /// The unique identifier of the Sanad.
         sanad_id: SanadId,
         /// The chain where the Sanad's seal is anchored.
-        chain: Chain,
+        chain: ChainId,
     },
 
     /// A cross-chain transfer is in progress.
@@ -57,9 +57,9 @@ pub enum Event {
         /// The unique transfer identifier.
         transfer_id: String,
         /// Source chain.
-        from_chain: Chain,
+        from_chain: ChainId,
         /// Destination chain.
-        to_chain: Chain,
+        to_chain: ChainId,
         /// Current step (e.g., "lock", "prove", "submit", "verify").
         step: String,
     },
@@ -71,7 +71,7 @@ pub enum Event {
         /// The Sanad ID on the destination chain.
         sanad_id: SanadId,
         /// The destination chain.
-        to_chain: Chain,
+        to_chain: ChainId,
     },
 
     /// An error occurred during an operation.

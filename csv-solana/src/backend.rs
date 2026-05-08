@@ -8,7 +8,7 @@ use csv_core::driver::{
     AccountModel, ChainDriver, ChainCapabilities, ChainError, ChainResult, RpcClient, Wallet,
 };
 use csv_core::chain_config::ChainConfig;
-use csv_core::Chain;
+use csv_core::ChainId;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::{Signature, Signer};
 use std::str::FromStr;
@@ -269,8 +269,8 @@ impl ChainDriver for SolanaSealProtocol {
         Some("CSVseaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
     }
 
-    fn to_core_chain(&self) -> Chain {
-        Chain::Solana
+    fn to_core_chain(&self) -> ChainId {
+        ChainId::new("solana")
     }
 
     fn default_network(&self) -> &'static str {

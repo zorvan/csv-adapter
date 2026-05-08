@@ -73,21 +73,15 @@ fn cmd_create(
     use csv_sdk::StoreBackend;
     use csv_core::ChainId;
 
-    // Map CLI Chain to core Chain
-    let core_chain = match chain {
-        Chain::Bitcoin => csv_core::Chain::Bitcoin,
-        Chain::Ethereum => csv_core::Chain::Ethereum,
-        Chain::Solana => csv_core::Chain::Solana,
-        Chain::Sui => csv_core::Chain::Sui,
-        Chain::Aptos => csv_core::Chain::Aptos,
-    };
+ // Map CLI Chain to core Chain
+     let core_chain = csv_core::ChainId::new(chain.as_str());
 
-    // Build CSV client with the requested chain enabled
-    let client = CsvClient::builder()
-        .with_chain(core_chain)
-        .with_store_backend(StoreBackend::InMemory)
-        .build()
-        .map_err(|e| anyhow::anyhow!("Failed to build CSV client: {}", e))?;
+     // Build CSV client with the requested chain enabled
+     let client = CsvClient::builder()
+         .with_chain(core_chain.clone())
+         .with_store_backend(StoreBackend::InMemory)
+         .build()
+         .map_err(|e| anyhow::anyhow!("Failed to build CSV client: {}", e))?;
 
     // Generate a commitment for the sanad
     let commitment_bytes: [u8; 32] = {

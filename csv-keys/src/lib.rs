@@ -32,7 +32,7 @@
 //! let seed = mnemonic.to_seed(None);
 //!
 //! // Derive Ethereum key
-//! let eth_key = derive_key(seed.as_bytes(), csv_core::Chain::Ethereum, 0, 0).unwrap();
+//! let eth_key = derive_key(seed.as_bytes(), csv_core::ChainId::new("ethereum"), 0, 0).unwrap();
 //!
 //! // Encrypt and save
 //! let passphrase = Passphrase::new("secure password");
@@ -96,8 +96,8 @@ pub enum KeystoreError {
 /// Tuple of (mnemonic phrase, vector of (chain, keystore_file))
 pub fn create_full_wallet(
     encryption_passphrase: &Passphrase,
-) -> Result<(String, Vec<(csv_core::Chain, KeystoreFile)>), KeystoreError> {
-    use csv_core::Chain;
+) -> Result<(String, Vec<(csv_core::ChainId, KeystoreFile)>), KeystoreError> {
+    use csv_core::ChainId;
 
     // Generate mnemonic
     let mnemonic = Mnemonic::generate(MnemonicType::Words24);
@@ -109,13 +109,13 @@ pub fn create_full_wallet(
     // Generate keys for each chain
     let mut keystores = Vec::new();
     for chain in [
-        Chain::Bitcoin,
-        Chain::Ethereum,
-        Chain::Sui,
-        Chain::Aptos,
-        Chain::Solana,
+        ChainId::new("bitcoin"),
+        ChainId::new("ethereum"),
+        ChainId::new("sui"),
+        ChainId::new("aptos"),
+        ChainId::new("solana"),
     ] {
-        let key = derive_key(seed.as_bytes(), chain, 0, 0).map_err(|e| KeystoreError::Bip44(e))?;
+        let key = derive_key(seed.as_bytes(), &chain, 0, 0).map_err(|e| KeystoreError::Bip44(e))?;
         let keystore = KeystoreFile::encrypt(&key, encryption_passphrase, KdfType::Scrypt)
             .map_err(|e| KeystoreError::Keystore(e))?;
         keystores.push((chain, keystore));

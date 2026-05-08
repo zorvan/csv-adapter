@@ -11,8 +11,8 @@
 //! #[tokio::main]
 //! async fn main() -> Result<()> {
 //!     let client = CsvClient::builder()
-//!         .with_chain(Chain::Bitcoin)
-//!         .with_chain(Chain::Ethereum)
+//!         .with_chain(ChainId::new("bitcoin"))
+//!         .with_chain(ChainId::new("ethereum"))
 //!         .with_store_backend(StoreBackend::InMemory)
 //!         .build()?;
 //!     Ok(())
@@ -22,7 +22,7 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use csv_core::Chain;
+use csv_core::ChainId;
 
 use crate::config::Config;
 use crate::error::CsvError;
@@ -44,7 +44,7 @@ pub enum StoreBackend {
 /// Internal state for the client builder.
 #[derive(Default)]
 struct BuilderState {
-    enabled_chains: HashSet<Chain>,
+    enabled_chains: HashSet<ChainId>,
     wallet: Option<Wallet>,
     store_backend: Option<StoreBackend>,
     config: Option<Config>,
@@ -71,24 +71,24 @@ impl ClientBuilder {
     ///
     /// # Arguments
     ///
-    /// * `chain` — The chain to enable (e.g., `Chain::Bitcoin`).
+    /// * `chain` — The chain to enable (e.g., `"bitcoin"`).
     ///
     /// # Note
     ///
     /// The corresponding feature flag must be enabled in `Cargo.toml`.
-    /// For example, `Chain::Bitcoin` requires the `"bitcoin"` feature.
-    pub fn with_chain(mut self, chain: Chain) -> Self {
+    /// For example, `"bitcoin"` requires the `"bitcoin"` feature.
+    pub fn with_chain(mut self, chain: ChainId) -> Self {
         self.state.enabled_chains.insert(chain);
         self
     }
 
     /// Enable all supported chains (requires `all-chains` feature).
     pub fn with_all_chains(self) -> Self {
-        self.with_chain(Chain::Bitcoin)
-            .with_chain(Chain::Ethereum)
-            .with_chain(Chain::Sui)
-            .with_chain(Chain::Aptos)
-            .with_chain(Chain::Solana)
+        self.with_chain(ChainId::new("bitcoin"))
+            .with_chain(ChainId::new("ethereum"))
+            .with_chain(ChainId::new("sui"))
+            .with_chain(ChainId::new("aptos"))
+            .with_chain(ChainId::new("solana"))
     }
 
     /// Attach a wallet to the client.
@@ -135,7 +135,7 @@ impl ClientBuilder {
         // Enable chains from config before moving config into state
         for (name, chain_cfg) in &config.chains {
             if chain_cfg.enabled {
-                if let Ok(chain) = name.parse::<Chain>() {
+                if let Ok(chain) = name.parse::<ChainId>() {
                     self.state.enabled_chains.insert(chain);
                 }
             }
@@ -162,7 +162,7 @@ impl ClientBuilder {
 
         // Validate that enabled chains have their feature flags
         for chain in &self.state.enabled_chains {
-            Self::check_chain_feature(*chain)?;
+            Self::check_chain_feature(chain.clone())?;
         }
 
         // Apply config overrides if present
@@ -209,9 +209,9 @@ impl ClientBuilder {
     }
 
     /// Check that the required feature flag is enabled for a chain.
-    fn check_chain_feature(chain: Chain) -> Result<(), CsvError> {
-        match chain {
-            Chain::Bitcoin => {
+    fn check_chain_feature(chain: ChainId) -> Result<(), CsvError> {
+        match chain.as_str() {
+            "bitcoin" => {
                 #[cfg(not(feature = "bitcoin"))]
                 return Err(CsvError::BuilderError(
                     "Bitcoin adapter requires the 'bitcoin' feature flag".to_string(),
@@ -219,7 +219,7 @@ impl ClientBuilder {
                 #[cfg(feature = "bitcoin")]
                 Ok(())
             }
-            Chain::Ethereum => {
+            "ethereum" => {
                 #[cfg(not(feature = "ethereum"))]
                 return Err(CsvError::BuilderError(
                     "Ethereum adapter requires the 'ethereum' feature flag".to_string(),
@@ -227,7 +227,7 @@ impl ClientBuilder {
                 #[cfg(feature = "ethereum")]
                 Ok(())
             }
-            Chain::Sui => {
+            "sui" => {
                 #[cfg(not(feature = "sui"))]
                 return Err(CsvError::BuilderError(
                     "Sui adapter requires the 'sui' feature flag".to_string(),
@@ -235,7 +235,7 @@ impl ClientBuilder {
                 #[cfg(feature = "sui")]
                 Ok(())
             }
-            Chain::Aptos => {
+            "aptos" => {
                 #[cfg(not(feature = "aptos"))]
                 return Err(CsvError::BuilderError(
                     "Aptos adapter requires the 'aptos' feature flag".to_string(),
@@ -243,7 +243,7 @@ impl ClientBuilder {
                 #[cfg(feature = "aptos")]
                 Ok(())
             }
-            Chain::Solana => {
+            "solana" => {
                 #[cfg(not(feature = "solana"))]
                 return Err(CsvError::BuilderError(
                     "Solana adapter requires the 'solana' feature flag".to_string(),

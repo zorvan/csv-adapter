@@ -21,7 +21,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Creating gaming asset (Legendary Sword)...");
     let sword_commitment = Hash::from([1u8; 32]);
 
-    let sword = client.sanads().create(sword_commitment, Chain::Bitcoin)?;
+    let sword = client.sanads().create(sword_commitment, ChainId::new("bitcoin"))?;
 
     println!("✓ Created sword asset: {:?}", sword.id);
     println!("  Owner: {:?}", sword.owner);
@@ -31,7 +31,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Creating shield asset (Aegis of Protection)...");
     let shield_commitment = Hash::from([2u8; 32]);
 
-    let shield = client.sanads().create(shield_commitment, Chain::Sui)?;
+    let shield = client.sanads().create(shield_commitment, ChainId::new("sui"))?;
 
     println!("✓ Created shield asset: {:?}", shield.id);
     println!("  Chain: Sui (Sui Defenders game)\n");
@@ -39,7 +39,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Transfer sword from Bitcoin to Ethereum
     println!("Transferring sword to Ethereum (Ethereum Warriors game)...");
     let transfer_id = client.transfers()
-        .cross_chain(sword.id.clone(), Chain::Ethereum)
+        .cross_chain(sword.id.clone(), ChainId::new("ethereum"))
         .to_address("0xwarrior123".to_string())
         .execute()?;
 

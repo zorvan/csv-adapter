@@ -382,7 +382,7 @@ impl ValidationClient {
         chain: &ChainId,
     ) -> Result<(), ValidationError> {
         match (inclusion, chain) {
-            (CrossChainInclusionProof::Bitcoin(proof), ChainId::Bitcoin) => {
+            (CrossChainInclusionProof::Bitcoin(proof), _) if chain.as_str() == "bitcoin" => {
                 // Verify Merkle branch is non-empty and structurally valid
                 if proof.merkle_branch.is_empty() {
                     return Err(ValidationError::InclusionProofFailed(
@@ -397,7 +397,7 @@ impl ValidationClient {
                 // In production: verify Merkle root matches block header
                 // verify_merkle_proof(txid, &proof.merkle_branch) == header.merkle_root
             }
-            (CrossChainInclusionProof::Ethereum(proof), ChainId::Ethereum) => {
+            (CrossChainInclusionProof::Ethereum(proof), _) if chain.as_str() == "ethereum" => {
                 if proof.receipt_rlp.is_empty() && proof.merkle_nodes.is_empty() {
                     return Err(ValidationError::InclusionProofFailed(
                         "Empty MPT proof".to_string(),
@@ -405,7 +405,7 @@ impl ValidationClient {
                 }
                 // In production: verify MPT proof via alloy-trie
             }
-            (CrossChainInclusionProof::Sui(proof), ChainId::Sui) => {
+            (CrossChainInclusionProof::Sui(proof), _) if chain.as_str() == "sui" => {
                 if !proof.certified {
                     return Err(ValidationError::InclusionProofFailed(
                         "Checkpoint not certified".to_string(),
@@ -413,7 +413,7 @@ impl ValidationClient {
                 }
                 // In production: verify checkpoint certification
             }
-            (CrossChainInclusionProof::Aptos(proof), ChainId::Aptos) => {
+            (CrossChainInclusionProof::Aptos(proof), _) if chain.as_str() == "aptos" => {
                 if !proof.success {
                     return Err(ValidationError::InclusionProofFailed(
                         "Transaction failed".to_string(),
@@ -421,7 +421,7 @@ impl ValidationClient {
                 }
                 // In production: verify HotStuff ledger signatures
             }
-            (CrossChainInclusionProof::Solana(proof), ChainId::Solana) => {
+            (CrossChainInclusionProof::Solana(proof), _) if chain.as_str() == "solana" => {
                 if !proof.finalized {
                     return Err(ValidationError::InclusionProofFailed(
                         "Slot not finalized".to_string(),
@@ -540,7 +540,7 @@ mod tests {
     use super::*;
     use crate::consignment::Consignment;
     use crate::genesis::Genesis;
-    use crate::SanadOwnershipProof;
+    use crate::OwnershipProof;
 
     fn make_test_genesis() -> Genesis {
         Genesis::new(
@@ -569,7 +569,7 @@ mod tests {
         let mut client = ValidationClient::new();
         let consignment = make_test_consignment();
 
-        let result = client.receive_consignment(&consignment, ChainId::Bitcoin);
+        let result = client.receive_consignment(&consignment, ChainId::new("bitcoin"));
 
         match result {
             ValidationResult::Accepted {
@@ -598,7 +598,7 @@ mod tests {
             let consignment =
                 Consignment::new(genesis, vec![], vec![], vec![], Hash::new([0x01; 32]));
 
-            let _ = client.receive_consignment(&consignment, ChainId::Bitcoin);
+            let _ = client.receive_consignment(&consignment, ChainId::new("bitcoin"));
         }
 
         // Should have 3 contracts tracked
@@ -611,7 +611,7 @@ mod tests {
 
         let sanad = Sanad::new(
             Hash::new([0xCD; 32]),
-            SanadOwnershipProof {
+            OwnershipProof {
                 proof: vec![0x01, 0x02, 0x03],
                 owner: vec![0xFF; 32],
                 scheme: None,
@@ -628,7 +628,7 @@ mod tests {
         });
 
         let event = SealConsumptionEvent {
-            chain: ChainId::Bitcoin,
+            chain: ChainId::new("bitcoin"),
             seal: SealPoint::new(vec![0x01], None).unwrap(),
             sanad,
             inclusion,
@@ -649,7 +649,7 @@ mod tests {
 
         let sanad = Sanad::new(
             Hash::new([0xCD; 32]),
-            SanadOwnershipProof {
+            OwnershipProof {
                 proof: vec![0x01],
                 owner: vec![0xFF; 32],
                 scheme: None,
@@ -668,7 +668,7 @@ mod tests {
         let seal = SealPoint::new(vec![0x01], None).unwrap();
 
         let event1 = SealConsumptionEvent {
-            chain: ChainId::Bitcoin,
+            chain: ChainId::new("bitcoin"),
             seal: seal.clone(),
             sanad: sanad.clone(),
             inclusion: inclusion.clone(),
@@ -681,7 +681,7 @@ mod tests {
         // Try to consume same seal again
         let sanad2 = Sanad::new(
             Hash::new([0xEF; 32]),
-            SanadOwnershipProof {
+            OwnershipProof {
                 proof: vec![0x02],
                 owner: vec![0xEE; 32],
                 scheme: None,
@@ -690,7 +690,7 @@ mod tests {
         );
 
         let event2 = SealConsumptionEvent {
-            chain: ChainId::Bitcoin,
+            chain: ChainId::new("bitcoin"),
             seal: seal.clone(),
             sanad: sanad2,
             inclusion,
@@ -712,7 +712,7 @@ mod tests {
 
         let sanad = Sanad::new(
             Hash::new([0xCD; 32]),
-            SanadOwnershipProof {
+            OwnershipProof {
                 proof: vec![0x01],
                 owner: vec![0xFF; 32],
                 scheme: None,
@@ -744,7 +744,7 @@ mod tests {
 
         // Consume on Bitcoin
         let event_btc = SealConsumptionEvent {
-            chain: ChainId::Bitcoin,
+            chain: ChainId::new("bitcoin"),
             seal: seal.clone(),
             sanad: sanad.clone(),
             inclusion: btc_inclusion,
@@ -756,7 +756,7 @@ mod tests {
         // Try to consume on Ethereum (cross-chain double-spend)
         let sanad2 = Sanad::new(
             Hash::new([0xEF; 32]),
-            SanadOwnershipProof {
+            OwnershipProof {
                 proof: vec![0x02],
                 owner: vec![0xEE; 32],
                 scheme: None,
@@ -765,7 +765,7 @@ mod tests {
         );
 
         let event_eth = SealConsumptionEvent {
-            chain: ChainId::Ethereum,
+            chain: ChainId::new("ethereum"),
             seal: seal.clone(),
             sanad: sanad2,
             inclusion: eth_inclusion,
@@ -783,7 +783,7 @@ mod tests {
 
         let sanad = Sanad::new(
             Hash::new([0xCD; 32]),
-            SanadOwnershipProof {
+            OwnershipProof {
                 proof: vec![0x01],
                 owner: vec![0xFF; 32],
                 scheme: None,
@@ -801,7 +801,7 @@ mod tests {
         });
 
         let event = SealConsumptionEvent {
-            chain: ChainId::Bitcoin,
+            chain: ChainId::new("bitcoin"),
             seal: SealPoint::new(vec![0x01], None).unwrap(),
             sanad,
             inclusion,

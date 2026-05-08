@@ -56,11 +56,11 @@ pub fn cmd_import_csv_wallet(
 
     for account in &wallet.accounts {
         let chain = match account.chain.to_lowercase().as_str() {
-            "bitcoin" => Chain::Bitcoin,
-            "ethereum" => Chain::Ethereum,
-            "sui" => Chain::Sui,
-            "aptos" => Chain::Aptos,
-            "solana" => Chain::Solana,
+            "bitcoin" => Chain::new("bitcoin"),
+            "ethereum" => Chain::new("ethereum"),
+            "sui" => Chain::new("sui"),
+            "aptos" => Chain::new("aptos"),
+            "solana" => Chain::new("solana"),
             _ => {
                 output::warning(&format!("Skipping unknown chain: {}", account.chain));
                 continue;
@@ -153,11 +153,11 @@ pub fn cmd_export_csv_wallet(
     let mut accounts = Vec::new();
 
     for chain in [
-        Chain::Bitcoin,
-        Chain::Ethereum,
-        Chain::Sui,
-        Chain::Aptos,
-        Chain::Solana,
+        Chain::new("bitcoin"),
+        Chain::new("ethereum"),
+        Chain::new("sui"),
+        Chain::new("aptos"),
+        Chain::new("solana"),
     ] {
         if let Some(account) = state.get_account(&chain) {
             // Note: private keys are no longer stored in WalletAccount

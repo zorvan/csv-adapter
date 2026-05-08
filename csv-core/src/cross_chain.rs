@@ -10,12 +10,9 @@ use alloc::vec::Vec;
 use serde::{Deserialize, Serialize};
 
 use crate::hash::Hash;
-use crate::mcp::Chain;
+use crate::mcp::ChainId;
 use crate::sanad::{OwnershipProof as SanadOwnershipProof, Sanad};
 use crate::seal::SealPoint;
-
-/// Chain identifier alias for cross-chain transfers.
-pub type ChainId = Chain;
 
 /// Event emitted when a Sanad is locked on the source chain for cross-chain transfer.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -419,7 +416,7 @@ impl CrossChainTransfer {
         )?;
 
         // Step 2: Build transfer proof
-        let source_chain = lock_event.source_chain;
+        let source_chain = lock_event.source_chain.clone();
         let source_block_height = lock_event.source_block_height;
         let lock_timestamp = lock_event.timestamp;
 
@@ -429,7 +426,7 @@ impl CrossChainTransfer {
             lock_event,
             inclusion_proof,
             finality_proof: CrossChainFinalityProof {
-                source_chain,
+                source_chain: source_chain.clone(),
                 height: source_block_height,
                 current_height: current_block_height,
                 is_finalized,
@@ -534,16 +531,16 @@ pub use crate::nullifier::SealNullifier;
 mod tests {
     use super::*;
     use crate::hash::Hash;
-    use crate::mcp::Chain;
+    use crate::mcp::ChainId;
 
     #[test]
     fn test_chain_id_roundtrip() {
         for chain in [
-            Chain::Bitcoin,
-            Chain::Sui,
-            Chain::Aptos,
-            Chain::Ethereum,
-            Chain::Solana,
+            ChainId::new("bitcoin"),
+            ChainId::new("sui"),
+            ChainId::new("aptos"),
+            ChainId::new("ethereum"),
+            ChainId::new("solana"),
         ] {
             let id_str = chain.to_string();
             let parsed: Result<Chain, _> = id_str.parse();
@@ -559,9 +556,9 @@ mod tests {
 
         let entry = CrossChainRegistryEntry {
             sanad_id,
-            source_chain: Chain::Bitcoin,
+            source_chain: ChainId::new("bitcoin"),
             source_seal: SealPoint::new(vec![0x01], None).unwrap(),
-            destination_chain: Chain::Sui,
+            destination_chain: ChainId::new("sui"),
             destination_seal: SealPoint::new(vec![0x02], None).unwrap(),
             lock_tx_hash: Hash::new([0x03; 32]),
             mint_tx_hash: Hash::new([0x04; 32]),
@@ -582,9 +579,9 @@ mod tests {
 
         let entry1 = CrossChainRegistryEntry {
             sanad_id: Hash::new([0xAB; 32]),
-            source_chain: Chain::Bitcoin,
+            source_chain: ChainId::new("bitcoin"),
             source_seal: seal.clone(),
-            destination_chain: Chain::Sui,
+            destination_chain: ChainId::new("sui"),
             destination_seal: SealPoint::new(vec![0x02], None).unwrap(),
             lock_tx_hash: Hash::new([0x03; 32]),
             mint_tx_hash: Hash::new([0x04; 32]),
@@ -596,9 +593,9 @@ mod tests {
         // Second transfer using same source seal should fail
         let entry2 = CrossChainRegistryEntry {
             sanad_id: Hash::new([0xCD; 32]),
-            source_chain: Chain::Bitcoin,
+            source_chain: ChainId::new("bitcoin"),
             source_seal: seal.clone(),
-            destination_chain: Chain::Aptos,
+            destination_chain: ChainId::new("aptos"),
             destination_seal: SealPoint::new(vec![0x05], None).unwrap(),
             lock_tx_hash: Hash::new([0x06; 32]),
             mint_tx_hash: Hash::new([0x07; 32]),
@@ -616,9 +613,9 @@ mod tests {
 
         let entry = CrossChainRegistryEntry {
             sanad_id: Hash::new([0xAB; 32]),
-            source_chain: Chain::Bitcoin,
+            source_chain: ChainId::new("bitcoin"),
             source_seal: SealPoint::new(vec![0x01], None).unwrap(),
-            destination_chain: Chain::Sui,
+            destination_chain: ChainId::new("sui"),
             destination_seal: SealPoint::new(vec![0x02], None).unwrap(),
             lock_tx_hash: Hash::new([0x03; 32]),
             mint_tx_hash: Hash::new([0x04; 32]),

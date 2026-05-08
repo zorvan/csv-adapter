@@ -34,18 +34,18 @@ fn parse_chain_pair(s: &str) -> Result<(Chain, Chain), String> {
     }
 
     let from = match parts[0].to_lowercase().as_str() {
-        "bitcoin" => Chain::Bitcoin,
-        "ethereum" => Chain::Ethereum,
-        "sui" => Chain::Sui,
-        "aptos" => Chain::Aptos,
+        "bitcoin" => Chain::new("bitcoin"),
+        "ethereum" => Chain::new("ethereum"),
+        "sui" => Chain::new("sui"),
+        "aptos" => Chain::new("aptos"),
         other => return Err(format!("Unknown chain: {}", other)),
     };
 
     let to = match parts[1].to_lowercase().as_str() {
-        "bitcoin" => Chain::Bitcoin,
-        "ethereum" => Chain::Ethereum,
-        "sui" => Chain::Sui,
-        "aptos" => Chain::Aptos,
+        "bitcoin" => Chain::new("bitcoin"),
+        "ethereum" => Chain::new("ethereum"),
+        "sui" => Chain::new("sui"),
+        "aptos" => Chain::new("aptos"),
         other => return Err(format!("Unknown chain: {}", other)),
     };
 
@@ -69,23 +69,23 @@ fn cmd_run(
     let pairs = if all {
         vec![
             // Bitcoin as source (UTXO seals → smart contract mints)
-            (Chain::Bitcoin, Chain::Sui),
-            (Chain::Bitcoin, Chain::Ethereum),
-            (Chain::Bitcoin, Chain::Aptos),
+            (Chain::new("bitcoin"), Chain::new("sui")),
+            (Chain::new("bitcoin"), Chain::new("ethereum")),
+            (Chain::new("bitcoin"), Chain::new("aptos")),
             // Sui as source
-            (Chain::Sui, Chain::Ethereum),
-            (Chain::Sui, Chain::Aptos),
+            (Chain::new("sui"), Chain::new("ethereum")),
+            (Chain::new("sui"), Chain::new("aptos")),
             // Ethereum as source
-            (Chain::Ethereum, Chain::Sui),
-            (Chain::Ethereum, Chain::Aptos),
+            (Chain::new("ethereum"), Chain::new("sui")),
+            (Chain::new("ethereum"), Chain::new("aptos")),
             // Aptos as source
-            (Chain::Aptos, Chain::Sui),
-            (Chain::Aptos, Chain::Ethereum),
+            (Chain::new("aptos"), Chain::new("sui")),
+            (Chain::new("aptos"), Chain::new("ethereum")),
         ]
     } else {
         match chain_pair {
             Some(pair) => vec![pair],
-            None => vec![(Chain::Bitcoin, Chain::Sui)], // Default test pair
+            None => vec![(Chain::new("bitcoin"), Chain::new("sui"))], // Default test pair
         }
     };
 
@@ -143,8 +143,8 @@ fn check_chain_connectivity(chain: &Chain, config: &Config) -> Result<()> {
         .timeout(std::time::Duration::from_secs(30))
         .build()?;
 
-    match chain {
-        Chain::Bitcoin => {
+    match chain.as_str() {
+        "bitcoin" => {
             // Bitcoin mempool.space API - simple GET works
             let url = format!(
                 "{}/blocks/tip/hash",
@@ -161,7 +161,7 @@ fn check_chain_connectivity(chain: &Chain, config: &Config) -> Result<()> {
                 ))
             }
         }
-        Chain::Ethereum => {
+        "ethereum" => {
             // Ethereum JSON-RPC - POST required
             let rpc_req = serde_json::json!({
                 "jsonrpc": "2.0",
@@ -180,7 +180,7 @@ fn check_chain_connectivity(chain: &Chain, config: &Config) -> Result<()> {
                 ))
             }
         }
-        Chain::Sui => {
+        "sui" => {
             // Sui JSON-RPC - POST required
             let rpc_req = serde_json::json!({
                 "jsonrpc": "2.0",
@@ -199,7 +199,7 @@ fn check_chain_connectivity(chain: &Chain, config: &Config) -> Result<()> {
                 ))
             }
         }
-        Chain::Aptos => {
+        "aptos" => {
             // Aptos REST API - simple GET works
             let url = format!("{}/", chain_config.rpc_url.trim_end_matches('/'));
             let resp = client.get(&url).send()?;
@@ -213,8 +213,12 @@ fn check_chain_connectivity(chain: &Chain, config: &Config) -> Result<()> {
                 ))
             }
         }
-        Chain::Solana => {
+        "solana" => {
             output::info("Solana test support coming soon");
+            Ok(())
+        }
+        _ => {
+            output::warning(&format!("Unknown chain: {}", chain));
             Ok(())
         }
     }

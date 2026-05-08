@@ -576,7 +576,7 @@ mod tests {
         let validator = ConsignmentValidator::new();
         let consignment = make_test_consignment();
 
-        let report = validator.validate_consignment(&consignment, ChainId::Bitcoin);
+        let report = validator.validate_consignment(&consignment, ChainId::new("bitcoin"));
 
         // Should have validation steps
         assert!(!report.steps.is_empty());
@@ -592,7 +592,7 @@ mod tests {
         let validator = ConsignmentValidator::new();
         let consignment = make_test_consignment();
 
-        let report = validator.validate_consignment(&consignment, ChainId::Bitcoin);
+        let report = validator.validate_consignment(&consignment, ChainId::new("bitcoin"));
 
         // Report should have meaningful content
         assert!(!report.summary.is_empty());
@@ -604,7 +604,7 @@ mod tests {
         let validator = ConsignmentValidator::new();
         let consignment = make_test_consignment();
 
-        let report = validator.validate_consignment(&consignment, ChainId::Bitcoin);
+        let report = validator.validate_consignment(&consignment, ChainId::new("bitcoin"));
 
         // Steps should be in expected order
         let step_names: Vec<&str> = report.steps.iter().map(|s| s.name.as_str()).collect();
@@ -640,7 +640,7 @@ mod tests {
                 tampered_hash,
             );
             let validator = ConsignmentValidator::new();
-            let report = validator.validate_consignment(&consignment, ChainId::Bitcoin);
+            let report = validator.validate_consignment(&consignment, ChainId::new("bitcoin"));
             // Structural validation should catch the mismatch
             assert!(
                 !report.passed || report.steps.iter().any(|s| !s.passed),
@@ -670,7 +670,7 @@ mod tests {
             );
             let validator = ConsignmentValidator::new();
             // Validation should complete without panic regardless of chain ID
-            let _report = validator.validate_consignment(&consignment, ChainId::Bitcoin);
+            let _report = validator.validate_consignment(&consignment, ChainId::new("bitcoin"));
         });
     }
 
@@ -691,7 +691,7 @@ mod tests {
             Hash::new([0x01; 32]),
         );
         let validator = ConsignmentValidator::new();
-        let report = validator.validate_consignment(&consignment, ChainId::Bitcoin);
+        let report = validator.validate_consignment(&consignment, ChainId::new("bitcoin"));
         // Empty consignment (genesis-only) should pass structural validation
         assert!(
             report.steps.iter().all(|s| s.passed),
@@ -752,7 +752,7 @@ mod tests {
                 Hash::new([0x01; 32]),
             );
             let validator = ConsignmentValidator::new();
-            let report = validator.validate_consignment(&consignment, ChainId::Bitcoin);
+            let report = validator.validate_consignment(&consignment, ChainId::new("bitcoin"));
             assert!(!report.steps.is_empty());
         });
     }
@@ -785,7 +785,7 @@ mod tests {
             Hash::new([0x01; 32]),
         );
         let validator = ConsignmentValidator::new();
-        let report = validator.validate_consignment(&consignment, ChainId::Bitcoin);
+        let report = validator.validate_consignment(&consignment, ChainId::new("bitcoin"));
         assert!(!report.passed, "Anchor count mismatch should be detected");
     }
 
@@ -815,7 +815,7 @@ mod tests {
             Hash::new([0x01; 32]),
         );
         let validator = ConsignmentValidator::new();
-        let report = validator.validate_consignment(&consignment, ChainId::Bitcoin);
+        let report = validator.validate_consignment(&consignment, ChainId::new("bitcoin"));
         assert!(!report.passed, "Empty inclusion proof should be detected");
     }
 }

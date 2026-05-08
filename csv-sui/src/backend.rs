@@ -9,7 +9,7 @@ use csv_core::driver::{
 };
 use ed25519_dalek::Verifier;
 use csv_core::chain_config::ChainConfig;
-use csv_core::Chain;
+use csv_core::ChainId;
 
 use crate::seal_protocol::SuiSealProtocol;
 use crate::config::{SuiConfig, SuiNetwork};
@@ -457,8 +457,8 @@ impl ChainDriver for SuiSealProtocol {
         Some("0xcsvsui")
     }
 
-    fn to_core_chain(&self) -> Chain {
-        Chain::Sui
+    fn to_core_chain(&self) -> ChainId {
+        ChainId::new("sui")
     }
 
     fn default_network(&self) -> &'static str {

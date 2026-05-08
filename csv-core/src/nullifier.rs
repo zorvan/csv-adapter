@@ -47,30 +47,13 @@
 //! - [ ] Cross-chain seal identity collisions are properly handled
 
 use alloc::collections::{BTreeMap, BTreeSet};
-use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::hash::Hash;
 use crate::sanad::SanadId;
 use crate::seal::SealPoint;
 
-/// The chain that enforces this seal's single-use.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[allow(missing_docs)]
-pub enum ChainId {
-    /// Bitcoin chain (UTXO seals)
-    Bitcoin,
-    /// Sui blockchain (Object seals)
-    Sui,
-    /// Aptos blockchain (Resource seals)
-    Aptos,
-    /// Ethereum blockchain (Nullifier seals)
-    Ethereum,
-    /// Solana blockchain (PDA seals)
-    Solana,
-    /// Custom or unknown chain
-    Custom(String),
-}
+pub use crate::protocol_version::ChainId;
 
 /// A seal consumption event recording when and where a seal was used.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -687,7 +670,7 @@ mod tests {
     fn test_record_single_consumption() {
         let mut registry = SealNullifier::new();
         let sanad_id = SanadId(Hash::new([0xCD; 32]));
-        let consumption = make_consumption(ChainId::Bitcoin, vec![0x01], sanad_id);
+        let consumption = make_consumption(ChainId::new("bitcoin"), vec![0x01], sanad_id);
 
         assert!(registry.record_consumption(consumption).is_ok());
         assert_eq!(registry.total_seals(), 1);
@@ -700,12 +683,12 @@ mod tests {
         let sanad_id = SanadId(Hash::new([0xCD; 32]));
         let seal_bytes = vec![0x01];
 
-        let consumption1 = make_consumption(ChainId::Bitcoin, seal_bytes.clone(), sanad_id);
+        let consumption1 = make_consumption(ChainId::new("bitcoin"), seal_bytes.clone(), sanad_id);
         registry.record_consumption(consumption1).unwrap();
 
         // Try to consume the same seal again on Bitcoin
         let sanad_id2 = SanadId(Hash::new([0xEF; 32]));
-        let consumption2 = make_consumption(ChainId::Bitcoin, seal_bytes, sanad_id2);
+        let consumption2 = make_consumption(ChainId::new("bitcoin"), seal_bytes, sanad_id2);
         let result = registry.record_consumption(consumption2);
 
         assert!(result.is_err());
@@ -720,11 +703,11 @@ mod tests {
         let seal_bytes = vec![0x01];
 
         // Consume on Bitcoin
-        let consumption1 = make_consumption(ChainId::Bitcoin, seal_bytes.clone(), sanad_id.clone());
+        let consumption1 = make_consumption(ChainId::new("bitcoin"), seal_bytes.clone(), sanad_id.clone());
         registry.record_consumption(consumption1).unwrap();
 
         // Try to consume on Ethereum (cross-chain double-spend)
-        let consumption2 = make_consumption(ChainId::Ethereum, seal_bytes, sanad_id);
+        let consumption2 = make_consumption(ChainId::new("ethereum"), seal_bytes, sanad_id);
         let result = registry.record_consumption(consumption2);
 
         assert!(result.is_err());
@@ -750,12 +733,12 @@ mod tests {
         let sanad_id = SanadId(Hash::new([0xCD; 32]));
         let seal = SealPoint::new(vec![0x01], None).unwrap();
 
-        let consumption = make_consumption(ChainId::Bitcoin, vec![0x01], sanad_id);
+        let consumption = make_consumption(ChainId::new("bitcoin"), vec![0x01], sanad_id);
         registry.record_consumption(consumption).unwrap();
 
         match registry.check_seal_status(&seal) {
             SealStatus::ConsumedOnChain { chain, .. } => {
-                assert_eq!(chain, ChainId::Bitcoin);
+                assert_eq!(chain, ChainId::new("bitcoin"));
             }
             _ => panic!("Expected ConsumedOnChain"),
         }
@@ -769,11 +752,11 @@ mod tests {
         let seal_bytes = vec![0x01];
 
         // Consume on Bitcoin
-        let c1 = make_consumption(ChainId::Bitcoin, seal_bytes.clone(), sanad_id.clone());
+        let c1 = make_consumption(ChainId::new("bitcoin"), seal_bytes.clone(), sanad_id.clone());
         registry.record_consumption(c1).unwrap();
 
         // Try to consume on Ethereum (will be recorded in history but flagged as double-spend)
-        let c2 = make_consumption(ChainId::Ethereum, seal_bytes, sanad_id.clone());
+        let c2 = make_consumption(ChainId::new("ethereum"), seal_bytes, sanad_id.clone());
 
         // Note: record_consumption returns error, but we can still check status
         let _ = registry.record_consumption(c2);
@@ -790,7 +773,7 @@ mod tests {
         assert_eq!(registry.known_chains().len(), 0);
 
         let sanad_id = SanadId(Hash::new([0xCD; 32]));
-        let c1 = make_consumption(ChainId::Bitcoin, vec![0x01], sanad_id.clone());
+        let c1 = make_consumption(ChainId::new("bitcoin"), vec![0x01], sanad_id.clone());
         registry.record_consumption(c1).unwrap();
 
         assert_eq!(registry.known_chains().len(), 1);
@@ -801,7 +784,7 @@ mod tests {
     fn test_optimized_registry_basic() {
         let mut registry = OptimizedSealNullifier::new();
         let sanad_id = SanadId(Hash::new([0xCD; 32]));
-        let consumption = make_consumption(ChainId::Bitcoin, vec![0x01], sanad_id);
+        let consumption = make_consumption(ChainId::new("bitcoin"), vec![0x01], sanad_id);
 
         assert!(registry.record_consumption(consumption).is_ok());
         assert_eq!(registry.total_seals(), 1);
@@ -836,16 +819,16 @@ mod tests {
         let seal_bytes = vec![0x01];
 
         // Consume on Bitcoin
-        let c1 = make_consumption(ChainId::Bitcoin, seal_bytes.clone(), sanad_id.clone());
+        let c1 = make_consumption(ChainId::new("bitcoin"), seal_bytes.clone(), sanad_id.clone());
         registry.record_consumption(c1).unwrap();
 
         // Try same-chain double spend
-        let c2 = make_consumption(ChainId::Bitcoin, seal_bytes.clone(), sanad_id.clone());
+        let c2 = make_consumption(ChainId::new("bitcoin"), seal_bytes.clone(), sanad_id.clone());
         let result = registry.record_consumption(c2);
         assert!(result.is_err());
 
         // Try cross-chain double spend
-        let c3 = make_consumption(ChainId::Ethereum, seal_bytes, sanad_id);
+        let c3 = make_consumption(ChainId::new("ethereum"), seal_bytes, sanad_id);
         let result = registry.record_consumption(c3);
         assert!(result.is_err());
         let err = result.unwrap_err();
@@ -863,7 +846,7 @@ mod tests {
         let _ = registry.check_seal_status(&seal);
 
         // Record consumption
-        let c1 = make_consumption(ChainId::Bitcoin, vec![0x01], sanad_id);
+        let c1 = make_consumption(ChainId::new("bitcoin"), vec![0x01], sanad_id);
         registry.record_consumption(c1).unwrap();
 
         // Second check (should hit cache now)
@@ -884,7 +867,7 @@ mod tests {
         assert!(!registry.is_seal_consumed(&seal));
 
         // Consume it
-        let c1 = make_consumption(ChainId::Bitcoin, vec![0x01], sanad_id);
+        let c1 = make_consumption(ChainId::new("bitcoin"), vec![0x01], sanad_id);
         registry.record_consumption(c1).unwrap();
 
         // Now consumed
@@ -899,7 +882,7 @@ mod tests {
         // Add some seals
         for i in 0..100u8 {
             let sanad_id = SanadId(Hash::new([i; 32]));
-            let c = make_consumption(ChainId::Bitcoin, vec![i], sanad_id);
+            let c = make_consumption(ChainId::new("bitcoin"), vec![i], sanad_id);
             registry.record_consumption(c).unwrap();
         }
 

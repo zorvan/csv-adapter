@@ -67,7 +67,7 @@ fn cmd_create(
 
     // Phase 5: Use runtime client to create seal via SanadsManager
     let client = CsvClient::builder()
-        .with_chain(core_chain)
+        .with_chain(core_chain.clone())
         .build()
         .map_err(|e| anyhow::anyhow!("Failed to create CSV client: {}", e))?;
 
@@ -90,13 +90,12 @@ fn cmd_create(
             output::success("Seal created successfully via runtime");
 
             // Record in state
-            state.storage.seals.push(SealRecord {
-                seal_ref: seal_id,
+            state.storage.seals.push(SealRecord::new(
+                seal_id,
                 chain,
-                value: value_sat,
-                consumed: false,
-                created_at: chrono::Utc::now().timestamp() as u64,
-            });
+                value_sat,
+                chrono::Utc::now().timestamp() as u64,
+            ));
         }
         Err(e) => {
             return Err(anyhow::anyhow!("Failed to create seal via runtime: {}", e));

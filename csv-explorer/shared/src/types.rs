@@ -8,7 +8,7 @@
 /// Explorer types MUST reuse canonical protocol types from `csv-adapter-core::protocol_version`
 /// where applicable. The following types are re-exported from the protocol contract:
 ///
-/// - [`csv_core::Chain`] — Canonical chain identifiers
+/// - [`csv_core::ChainId`] — Canonical chain identifiers
 /// - [`csv_core::TransferStatus`] — Canonical transfer lifecycle
 /// - [`csv_core::SyncStatus`] — Indexer sync status
 /// - [`csv_core::ErrorCode`] — Machine-readable error codes

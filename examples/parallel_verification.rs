@@ -27,7 +27,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for i in 0..num_sanads {
         let commitment = Hash::from([i as u8; 32]);
-        let _ = client.sanads().create(commitment, Chain::Bitcoin);
+        let _ = client.sanads().create(commitment, ChainId::new("bitcoin"));
     }
 
     let seq_duration = start.elapsed();
@@ -51,7 +51,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             thread::spawn(move || {
                 for i in 0..sanads_per_thread {
                     let commitment = Hash::from([(thread_id * sanads_per_thread + i) as u8; 32]);
-                    let _ = client_ref.sanads().create(commitment, Chain::Ethereum);
+                    let _ = client_ref.sanads().create(commitment, ChainId::new("ethereum"));
                 }
                 sanads_per_thread
             })
@@ -75,7 +75,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // First create a sanad to query repeatedly
     let test_sanad = client_arc.sanads().create(
         Hash::from([255u8; 32]),
-        Chain::Bitcoin,
+        ChainId::new("bitcoin"),
     )?;
 
     let num_queries = 1000;

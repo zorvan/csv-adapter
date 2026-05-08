@@ -8,7 +8,7 @@ use csv_core::driver::{
     AccountModel, ChainDriver, ChainCapabilities, ChainError, ChainResult, RpcClient, Wallet,
 };
 use csv_core::chain_config::ChainConfig;
-use csv_core::Chain;
+use csv_core::ChainId;
 
 use crate::seal_protocol::EthereumSealProtocol;
 use crate::config::{EthereumConfig, Network};
@@ -322,8 +322,8 @@ impl ChainDriver for EthereumSealProtocol {
         Some("0xCsvSeaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
     }
 
-    fn to_core_chain(&self) -> Chain {
-        Chain::Ethereum
+    fn to_core_chain(&self) -> ChainId {
+        ChainId::new("ethereum")
     }
 
     fn default_network(&self) -> &'static str {

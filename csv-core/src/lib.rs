@@ -69,9 +69,6 @@ pub mod protocol_version;
 // Agent-friendly types (AI agent support) - 🟡 BETA
 pub mod mcp;
 
-// Re-export Chain for backward compatibility with chain crates
-pub use mcp::Chain;
-
 // Production hardening - 🔒 STABLE
 pub mod hardening;
 

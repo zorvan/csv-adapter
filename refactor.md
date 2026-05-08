@@ -13,6 +13,10 @@
 - **D7:** Chain enum → string-based `ChainId` (csv_core::ChainId)
 - **D8:** No dead code found
 - **refactor.md:** Session log added
+- **csv-cli compilation:** All type mismatch errors fixed (ChainId vs string literals)
+- **csv-core cleanup:** Removed unused imports (Deserialize, String, HashMap)
+- **Missing example:** Created csv-core/examples/basic_sanad.rs
+- **Test fixes:** Fixed csv-core client.rs tests, csv-keys security tests
 
 ---
 
@@ -46,11 +50,36 @@
 
 | Phase | Status | Notes |
 |-------|--------|-------|
-| Phase 2: Registry Unification | NOT STARTED | ChainRegistry removal |
+| Phase 2: Registry Unification | IN PROGRESS | ChainRegistry removal, DriverRegistry integration |
 | Phase 3: WASM Unification | PARTIALLY STARTED | csv-core no_std ready, wallet stubs remain |
 | Phase 4: Explorer Decomposition | PARTIALLY DONE | Split into 4 sub-crates |
 | Phase 5: ZK & Celestia | NOT STARTED | Per gap analysis |
 | Phase 6: Repository Split | NOT STARTED | Per timing guidelines |
+
+---
+
+## Recent Changes (Session Log)
+
+### Type System Unification
+- Fixed 30+ type mismatch errors in csv-cli where `Chain` (deprecated alias for `ChainId`) was being matched against string literals
+- Updated all match statements to use `.as_str()` pattern: `match chain.as_str() { "bitcoin" => ... }`
+- Fixed `ChainId::new()` vs `Chain::new()` usage across 10+ files
+- Added `.clone()` where `ChainId` was moved into async closures
+- Fixed `ChainMetadata` struct to use `String` fields instead of `&'static str` for dynamic chain support
+
+### csv-core Cleanup
+- Removed unused import `Deserialize` from mcp.rs
+- Removed unused import `alloc::string::String` from nullifier.rs  
+- Removed unused import `std::collections::HashMap` from driver.rs
+- Fixed `SanadOwnershipProof` → `OwnershipProof` in client.rs tests
+- Fixed `builtin` module import in mcp.rs tests
+- Added `start_block` field to ChainConfig in custom_chain_adapter example
+- Created missing basic_sanad.rs example
+
+### csv-keys Test Fixes
+- Replaced deprecated `generate_mnemonic()` with `Mnemonic::generate(MnemonicType::Words12)`
+- Replaced `Keystore`/`KeystoreConfig` with `KeystoreFile`/`Passphrase`
+- Fixed `KeystoreError` variant usage to match actual enum definition
 
 ---
 

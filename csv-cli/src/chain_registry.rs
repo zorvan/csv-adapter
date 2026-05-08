@@ -9,14 +9,8 @@ use crate::config::Chain;
 use csv_core::{ChainDriver, ChainCapabilities, DriverRegistry};
 
 /// Get the chain ID string for a Chain enum variant
-pub fn chain_id(chain: &Chain) -> &'static str {
-    match chain {
-        Chain::Bitcoin => "bitcoin",
-        Chain::Ethereum => "ethereum",
-        Chain::Sui => "sui",
-        Chain::Aptos => "aptos",
-        Chain::Solana => "solana",
-    }
+pub fn chain_id(chain: &Chain) -> &str {
+    chain.as_str()
 }
 
 /// Get chain adapter for a Chain enum variant
@@ -57,56 +51,63 @@ pub fn supported_chains() -> Vec<String> {
 
 /// Chain metadata for UI display
 pub struct ChainMetadata {
-    pub chain_id: &'static str,
-    pub chain_name: &'static str,
+    pub chain_id: String,
+    pub chain_name: String,
     pub color_hex: &'static str,
     pub icon_emoji: &'static str,
 }
 
 /// Get chain metadata for UI
 pub fn get_metadata(chain: &Chain) -> ChainMetadata {
-    match chain {
-        Chain::Bitcoin => ChainMetadata {
-            chain_id: "bitcoin",
-            chain_name: "Bitcoin",
+    match chain.as_str() {
+        "bitcoin" => ChainMetadata {
+            chain_id: "bitcoin".to_string(),
+            chain_name: "Bitcoin".to_string(),
             color_hex: "#F7931A",
             icon_emoji: "\u{1F7E0}",
         },
-        Chain::Ethereum => ChainMetadata {
-            chain_id: "ethereum",
-            chain_name: "Ethereum",
+        "ethereum" => ChainMetadata {
+            chain_id: "ethereum".to_string(),
+            chain_name: "Ethereum".to_string(),
             color_hex: "#627EEA",
             icon_emoji: "\u{1F537}",
         },
-        Chain::Sui => ChainMetadata {
-            chain_id: "sui",
-            chain_name: "Sui",
+        "sui" => ChainMetadata {
+            chain_id: "sui".to_string(),
+            chain_name: "Sui".to_string(),
             color_hex: "#06BDFF",
             icon_emoji: "\u{1F30A}",
         },
-        Chain::Aptos => ChainMetadata {
-            chain_id: "aptos",
-            chain_name: "Aptos",
+        "aptos" => ChainMetadata {
+            chain_id: "aptos".to_string(),
+            chain_name: "Aptos".to_string(),
             color_hex: "#2DD8A3",
             icon_emoji: "\u{1F7E2}",
         },
-        Chain::Solana => ChainMetadata {
-            chain_id: "solana",
-            chain_name: "Solana",
+        "solana" => ChainMetadata {
+            chain_id: "solana".to_string(),
+            chain_name: "Solana".to_string(),
             color_hex: "#9945FF",
             icon_emoji: "\u{25C8}",
+        },
+        _ => ChainMetadata {
+            chain_id: chain.as_str().to_string(),
+            chain_name: chain.as_str().to_string(),
+            color_hex: "#6B7280",
+            icon_emoji: "\u{1F532}",
         },
     }
 }
 
 /// Get badge class for chain
 pub fn get_badge_class(chain: &Chain) -> &'static str {
-    match chain {
-        Chain::Bitcoin => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-orange-400 bg-orange-500/20 border border-orange-500/30",
-        Chain::Ethereum => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-blue-400 bg-blue-500/20 border border-blue-500/30",
-        Chain::Sui => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-cyan-400 bg-cyan-500/20 border border-cyan-500/30",
-        Chain::Aptos => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-emerald-400 bg-emerald-500/20 border border-emerald-500/30",
-        Chain::Solana => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-purple-400 bg-purple-500/20 border border-purple-500/30",
+    match chain.as_str() {
+        "bitcoin" => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-orange-400 bg-orange-500/20 border border-orange-500/30",
+        "ethereum" => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-blue-400 bg-blue-500/20 border border-blue-500/30",
+        "sui" => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-cyan-400 bg-cyan-500/20 border border-cyan-500/30",
+        "aptos" => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-emerald-400 bg-emerald-500/20 border border-emerald-500/30",
+        "solana" => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-purple-400 bg-purple-500/20 border border-purple-500/30",
+        _ => "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-gray-400 bg-gray-500/20 border border-gray-500/30",
     }
 }
 
@@ -116,36 +117,36 @@ mod tests {
 
     #[test]
     fn test_chain_id() {
-        assert_eq!(chain_id(&Chain::Bitcoin), "bitcoin");
-        assert_eq!(chain_id(&Chain::Ethereum), "ethereum");
-        assert_eq!(chain_id(&Chain::Solana), "solana");
-        assert_eq!(chain_id(&Chain::Sui), "sui");
-        assert_eq!(chain_id(&Chain::Aptos), "aptos");
+        assert_eq!(chain_id(&ChainId::new("bitcoin")), "bitcoin");
+        assert_eq!(chain_id(&ChainId::new("ethereum")), "ethereum");
+        assert_eq!(chain_id(&ChainId::new("solana")), "solana");
+        assert_eq!(chain_id(&ChainId::new("sui")), "sui");
+        assert_eq!(chain_id(&ChainId::new("aptos")), "aptos");
     }
 
     #[test]
     fn test_get_adapter() {
-        assert!(get_adapter(&Chain::Bitcoin).is_some());
-        assert!(get_adapter(&Chain::Ethereum).is_some());
-        assert!(get_adapter(&Chain::Solana).is_some());
-        assert!(get_adapter(&Chain::Sui).is_some());
-        assert!(get_adapter(&Chain::Aptos).is_some());
+        assert!(get_adapter(&ChainId::new("bitcoin")).is_some());
+        assert!(get_adapter(&ChainId::new("ethereum")).is_some());
+        assert!(get_adapter(&ChainId::new("solana")).is_some());
+        assert!(get_adapter(&ChainId::new("sui")).is_some());
+        assert!(get_adapter(&ChainId::new("aptos")).is_some());
     }
 
     #[test]
     fn test_get_capabilities() {
-        let bitcoin_caps = get_capabilities(&Chain::Bitcoin).unwrap();
+        let bitcoin_caps = get_capabilities(&ChainId::new("bitcoin")).unwrap();
         assert!(!bitcoin_caps.supports_smart_contracts);
 
-        let ethereum_caps = get_capabilities(&Chain::Ethereum).unwrap();
+        let ethereum_caps = get_capabilities(&ChainId::new("ethereum")).unwrap();
         assert!(ethereum_caps.supports_smart_contracts);
     }
 
     #[test]
     fn test_supports_nfts() {
-        assert!(supports_nfts(&Chain::Bitcoin));
-        assert!(supports_nfts(&Chain::Ethereum));
-        assert!(supports_nfts(&Chain::Solana));
+        assert!(supports_nfts(&ChainId::new("bitcoin")));
+        assert!(supports_nfts(&ChainId::new("ethereum")));
+        assert!(supports_nfts(&ChainId::new("solana")));
     }
 
     #[test]

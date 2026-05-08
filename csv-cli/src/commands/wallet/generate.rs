@@ -46,11 +46,11 @@ pub fn cmd_init(
     let mut keystore = FileKeystore::new(None)?;
 
     for chain in [
-        Chain::Bitcoin,
-        Chain::Ethereum,
-        Chain::Sui,
-        Chain::Aptos,
-        Chain::Solana,
+        Chain::new("bitcoin"),
+        Chain::new("ethereum"),
+        Chain::new("sui"),
+        Chain::new("aptos"),
+        Chain::new("solana"),
     ] {
         output::info(&format!("Generating {} wallet...", chain));
         let address = generate_wallet_for_chain(
@@ -101,12 +101,13 @@ pub fn cmd_generate(
     _config: &Config,
     state: &mut UnifiedStateManager,
 ) -> Result<()> {
-    match chain {
-        Chain::Bitcoin => generate_bitcoin(network, state),
-        Chain::Ethereum => generate_ethereum(state),
-        Chain::Sui => generate_sui(state),
-        Chain::Aptos => generate_aptos(state),
-        Chain::Solana => generate_solana(state),
+    match chain.as_str() {
+        "bitcoin" => generate_bitcoin(network, state),
+        "ethereum" => generate_ethereum(state),
+        "sui" => generate_sui(state),
+        "aptos" => generate_aptos(state),
+        "solana" => generate_solana(state),
+        _ => Err(anyhow::anyhow!("Unknown chain: {}", chain)),
     }
 }
 
@@ -136,13 +137,7 @@ fn generate_wallet_for_chain(
     passphrase: &Passphrase,
 ) -> Result<String> {
     // Phase 5: Use keystore's BIP-44 derivation for all chains
-    let core_chain = match chain {
-        Chain::Bitcoin => csv_core::Chain::Bitcoin,
-        Chain::Ethereum => csv_core::Chain::Ethereum,
-        Chain::Sui => csv_core::Chain::Sui,
-        Chain::Aptos => csv_core::Chain::Aptos,
-        Chain::Solana => csv_core::Chain::Solana,
-    };
+    let core_chain = csv_core::ChainId::new(chain.as_str());
 
     // Convert mnemonic to seed
     let mnemonic_obj = Mnemonic::from_phrase(mnemonic)
@@ -157,7 +152,7 @@ fn generate_wallet_for_chain(
         .ok_or_else(|| anyhow::anyhow!("Failed to derive key for {:?}", chain))?;
 
     // Derive address from key
-    let address = derive_address_from_key(key.as_bytes(), core_chain)
+    let address = derive_address_from_key(key.as_bytes(), &core_chain)
         .map_err(|e| anyhow::anyhow!("Failed to derive address: {}", e))?;
 
     // Store private key in encrypted file keystore
@@ -171,12 +166,13 @@ fn generate_wallet_for_chain(
     )?;
 
     // Store in state with derivation path
-    let coin_type = match chain {
-        Chain::Bitcoin => "0",
-        Chain::Ethereum => "60",
-        Chain::Sui => "784",
-        Chain::Aptos => "637",
-        Chain::Solana => "501",
+    let coin_type = match chain.as_str() {
+        "bitcoin" => "0",
+        "ethereum" => "60",
+        "sui" => "784",
+        "aptos" => "637",
+        "solana" => "501",
+        _ => "0",
     };
     let derivation_path = format!("m/44'/{}'/{}'/0/0", coin_type, account);
     state.store_address_with_derivation(chain.clone(), address.clone(), Some(derivation_path));
@@ -196,10 +192,10 @@ fn generate_bitcoin(network: Network, state: &mut UnifiedStateManager) -> Result
     let secret_key = SecretKey::new(key_bytes);
 
     // Derive Bitcoin address using the keystore runtime
-    let address = derive_address_from_key(secret_key.as_bytes(), csv_core::Chain::Bitcoin)
+    let address = derive_address_from_key(secret_key.as_bytes(), &csv_core::ChainId::new("bitcoin"))
         .map_err(|e| anyhow::anyhow!("Failed to derive address: {}", e))?;
 
-    state.store_address(Chain::Bitcoin, address.clone());
+    state.store_address(Chain::new("bitcoin"), address.clone());
 
     output::header("Bitcoin Wallet Generated");
     output::kv("Network", &network.to_string());
@@ -221,10 +217,10 @@ fn generate_ethereum(state: &mut UnifiedStateManager) -> Result<()> {
     rand::rngs::OsRng.fill_bytes(&mut key_bytes);
     let secret_key = SecretKey::new(key_bytes);
 
-    let address = derive_address_from_key(secret_key.as_bytes(), csv_core::Chain::Ethereum)
+    let address = derive_address_from_key(secret_key.as_bytes(), &csv_core::ChainId::new("ethereum"))
         .map_err(|e| anyhow::anyhow!("Failed to derive address: {}", e))?;
 
-    state.store_address(Chain::Ethereum, address.clone());
+    state.store_address(Chain::new("ethereum"), address.clone());
 
     output::header("Ethereum Wallet Generated");
     output::kv("Address", &address);
@@ -244,10 +240,10 @@ fn generate_sui(state: &mut UnifiedStateManager) -> Result<()> {
     rand::rngs::OsRng.fill_bytes(&mut key_bytes);
     let secret_key = SecretKey::new(key_bytes);
 
-    let address = derive_address_from_key(secret_key.as_bytes(), csv_core::Chain::Sui)
+    let address = derive_address_from_key(secret_key.as_bytes(), &csv_core::ChainId::new("sui"))
         .map_err(|e| anyhow::anyhow!("Failed to derive address: {}", e))?;
 
-    state.store_address(Chain::Sui, address.clone());
+    state.store_address(Chain::new("sui"), address.clone());
 
     output::header("Sui Wallet Generated");
     output::kv("Address", &address);
@@ -267,10 +263,10 @@ fn generate_aptos(state: &mut UnifiedStateManager) -> Result<()> {
     rand::rngs::OsRng.fill_bytes(&mut key_bytes);
     let secret_key = SecretKey::new(key_bytes);
 
-    let address = derive_address_from_key(secret_key.as_bytes(), csv_core::Chain::Aptos)
+    let address = derive_address_from_key(secret_key.as_bytes(), &csv_core::ChainId::new("aptos"))
         .map_err(|e| anyhow::anyhow!("Failed to derive address: {}", e))?;
 
-    state.store_address(Chain::Aptos, address.clone());
+    state.store_address(Chain::new("aptos"), address.clone());
 
     output::header("Aptos Wallet Generated");
     output::kv("Address", &address);
@@ -290,10 +286,10 @@ fn generate_solana(state: &mut UnifiedStateManager) -> Result<()> {
     rand::rngs::OsRng.fill_bytes(&mut key_bytes);
     let secret_key = SecretKey::new(key_bytes);
 
-    let address = derive_address_from_key(secret_key.as_bytes(), csv_core::Chain::Solana)
+    let address = derive_address_from_key(secret_key.as_bytes(), &csv_core::ChainId::new("solana"))
         .map_err(|e| anyhow::anyhow!("Failed to derive address: {}", e))?;
 
-    state.store_address(Chain::Solana, address.clone());
+    state.store_address(Chain::new("solana"), address.clone());
 
     output::header("Solana Wallet Generated");
     output::kv("Address", &address);

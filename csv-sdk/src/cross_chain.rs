@@ -4,7 +4,7 @@
 //! as part of cross-chain transfers.
 
 use crate::CsvError;
-use csv_core::{Chain, Hash};
+use csv_core::{ChainId, Hash};
 
 /// Result type for cross-chain operations.
 pub type CrossChainResult<T> = Result<T, CrossChainError>;
@@ -63,7 +63,7 @@ impl From<CrossChainError> for CsvError {
 /// - The RPC call fails
 /// - The transaction cannot be built or submitted
 pub async fn mint_sanad_on_chain(
-    chain: Chain,
+    chain: ChainId,
     rpc_url: &str,
     contract: &str,
     private_key: &str,
@@ -72,9 +72,9 @@ pub async fn mint_sanad_on_chain(
     source_chain: u8,
     source_seal_ref: Hash,
 ) -> CrossChainResult<String> {
-    match chain {
+    match chain.as_str() {
         #[cfg(all(feature = "sui", feature = "rpc"))]
-        Chain::Sui => {
+        "sui" => {
             use csv_sui::mint::mint_sanad;
             
             mint_sanad(
@@ -91,7 +91,7 @@ pub async fn mint_sanad_on_chain(
         }
         
         #[cfg(not(all(feature = "sui", feature = "rpc")))]
-        Chain::Sui => {
+        "sui" => {
             // Suppress unused variable warnings when feature is not enabled
             let _ = (rpc_url, contract, private_key, sanad_id, commitment, source_chain, source_seal_ref);
             Err(CrossChainError::FeatureNotEnabled(
@@ -100,7 +100,7 @@ pub async fn mint_sanad_on_chain(
         }
         
         #[cfg(feature = "solana")]
-        Chain::Solana => {
+        "solana" => {
             use csv_solana::mint::mint_sanad_from_hex_key;
             // Solana requires state_root parameter - use zero hash as default
             let state_root = Hash::new([0u8; 32]);
@@ -119,7 +119,7 @@ pub async fn mint_sanad_on_chain(
         }
         
         #[cfg(not(feature = "solana"))]
-        Chain::Solana => {
+        "solana" => {
             // Suppress unused variable warnings when feature is not enabled
             let _ = (rpc_url, contract, private_key, sanad_id, commitment, source_chain, source_seal_ref);
             Err(CrossChainError::FeatureNotEnabled(
@@ -139,12 +139,12 @@ pub async fn mint_sanad_on_chain(
 }
 
 /// Check if cross-chain mint is supported for a given chain.
-pub fn is_mint_supported(chain: Chain) -> bool {
-    match chain {
+pub fn is_mint_supported(chain: ChainId) -> bool {
+    match chain.as_str() {
         #[cfg(all(feature = "sui", feature = "rpc"))]
-        Chain::Sui => true,
+        "sui" => true,
         #[cfg(feature = "solana")]
-        Chain::Solana => true,
+        "solana" => true,
         _ => false,
     }
 }

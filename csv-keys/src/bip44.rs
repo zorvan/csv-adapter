@@ -4,7 +4,7 @@
 //! following BIP-44 standards with chain-specific paths.
 
 use crate::memory::SecretKey;
-use csv_core::{Chain, ChainId};
+use csv_core::ChainId;
 use thiserror::Error;
 
 /// Error type for BIP-44 operations.
@@ -20,7 +20,7 @@ pub enum Bip44Error {
 
     /// Chain not supported.
     #[error("Chain not supported for HD derivation: {0:?}")]
-    UnsupportedChain(Chain),
+    UnsupportedChain(ChainId),
 
     /// Derivation failed.
     #[error("Key derivation failed: {0}")]
@@ -84,21 +84,21 @@ impl DerivationPath {
 }
 
 /// Get the BIP-44 coin type for a chain.
-pub fn coin_type(chain: Chain) -> u32 {
-    match chain {
-        Chain::Bitcoin => 0,   // SLIP-44: BTC
-        Chain::Ethereum => 60, // SLIP-44: ETH
-        Chain::Sui => 784,     // SLIP-44: SUI
-        Chain::Aptos => 637,   // SLIP-44: APT
-        Chain::Solana => 501,  // SLIP-44: SOL
+pub fn coin_type(chain: &ChainId) -> u32 {
+    match chain.as_str() {
+        "bitcoin" => 0,   // SLIP-44: BTC
+        "ethereum" => 60, // SLIP-44: ETH
+        "sui" => 784,     // SLIP-44: SUI
+        "aptos" => 637,   // SLIP-44: APT
+        "solana" => 501,  // SLIP-44: SOL
         _ => 0,                // Default to Bitcoin coin type for unknown chains
     }
 }
 
 /// Get the standard derivation path for a chain.
-pub fn derivation_path(chain: Chain, account: u32, address_index: u32) -> DerivationPath {
-    match chain {
-        Chain::Bitcoin => {
+pub fn derivation_path(chain: &ChainId, account: u32, address_index: u32) -> DerivationPath {
+    match chain.as_str() {
+        "bitcoin" => {
             // Bitcoin: BIP-86 for Taproot (native segwit v1)
             DerivationPath::new_bip86(account, address_index)
         }
@@ -126,7 +126,7 @@ pub fn derivation_path(chain: Chain, account: u32, address_index: u32) -> Deriva
 /// A derived 32-byte secret key.
 pub fn derive_key(
     seed: &[u8; 64],
-    chain: Chain,
+    chain: &ChainId,
     account: u32,
     address_index: u32,
 ) -> Result<SecretKey, Bip44Error> {
@@ -142,14 +142,14 @@ pub fn derive_key_from_name(
     address_index: u32,
 ) -> Result<SecretKey, Bip44Error> {
     let chain = match chain_name {
-        "bitcoin" => Chain::Bitcoin,
-        "ethereum" => Chain::Ethereum,
-        "sui" => Chain::Sui,
-        "aptos" => Chain::Aptos,
-        "solana" => Chain::Solana,
+        "bitcoin" => ChainId::new("bitcoin"),
+        "ethereum" => ChainId::new("ethereum"),
+        "sui" => ChainId::new("sui"),
+        "aptos" => ChainId::new("aptos"),
+        "solana" => ChainId::new("solana"),
         _ => return Err(Bip44Error::InvalidPath(format!("Unknown chain: {}", chain_name))),
     };
-    derive_key(seed, chain, account, address_index)
+    derive_key(seed, &chain, account, address_index)
 }
 
 /// Derive a key from a specific derivation path.
@@ -159,11 +159,11 @@ pub fn derive_key_from_name(
 pub fn derive_key_from_path(
     seed: &[u8; 64],
     path: &DerivationPath,
-    chain: Chain,
+    chain: &ChainId,
 ) -> Result<SecretKey, Bip44Error> {
-    match chain {
-        Chain::Bitcoin | Chain::Ethereum => derive_secp256k1(seed, path),
-        Chain::Sui | Chain::Aptos | Chain::Solana => derive_ed25519(seed, path),
+    match chain.as_str() {
+        "bitcoin" | "ethereum" => derive_secp256k1(seed, path),
+        "sui" | "aptos" | "solana" => derive_ed25519(seed, path),
         _ => {
             // Default to Ed25519 for unknown chains
             derive_ed25519(seed, path)
@@ -226,7 +226,7 @@ fn derive_ed25519(seed: &[u8; 64], path: &DerivationPath) -> Result<SecretKey, B
 /// Generate multiple addresses for a chain from a single seed.
 pub fn generate_addresses(
     seed: &[u8; 64],
-    chain: Chain,
+    chain: &ChainId,
     account: u32,
     count: usize,
 ) -> Result<Vec<SecretKey>, Bip44Error> {
@@ -271,32 +271,28 @@ pub fn derive_all_chain_keys(
 ///
 /// # Returns
 /// The derived address as a string.
-pub fn derive_address_from_key(key_bytes: &[u8], chain: Chain) -> Result<String, Bip44Error> {
+pub fn derive_address_from_key(key_bytes: &[u8], chain: &ChainId) -> Result<String, Bip44Error> {
     if key_bytes.len() != 32 {
         return Err(Bip44Error::InvalidSeedLength(key_bytes.len()));
     }
 
-    match chain {
-        Chain::Bitcoin => derive_bitcoin_address_from_key(key_bytes),
-        Chain::Ethereum => derive_ethereum_address_from_key(key_bytes),
-        Chain::Sui => derive_sui_address_from_key(key_bytes),
-        Chain::Aptos => derive_aptos_address_from_key(key_bytes),
-        Chain::Solana => derive_solana_address_from_key(key_bytes),
-        _ => Err(Bip44Error::UnsupportedChain(chain)),
+    match chain.as_str() {
+        "bitcoin" => derive_bitcoin_address_from_key(key_bytes),
+        "ethereum" => derive_ethereum_address_from_key(key_bytes),
+        "sui" => derive_sui_address_from_key(key_bytes),
+        "aptos" => derive_aptos_address_from_key(key_bytes),
+        "solana" => derive_solana_address_from_key(key_bytes),
+        _ => Err(Bip44Error::UnsupportedChain(chain.clone())),
     }
 }
 
 /// Derive an address from a raw 32-byte private key for a specific chain (using ChainId).
 pub fn derive_address_from_chain_id(key_bytes: &[u8], chain_id: &ChainId) -> Result<String, Bip44Error> {
-    let chain = match chain_id.as_str() {
-        "bitcoin" => Chain::Bitcoin,
-        "ethereum" => Chain::Ethereum,
-        "sui" => Chain::Sui,
-        "aptos" => Chain::Aptos,
-        "solana" => Chain::Solana,
-        _ => return Err(Bip44Error::UnsupportedChain(Chain::Bitcoin)),
+    match chain_id.as_str() {
+        "bitcoin" | "ethereum" | "sui" | "aptos" | "solana" => {}
+        _ => return Err(Bip44Error::UnsupportedChain(chain_id.clone())),
     };
-    derive_address_from_key(key_bytes, chain)
+    derive_address_from_key(key_bytes, chain_id)
 }
 
 fn derive_bitcoin_address_from_key(key_bytes: &[u8]) -> Result<String, Bip44Error> {
@@ -402,33 +398,33 @@ mod tests {
 
     #[test]
     fn test_coin_types() {
-        assert_eq!(coin_type(Chain::Bitcoin), 0);
-        assert_eq!(coin_type(Chain::Ethereum), 60);
-        assert_eq!(coin_type(Chain::Sui), 784);
-        assert_eq!(coin_type(Chain::Aptos), 637);
-        assert_eq!(coin_type(Chain::Solana), 501);
+        assert_eq!(coin_type(ChainId::new("bitcoin")), 0);
+        assert_eq!(coin_type(ChainId::new("ethereum")), 60);
+        assert_eq!(coin_type(ChainId::new("sui")), 784);
+        assert_eq!(coin_type(ChainId::new("aptos")), 637);
+        assert_eq!(coin_type(ChainId::new("solana")), 501);
     }
 
     #[test]
     fn test_derivation_path_for_chains() {
-        let eth_path = derivation_path(Chain::Ethereum, 0, 0);
+        let eth_path = derivation_path(ChainId::new("ethereum"), 0, 0);
         assert_eq!(eth_path.coin_type & 0x7FFF_FFFF, 60);
 
-        let btc_path = derivation_path(Chain::Bitcoin, 0, 0);
+        let btc_path = derivation_path(ChainId::new("bitcoin"), 0, 0);
         assert_eq!(btc_path.purpose & 0x7FFF_FFFF, 86); // BIP-86
     }
 
     #[test]
     fn test_derive_key() {
         let seed = [1u8; 64];
-        let key = derive_key(&seed, Chain::Ethereum, 0, 0);
+        let key = derive_key(&seed, ChainId::new("ethereum"), 0, 0);
         assert!(key.is_ok());
     }
 
     #[test]
     fn test_generate_addresses() {
         let seed = [2u8; 64];
-        let keys = generate_addresses(&seed, Chain::Ethereum, 0, 5);
+        let keys = generate_addresses(&seed, ChainId::new("ethereum"), 0, 5);
         assert!(keys.is_ok());
         assert_eq!(keys.unwrap().len(), 5);
     }

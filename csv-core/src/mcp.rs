@@ -9,7 +9,7 @@
 //! - **Structured status**: All operations return machine-readable progress
 //! - **Fix suggestions**: Errors include actionable `FixAction` for autonomous resolution
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use crate::collections::HashMap;
 
 /// Trait for types that can provide machine-actionable error suggestions.
@@ -332,7 +332,7 @@ pub enum TransferStatus {
     /// Locking Sanad on source chain
     Locking {
         /// Source chain
-        chain: Chain,
+        chain: ChainId,
         /// Estimated blocks to wait
         estimated_blocks: u32,
         /// Current confirmation count
@@ -352,7 +352,7 @@ pub enum TransferStatus {
     /// Submitting proof to destination chain
     SubmittingProof {
         /// Destination chain
-        destination_chain: Chain,
+        destination_chain: ChainId,
         /// Estimated gas cost
         gas_estimate: String,
         /// Transaction hash (if submitted)
@@ -361,14 +361,14 @@ pub enum TransferStatus {
     /// Verifying proof on destination chain
     Verifying {
         /// Destination chain
-        chain: Chain,
+        chain: ChainId,
         /// Verification time in milliseconds
         verification_time_ms: Option<u64>,
     },
     /// Minting Sanad on destination chain
     Minting {
         /// Destination chain
-        chain: Chain,
+        chain: ChainId,
         /// Transaction hash
         tx_hash: String,
     },
@@ -377,7 +377,7 @@ pub enum TransferStatus {
         /// Sanad ID on destination chain
         sanad_id: String,
         /// Destination chain
-        destination_chain: Chain,
+        destination_chain: ChainId,
         /// Destination transaction hash
         transaction_hash: String,
         /// Total transfer time in milliseconds
@@ -519,61 +519,13 @@ impl ErrorSuggestion {
 
 /// Chain identifier for agent compatibility
 ///
-/// This enum is used across all agent-facing APIs to ensure consistency.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Chain {
-    /// Bitcoin chain.
-    Bitcoin,
-    /// Ethereum chain.
-    Ethereum,
-    /// Sui chain.
-    Sui,
-    /// Aptos chain.
-    Aptos,
-    /// Solana chain.
-    Solana,
-}
-
-impl std::fmt::Display for Chain {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Bitcoin => write!(f, "bitcoin"),
-            Self::Ethereum => write!(f, "ethereum"),
-            Self::Sui => write!(f, "sui"),
-            Self::Aptos => write!(f, "aptos"),
-            Self::Solana => write!(f, "solana"),
-        }
-    }
-}
-
-impl std::str::FromStr for Chain {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "bitcoin" | "btc" => Ok(Self::Bitcoin),
-            "ethereum" | "eth" => Ok(Self::Ethereum),
-            "sui" => Ok(Self::Sui),
-            "aptos" | "apt" => Ok(Self::Aptos),
-            "solana" | "sol" => Ok(Self::Solana),
-            _ => Err(format!(
-                "Unknown chain: {}. Supported: bitcoin, ethereum, sui, aptos, solana",
-                s
-            )),
-        }
-    }
-}
-
-impl From<crate::protocol_version::ChainId> for Chain {
-    fn from(id: crate::protocol_version::ChainId) -> Self {
-        id.0.parse().unwrap_or(Chain::Bitcoin)
-    }
-}
+/// Re-export of canonical ChainId for agent-facing APIs.
+pub use crate::protocol_version::ChainId;
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::protocol_version::builtin;
 
     #[test]
     fn test_chain_display() {
@@ -586,11 +538,11 @@ mod tests {
 
     #[test]
     fn test_chain_from_str() {
-        assert_eq!("bitcoin".parse::<Chain>().unwrap(), builtin::BITCOIN);
-        assert_eq!("btc".parse::<Chain>().unwrap(), builtin::BITCOIN);
-        assert_eq!("ETH".parse::<Chain>().unwrap(), builtin::ETHEREUM);
-        assert_eq!("solana".parse::<Chain>().unwrap(), builtin::SOLANA);
-        assert_eq!("SOL".parse::<Chain>().unwrap(), builtin::SOLANA);
+        assert_eq!("bitcoin".parse::<ChainId>().unwrap(), builtin::BITCOIN);
+        assert_eq!("btc".parse::<ChainId>().unwrap(), builtin::BITCOIN);
+        assert_eq!("ETH".parse::<ChainId>().unwrap(), builtin::ETHEREUM);
+        assert_eq!("solana".parse::<ChainId>().unwrap(), builtin::SOLANA);
+        assert_eq!("SOL".parse::<ChainId>().unwrap(), builtin::SOLANA);
     }
 
     #[test]

@@ -137,8 +137,8 @@ fn cmd_info(chain: &Chain, config: &Config) -> Result<()> {
     output::header(&format!("RPC Info: {}", chain));
 
     // Try to fetch chain info from RPC
-    match chain {
-        Chain::Bitcoin => {
+    match chain.as_str() {
+        "bitcoin" => {
             let url = format!(
                 "{}/blocks/tip/height",
                 chain_config.rpc_url.trim_end_matches('/')
@@ -150,17 +150,17 @@ fn cmd_info(chain: &Chain, config: &Config) -> Result<()> {
                 Err(e) => output::warning(&format!("Could not fetch height: {}", e)),
             }
         }
-        Chain::Ethereum => {
+        "ethereum" => {
             output::info("Ethereum RPC info requires JSON-RPC call (eth_blockNumber)");
             output::kv("Endpoint", &chain_config.rpc_url);
         }
-        Chain::Sui => {
+        "sui" => {
             output::info(
                 "Sui RPC info requires JSON-RPC call (sui_getLatestCheckpointSequenceNumber)",
             );
             output::kv("Endpoint", &chain_config.rpc_url);
         }
-        Chain::Aptos => {
+        "aptos" => {
             let url = format!("{}/ledger_info", chain_config.rpc_url.trim_end_matches('/'));
             match reqwest::blocking::get(&url)?.json::<serde_json::Value>() {
                 Ok(info) => {
@@ -176,9 +176,12 @@ fn cmd_info(chain: &Chain, config: &Config) -> Result<()> {
                 Err(e) => output::warning(&format!("Could not fetch ledger info: {}", e)),
             }
         }
-        Chain::Solana => {
+        "solana" => {
             output::info("Solana RPC info requires JSON-RPC call (getEpochInfo)");
             output::kv("Endpoint", &chain_config.rpc_url);
+        }
+        _ => {
+            output::warning(&format!("Unknown chain: {}", chain));
         }
     }
 

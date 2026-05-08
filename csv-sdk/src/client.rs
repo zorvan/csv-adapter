@@ -12,7 +12,7 @@
 //! #[tokio::main]
 //! async fn main() -> Result<()> {
 //!     let client = CsvClient::builder()
-//!         .with_chain(Chain::Bitcoin)
+//!         .with_chain("bitcoin")
 //!         .with_store_backend(StoreBackend::InMemory)
 //!         .build()?;
 //!
@@ -32,7 +32,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 
-use csv_core::Chain;
+use csv_core::ChainId;
 #[cfg(feature = "tokio")]
 use tokio::sync::broadcast;
 
@@ -182,7 +182,7 @@ impl NetworkType {
 /// `Arc<CsvClient>`.
 pub struct CsvClient {
     /// Set of enabled chain adapters.
-    pub(crate) enabled_chains: HashSet<Chain>,
+    pub(crate) enabled_chains: HashSet<ChainId>,
     /// Optional wallet for signing and address derivation.
     pub(crate) wallet: Option<Wallet>,
     /// Storage backend for seals and anchors.
@@ -207,7 +207,7 @@ impl CsvClient {
     /// use csv_adapter::prelude::*;
     ///
     /// let client = CsvClient::builder()
-    ///     .with_chain(Chain::Bitcoin)
+    ///     .with_chain("bitcoin")
     ///     .with_store_backend(StoreBackend::InMemory)
     ///     .build()?;
     /// # Ok::<_, csv_adapter::CsvError>(())
@@ -227,8 +227,8 @@ impl CsvClient {
     /// use csv_adapter::prelude::*;
     ///
     /// let client = CsvClient::builder()
-    ///     .with_chain(Chain::Bitcoin)
-    ///     .with_chain(Chain::Ethereum)
+    ///     .with_chain("bitcoin")
+    ///     .with_chain("ethereum")
     ///     .build()?;
     /// # Ok::<_, csv_adapter::CsvError>(())
     /// ```
@@ -280,7 +280,7 @@ impl CsvClient {
     ///
     /// # async fn example() -> Result<()> {
     /// let client = CsvClient::builder()
-    ///     .with_chain(Chain::Ethereum)
+    ///     .with_chain("ethereum")
     ///     .build()?;
     ///
     /// // Deploy a CSV Lock contract on Ethereum
@@ -306,12 +306,12 @@ impl CsvClient {
     }
 
     /// Check if a specific chain is enabled.
-    pub fn is_chain_enabled(&self, chain: Chain) -> bool {
+    pub fn is_chain_enabled(&self, chain: ChainId) -> bool {
         self.enabled_chains.contains(&chain)
     }
 
     /// Get the set of enabled chains.
-    pub fn enabled_chains(&self) -> &HashSet<Chain> {
+    pub fn enabled_chains(&self) -> &HashSet<ChainId> {
         &self.enabled_chains
     }
 
@@ -353,8 +353,8 @@ impl CsvClient {
     /// #[tokio::main]
     /// async fn main() -> Result<()> {
     ///     let client = CsvClient::builder()
-    ///         .with_chain(Chain::Bitcoin)
-    ///         .with_chain(Chain::Ethereum)
+    ///         .with_chain("bitcoin")
+    ///         .with_chain("ethereum")
     ///         .with_store_backend(StoreBackend::InMemory)
     ///         .build()?;
     ///
@@ -363,7 +363,7 @@ impl CsvClient {
     ///
     ///     // Now you can use the runtime
     ///     let balance = client.chain_runtime()
-    ///         .get_balance(Chain::Bitcoin, "bc1...")
+    ///         .get_balance("bitcoin", "bc1...")
     ///         .await?;
     ///
     ///     Ok(())
@@ -371,11 +371,11 @@ impl CsvClient {
     /// ```
     pub async fn init_adapters(&self, network: NetworkType) -> Result<(), CsvError> {
         for chain in &self.enabled_chains {
-            let adapter_result = Self::build_adapter_for_chain(*chain, &self.config, network).await;
+            let adapter_result = Self::build_adapter_for_chain(chain.clone(), &self.config, network).await;
 
             match adapter_result {
                 Ok(Some(adapter)) => {
-                    self.chain_runtime.register_adapter(*chain, adapter).await;
+                    self.chain_runtime.register_adapter(chain.clone(), adapter).await;
                     log::info!("Initialized adapter for chain: {:?} on {:?}", chain, network);
                 }
                 Ok(None) => {
@@ -393,16 +393,16 @@ impl CsvClient {
 
     /// Build an adapter for a specific chain.
     async fn build_adapter_for_chain(
-        chain: Chain,
+        chain: ChainId,
         _config: &crate::config::Config,
         network: NetworkType,
     ) -> Result<Option<std::sync::Arc<dyn csv_core::ChainBackend>>, CsvError> {
         let _builder = crate::runtime::AdapterBuilder::new();
         let _is_testnet = matches!(network, NetworkType::Testnet);
 
-        match chain {
+        match chain.as_str() {
             #[cfg(feature = "bitcoin")]
-            Chain::Bitcoin => {
+            "bitcoin" => {
                 log::info!("Building Bitcoin adapter for {:?} network", network);
                 let rpc_url = _config
                     .chains
@@ -438,7 +438,7 @@ impl CsvClient {
                 _builder.bitcoin_from_config(btc_config, rpc).await.map(Some)
             }
             #[cfg(feature = "ethereum")]
-            Chain::Ethereum => {
+            "ethereum" => {
                 let rpc_url = _config
                     .chains
                     .get("ethereum")
@@ -465,11 +465,11 @@ impl CsvClient {
                 let csv_seal_address = [0u8; 20]; // Default, should be configured
                 let rpc = csv_ethereum::node::EthereumNode::new(&rpc_url, csv_seal_address)
                     .await
-                    .map_err(|e| CsvError::ProtocolError { chain: Chain::Ethereum, message: format!("Failed to create Ethereum RPC client: {}", e) })?;
+                    .map_err(|e| CsvError::ProtocolError { chain: ChainId::new("ethereum"), message: format!("Failed to create Ethereum RPC client: {}", e) })?;
                 _builder.ethereum_from_config(eth_config, Box::new(rpc) as Box<dyn csv_ethereum::rpc::EthereumRpc>, csv_seal_address).await.map(Some)
             }
             #[cfg(feature = "sui")]
-            Chain::Sui => {
+            "sui" => {
                 let rpc_url = _config
                     .chains
                     .get("sui")
@@ -495,7 +495,7 @@ impl CsvClient {
                 _builder.sui_from_config(sui_config, Box::new(rpc) as Box<dyn csv_sui::rpc::SuiRpc>).await.map(Some)
             }
             #[cfg(feature = "aptos")]
-            Chain::Aptos => {
+            "aptos" => {
                 let rpc_url = _config
                     .chains
                     .get("aptos")
@@ -519,7 +519,7 @@ impl CsvClient {
                 _builder.aptos_from_config(aptos_config, Box::new(rpc) as Box<dyn csv_aptos::rpc::AptosRpc>).await.map(Some)
             }
             #[cfg(feature = "solana")]
-            Chain::Solana => {
+            "solana" => {
                 let rpc_url = _config
                     .chains
                     .get("solana")
@@ -587,7 +587,7 @@ impl CsvClient {
 /// to the client without the full `CsvClient` struct.
 #[allow(dead_code)]
 pub(crate) struct ClientRef {
-    pub(crate) enabled_chains: HashSet<Chain>,
+    pub(crate) enabled_chains: HashSet<ChainId>,
     #[allow(dead_code)]
     pub(crate) wallet: Option<Wallet>,
     #[allow(dead_code)]
@@ -626,7 +626,7 @@ impl ClientRef {
         }
     }
 
-    pub(crate) fn is_chain_enabled(&self, chain: Chain) -> bool {
+    pub(crate) fn is_chain_enabled(&self, chain: ChainId) -> bool {
         self.enabled_chains.contains(&chain)
     }
 

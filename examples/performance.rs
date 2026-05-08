@@ -25,7 +25,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for i in 0..iterations {
         let commitment = Hash::from([i as u8; 32]);
-        let _ = client.sanads().create(commitment, Chain::Bitcoin);
+        let _ = client.sanads().create(commitment, ChainId::new("bitcoin"));
     }
 
     let duration = start.elapsed();
@@ -41,7 +41,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create a sanad to query
     let test_commitment = Hash::from([255u8; 32]);
-    let test_sanad = client.sanads().create(test_commitment, Chain::Bitcoin)?;
+    let test_sanad = client.sanads().create(test_commitment, ChainId::new("bitcoin"))?;
 
     let iterations = 1000;
     let start = Instant::now();
@@ -65,11 +65,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create and transfer a sanad
     let sanad = client.sanads().create(
         Hash::from([42u8; 32]),
-        Chain::Bitcoin,
+        ChainId::new("bitcoin"),
     )?;
 
     let transfer_id = client.transfers()
-        .cross_chain(sanad.id.clone(), Chain::Ethereum)
+        .cross_chain(sanad.id.clone(), ChainId::new("ethereum"))
         .to_address("0x1234567890abcdef".to_string())
         .execute()?;
 

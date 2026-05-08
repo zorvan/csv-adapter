@@ -49,11 +49,11 @@ pub fn cmd_list(_config: &Config, state: &mut UnifiedStateManager) -> Result<()>
     output::header("Wallet Addresses");
 
     let chains = vec![
-        Chain::Bitcoin,
-        Chain::Ethereum,
-        Chain::Sui,
-        Chain::Aptos,
-        Chain::Solana,
+        Chain::new("bitcoin"),
+        Chain::new("ethereum"),
+        Chain::new("sui"),
+        Chain::new("aptos"),
+        Chain::new("solana"),
     ];
 
     let mut found_any = false;
@@ -82,17 +82,11 @@ async fn query_balance(chain: &Chain, address: &str, config: &Config) -> Result<
     use csv_core::ChainId;
 
     // Map CLI Chain to core Chain
-    let core_chain = match chain {
-        Chain::Bitcoin => csv_core::Chain::Bitcoin,
-        Chain::Ethereum => csv_core::Chain::Ethereum,
-        Chain::Solana => csv_core::Chain::Solana,
-        Chain::Sui => csv_core::Chain::Sui,
-        Chain::Aptos => csv_core::Chain::Aptos,
-    };
+    let core_chain = csv_core::ChainId::new(chain.as_str());
 
     // Build CSV client with the requested chain enabled
     let client = CsvClient::builder()
-        .with_chain(core_chain)
+        .with_chain(core_chain.clone())
         .with_store_backend(StoreBackend::InMemory)
         .build()
         .map_err(|e| anyhow::anyhow!("Failed to build CSV client: {}", e))?;
@@ -111,11 +105,11 @@ async fn query_balance(chain: &Chain, address: &str, config: &Config) -> Result<
     let balance_info = async {
         client.init_adapters(network).await.map_err(|e| {
             csv_sdk::CsvError::ProtocolError {
-                chain: core_chain,
+                chain: core_chain.clone(),
                 message: format!("Failed to initialize adapters: {}", e),
             }
         })?;
-        client.chain_runtime().get_balance(core_chain, clean_address).await
+        client.chain_runtime().get_balance(core_chain.clone(), clean_address).await
     }.await;
 
     match balance_info {
@@ -137,11 +131,12 @@ async fn query_balance(chain: &Chain, address: &str, config: &Config) -> Result<
 
 /// Get symbol for chain.
 fn chain_symbol(chain: &Chain) -> &'static str {
-    match chain {
-        Chain::Bitcoin => "BTC",
-        Chain::Ethereum => "ETH",
-        Chain::Sui => "SUI",
-        Chain::Aptos => "APT",
-        Chain::Solana => "SOL",
+    match chain.as_str() {
+        "bitcoin" => "BTC",
+        "ethereum" => "ETH",
+        "sui" => "SUI",
+        "aptos" => "APT",
+        "solana" => "SOL",
+        _ => "???",
     }
 }

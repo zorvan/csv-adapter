@@ -8,7 +8,7 @@ use crate::config::{Chain, Config, Network};
 use crate::output;
 use crate::state::UnifiedStateManager;
 use anyhow::Result;
-use csv_core::Chain as CoreChain;
+use csv_core::ChainId as CoreChain;
 use csv_keys::{
     file_keystore::FileKeystore,
     bip39::Mnemonic,
@@ -56,26 +56,28 @@ pub fn cmd_import(
     let mut imported = 0u32;
     for (core_chain, secret_key) in chain_keys {
         // Derive address
-        let address = derive_address_from_key(secret_key.as_bytes(), core_chain)
+        let address = derive_address_from_key(secret_key.as_bytes(), &core_chain)
             .map_err(|e| anyhow::anyhow!("Failed to derive address for {:?}: {}", core_chain, e))?;
 
         // Get coin type for derivation path
-        let coin_type = match core_chain {
-            CoreChain::Bitcoin => "0",
-            CoreChain::Ethereum => "60",
-            CoreChain::Sui => "784",
-            CoreChain::Aptos => "637",
-            CoreChain::Solana => "501",
+        let coin_type = match core_chain.to_string().as_str() {
+            "bitcoin" => "0",
+            "ethereum" => "60",
+            "sui" => "784",
+            "aptos" => "637",
+            "solana" => "501",
+            _ => "0",
         };
         let derivation_path = format!("m/44'/{}'/{}'/0/0", coin_type, account);
 
         // Store account
-        let store_chain = match core_chain {
-            CoreChain::Bitcoin => csv_store::state::Chain::Bitcoin,
-            CoreChain::Ethereum => csv_store::state::Chain::Ethereum,
-            CoreChain::Sui => csv_store::state::Chain::Sui,
-            CoreChain::Aptos => csv_store::state::Chain::Aptos,
-            CoreChain::Solana => csv_store::state::Chain::Solana,
+        let store_chain = match core_chain.to_string().as_str() {
+            "bitcoin" => csv_store::state::ChainId::new("bitcoin"),
+            "ethereum" => csv_store::state::ChainId::new("ethereum"),
+            "sui" => csv_store::state::ChainId::new("sui"),
+            "aptos" => csv_store::state::ChainId::new("aptos"),
+            "solana" => csv_store::state::ChainId::new("solana"),
+            _ => csv_store::state::ChainId::new("bitcoin"),
         };
 
         // Store private key in encrypted file keystore

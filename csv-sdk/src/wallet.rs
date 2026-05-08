@@ -13,7 +13,7 @@
 //! | Aptos | 44' | 637' | m/44'/637'/0'/0'/i |
 
 
-use csv_core::Chain;
+use csv_core::ChainId;
 
 /// A unified wallet supporting multi-chain HD derivation (BIP-44).
 ///
@@ -39,8 +39,8 @@ use csv_core::Chain;
 /// let restored = Wallet::from_mnemonic(mnemonic)?;
 ///
 /// // Get address for a specific chain
-/// let btc_address = restored.address(Chain::Bitcoin);
-/// let eth_address = restored.address(Chain::Ethereum);
+/// let btc_address = restored.address("bitcoin");
+/// let eth_address = restored.address("ethereum");
 /// ```
 #[derive(Clone)]
 pub struct Wallet {
@@ -168,13 +168,13 @@ impl Wallet {
     /// Full address derivation requires the chain-specific adapter to be
     /// enabled. This method returns a basic address derived from the seed
     /// when the chain feature is not enabled.
-    pub fn address(&self, chain: Chain) -> String {
-        match chain {
-            Chain::Bitcoin => self.btc_address(),
-            Chain::Ethereum => self.eth_address(),
-            Chain::Sui => self.sui_address(),
-            Chain::Aptos => self.aptos_address(),
-            Chain::Solana => self.sol_address(),
+    pub fn address(&self, chain: ChainId) -> String {
+        match chain.as_str() {
+            "bitcoin" => self.btc_address(),
+            "ethereum" => self.eth_address(),
+            "sui" => self.sui_address(),
+            "aptos" => self.aptos_address(),
+            "solana" => self.sol_address(),
             // Future chains: derive basic address from seed
             _ => format!("unknown-chain:{}", hex::encode(&self.seed[..8])),
         }
@@ -187,9 +187,9 @@ impl Wallet {
     /// * `chain` — Which chain to derive for.
     /// * `account` — BIP-44 account number.
     /// * `index` — Address index within the account.
-    pub fn derive_address(&self, chain: Chain, account: u32, index: u32) -> String {
-        match chain {
-            Chain::Bitcoin => self.btc_address_with_path(account, index),
+    pub fn derive_address(&self, chain: ChainId, account: u32, index: u32) -> String {
+        match chain.as_str() {
+            "bitcoin" => self.btc_address_with_path(account, index),
             _ => self.address(chain), // Other chains use default for now
         }
     }
@@ -202,7 +202,7 @@ impl Wallet {
     ///
     /// * `chain` — Which chain's key to sign with.
     /// * `message` — The message to sign (32 bytes).
-    pub fn sign(&self, chain: Chain, message: &[u8; 32]) -> Vec<u8> {
+    pub fn sign(&self, chain: ChainId, message: &[u8; 32]) -> Vec<u8> {
         // In a full implementation, this would:
         // 1. Derive the appropriate child key using BIP-44 paths
         // 2. Sign with the correct algorithm (secp256k1-schnorr for BTC,
@@ -307,7 +307,7 @@ impl WalletManager {
     }
 
     /// Get the address for a specific chain.
-    pub fn address(&self, chain: Chain) -> String {
+    pub fn address(&self, chain: ChainId) -> String {
         self.wallet.address(chain)
     }
 
@@ -318,12 +318,12 @@ impl WalletManager {
     /// * `chain` — Which chain to derive for.
     /// * `account` — BIP-44 account number.
     /// * `index` — Address index within the account.
-    pub fn derive_address(&self, chain: Chain, account: u32, index: u32) -> String {
+    pub fn derive_address(&self, chain: ChainId, account: u32, index: u32) -> String {
         self.wallet.derive_address(chain, account, index)
     }
 
     /// Sign a message with the appropriate key for the given chain.
-    pub fn sign(&self, chain: Chain, message: &[u8; 32]) -> Vec<u8> {
+    pub fn sign(&self, chain: ChainId, message: &[u8; 32]) -> Vec<u8> {
         self.wallet.sign(chain, message)
     }
 
@@ -340,7 +340,7 @@ impl WalletManager {
     /// - [`ChainNotSupported`] if the chain is not enabled.
     /// - [`ChainNotEnabled`] if RPC is not configured for this chain.
     /// - [`NetworkError`] if the RPC call fails.
-    pub async fn query_balance(&self, chain: Chain, address: &str) -> Result<u64, crate::CsvError> {
+    pub async fn query_balance(&self, chain: ChainId, address: &str) -> Result<u64, crate::CsvError> {
         // Validate the address format for the chain
         if address.is_empty() {
             return Err(crate::CsvError::InvalidSanadId(

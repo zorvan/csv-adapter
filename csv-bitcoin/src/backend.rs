@@ -8,7 +8,7 @@ use csv_core::driver::{
     AccountModel, ChainDriver, ChainCapabilities, ChainError, ChainResult, RpcClient, Wallet,
 };
 use csv_core::chain_config::ChainConfig;
-use csv_core::Chain;
+use csv_core::ChainId;
 
 use crate::seal_protocol::BitcoinSealProtocol;
 use crate::config::{BitcoinConfig, Network};
@@ -230,8 +230,8 @@ impl ChainDriver for BitcoinSealProtocol {
         None
     }
 
-    fn to_core_chain(&self) -> Chain {
-        Chain::Bitcoin
+    fn to_core_chain(&self) -> ChainId {
+        ChainId::new("bitcoin")
     }
 
     fn default_network(&self) -> &'static str {

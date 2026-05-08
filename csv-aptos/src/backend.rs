@@ -9,7 +9,7 @@ use csv_core::driver::{
     AccountModel, ChainDriver, ChainCapabilities, ChainError, ChainResult, RpcClient, Wallet,
 };
 use csv_core::chain_config::ChainConfig;
-use csv_core::Chain;
+use csv_core::ChainId;
 
 use crate::seal_protocol::AptosSealProtocol;
 use crate::config::{AptosConfig, AptosNetwork};
@@ -387,8 +387,8 @@ impl ChainDriver for AptosSealProtocol {
         Some("0x1::csv_seal")
     }
 
-    fn to_core_chain(&self) -> Chain {
-        Chain::Aptos
+    fn to_core_chain(&self) -> ChainId {
+        ChainId::new("aptos")
     }
 
     fn default_network(&self) -> &'static str {

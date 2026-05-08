@@ -11,7 +11,7 @@
 
 use std::sync::Arc;
 
-use csv_core::{Chain, Hash, ProofBundle, SanadId};
+use csv_core::{ChainId, Hash, ProofBundle, SanadId};
 
 use crate::client::ClientRef;
 use crate::error::CsvError;
@@ -29,13 +29,13 @@ use crate::error::CsvError;
 /// # #[tokio::main]
 /// # async fn main() -> Result<()> {
 /// # let client = CsvClient::builder()
-/// #     .with_chain(Chain::Bitcoin)
+/// #     .with_chain(ChainId::new("bitcoin"))
 /// #     .with_store_backend(StoreBackend::InMemory)
 /// #     .build()?;
 /// let proofs = client.proofs();
 ///
 /// // Generate a proof bundle for a sanad
-/// let bundle = proofs.generate(&sanad_id, Chain::Bitcoin)?;
+/// let bundle = proofs.generate(&sanad_id, ChainId::new("bitcoin"))?;
 /// # Ok(())
 /// # }
 /// ```
@@ -66,8 +66,8 @@ impl ProofManager {
     /// - **Ethereum**: MPT receipt proof + log inclusion
     /// - **Sui**: Checkpoint certification + transaction effects
     /// - **Aptos**: Ledger info proof + event stream
-    pub fn generate(&self, _sanad_id: &SanadId, chain: Chain) -> Result<ProofBundle, CsvError> {
-        if !self.client.is_chain_enabled(chain) {
+    pub fn generate(&self, _sanad_id: &SanadId, chain: ChainId) -> Result<ProofBundle, CsvError> {
+        if !self.client.is_chain_enabled(chain.clone()) {
             return Err(CsvError::ChainNotSupported(chain));
         }
 

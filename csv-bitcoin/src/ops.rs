@@ -937,7 +937,7 @@ impl ChainSanadOps for BitcoinChainSanadOps {
         // The lock UTXO contains the destination chain hash in its script
         
         // Parse the destination chain to ensure it's valid
-        let _destination = destination_chain.parse::<csv_core::Chain>()
+        let _destination = destination_chain.parse::<csv_core::ChainId>()
             .map_err(|_| ChainOpError::InvalidInput(format!("Invalid destination chain: {}", destination_chain)))?;
         
         // Get the sanad's associated UTXO (seal)

@@ -25,7 +25,7 @@
 //! async fn main() -> Result<()> {
 //!     // Build a client with Bitcoin support
 //!     let client = CsvClient::builder()
-//!         .with_chain(Chain::Bitcoin)
+//!         .with_chain(ChainId::new("bitcoin"))
 //!         .with_store_backend(StoreBackend::InMemory)
 //!         .build()?;
 //!

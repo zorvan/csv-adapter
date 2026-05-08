@@ -283,7 +283,7 @@ mod tests {
 
         let seal = SealPoint::new(vec![0xAB; 32], Some(42)).unwrap();
         let witness = ChainWitness {
-            chain: Chain::Ethereum, // Wrong chain
+            chain: ChainId::new("ethereum"), // Wrong chain
             block_hash: Hash::new([1u8; 32]),
             block_height: 19_000_000,
             tx_data: vec![0xCD; 64],

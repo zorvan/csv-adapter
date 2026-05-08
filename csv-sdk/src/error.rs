@@ -8,7 +8,7 @@ use thiserror::Error;
 
 use csv_core::mcp::{error_codes, FixAction, HasErrorSuggestion};
 
-use csv_core::Chain;
+use csv_core::ChainId;
 
 /// Unified error type for all CSV operations.
 ///
@@ -18,7 +18,7 @@ use csv_core::Chain;
 pub enum CsvError {
     /// The requested chain is not supported or not enabled.
     #[error("Chain not supported: {0}")]
-    ChainNotSupported(Chain),
+    ChainNotSupported(ChainId),
 
     /// The requested operation is not enabled for this chain.
     #[error("Chain operation not enabled: {0}")]
@@ -32,7 +32,7 @@ pub enum CsvError {
         /// Required balance.
         needed: String,
         /// Which chain the funds are needed on.
-        chain: Chain,
+        chain: ChainId,
     },
 
     /// The specified Sanad ID is invalid or malformed.
@@ -95,7 +95,7 @@ pub enum CsvError {
     #[error("Adapter error on {chain}: {message}")]
     ProtocolError {
         /// Which chain the error occurred on.
-        chain: Chain,
+        chain: ChainId,
         /// Human-readable error message.
         message: String,
     },
@@ -104,7 +104,7 @@ pub enum CsvError {
     #[error("Capability unavailable on {chain}: {capability}")]
     CapabilityUnavailable {
         /// Which chain the capability is unavailable on.
-        chain: Chain,
+        chain: ChainId,
         /// The unavailable capability.
         capability: String,
     },

@@ -22,7 +22,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Creating subscription sanad on Bitcoin...");
     let commitment = Hash::from([1u8; 32]);
 
-    let sanad = client.sanads().create(commitment, Chain::Bitcoin)?;
+    let sanad = client.sanads().create(commitment, ChainId::new("bitcoin"))?;
 
     println!("✓ Created sanad: {:?}\n", sanad.id);
 
@@ -40,7 +40,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  4. Minting destination sanad...");
 
     let transfer_id = client.transfers()
-        .cross_chain(sanad.id.clone(), Chain::Ethereum)
+        .cross_chain(sanad.id.clone(), ChainId::new("ethereum"))
         .to_address("0x1234567890abcdef".to_string())
         .execute()?;
 

@@ -16,8 +16,8 @@ pub fn cmd_status(chain: Chain, _config: &Config, state: &UnifiedStateManager) -
     let contracts = state.get_contracts(&chain);
     if contracts.is_empty() {
         output::warning("No contracts deployed on this chain");
-        match chain {
-            Chain::Bitcoin => output::info("Bitcoin doesn't need contracts (UTXO-native)"),
+        match chain.as_str() {
+            "bitcoin" => output::info("Bitcoin doesn't need contracts (UTXO-native)"),
             _ => output::info(&format!(
                 "Deploy with: csv contract deploy --chain {}",
                 chain
@@ -126,7 +126,7 @@ pub fn cmd_fetch(
 
     for chain in chains_to_fetch {
         if let Some(address) = state.get_address(&chain).map(|s| s.to_string()) {
-            if chain == Chain::Bitcoin {
+            if chain.as_str() == "bitcoin" {
                 continue;
             }
 
@@ -184,11 +184,11 @@ async fn discover_contracts(
     address: &str,
     rpc_url: &str,
 ) -> Result<Vec<DiscoveredContract>> {
-    match chain {
-        Chain::Sui => discover_sui_contracts(address, rpc_url).await,
-        Chain::Aptos => discover_aptos_contracts(address, rpc_url).await,
-        Chain::Ethereum => discover_ethereum_contracts(address, rpc_url).await,
-        Chain::Solana => discover_solana_contracts(address, rpc_url).await,
+    match chain.as_str() {
+        "sui" => discover_sui_contracts(address, rpc_url).await,
+        "aptos" => discover_aptos_contracts(address, rpc_url).await,
+        "ethereum" => discover_ethereum_contracts(address, rpc_url).await,
+        "solana" => discover_solana_contracts(address, rpc_url).await,
         _ => Ok(Vec::new()),
     }
 }
@@ -287,19 +287,21 @@ async fn discover_solana_contracts(
 
 /// Get explorer URL for a contract address.
 fn contract_explorer_url(chain: Chain, address: &str) -> Option<String> {
-    let base = match chain {
-        Chain::Ethereum => "https://sepolia.etherscan.io/address/",
-        Chain::Aptos => "https://explorer.aptoslabs.com/account/",
-        Chain::Sui => "https://suiexplorer.com/object/",
-        Chain::Solana => "https://explorer.solana.com/address/",
-        Chain::Bitcoin => return None,
+    let base = match chain.as_str() {
+        "ethereum" => "https://sepolia.etherscan.io/address/",
+        "aptos" => "https://explorer.aptoslabs.com/account/",
+        "sui" => "https://suiexplorer.com/object/",
+        "solana" => "https://explorer.solana.com/address/",
+        "bitcoin" => return None,
+        _ => "https://unknown.chain/",
     };
 
-    let suffix = match chain {
-        Chain::Ethereum | Chain::Bitcoin => "",
-        Chain::Aptos => "?network=testnet",
-        Chain::Sui => "?network=testnet",
-        Chain::Solana => "?cluster=devnet",
+    let suffix = match chain.as_str() {
+        "ethereum" | "bitcoin" => "",
+        "aptos" => "?network=testnet",
+        "sui" => "?network=testnet",
+        "solana" => "?cluster=devnet",
+        _ => "",
     };
 
     Some(format!("{}{}{}", base, address, suffix))

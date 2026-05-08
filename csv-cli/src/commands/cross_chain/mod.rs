@@ -69,12 +69,6 @@ pub fn execute(
 }
 
 /// Convert CLI Chain enum to core Chain enum
-pub fn to_core_chain(chain: Chain) -> csv_core::Chain {
-    match chain {
-        Chain::Bitcoin => csv_core::Chain::Bitcoin,
-        Chain::Ethereum => csv_core::Chain::Ethereum,
-        Chain::Sui => csv_core::Chain::Sui,
-        Chain::Aptos => csv_core::Chain::Aptos,
-        Chain::Solana => csv_core::Chain::Solana,
-    }
+pub fn to_core_chain(chain: Chain) -> csv_core::ChainId {
+    csv_core::ChainId::new(chain.as_str())
 }

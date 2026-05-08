@@ -21,7 +21,7 @@ fn test_zk_proof_lifecycle() {
 
     // 2. Create witness data (simulating Bitcoin SPV data)
     let witness = ChainWitness {
-        chain: Chain::Bitcoin,
+        chain: ChainId::new("bitcoin"),
         block_hash: Hash::new([0x01; 32]),
         block_height: 800_000,
         tx_data: vec![0x02; 64], // Simulated transaction data
@@ -38,13 +38,13 @@ fn test_zk_proof_lifecycle() {
 
     // 4. Verify proof properties
     assert!(!proof.proof_bytes.is_empty(), "proof should have bytes");
-    assert_eq!(proof.verifier_key.chain, Chain::Bitcoin);
+    assert_eq!(proof.verifier_key.chain, ChainId::new("bitcoin"));
     assert_eq!(proof.verifier_key.proof_system, ProofSystem::SP1);
     assert!(proof.is_structurally_valid(), "proof should be structurally valid");
 
     // 5. Verify the proof public inputs
     assert_eq!(proof.public_inputs.seal_ref.seal_id, seal_id.to_vec());
-    assert_eq!(proof.public_inputs.source_chain, Chain::Bitcoin);
+    assert_eq!(proof.public_inputs.source_chain, ChainId::new("bitcoin"));
     assert_eq!(proof.public_inputs.block_height, 800_000);
 }
 
@@ -53,7 +53,7 @@ fn test_zk_proof_lifecycle() {
 fn test_zk_proof_serialization() {
     let seal = SealPoint::new(vec![0xCD; 32], Some(42)).expect("valid seal");
     let witness = ChainWitness {
-        chain: Chain::Bitcoin,
+        chain: ChainId::new("bitcoin"),
         block_hash: Hash::new([0xEF; 32]),
         block_height: 900_000,
         tx_data: vec![0xAA; 64],
@@ -87,7 +87,7 @@ fn test_wrong_chain_fails() {
 
     // Create witness for wrong chain
     let witness = ChainWitness {
-        chain: Chain::Ethereum, // Wrong chain!
+        chain: ChainId::new("ethereum"), // Wrong chain!
         block_hash: Hash::new([0x34; 32]),
         block_height: 19_000_000,
         tx_data: vec![0x56; 64],
@@ -108,7 +108,7 @@ fn test_missing_inclusion_proof_fails() {
     let seal = SealPoint::new(vec![0xAB; 32], Some(1)).expect("valid seal");
 
     let witness = ChainWitness {
-        chain: Chain::Bitcoin,
+        chain: ChainId::new("bitcoin"),
         block_hash: Hash::new([0x01; 32]),
         block_height: 800_000,
         tx_data: vec![0x02; 64],
@@ -130,7 +130,7 @@ fn test_proof_witness_consistency() {
 
     // Create two identical witnesses
     let witness1 = ChainWitness {
-        chain: Chain::Bitcoin,
+        chain: ChainId::new("bitcoin"),
         block_hash: Hash::new([0x01; 32]),
         block_height: 800_000,
         tx_data: vec![0x02; 64],
@@ -140,7 +140,7 @@ fn test_proof_witness_consistency() {
     };
 
     let witness2 = ChainWitness {
-        chain: Chain::Bitcoin,
+        chain: ChainId::new("bitcoin"),
         block_hash: Hash::new([0x01; 32]),
         block_height: 800_000,
         tx_data: vec![0x02; 64],
@@ -154,7 +154,7 @@ fn test_proof_witness_consistency() {
 
     // Different witness should produce different hash
     let witness3 = ChainWitness {
-        chain: Chain::Ethereum, // Different chain
+        chain: ChainId::new("ethereum"), // Different chain
         block_hash: Hash::new([0x01; 32]),
         block_height: 800_000,
         tx_data: vec![0x02; 64],
@@ -172,7 +172,7 @@ fn test_different_seals_different_proofs() {
     let seal2 = SealPoint::new(vec![0xBB; 32], Some(2)).expect("valid seal");
 
     let witness = ChainWitness {
-        chain: Chain::Bitcoin,
+        chain: ChainId::new("bitcoin"),
         block_hash: Hash::new([0x01; 32]),
         block_height: 800_000,
         tx_data: vec![0x02; 64],

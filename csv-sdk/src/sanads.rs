@@ -15,7 +15,7 @@
 
 use std::sync::Arc;
 
-use csv_core::{Chain, Hash, Sanad, SanadId};
+use csv_core::{ChainId, Hash, Sanad, SanadId};
 
 use crate::client::ClientRef;
 use crate::error::CsvError;
@@ -24,7 +24,7 @@ use crate::error::CsvError;
 #[derive(Debug, Clone, Default)]
 pub struct SanadFilters {
     /// Filter by chain (the chain where the seal is anchored).
-    pub chain: Option<Chain>,
+    pub chain: Option<ChainId>,
     /// Filter by owner address.
     pub owner: Option<String>,
     /// Filter by consumed status.
@@ -45,7 +45,7 @@ pub struct SanadFilters {
 /// # #[tokio::main]
 /// # async fn main() -> Result<()> {
 /// # let client = CsvClient::builder()
-/// #     .with_chain(Chain::Bitcoin)
+/// #     .with_chain(ChainId::new("bitcoin"))
 /// #     .with_store_backend(StoreBackend::InMemory)
 /// #     .build()?;
 /// let sanads = client.sanads();
@@ -85,8 +85,8 @@ impl SanadsManager {
     /// - [`CsvError::ChainNotSupported`] if the chain is not enabled.
     /// - [`CsvError::InsufficientFunds`] if the wallet lacks funds for seal creation.
     /// - [`CsvError::ProtocolError`] if the underlying chain operation fails.
-    pub fn create(&self, commitment: Hash, chain: Chain) -> Result<Sanad, CsvError> {
-        if !self.client.is_chain_enabled(chain) {
+    pub fn create(&self, commitment: Hash, chain: ChainId) -> Result<Sanad, CsvError> {
+        if !self.client.is_chain_enabled(chain.clone()) {
             return Err(CsvError::ChainNotSupported(chain));
         }
 
@@ -241,10 +241,10 @@ impl SanadsManager {
     pub fn transfer(
         &self,
         sanad_id: &SanadId,
-        to_chain: Chain,
+        to_chain: ChainId,
         to_address: String,
     ) -> Result<String, CsvError> {
-        if !self.client.is_chain_enabled(to_chain) {
+        if !self.client.is_chain_enabled(to_chain.clone()) {
             return Err(CsvError::ChainNotSupported(to_chain));
         }
 

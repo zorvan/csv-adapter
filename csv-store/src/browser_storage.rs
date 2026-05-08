@@ -243,11 +243,11 @@ mod tests {
 
     #[test]
     fn test_chain_display() {
-        assert_eq!(Chain::Bitcoin.to_string(), "bitcoin");
-        assert_eq!(Chain::Ethereum.to_string(), "ethereum");
-        assert_eq!(Chain::Solana.to_string(), "solana");
-        assert_eq!(Chain::Aptos.to_string(), "aptos");
-        assert_eq!(Chain::Sui.to_string(), "sui");
+        assert_eq!(ChainId::new("bitcoin").to_string(), "bitcoin");
+        assert_eq!(ChainId::new("ethereum").to_string(), "ethereum");
+        assert_eq!(ChainId::new("solana").to_string(), "solana");
+        assert_eq!(ChainId::new("aptos").to_string(), "aptos");
+        assert_eq!(ChainId::new("sui").to_string(), "sui");
     }
 
     #[test]

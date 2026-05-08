@@ -7,12 +7,12 @@
 //! 4. Zeroization of sensitive data
 
 use csv_keys::bip44::derive_address_from_key;
-use csv_keys::{bip44, generate_mnemonic, Keystore, KeystoreConfig, KeystoreError};
+use csv_keys::{bip44, Mnemonic, MnemonicType, KeystoreFile, KeystoreError, Passphrase};
 
 /// Test that mnemonic generation produces valid phrases
 #[test]
 fn test_mnemonic_generation() {
-    let mnemonic = generate_mnemonic();
+    let mnemonic = Mnemonic::generate(MnemonicType::Words12);
 
     // Should produce 12 words (128 bits entropy)
     let words: Vec<&str> = mnemonic.split_whitespace().collect();
@@ -28,8 +28,8 @@ fn test_mnemonic_generation() {
 /// Test that different mnemonics produce different seeds
 #[test]
 fn test_mnemonic_uniqueness() {
-    let mnemonic1 = generate_mnemonic();
-    let mnemonic2 = generate_mnemonic();
+    let mnemonic1 = Mnemonic::generate(MnemonicType::Words12);
+    let mnemonic2 = Mnemonic::generate(MnemonicType::Words12);
 
     assert_ne!(mnemonic1, mnemonic2);
 }
@@ -37,11 +37,11 @@ fn test_mnemonic_uniqueness() {
 /// Test address derivation from private key
 #[test]
 fn test_address_derivation() {
-    use csv_core::Chain;
+    use csv_core::ChainId;
 
     // Test Ethereum address derivation
     let private_key = [0x42u8; 32];
-    let address = derive_address_from_key(&private_key, Chain::Ethereum);
+    let address = derive_address_from_key(&private_key, ChainId::new("ethereum"));
     assert!(address.is_ok());
 
     let addr = address.unwrap();
@@ -52,100 +52,96 @@ fn test_address_derivation() {
 /// Test address derivation fails for invalid key length
 #[test]
 fn test_address_derivation_invalid_key() {
-    use csv_core::Chain;
+    use csv_core::ChainId;
 
     // Too short key
     let short_key = [0x42u8; 16];
-    let result = derive_address_from_key(&short_key, Chain::Ethereum);
+    let result = derive_address_from_key(&short_key, ChainId::new("ethereum"));
     assert!(result.is_err());
 }
 
 /// Test SLIP-44 coin type derivation paths
 #[test]
 fn test_derivation_paths() {
-    use csv_core::Chain;
+    use csv_core::ChainId;
 
     // Verify derivation paths follow SLIP-44
-    assert_eq!(bip44::derivation_path_for_chain(Chain::Bitcoin), "m/44'/0'/0'/0/0");
-    assert_eq!(bip44::derivation_path_for_chain(Chain::Ethereum), "m/44'/60'/0'/0/0");
-    assert_eq!(bip44::derivation_path_for_chain(Chain::Solana), "m/44'/501'/0'/0/0");
-    assert_eq!(bip44::derivation_path_for_chain(Chain::Sui), "m/44'/784'/0'/0/0");
-    assert_eq!(bip44::derivation_path_for_chain(Chain::Aptos), "m/44'/637'/0'/0/0");
+    assert_eq!(bip44::derivation_path_for_chain(ChainId::new("bitcoin")), "m/44'/0'/0'/0/0");
+    assert_eq!(bip44::derivation_path_for_chain(ChainId::new("ethereum")), "m/44'/60'/0'/0/0");
+    assert_eq!(bip44::derivation_path_for_chain(ChainId::new("solana")), "m/44'/501'/0'/0/0");
+    assert_eq!(bip44::derivation_path_for_chain(ChainId::new("sui")), "m/44'/784'/0'/0/0");
+    assert_eq!(bip44::derivation_path_for_chain(ChainId::new("aptos")), "m/44'/637'/0'/0/0");
 }
 
 /// Test keystore error messages don't expose sensitive data
 #[test]
 fn test_keystore_errors_safe() {
     // Create various errors and verify they don't contain sensitive data
-    let errors = vec![
-        KeystoreError::InvalidPassword,
-        KeystoreError::InvalidMnemonic,
-        KeystoreError::DerivationFailed,
-        KeystoreError::EncryptionFailed,
-        KeystoreError::DecryptionFailed,
-        KeystoreError::StorageError("test".to_string()),
+    let errors: Vec<KeystoreError> = vec![
+        KeystoreError::Bip39(bip39::Bip39Error::InvalidWord),
+        KeystoreError::Bip44(csv_keys::bip44::Bip44Error::InvalidDerivationPath),
+        KeystoreError::Keystore(
+            csv_keys::keystore::KeystoreError::EncryptionFailed("test".to_string())
+        ),
+        KeystoreError::Security("test error".to_string()),
     ];
 
     for error in errors {
         let error_string = format!("{}", error);
         // Should not contain any hex strings that could be keys
         assert!(!error_string.contains("0x"), "Error should not contain hex: {}", error_string);
-        // Should not contain 32-byte or 64-byte hex patterns
-        assert!(!error_string.chars().filter(|c| c.is_ascii_hexdigit()).count() > 32,
-                "Error should not contain long hex strings: {}", error_string);
     }
 }
 
 /// Test keystore with password
 #[test]
 fn test_keystore_password_protection() {
-    let config = KeystoreConfig::default();
-    let mut keystore = Keystore::new(config);
+    let secret_key = csv_keys::SecretKey::new([0x42u8; 32]);
+    let passphrase = Passphrase::new("secure_password_123");
 
-    // Initialize with password
-    let password = "secure_password_123";
-    let result = keystore.initialize_with_password(password);
-    assert!(result.is_ok());
+    // Create encrypted keystore
+    let keystore = KeystoreFile::encrypt(&secret_key, &passphrase, csv_keys::KdfType::Scrypt);
+    assert!(keystore.is_ok());
 
-    // Verify keystore is initialized
-    assert!(keystore.is_initialized());
+    let keystore = keystore.unwrap();
+
+    // Verify keystore can be decrypted with correct password
+    let decrypted = keystore.decrypt(&passphrase);
+    assert!(decrypted.is_ok());
 }
 
 /// Test keystore password validation
 #[test]
 fn test_keystore_password_validation() {
-    let config = KeystoreConfig::default();
-    let mut keystore = Keystore::new(config);
+    let secret_key = csv_keys::SecretKey::new([0x42u8; 32]);
+    let passphrase = Passphrase::new("correct_password");
 
-    // Initialize with password
-    let password = "correct_password";
-    keystore.initialize_with_password(password).unwrap();
+    let keystore = KeystoreFile::encrypt(&secret_key, &passphrase, csv_keys::KdfType::Scrypt).unwrap();
 
-    // Wrong password should fail (if we had a verify method)
-    // This is a placeholder for when that functionality is added
+    // Wrong password should fail
+    let wrong_passphrase = Passphrase::new("wrong_password");
+    let result = keystore.decrypt(&wrong_passphrase);
+    assert!(result.is_err());
 }
 
-/// Test keystore clears sensitive data on drop
+/// Test keystore serialization
 #[test]
-fn test_keystore_clear_on_drop() {
-    use std::sync::Arc;
-    use std::sync::atomic::{AtomicBool, Ordering};
+fn test_keystore_serialization() {
+    let secret_key = csv_keys::SecretKey::new([0x42u8; 32]);
+    let passphrase = Passphrase::new("test_password");
 
-    // This test verifies that when keystore is dropped, sensitive data is cleared
-    // In a real implementation, this would use zeroize or similar
+    let keystore = KeystoreFile::encrypt(&secret_key, &passphrase, csv_keys::KdfType::Scrypt).unwrap();
 
-    let cleared = Arc::new(AtomicBool::new(false));
-    let cleared_clone = cleared.clone();
+    // Serialize to JSON
+    let json = serde_json::to_string(&keystore);
+    assert!(json.is_ok());
 
-    {
-        let config = KeystoreConfig::default();
-        let keystore = Keystore::new(config);
-        // When keystore is dropped, it should clear memory
-        drop(keystore);
-        cleared_clone.store(true, Ordering::SeqCst);
-    }
+    // Deserialize from JSON
+    let deserialized: KeystoreFile = serde_json::from_str(&json.unwrap()).unwrap();
 
-    assert!(cleared.load(Ordering::SeqCst));
+    // Verify decrypted key matches original
+    let decrypted = deserialized.decrypt(&passphrase).unwrap();
+    assert_eq!(decrypted.as_bytes(), secret_key.as_bytes());
 }
 
 /// Test mnemonic phrase validation
@@ -190,9 +186,9 @@ fn test_constant_time_operations() {
 /// Test hardened child key derivation
 #[test]
 fn test_hardened_derivation() {
-    use csv_core::Chain;
+    use csv_core::ChainId;
 
     // Coin types in derivation paths should use hardened derivation (')
-    let path = bip44::derivation_path_for_chain(Chain::Ethereum);
+    let path = bip44::derivation_path_for_chain(ChainId::new("ethereum"));
     assert!(path.contains("'"), "Should use hardened derivation");
 }

@@ -1,10 +1,9 @@
 //! Chain driver trait for dynamic chain support.
 
 use async_trait::async_trait;
-use std::collections::HashMap;
 use thiserror::Error;
 
-use crate::mcp::Chain;
+use crate::mcp::ChainId;
 
 // Re-export from chain_config for convenience
 pub use crate::chain_config::{AccountModel, ChainCapabilities, ChainConfig};
@@ -82,7 +81,7 @@ pub trait ChainDriver: Send + Sync {
     fn csv_program_id(&self) -> Option<&'static str>;
 
     /// Convert chain to core Chain enum
-    fn to_core_chain(&self) -> Chain;
+    fn to_core_chain(&self) -> ChainId;
 
     /// Get default network for this chain
     fn default_network(&self) -> &'static str;

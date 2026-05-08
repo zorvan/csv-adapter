@@ -11,7 +11,7 @@
 //! #[tokio::main]
 //! async fn main() -> Result<()> {
 //!     let client = CsvClient::builder()
-//!         .with_chain(Chain::Ethereum)
+//!         .with_chain("ethereum")
 //!         .build()?;
 //!
 //!     let deployment = client.deploy()
@@ -28,7 +28,7 @@ use std::sync::Arc;
 use crate::client::ClientRef;
 use crate::error::CsvError;
 
-use csv_core::Chain;
+use csv_core::ChainId;
 
 /// Result type for deployment operations.
 pub type DeploymentResult<T> = Result<T, DeploymentError>;
@@ -87,7 +87,7 @@ impl From<DeploymentError> for CsvError {
 #[derive(Debug, Clone)]
 pub struct ContractDeployment {
     /// Chain where the contract was deployed.
-    pub chain: Chain,
+    pub chain: ChainId,
     /// Contract/program/package address.
     pub address: Vec<u8>,
     /// Transaction hash/digest.
@@ -115,7 +115,7 @@ impl DeploymentManager {
     }
 
     /// Check if a chain is enabled for deployment.
-    pub fn is_chain_enabled(&self, chain: Chain) -> bool {
+    pub fn is_chain_enabled(&self, chain: ChainId) -> bool {
         self.client_ref.is_chain_enabled(chain)
     }
 
@@ -144,7 +144,7 @@ impl DeploymentManager {
         let result = eth_deploy(rpc_url, private_key_hex, bytecode).await?;
 
         Ok(ContractDeployment {
-            chain: Chain::Ethereum,
+            chain: ChainId::new("ethereum"),
             address: result.contract_address.to_vec(),
             transaction_hash: hex::encode(result.transaction_hash),
             gas_used: result.gas_used,
@@ -170,7 +170,7 @@ impl DeploymentManager {
         .await?;
 
         Ok(ContractDeployment {
-            chain: Chain::Ethereum,
+            chain: ChainId::new("ethereum"),
             address: result.contract_address.to_vec(),
             transaction_hash: hex::encode(result.transaction_hash),
             gas_used: result.gas_used,
@@ -227,7 +227,7 @@ impl DeploymentManager {
         let result = sui_publish(rpc_url, compiled_modules, signer_address, signer_keypair).await?;
 
         Ok(ContractDeployment {
-            chain: Chain::Sui,
+            chain: ChainId::new("sui"),
             address: result.package_id.to_vec(),
             transaction_hash: result.transaction_digest,
             gas_used: result.gas_used,
@@ -250,7 +250,7 @@ impl DeploymentManager {
         let result = sui_deploy(config, rpc, package_bytes, gas_budget).await?;
 
         Ok(ContractDeployment {
-            chain: Chain::Sui,
+            chain: ChainId::new("sui"),
             address: result.package_id.to_vec(),
             transaction_hash: result.transaction_digest,
             gas_used: result.gas_used,
@@ -298,7 +298,7 @@ impl DeploymentManager {
         let result = aptos_publish(rpc_url, module_bytes, signer, module_name).await?;
 
         Ok(ContractDeployment {
-            chain: Chain::Aptos,
+            chain: ChainId::new("aptos"),
             address: result.account_address.to_vec(),
             transaction_hash: result.transaction_hash,
             gas_used: result.gas_used,
@@ -321,7 +321,7 @@ impl DeploymentManager {
         let result = aptos_deploy(config, signing_key, rpc, module_bytes).await?;
 
         Ok(ContractDeployment {
-            chain: Chain::Aptos,
+            chain: ChainId::new("aptos"),
             address: result.account_address.to_vec(),
             transaction_hash: result.transaction_hash,
             gas_used: result.gas_used,
@@ -369,7 +369,7 @@ impl DeploymentManager {
         let result = solana_deploy(rpc_url, program_keypair, program_data, payer).await?;
 
         Ok(ContractDeployment {
-            chain: Chain::Solana,
+            chain: ChainId::new("solana"),
             address: result.program_id.to_bytes().to_vec(),
             transaction_hash: result.signature.to_string(),
             gas_used: 0, // Would get from transaction
@@ -392,7 +392,7 @@ impl DeploymentManager {
         let result = solana_deploy(config, wallet, rpc, program_data).await?;
 
         Ok(ContractDeployment {
-            chain: Chain::Solana,
+            chain: ChainId::new("solana"),
             address: result.program_id.to_bytes().to_vec(),
             transaction_hash: result.signature.to_string(),
             gas_used: 0,
@@ -420,14 +420,14 @@ impl DeploymentManager {
     /// Verify a deployment on any chain.
     ///
     /// This checks if the deployed contract/program exists on-chain.
-    pub async fn verify_deployment(&self, chain: Chain, address: &[u8]) -> DeploymentResult<bool> {
-        match chain {
-            Chain::Ethereum => {
+    pub async fn verify_deployment(&self, chain: ChainId, address: &[u8]) -> DeploymentResult<bool> {
+        match chain.as_str() {
+            "ethereum" => {
                 // For Ethereum, check if code exists at address (contract)
                 let code_len = address.len();
                 Ok(code_len == 20) // Valid Ethereum address length implies potential contract
             }
-            Chain::Solana => {
+            "solana" => {
                 // For Solana, check if address is valid base58 decodable
                 #[cfg(feature = "solana")]
                 {
@@ -441,16 +441,16 @@ impl DeploymentManager {
                     Err(DeploymentError::FeatureNotEnabled("Solana".to_string()))
                 }
             }
-            Chain::Bitcoin => {
+            "bitcoin" => {
                 // For Bitcoin, verification is different - check if UTXO exists
                 // This would require a different approach
                 Ok(false)
             }
-            Chain::Sui => {
+            "sui" => {
                 // Sui addresses are 32 bytes
                 Ok(address.len() == 32)
             }
-            Chain::Aptos => {
+            "aptos" => {
                 // Aptos addresses are 32 bytes (0x prefixed hex)
                 Ok(address.len() == 32)
             }
@@ -463,16 +463,16 @@ impl DeploymentManager {
     /// Returns an estimated cost for deploying a contract of the given size.
     pub async fn estimate_deployment_cost(
         &self,
-        chain: Chain,
+        chain: ChainId,
         contract_size: usize,
     ) -> DeploymentResult<u64> {
         // Provides chain-specific cost estimation
         // Future enhancement: query actual network conditions from adapters
-        let base_cost = match chain {
-            Chain::Ethereum => contract_size as u64 * 200, // Gas units
-            Chain::Sui => 10_000_000,                      // MIST
-            Chain::Aptos => contract_size as u64 * 100,    // Gas units
-            Chain::Solana => contract_size as u64 * 1000,  // Lamports
+        let base_cost = match chain.as_str() {
+            "ethereum" => contract_size as u64 * 200, // Gas units
+            "sui" => 10_000_000,                      // MIST
+            "aptos" => contract_size as u64 * 100,    // Gas units
+            "solana" => contract_size as u64 * 1000,  // Lamports
             _ => contract_size as u64 * 100,
         };
 
@@ -499,7 +499,7 @@ mod tests {
     #[test]
     fn test_contract_deployment_fields() {
         let deployment = ContractDeployment {
-            chain: Chain::Ethereum,
+            chain: ChainId::new("ethereum"),
             address: vec![1, 2, 3, 4],
             transaction_hash: "0x1234".to_string(),
             gas_used: 50000,
@@ -507,7 +507,7 @@ mod tests {
             block_number: Some(12345678),
         };
 
-        assert_eq!(deployment.chain, Chain::Ethereum);
+        assert_eq!(deployment.chain, "ethereum");
         assert_eq!(deployment.address, vec![1, 2, 3, 4]);
         assert_eq!(deployment.transaction_hash, "0x1234");
         assert_eq!(deployment.gas_used, 50000);

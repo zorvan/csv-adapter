@@ -101,7 +101,7 @@ impl std::fmt::Display for ProtocolVersion {
 /// 1. Create a new `csv-{chain}` crate implementing `ChainDriver`
 /// 2. Register it: `registry.register(NewChainDriver::new())`
 /// 3. The chain ID is whatever `driver.metadata().chain_id` returns
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ChainId(pub String);
 
 impl ChainId {

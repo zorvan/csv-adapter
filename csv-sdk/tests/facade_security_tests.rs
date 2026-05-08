@@ -7,7 +7,7 @@
 //! 4. Validates all inputs before passing to chain adapters
 
 use csv_adapter::{RuntimeConfig, RuntimeManager};
-use csv_core::Chain;
+use csv_core::ChainId;
 
 /// Test that adapter runtime creation validates configuration
 #[test]
@@ -28,7 +28,7 @@ fn test_runtime_uninitialized_chain_error() {
 
     // Operations on uninitialized chain should return proper error
     // without exposing internal details
-    let result = runtime.get_balance(Chain::Ethereum, &[0u8; 20]);
+    let result = runtime.get_balance(ChainId::new("ethereum"), &[0u8; 20]);
 
     // Should return error, not panic
     // Error should not contain sensitive internal paths
@@ -43,11 +43,11 @@ fn test_runtime_uninitialized_chain_error() {
 #[test]
 fn test_chain_id_validity() {
     let chains = vec![
-        Chain::Bitcoin,
-        Chain::Ethereum,
-        Chain::Solana,
-        Chain::Sui,
-        Chain::Aptos,
+        ChainId::new("bitcoin"),
+        ChainId::new("ethereum"),
+        ChainId::new("solana"),
+        ChainId::new("sui"),
+        ChainId::new("aptos"),
     ];
 
     let ids: Vec<u32> = chains.iter().map(|c| c.id()).collect();
@@ -62,11 +62,11 @@ fn test_chain_id_validity() {
 fn test_chain_byte_consistency() {
     // Chain byte representations should match SLIP-44 prefixes
     let tests = vec![
-        (Chain::Bitcoin, b"BTC"),
-        (Chain::Ethereum, b"ETH"),
-        (Chain::Solana, b"SOL"),
-        (Chain::Sui, b"SUI"),
-        (Chain::Aptos, b"APT"),
+        (ChainId::new("bitcoin"), b"BTC"),
+        (ChainId::new("ethereum"), b"ETH"),
+        (ChainId::new("solana"), b"SOL"),
+        (ChainId::new("sui"), b"SUI"),
+        (ChainId::new("aptos"), b"APT"),
     ];
 
     for (chain, expected_bytes) in tests {
@@ -116,11 +116,11 @@ fn test_chain_capabilities() {
     // This prevents runtime errors from missing capabilities
 
     let chains = vec![
-        Chain::Bitcoin,
-        Chain::Ethereum,
-        Chain::Solana,
-        Chain::Sui,
-        Chain::Aptos,
+        ChainId::new("bitcoin"),
+        ChainId::new("ethereum"),
+        ChainId::new("solana"),
+        ChainId::new("sui"),
+        ChainId::new("aptos"),
     ];
 
     for chain in chains {

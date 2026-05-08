@@ -15,7 +15,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use csv_core::{Chain, SanadId};
+use csv_core::{ChainId, SanadId};
 
 use crate::client::ClientRef;
 use crate::error::CsvError;
@@ -24,9 +24,9 @@ use crate::error::CsvError;
 #[derive(Debug, Clone, Default)]
 pub struct TransferFilters {
     /// Filter by source chain.
-    pub from_chain: Option<Chain>,
+    pub from_chain: Option<ChainId>,
     /// Filter by destination chain.
-    pub to_chain: Option<Chain>,
+    pub to_chain: Option<ChainId>,
     /// Filter by status.
     pub status: Option<String>,
     /// Maximum number of results.
@@ -58,15 +58,15 @@ pub enum Priority {
 /// # #[tokio::main]
 /// # async fn main() -> Result<()> {
 /// # let client = CsvClient::builder()
-/// #     .with_chain(Chain::Bitcoin)
-/// #     .with_chain(Chain::Sui)
+/// #     .with_chain(ChainId::new("bitcoin"))
+/// #     .with_chain(ChainId::new("sui"))
 /// #     .with_store_backend(StoreBackend::InMemory)
 /// #     .build()?;
 /// let transfers = client.transfers();
 ///
 /// // Start a cross-chain transfer
 /// let transfer = transfers
-///     .cross_chain(sanad_id, Chain::Sui)
+///     .cross_chain(sanad_id, ChainId::new("sui"))
 ///     .to_address("0xabc...".to_string())
 ///     .with_priority(Priority::High)
 ///     .execute()?;
@@ -97,7 +97,7 @@ impl TransferManager {
     ///
     /// * `sanad_id` — The Sanad to transfer.
     /// * `to_chain` — The destination chain.
-    pub fn cross_chain(&self, sanad_id: SanadId, to_chain: Chain) -> TransferBuilder {
+    pub fn cross_chain(&self, sanad_id: SanadId, to_chain: ChainId) -> TransferBuilder {
         TransferBuilder::new(self.transfers.clone(), sanad_id, to_chain)
     }
 
@@ -145,9 +145,9 @@ pub struct TransferRecord {
     /// The Sanad being transferred.
     pub sanad_id: SanadId,
     /// Source chain.
-    pub from_chain: Chain,
+    pub from_chain: ChainId,
     /// Destination chain.
-    pub to_chain: Chain,
+    pub to_chain: ChainId,
     /// Destination address.
     pub to_address: String,
     /// Current status.
@@ -160,7 +160,7 @@ pub struct TransferRecord {
 pub struct TransferBuilder {
     transfers: std::sync::Arc<std::sync::Mutex<HashMap<String, TransferRecord>>>,
     sanad_id: SanadId,
-    to_chain: Chain,
+    to_chain: ChainId,
     to_address: Option<String>,
     priority: Priority,
     metadata: HashMap<String, String>,
@@ -170,7 +170,7 @@ impl TransferBuilder {
     pub(crate) fn new(
         transfers: std::sync::Arc<std::sync::Mutex<HashMap<String, TransferRecord>>>,
         sanad_id: SanadId,
-        to_chain: Chain,
+        to_chain: ChainId,
     ) -> Self {
         Self {
             transfers,
@@ -232,7 +232,7 @@ impl TransferBuilder {
         let transfer_id = format!("xfer-{}", hex::encode(generate_salt()));
 
         // Determine source chain (default to Bitcoin for now)
-        let from_chain = Chain::Bitcoin;
+        let from_chain = ChainId::new("bitcoin");
 
         // Create and store the transfer record
         let record = TransferRecord {

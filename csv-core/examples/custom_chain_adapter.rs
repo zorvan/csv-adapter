@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use async_trait::async_trait;
 
 use csv_core::{
-    AccountModel, Chain, ChainDriver, ChainCapabilities, ChainConfig, ChainError,
-    ChainResult, DriverRegistry, RpcClient, Wallet,
+    AccountModel, ChainDriver, ChainCapabilities, ChainConfig, ChainError,
+    ChainId, ChainResult, DriverRegistry, RpcClient, Wallet,
 };
 
 #[derive(Debug, Clone)]
@@ -45,8 +45,8 @@ impl ChainDriver for ExampleChainDriver {
         Some("example-program")
     }
 
-    fn to_core_chain(&self) -> Chain {
-        Chain::Solana
+    fn to_core_chain(&self) -> ChainId {
+        ChainId::new("solana")
     }
 
     fn default_network(&self) -> &'static str {
@@ -62,6 +62,7 @@ fn example_config() -> ChainConfig {
         rpc_endpoints: vec!["https://rpc.example-chain.devnet".to_string()],
         program_id: Some("example-program".to_string()),
         block_explorer_urls: vec!["https://explorer.example-chain.devnet".to_string()],
+        start_block: 0,
         capabilities: ExampleChainDriver.capabilities(),
         custom_settings: HashMap::new(),
     }

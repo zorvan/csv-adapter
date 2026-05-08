@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 
-use csv_core::Chain;
+use csv_core::ChainId;
 
 /// Network identifier for chain endpoints.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -241,19 +241,19 @@ impl Config {
     }
 
     /// Get the RPC configuration for a specific chain.
-    pub fn rpc_for(&self, chain: Chain) -> Option<&RpcConfig> {
+    pub fn rpc_for(&self, chain: ChainId) -> Option<&RpcConfig> {
         let name = chain.to_string();
         self.chains.get(&name).map(|c| &c.rpc)
     }
 
     /// Check if a chain is enabled in the configuration.
-    pub fn is_chain_enabled(&self, chain: Chain) -> bool {
+    pub fn is_chain_enabled(&self, chain: ChainId) -> bool {
         let name = chain.to_string();
         self.chains.get(&name).map(|c| c.enabled).unwrap_or(false)
     }
 
     /// Set the RPC URL for a specific chain.
-    pub fn with_rpc_url(mut self, chain: Chain, url: impl Into<String>) -> Self {
+    pub fn with_rpc_url(mut self, chain: ChainId, url: impl Into<String>) -> Self {
         let name = chain.to_string();
         let entry = self.chains.entry(name).or_default();
         entry.rpc.url = url.into();

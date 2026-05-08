@@ -81,51 +81,51 @@ fn test_hash_from_slice_invalid() {
 /// Test chain ID constants are stable
 #[test]
 fn test_chain_ids_are_stable() {
-    use csv_core::Chain;
+    use csv_core::ChainId;
 
     // Chain IDs should never change (would break existing data)
-    assert_eq!(Chain::Bitcoin.id(), 0);
-    assert_eq!(Chain::Ethereum.id(), 1);
-    assert_eq!(Chain::Solana.id(), 2);
-    assert_eq!(Chain::Sui.id(), 3);
-    assert_eq!(Chain::Aptos.id(), 4);
+    assert_eq!(ChainId::new("bitcoin").id(), 0);
+    assert_eq!(ChainId::new("ethereum").id(), 1);
+    assert_eq!(ChainId::new("solana").id(), 2);
+    assert_eq!(ChainId::new("sui").id(), 3);
+    assert_eq!(ChainId::new("aptos").id(), 4);
 }
 
 /// Test chain display formatting
 #[test]
 fn test_chain_display() {
-    use csv_core::Chain;
+    use csv_core::ChainId;
 
-    assert_eq!(format!("{}", Chain::Bitcoin), "Bitcoin");
-    assert_eq!(format!("{}", Chain::Ethereum), "Ethereum");
-    assert_eq!(format!("{}", Chain::Solana), "Solana");
-    assert_eq!(format!("{}", Chain::Sui), "Sui");
-    assert_eq!(format!("{}", Chain::Aptos), "Aptos");
+    assert_eq!(format!("{}", ChainId::new("bitcoin")), "Bitcoin");
+    assert_eq!(format!("{}", ChainId::new("ethereum")), "Ethereum");
+    assert_eq!(format!("{}", ChainId::new("solana")), "Solana");
+    assert_eq!(format!("{}", ChainId::new("sui")), "Sui");
+    assert_eq!(format!("{}", ChainId::new("aptos")), "Aptos");
 }
 
 /// Test chain from ID conversion
 #[test]
 fn test_chain_from_id() {
-    use csv_core::Chain;
+    use csv_core::ChainId;
 
-    assert_eq!(Chain::from_id(0), Some(Chain::Bitcoin));
-    assert_eq!(Chain::from_id(1), Some(Chain::Ethereum));
-    assert_eq!(Chain::from_id(2), Some(Chain::Solana));
-    assert_eq!(Chain::from_id(3), Some(Chain::Sui));
-    assert_eq!(Chain::from_id(4), Some(Chain::Aptos));
+    assert_eq!(Chain::from_id(0), Some(ChainId::new("bitcoin")));
+    assert_eq!(Chain::from_id(1), Some(ChainId::new("ethereum")));
+    assert_eq!(Chain::from_id(2), Some(ChainId::new("solana")));
+    assert_eq!(Chain::from_id(3), Some(ChainId::new("sui")));
+    assert_eq!(Chain::from_id(4), Some(ChainId::new("aptos")));
     assert_eq!(Chain::from_id(99), None);
 }
 
 /// Test chain try_from bytes
 #[test]
 fn test_chain_try_from_bytes() {
-    use csv_core::Chain;
+    use csv_core::ChainId;
 
-    assert_eq!(Chain::try_from(b"BTC" as &[u8]).unwrap(), Chain::Bitcoin);
-    assert_eq!(Chain::try_from(b"ETH" as &[u8]).unwrap(), Chain::Ethereum);
-    assert_eq!(Chain::try_from(b"SOL" as &[u8]).unwrap(), Chain::Solana);
-    assert_eq!(Chain::try_from(b"SUI" as &[u8]).unwrap(), Chain::Sui);
-    assert_eq!(Chain::try_from(b"APT" as &[u8]).unwrap(), Chain::Aptos);
+    assert_eq!(Chain::try_from(b"BTC" as &[u8]).unwrap(), ChainId::new("bitcoin"));
+    assert_eq!(Chain::try_from(b"ETH" as &[u8]).unwrap(), ChainId::new("ethereum"));
+    assert_eq!(Chain::try_from(b"SOL" as &[u8]).unwrap(), ChainId::new("solana"));
+    assert_eq!(Chain::try_from(b"SUI" as &[u8]).unwrap(), ChainId::new("sui"));
+    assert_eq!(Chain::try_from(b"APT" as &[u8]).unwrap(), ChainId::new("aptos"));
 
     // Unknown chain should error
     assert!(Chain::try_from(b"XYZ" as &[u8]).is_err());
@@ -134,24 +134,24 @@ fn test_chain_try_from_bytes() {
 /// Test that all chains have proper SLIP-44 coin types
 #[test]
 fn test_chain_slip44_types() {
-    use csv_core::Chain;
+    use csv_core::ChainId;
 
     // SLIP-44 coin types for each supported chain
-    assert_eq!(Chain::Bitcoin.coin_type(), 0);
-    assert_eq!(Chain::Ethereum.coin_type(), 60);
-    assert_eq!(Chain::Solana.coin_type(), 501);
-    assert_eq!(Chain::Sui.coin_type(), 784);
-    assert_eq!(Chain::Aptos.coin_type(), 637);
+    assert_eq!(ChainId::new("bitcoin").coin_type(), 0);
+    assert_eq!(ChainId::new("ethereum").coin_type(), 60);
+    assert_eq!(ChainId::new("solana").coin_type(), 501);
+    assert_eq!(ChainId::new("sui").coin_type(), 784);
+    assert_eq!(ChainId::new("aptos").coin_type(), 637);
 }
 
 /// Test that chain serialization is consistent
 #[test]
 fn test_chain_serialization() {
-    use csv_core::Chain;
+    use csv_core::ChainId;
     use serde_json;
 
     // Test serialization roundtrip
-    for chain in [Chain::Bitcoin, Chain::Ethereum, Chain::Solana, Chain::Sui, Chain::Aptos] {
+    for chain in [ChainId::new("bitcoin"), ChainId::new("ethereum"), ChainId::new("solana"), ChainId::new("sui"), ChainId::new("aptos")] {
         let serialized = serde_json::to_string(&chain).unwrap();
         let deserialized: Chain = serde_json::from_str(&serialized).unwrap();
         assert_eq!(chain, deserialized, "Serialization roundtrip failed for {:?}", chain);

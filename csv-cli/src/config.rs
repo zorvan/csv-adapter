@@ -9,7 +9,7 @@ use std::sync::{Mutex, OnceLock};
 use serde::{Deserialize, Serialize};
 
 // Re-export unified types from csv-adapter-store
-pub use csv_store::state::{Chain, ChainConfig, Network, WalletAccount};
+pub use csv_store::state::{Chain, ChainConfig, ChainId, Network, WalletAccount};
 
 /// CSV Wallet exported JSON format (legacy, for migration from csv-wallet < 0.4)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -64,11 +64,11 @@ pub(crate) struct LegacyWalletConfig {
 /// Parse chain from string (for clap)
 pub fn parse_chain(s: &str) -> anyhow::Result<Chain> {
     match s.to_lowercase().as_str() {
-        "bitcoin" => Ok(Chain::Bitcoin),
-        "ethereum" => Ok(Chain::Ethereum),
-        "sui" => Ok(Chain::Sui),
-        "aptos" => Ok(Chain::Aptos),
-        "solana" => Ok(Chain::Solana),
+        "bitcoin" => Ok(ChainId::new("bitcoin")),
+        "ethereum" => Ok(ChainId::new("ethereum")),
+        "sui" => Ok(ChainId::new("sui")),
+        "aptos" => Ok(ChainId::new("aptos")),
+        "solana" => Ok(ChainId::new("solana")),
         _ => Err(anyhow::anyhow!("Unknown chain: {}", s)),
     }
 }
@@ -131,7 +131,7 @@ impl Default for Config {
 
         // Bitcoin Signet (default dev network)
         chains.insert(
-            Chain::Bitcoin,
+            ChainId::new("bitcoin"),
             ChainConfig {
                 rpc_url: "https://mempool.space/signet/api/".to_string(),
                 network: Network::Test,
@@ -144,7 +144,7 @@ impl Default for Config {
 
         // Ethereum Sepolia
         chains.insert(
-            Chain::Ethereum,
+            ChainId::new("ethereum"),
             ChainConfig {
                 rpc_url: "https://ethereum-sepolia-rpc.publicnode.com".to_string(),
                 network: Network::Test,
@@ -157,7 +157,7 @@ impl Default for Config {
 
         // Sui Testnet
         chains.insert(
-            Chain::Sui,
+            ChainId::new("sui"),
             ChainConfig {
                 rpc_url: "https://fullnode.testnet.sui.io:443".to_string(),
                 network: Network::Test,
@@ -170,7 +170,7 @@ impl Default for Config {
 
         // Aptos Testnet
         chains.insert(
-            Chain::Aptos,
+            ChainId::new("aptos"),
             ChainConfig {
                 rpc_url: "https://fullnode.testnet.aptoslabs.com/v1".to_string(),
                 network: Network::Test,
@@ -183,7 +183,7 @@ impl Default for Config {
 
         // Solana Devnet
         chains.insert(
-            Chain::Solana,
+            ChainId::new("solana"),
             ChainConfig {
                 rpc_url: "https://api.devnet.solana.com".to_string(),
                 network: Network::Test,
@@ -330,17 +330,18 @@ impl Config {
         }
 
         // Fall back to environment variables
-        match chain {
-            Chain::Bitcoin => std::env::var("BTC_RPC_URL")
+        match chain.as_str() {
+            "bitcoin" => std::env::var("BTC_RPC_URL")
                 .unwrap_or_else(|_| "https://signet.bc-2.jp".to_string()),
-            Chain::Ethereum => std::env::var("ETH_RPC_URL")
+            "ethereum" => std::env::var("ETH_RPC_URL")
                 .unwrap_or_else(|_| "https://sepolia.infura.io/v3/YOUR_API_KEY".to_string()),
-            Chain::Solana => std::env::var("SOL_RPC_URL")
+            "solana" => std::env::var("SOL_RPC_URL")
                 .unwrap_or_else(|_| "https://api.devnet.solana.com".to_string()),
-            Chain::Sui => std::env::var("SUI_RPC_URL")
+            "sui" => std::env::var("SUI_RPC_URL")
                 .unwrap_or_else(|_| "https://fullnode.testnet.sui.io:443".to_string()),
-            Chain::Aptos => std::env::var("APTOS_RPC_URL")
+            "aptos" => std::env::var("APTOS_RPC_URL")
                 .unwrap_or_else(|_| "https://fullnode.testnet.aptoslabs.com/v1".to_string()),
+            _ => String::new(),
         }
     }
 }
@@ -463,8 +464,8 @@ chain_id = 1
 
         let config = config.unwrap();
         assert_eq!(config.chains.len(), 2);
-        assert!(config.chains.contains_key(&Chain::Bitcoin));
-        assert!(config.chains.contains_key(&Chain::Ethereum));
+        assert!(config.chains.contains_key(&ChainId::new("bitcoin")));
+        assert!(config.chains.contains_key(&ChainId::new("ethereum")));
     }
 
     #[test]
@@ -486,8 +487,8 @@ private_key = "0xabc123"
 
         let config = config.unwrap();
         assert_eq!(config.wallets.len(), 2);
-        assert!(config.wallets.contains_key(&Chain::Bitcoin));
-        assert!(config.wallets.contains_key(&Chain::Ethereum));
+        assert!(config.wallets.contains_key(&ChainId::new("bitcoin")));
+        assert!(config.wallets.contains_key(&ChainId::new("ethereum")));
     }
 
     #[test]
@@ -564,23 +565,23 @@ finality_depth = 3
             config.chains.len()
         );
         assert!(
-            config.chains.contains_key(&Chain::Bitcoin),
+            config.chains.contains_key(&ChainId::new("bitcoin")),
             "Should have Bitcoin chain"
         );
         assert!(
-            config.chains.contains_key(&Chain::Ethereum),
+            config.chains.contains_key(&ChainId::new("ethereum")),
             "Should have Ethereum chain (merged)"
         );
         assert!(
-            config.chains.contains_key(&Chain::Sui),
+            config.chains.contains_key(&ChainId::new("sui")),
             "Should have Sui chain (merged)"
         );
         assert!(
-            config.chains.contains_key(&Chain::Aptos),
+            config.chains.contains_key(&ChainId::new("aptos")),
             "Should have Aptos chain (merged)"
         );
         assert!(
-            config.chains.contains_key(&Chain::Solana),
+            config.chains.contains_key(&ChainId::new("solana")),
             "Should have Solana chain (merged)"
         );
         assert_eq!(
@@ -594,7 +595,7 @@ finality_depth = 3
         let config = Config::default();
 
         // Should get existing chain
-        let bitcoin = config.chain(&Chain::Bitcoin);
+        let bitcoin = config.chain(&ChainId::new("bitcoin"));
         assert!(bitcoin.is_ok());
 
         // Should error for non-existent chain in default config (all chains exist)
@@ -604,7 +605,7 @@ finality_depth = 3
             wallets: HashMap::new(),
             data_dir: "~/.csv/data".to_string(),
         };
-        let missing = empty_config.chain(&Chain::Bitcoin);
+        let missing = empty_config.chain(&ChainId::new("bitcoin"));
         assert!(missing.is_err());
     }
 
@@ -640,9 +641,9 @@ rpc_url = "missing bracket"
             finality_depth: 10,
             default_fee: Some(1000),
         };
-        config.set_chain(Chain::Solana, new_chain);
+        config.set_chain(ChainId::new("solana"), new_chain);
 
-        assert!(config.chains.contains_key(&Chain::Solana));
+        assert!(config.chains.contains_key(&ChainId::new("solana")));
 
         // Set a wallet
         let wallet = WalletConfig {
@@ -652,9 +653,9 @@ rpc_url = "missing bracket"
             mnemonic_passphrase: None,
             derivation_path: None,
         };
-        config.set_wallet(Chain::Bitcoin, wallet);
+        config.set_wallet(ChainId::new("bitcoin"), wallet);
 
-        assert!(config.wallets.contains_key(&Chain::Bitcoin));
+        assert!(config.wallets.contains_key(&ChainId::new("bitcoin")));
     }
 
     #[test]
@@ -666,11 +667,11 @@ rpc_url = "missing bracket"
 
     #[test]
     fn test_chain_display() {
-        assert_eq!(Chain::Bitcoin.to_string(), "bitcoin");
-        assert_eq!(Chain::Ethereum.to_string(), "ethereum");
-        assert_eq!(Chain::Sui.to_string(), "sui");
-        assert_eq!(Chain::Aptos.to_string(), "aptos");
-        assert_eq!(Chain::Solana.to_string(), "solana");
+        assert_eq!(ChainId::new("bitcoin").to_string(), "bitcoin");
+        assert_eq!(ChainId::new("ethereum").to_string(), "ethereum");
+        assert_eq!(ChainId::new("sui").to_string(), "sui");
+        assert_eq!(ChainId::new("aptos").to_string(), "aptos");
+        assert_eq!(ChainId::new("solana").to_string(), "solana");
     }
 
 }

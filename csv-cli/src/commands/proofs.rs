@@ -89,19 +89,13 @@ fn cmd_generate(
     let _chain_config = config.chain(&chain)?;
 
     // Build CSV client with the chain enabled
-    let adapter_chain = match chain {
-        Chain::Bitcoin => csv_core::Chain::Bitcoin,
-        Chain::Ethereum => csv_core::Chain::Ethereum,
-        Chain::Sui => csv_core::Chain::Sui,
-        Chain::Aptos => csv_core::Chain::Aptos,
-        Chain::Solana => csv_core::Chain::Solana,
-    };
+    let adapter_chain = csv_core::ChainId::new(chain.as_str());
 
     output::progress(1, 4, "Initializing CSV client...");
 
     // Build the CSV client
     let client = CsvClient::builder()
-        .with_chain(adapter_chain)
+        .with_chain(adapter_chain.clone())
         .build()
         .map_err(|e| anyhow::anyhow!("Failed to build CSV client: {}", e))?;
 
@@ -124,12 +118,13 @@ fn cmd_generate(
     let proof_json = serde_json::json!({
         "chain": chain.to_string(),
         "sanad_id": sanad_id,
-        "proof_type": match chain {
-            Chain::Bitcoin => "merkle",
-            Chain::Ethereum => "mpt",
-            Chain::Sui => "checkpoint",
-            Chain::Aptos => "ledger",
-            Chain::Solana => "epoch",
+        "proof_type": match chain.as_str() {
+            "bitcoin" => "merkle",
+            "ethereum" => "mpt",
+            "sui" => "checkpoint",
+            "aptos" => "ledger",
+            "solana" => "epoch",
+            _ => "unknown",
         },
         "block_height": proof_bundle.finality_proof.confirmations,
         "inclusion_proof": hex::encode(&proof_bundle.inclusion_proof.proof_bytes),
@@ -209,16 +204,10 @@ fn cmd_verify(
     output::progress(1, 4, "Building CSV client...");
 
     // Build the CSV client
-    let adapter_chain = match chain {
-        Chain::Bitcoin => csv_core::Chain::Bitcoin,
-        Chain::Ethereum => csv_core::Chain::Ethereum,
-        Chain::Sui => csv_core::Chain::Sui,
-        Chain::Aptos => csv_core::Chain::Aptos,
-        Chain::Solana => csv_core::Chain::Solana,
-    };
+    let adapter_chain = csv_core::ChainId::new(chain.as_str());
 
     let client = CsvClient::builder()
-        .with_chain(adapter_chain)
+        .with_chain(adapter_chain.clone())
         .build()
         .map_err(|e| anyhow::anyhow!("Failed to build CSV client: {}", e))?;
 
