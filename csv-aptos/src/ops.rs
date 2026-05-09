@@ -611,36 +611,35 @@ impl ChainProofProvider for AptosBackend {
     }
 
     fn verify_finality_proof(&self, _proof: &FinalityProof, _tx_hash: &str) -> ChainOpResult<bool> {
-        // Verify epoch and round
         #[cfg(feature = "rpc")]
-        let latest = {
-            let rpc = self.rpc().clone_boxed();
-            let rt = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .map_err(|e| ChainOpError::RpcError(format!("Failed to build runtime: {}", e)))?;
-            rt.block_on(async { rpc.get_ledger_info().await })
-                .map_err(|e| ChainOpError::RpcError(format!("Failed to get ledger: {}", e)))?
-        };
+        {
+            // Verify epoch and round
+            let latest = {
+                let rpc = self.rpc().clone_boxed();
+                let rt = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .map_err(|e| ChainOpError::RpcError(format!("Failed to build runtime: {}", e)))?;
+                rt.block_on(async { rpc.get_ledger_info().await })
+                    .map_err(|e| ChainOpError::RpcError(format!("Failed to get ledger: {}", e)))?
+            };
+
+            // Check if finality proof confirms is at least 1 (deterministic finality in Aptos)
+            let _confirmations = _proof.confirmations;
+
+            // Would verify HotStuff certificate using finality_data
+            let _ = latest;
+
+            Ok(true)
+        }
 
         #[cfg(not(feature = "rpc"))]
-        let latest = AptosLedgerInfo {
-            chain_id: 0,
-            epoch: 0,
-            ledger_version: 0,
-            oldest_ledger_version: 0,
-            ledger_timestamp: 0,
-            oldest_transaction_timestamp: 0,
-            epoch_start_timestamp: 0,
-        };
-
-        // Check if finality proof confirms is at least 1 (deterministic finality in Aptos)
-        let _confirmations = _proof.confirmations;
-
-        // Would verify HotStuff certificate using finality_data
-        let _ = latest;
-
-        Ok(true)
+        {
+            let _ = (_proof, _tx_hash);
+            Err(ChainOpError::FeatureNotEnabled(
+                "rpc feature required for finality proof verification".to_string(),
+            ))
+        }
     }
 
     fn domain_separator(&self) -> [u8; 32] {

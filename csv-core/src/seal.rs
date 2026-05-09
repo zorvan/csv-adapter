@@ -55,9 +55,13 @@ impl SealPoint {
     /// Create a new SealPoint without validation.
     ///
     /// # Safety
-    /// This bypasses size validation. Use only for internal protocol conversions
-    /// where the input is already known to be valid.
-    pub fn new_unchecked(id: Vec<u8>, nonce: Option<u64>) -> Self {
+    /// The caller MUST ensure:
+    /// - `id` is non-empty and ≤ 1024 bytes (MAX_SEAL_ID_SIZE)
+    /// - This is only used for deserialized data already verified by `from_bytes()`
+    ///   or internal protocol conversions where size is guaranteed by construction.
+    /// Violating these requirements causes undefined behavior in downstream code
+    /// that assumes valid seal IDs (e.g., hash map lookups, size assertions).
+    pub unsafe fn new_unchecked(id: Vec<u8>, nonce: Option<u64>) -> Self {
         Self { id, nonce }
     }
 
@@ -184,10 +188,14 @@ impl CommitAnchor {
     /// Create a new CommitAnchor without validation.
     ///
     /// # Safety
-    /// This bypasses validation and should only be used when
-    /// the input is already known to be valid. Debug assertions
-    /// will catch size violations in debug builds.
-    pub fn new_unchecked(anchor_id: Vec<u8>, block_height: u64, metadata: Vec<u8>) -> Self {
+    /// The caller MUST ensure:
+    /// - `anchor_id` is non-empty and ≤ 1024 bytes (MAX_ANCHOR_ID_SIZE)
+    /// - `metadata` is ≤ 4096 bytes (MAX_ANCHOR_METADATA_SIZE)
+    /// - This is only used for deserialized data already verified by `from_bytes()`
+    ///   or internal protocol conversions where size is guaranteed by construction.
+    /// Violating these requirements causes undefined behavior in downstream code
+    /// that assumes valid anchor IDs (e.g., hash map lookups, size assertions).
+    pub unsafe fn new_unchecked(anchor_id: Vec<u8>, block_height: u64, metadata: Vec<u8>) -> Self {
         // Debug assertions to catch issues during development
         debug_assert!(!anchor_id.is_empty(), "anchor_id cannot be empty");
         debug_assert!(
@@ -366,14 +374,14 @@ mod tests {
 
     #[test]
     fn test_seal_point_new_unchecked() {
-        let seal = SealPoint::new_unchecked(vec![1, 2, 3], Some(42));
+        let seal = unsafe { SealPoint::new_unchecked(vec![1, 2, 3], Some(42)) };
         assert_eq!(seal.id, vec![1, 2, 3]);
         assert_eq!(seal.nonce, Some(42));
     }
 
     #[test]
     fn test_commit_anchor_new_unchecked() {
-        let anchor = CommitAnchor::new_unchecked(vec![4, 5, 6], 100, vec![7, 8]);
+        let anchor = unsafe { CommitAnchor::new_unchecked(vec![4, 5, 6], 100, vec![7, 8]) };
         assert_eq!(anchor.anchor_id, vec![4, 5, 6]);
         assert_eq!(anchor.block_height, 100);
         assert_eq!(anchor.metadata, vec![7, 8]);

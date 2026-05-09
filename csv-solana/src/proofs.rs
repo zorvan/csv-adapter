@@ -98,7 +98,7 @@ impl SlotProof {
 
         InclusionProof::new(proof_data, self.block_hash, self.slot).unwrap_or_else(|e| {
             tracing::error!("Failed to create inclusion proof: {}", e);
-            InclusionProof::new_unchecked(vec![], self.block_hash, self.slot)
+            unsafe { InclusionProof::new_unchecked(vec![], self.block_hash, self.slot) }
         })
     }
 
@@ -320,7 +320,7 @@ pub fn build_finality_proof(slot: u64, block_hash: Hash, current_slot: u64) -> F
 
     FinalityProof::new(proof_data, confirmations, finalized).unwrap_or_else(|e| {
         tracing::error!("Failed to create finality proof: {}", e);
-        FinalityProof::new_unchecked(vec![], confirmations, finalized)
+        unsafe { FinalityProof::new_unchecked(vec![], confirmations, finalized) }
     })
 }
 

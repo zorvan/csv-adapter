@@ -1,4 +1,5 @@
 # CSV Protocol — Product & Marketing Masterplan
+
 **Version**: 1.0  
 **Authored**: May 2026  
 **Audience**: Product, Marketing, Design, Business Development
@@ -31,12 +32,14 @@ The wallet *is* the killer app.
 
 **Screen 1 — My Assets**
 A clean list of Sanads (assets) the user owns across all chains. Each shows:
+
 - Asset name/icon
 - Chain of origin (Bitcoin, Ethereum, Sui, Solana, Aptos)
 - Current status: Active / In-Transit / Consumed
 - Offline proof availability indicator (green dot = can prove ownership without internet)
 
 **Screen 2 — Move Asset**
+
 1. Select asset
 2. Select destination chain
 3. See estimated time (not fees — fees are just chain gas, no bridge cut)
@@ -72,6 +75,7 @@ The offline verification is the moat. Nobody can replicate it without rebuilding
 **Pain**: Players buy items on Ethereum games, cannot use them in Solana games. Each studio builds a custom "bridge" that gets hacked.
 
 **CSV Product**: **Game Asset Passport SDK**
+
 - SDK for game engines (Unity, Godot, browser)
 - Wraps csv-sdk in a `GameAsset` abstraction
 - One function: `transfer_item(item_id, destination_chain, player_wallet)`
@@ -89,6 +93,7 @@ The offline verification is the moat. Nobody can replicate it without rebuilding
 **Pain**: Digital credentials (diplomas, medical records, KYC results) are either centralized or on a single blockchain. They can be copied or reused.
 
 **CSV Product**: **Single-Use Credential Seal**
+
 - A credential is a Sanad. It can only be presented once (single-use seal).
 - Verifier scans QR → verifies proof offline → seal consumed (cannot be presented again)
 - Works without any server at verification time
@@ -105,6 +110,7 @@ The offline verification is the moat. Nobody can replicate it without rebuilding
 **Pain**: Atomic swaps require HTLC, which locks capital and requires both parties online simultaneously. Bridges are honeypots.
 
 **CSV Product**: **Atomic Seal Swap**
+
 - Alice locks Seal_A on Bitcoin with hash-lock H(secret)
 - Bob locks Seal_B on Ethereum with H(secret)
 - Alice reveals secret → Bob's side mints automatically
@@ -121,6 +127,7 @@ The offline verification is the moat. Nobody can replicate it without rebuilding
 **Pain**: Luxury goods, pharmaceuticals, food — every custody handover is recorded in silos. No unified tamper-proof audit trail.
 
 **CSV Product**: **Sanad Provenance Chain**
+
 - Each custody transfer consumes a seal (cryptographically proves the handover happened)
 - Anyone with the product's QR can verify the full chain from manufacturer to retailer — offline
 - Maps to GS1 EPCIS events
@@ -136,6 +143,7 @@ The offline verification is the moat. Nobody can replicate it without rebuilding
 **Pain**: AI agents need to settle cross-chain transactions without human approval. No existing primitive allows an agent to prove it executed a transaction correctly, to another agent, without a trusted third party.
 
 **CSV Product**: **Agent Settlement Rail**
+
 - MCP server (`csv-mcp-server`) already exists — agents can call CSV operations via Model Context Protocol
 - Agent-to-agent proof exchange: "I transferred your asset to Ethereum, here is the proof bundle"
 - TypeScript SDK for LangChain / AutoGPT / custom agents
@@ -152,6 +160,7 @@ The offline verification is the moat. Nobody can replicate it without rebuilding
 **Pain**: 1,000+ IoT sensors generating signed readings. Verifying each signature on-chain is economically impossible. Batching without trust requires ZK.
 
 **CSV Product**: **STARK IoT Proof Stream**
+
 - Sensors sign readings locally (ML-DSA-65 post-quantum signatures)
 - Batch prover aggregates 1024 readings into one STARK proof
 - STARK proof posted to Celestia DA layer
@@ -165,51 +174,23 @@ The offline verification is the moat. Nobody can replicate it without rebuilding
 
 ## Part III: Feature Map — What's Ready, What's Missing, What's Fancy
 
-### Core Protocol
-
-| Feature | Status | Missing to Ship |
-|---|---|---|
-| Single-use seal (all 5 chains) | ✅ Ready | Nothing |
-| Seal transfer (same chain) | ✅ Ready | Nothing |
-| Cross-chain Sanad move | ✅ Protocol ready | ETH/Sui deploy stubs need fixing |
-| Offline proof verification | ✅ Ready | UI for it in wallet needs polish |
-| Cross-chain proof bundle | ✅ Ready | Nothing |
-| Commitment chain (audit trail) | ✅ Ready | No UI to visualize it |
-
 ### Wallet App
 
 | Feature | Status | Missing to Ship |
 |---|---|---|
-| Multi-chain account management | ✅ Ready | Nothing |
-| Seal create/consume UI | ✅ Ready | Nothing |
-| Sanad create/transfer UI | ✅ Ready | Nothing |
-| Cross-chain transfer UI | ✅ Exists | Real RPC wiring (not mock) |
-| Proof verification screen | ✅ Exists | QR import not wired |
+|
 | ZK proof generate/verify UI | ⚠️ UI exists | Backend not implemented |
 | NFT page | ❌ Stub | Real chain query + data source |
 | Offline verification flow | ❌ Not done | File import → verify → show result |
 | Push notifications (transfer status) | ❌ Not done | WebSocket exists in explorer |
 
-### Explorer
-
-| Feature | Status | Missing to Ship |
-|---|---|---|
-| REST + GraphQL API | ✅ Ready | — |
-| Real-time WebSocket feed | ✅ Ready | — |
-| Chain indexer (all 5) | ✅ Ready | WAL mode + better indexes |
-| Block explorer UI | ✅ Ready | Some pages stub |
-| Cross-chain transfer timeline | ✅ Ready | UI visualization weak |
-| Public Sanad search | ✅ Ready | — |
-
 ### SDKs & Integrations
 
 | Feature | Status | Missing to Ship |
 |---|---|---|
-| Rust SDK (`csv-sdk`) | ✅ Ready | Docs |
-| TypeScript SDK | ✅ Core done | Proof delivery wiring |
-| WASM bindings (crypto) | ✅ Ready | chain_id bug fix |
+|
 | MCP server | ⚠️ Skeleton | Real tool implementations |
-| CLI | ✅ Ready | Docs, install script |
+|
 
 ### Protocol Extensions (Phase 2+)
 
@@ -219,9 +200,9 @@ The offline verification is the moat. Nobody can replicate it without rebuilding
 | Pedersen commitments (ZK values) | ❌ Not started | ⭐⭐⭐ Privacy moat |
 | Stealth addresses | ❌ Not started | ⭐⭐⭐ Privacy moat |
 | STARK IoT batch verification | ❌ Not started | ⭐⭐ Technical showcase |
-| Post-quantum signatures (ML-DSA-65) | ✅ WASM ready | ⭐⭐⭐ Narrative gold |
+|
 | P2P proof delivery (Nostr) | ❌ Skeleton | ⭐⭐ Decentralization story |
-| Fraud proof challenges (Celestia) | ✅ Data structures done | ⭐⭐ Enterprise trust story |
+|
 
 ---
 
@@ -236,6 +217,7 @@ These are not required to ship MVP but dramatically elevate the product story. B
 **Why it's fancy**: This visual proof of offline verification is unexplainable by competitors. One video = 10,000 developer signups.
 
 **What needs to be built**:
+
 - Wallet: file/QR import → call `verify_seal_format` + full proof verification offline
 - Slick visual animation of the 7-step transfer state machine
 
@@ -284,6 +266,7 @@ These are not required to ship MVP but dramatically elevate the product story. B
 ### 🌟 Fancy Task 6 — AI Agent Integration Gallery
 
 **What**: A docs page + GitHub repo with 5 ready-to-run agent templates:
+
 1. LangChain agent that moves an NFT from Ethereum to Solana when price conditions are met
 2. AutoGPT agent that creates a credential seal and delivers the proof to a verifier
 3. Claude tool-use integration using the MCP server
@@ -313,6 +296,7 @@ These are not required to ship MVP but dramatically elevate the product story. B
 **Goal**: 50 developers using CSV on testnet with real chain operations
 
 **Ships**:
+
 - Wallet app (WASM/web) with working cross-chain transfer on testnets
 - CLI with `csv seal create`, `csv seal transfer`, `csv proof verify`
 - TypeScript SDK published to npm as `@csv-protocol/sdk`
@@ -320,11 +304,13 @@ These are not required to ship MVP but dramatically elevate the product story. B
 - Docs site with 3 tutorials: (1) Create a seal, (2) Transfer cross-chain, (3) Verify a proof offline
 
 **Marketing actions**:
+
 - GitHub README rewrite: lead with "no bridge" story, not protocol architecture
 - Hacker News "Show HN" featuring the offline verification demo
 - `examples/gaming.rs` posted as Twitter/X thread with screenshots
 
 **Blockers to clear first**:
+
 - Ethereum deploy stubs → working deploy on Sepolia
 - WASM chain_id bug → fix before SDK publish
 - NFT page → remove from nav or wire to real data
@@ -336,17 +322,20 @@ These are not required to ship MVP but dramatically elevate the product story. B
 **Goal**: 3 live integrations generating real proof bundles
 
 **Target partners**:
+
 1. One Web3 game studio (approach studios on Sui/Solana — they have cross-chain pain)
 2. One identity/credential project (DIF, W3C VC community)
 3. One DeFi protocol willing to integrate atomic swaps (cross-chain AMM teams)
 
 **Ships**:
+
 - Game Asset Passport SDK (Unity wrapper around csv-sdk)
 - W3C VC adapter (maps VC schema to Sanad fields)
 - Atomic Seal Swap (required for DeFi integrations)
 - "Verify Anything" public URL (Fancy Task 4)
 
 **Marketing actions**:
+
 - Co-authored blog post with each partner: "How we eliminated bridge risk for [game/credential/swap]"
 - Conference demo: live atomic swap on two laptops with no bridge (Fancy Task 5)
 - "Offline Passport" demo video published (Fancy Task 1)
@@ -358,6 +347,7 @@ These are not required to ship MVP but dramatically elevate the product story. B
 **Goal**: 1 paid enterprise pilot in supply chain or identity
 
 **Ships**:
+
 - Provenance schema (maps physical custody handover to Sanad consumption)
 - GS1 EPCIS adapter
 - Enterprise explorer dashboard (whitelabeled)
@@ -365,6 +355,7 @@ These are not required to ship MVP but dramatically elevate the product story. B
 - Post-Quantum badge (Fancy Task 3)
 
 **Marketing actions**:
+
 - White paper: "Tamper-Evident Supply Chain Audit Trails Without Trusted Registries"
 - Approach pharmaceutical, luxury goods, food traceability consortiums
 - Enterprise sales deck featuring 96% cost saving and offline verification
@@ -376,6 +367,7 @@ These are not required to ship MVP but dramatically elevate the product story. B
 **Goal**: Protocol is self-sustaining. Third parties building on CSV without hand-holding.
 
 **Ships**:
+
 - STARK IoT proof stream + dashboard (Fancy Task 7)
 - Full ZK privacy layer (Pedersen + stealth addresses)
 - Integration into 2 new chains via their grant programs
@@ -383,6 +375,7 @@ These are not required to ship MVP but dramatically elevate the product story. B
 - AI Agent Gallery (Fancy Task 6)
 
 **Marketing actions**:
+
 - EthGlobal / Solana Breakpoint / Sui Hacker House: CSV track + bounty
 - "Post-Quantum Future-Proof" PR campaign timed to NIST adoption wave
 - IoT + STARK demo at industrial tech conference (non-crypto audience — that's the point)
@@ -401,6 +394,7 @@ These are not required to ship MVP but dramatically elevate the product story. B
 | Chainlink CCIP | "Battle-tested" cross-chain | Battle-tested means battle-scarred. CSV has no bridge attack surface. |
 
 **Messaging rules**:
+
 - Never say "bridge" — say "proof delivery"
 - Never say "trustless" (overused) — say "client-verifiable"
 - Never say "decentralized" without proof — say "no operator required"

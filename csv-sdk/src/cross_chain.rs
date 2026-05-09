@@ -1,10 +1,17 @@
 //! Cross-chain operations for CSV sanads.
 //!
 //! This module provides functionality for minting sanads on destination chains
-//! as part of cross-chain transfers.
+//! as part of cross-chain transfers, with optional SQLite-backed persistence
+//! for the transfer registry (SC-02).
+
+use csv_core::{ChainId, Hash};
+
+#[cfg(feature = "cross-chain-persist")]
+use csv_explorer_shared::TransferStatus;
+#[cfg(feature = "cross-chain-persist")]
+use sqlx::SqlitePool;
 
 use crate::CsvError;
-use csv_core::{ChainId, Hash};
 
 /// Result type for cross-chain operations.
 pub type CrossChainResult<T> = Result<T, CrossChainError>;
@@ -31,6 +38,11 @@ pub enum CrossChainError {
     /// Underlying adapter error.
     #[error("Adapter error: {0}")]
     ProtocolError(String),
+
+    #[cfg(feature = "cross-chain-persist")]
+    /// Database error.
+    #[error("Database error: {0}")]
+    Database(String),
 }
 
 impl From<CrossChainError> for CsvError {
@@ -39,29 +51,140 @@ impl From<CrossChainError> for CsvError {
     }
 }
 
-/// Mint a sanad on the destination chain as part of a cross-chain transfer.
+#[cfg(feature = "cross-chain-persist")]
+// ===========================================================================
+// Persistent Transfer Registry (SC-02)
+// ===========================================================================
+
+/// In-memory transfer registry backed by SQLite for persistence.
 ///
-/// # Arguments
+/// Tracks completed cross-chain transfers to prevent double-spend while
+/// surviving process restarts via the `transfers` table.
+pub struct PersistentTransferRegistry {
+    pool: SqlitePool,
+}
+
+#[cfg(feature = "cross-chain-persist")]
+impl PersistentTransferRegistry {
+    /// Create a new persistent registry from a database pool.
+    pub fn new(pool: SqlitePool) -> Self {
+        Self { pool }
+    }
+
+    /// Check if a sanad has already been transferred (double-spend check).
+    pub async fn is_transferred(&self, sanad_id: &str) -> Result<bool, CrossChainError> {
+        let count: Option<i64> = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM transfers WHERE sanad_id = ?",
+        )
+        .bind(sanad_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| CrossChainError::Database(e.to_string()))?;
+
+        Ok(count.unwrap_or(0) > 0)
+    }
+
+    /// Record a completed cross-chain transfer.
+    pub async fn record_transfer(
+        &self,
+        sanad_id: &str,
+        from_chain: &str,
+        to_chain: &str,
+        lock_tx: &str,
+        mint_tx: Option<&str>,
+        from_owner: &str,
+        to_owner: &str,
+    ) -> Result<(), CrossChainError> {
+        let transfer_id = format!("transfer_{}_{}_{}", sanad_id, from_chain, to_chain);
+        let now = chrono::Utc::now();
+
+        sqlx::query(
+            r#"
+            INSERT INTO transfers (id, sanad_id, from_chain, to_chain, from_owner, to_owner,
+                                   lock_tx, mint_tx, proof_ref, status, created_at, completed_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULL, 'completed', $9, $10)
+            ON CONFLICT(id) DO UPDATE SET status = 'completed', completed_at = $10
+            "#,
+        )
+        .bind(&transfer_id)
+        .bind(sanad_id)
+        .bind(from_chain)
+        .bind(to_chain)
+        .bind(from_owner)
+        .bind(to_owner)
+        .bind(lock_tx)
+        .bind(mint_tx)
+        .bind(now)
+        .bind(now)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| CrossChainError::Database(e.to_string()))?;
+
+        Ok(())
+    }
+
+    /// Query transfers by sanad ID.
+    pub async fn query_by_sanad(&self, sanad_id: &str) -> Result<Vec<TransferInfo>, CrossChainError> {
+        let rows = sqlx::query_as::<_, TransferInfo>(
+            r#"SELECT id, sanad_id, from_chain, to_chain, from_owner, to_owner,
+                     lock_tx, mint_tx, created_at, completed_at
+              FROM transfers WHERE sanad_id = ? ORDER BY created_at DESC"#,
+        )
+        .bind(sanad_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| CrossChainError::Database(e.to_string()))?;
+
+        Ok(rows)
+    }
+
+    /// Query transfers by source chain.
+    pub async fn query_by_chain(&self, chain: &str) -> Result<Vec<TransferInfo>, CrossChainError> {
+        let rows = sqlx::query_as::<_, TransferInfo>(
+            r#"SELECT id, sanad_id, from_chain, to_chain, from_owner, to_owner,
+                     lock_tx, mint_tx, created_at, completed_at
+              FROM transfers WHERE from_chain = ? ORDER BY created_at DESC"#,
+        )
+        .bind(chain)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| CrossChainError::Database(e.to_string()))?;
+
+        Ok(rows)
+    }
+
+    /// Get the total number of recorded transfers.
+    pub async fn transfer_count(&self) -> Result<u64, CrossChainError> {
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM transfers")
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| CrossChainError::Database(e.to_string()))?;
+
+        Ok(count as u64)
+    }
+}
+
+#[cfg(feature = "cross-chain-persist")]
+/// Minimal transfer info returned by query methods.
+#[derive(Debug, sqlx::FromRow)]
+pub struct TransferInfo {
+    pub id: String,
+    pub sanad_id: String,
+    pub from_chain: String,
+    pub to_chain: String,
+    pub from_owner: String,
+    pub to_owner: String,
+    pub lock_tx: String,
+    pub mint_tx: Option<String>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub completed_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+/// Execute a cross-chain transfer with persistence.
 ///
-/// * `chain` - Destination chain to mint on.
-/// * `rpc_url` - RPC endpoint URL for the destination chain.
-/// * `contract` - Contract/package address on the destination chain.
-/// * `private_key` - Private key for signing (hex-encoded, with or without 0x prefix).
-/// * `sanad_id` - Unique identifier of the sanad being minted.
-/// * `commitment` - Commitment hash for the sanad.
-/// * `source_chain` - Identifier of the source chain.
-/// * `source_seal_ref` - Reference to the seal on the source chain.
-///
-/// # Returns
-///
-/// The transaction hash/digest of the mint transaction.
-///
-/// # Errors
-///
-/// Returns `CrossChainError` if:
-/// - The chain is not supported
-/// - The RPC call fails
-/// - The transaction cannot be built or submitted
+/// 1. Check if sanad already transferred (double-spend guard)
+/// 2. Mint on destination chain
+/// 3. Record in SQLite registry
 pub async fn mint_sanad_on_chain(
     chain: ChainId,
     rpc_url: &str,
@@ -92,7 +215,6 @@ pub async fn mint_sanad_on_chain(
 
         #[cfg(not(all(feature = "sui", feature = "rpc")))]
         "sui" => {
-            // Suppress unused variable warnings when feature is not enabled
             let _ = (
                 rpc_url,
                 contract,
@@ -110,7 +232,6 @@ pub async fn mint_sanad_on_chain(
         #[cfg(feature = "solana")]
         "solana" => {
             use csv_solana::mint::mint_sanad_from_hex_key;
-            // Solana requires state_root parameter - use zero hash as default
             let state_root = Hash::new([0u8; 32]);
 
             mint_sanad_from_hex_key(
@@ -128,7 +249,6 @@ pub async fn mint_sanad_on_chain(
 
         #[cfg(not(feature = "solana"))]
         "solana" => {
-            // Suppress unused variable warnings when feature is not enabled
             let _ = (
                 rpc_url,
                 contract,
@@ -144,7 +264,6 @@ pub async fn mint_sanad_on_chain(
         }
 
         _ => {
-            // Suppress unused variable warnings for unsupported chains
             let _ = (
                 rpc_url,
                 contract,

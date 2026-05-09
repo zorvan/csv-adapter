@@ -420,10 +420,10 @@ mod tests {
         ProofBundle {
             transition_dag: DAGSegment::new(vec![], Hash::zero()),
             signatures: vec![],
-            seal_ref: SealPoint::new_unchecked(vec![0], Some(0)),
-            anchor_ref: CommitAnchor::new_unchecked(vec![0], 0, vec![]),
-            inclusion_proof: InclusionProof::new_unchecked(vec![], Hash::zero(), 0),
-            finality_proof: FinalityProof::new_unchecked(vec![], 0, true),
+            seal_ref: unsafe { SealPoint::new_unchecked(vec![0], Some(0)) },
+            anchor_ref: unsafe { CommitAnchor::new_unchecked(vec![0], 0, vec![]) },
+            inclusion_proof: unsafe { InclusionProof::new_unchecked(vec![], Hash::zero(), 0) },
+            finality_proof: unsafe { FinalityProof::new_unchecked(vec![], 0, true) },
         }
     }
 }

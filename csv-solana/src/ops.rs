@@ -577,19 +577,30 @@ impl ChainProofProvider for SolanaBackend {
     }
 
     fn verify_finality_proof(&self, _proof: &FinalityProof, _tx_hash: &str) -> ChainOpResult<bool> {
-        // Get current slot using sync RPC call
-        let _latest = self
-            .rpc()
-            .get_latest_slot()
-            .map_err(|e| ChainOpError::RpcError(format!("Failed to get slot: {}", e)))?;
+        #[cfg(feature = "rpc")]
+        {
+            // Get current slot using sync RPC call
+            let _latest = self
+                .rpc()
+                .get_latest_slot()
+                .map_err(|e| ChainOpError::RpcError(format!("Failed to get slot: {}", e)))?;
 
-        // Check confirmations from the proof
-        if _proof.confirmations < 32 && !_proof.is_deterministic {
-            return Ok(false);
+            // Check confirmations from the proof
+            if _proof.confirmations < 32 && !_proof.is_deterministic {
+                return Ok(false);
+            }
+
+            // Would verify finality using proof data
+            Ok(true)
         }
 
-        // Would verify finality using proof data
-        Ok(true)
+        #[cfg(not(feature = "rpc"))]
+        {
+            let _ = (_proof, _tx_hash);
+            Err(ChainOpError::FeatureNotEnabled(
+                "rpc feature required for finality proof verification".to_string(),
+            ))
+        }
     }
 
     fn domain_separator(&self) -> [u8; 32] {

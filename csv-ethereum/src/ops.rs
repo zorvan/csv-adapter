@@ -1024,7 +1024,9 @@ impl ChainProofProvider for EthereumBackend {
         #[cfg(not(feature = "rpc"))]
         {
             let _ = (proof, tx_hash);
-            Ok(true)
+            Err(ChainOpError::FeatureNotEnabled(
+                "rpc feature required for finality proof verification".to_string(),
+            ))
         }
     }
 

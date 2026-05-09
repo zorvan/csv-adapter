@@ -863,7 +863,7 @@ mod tests {
     fn test_create_offer_empty_seal_fails() {
         let result = AtomicSwapOffer::new(
             test_chain_a(),
-            SealPoint::new_unchecked(vec![], None), // empty seal ID via new_unchecked
+            unsafe { SealPoint::new_unchecked(vec![], None) }, // empty seal ID via new_unchecked
             test_chain_b(),
             make_seal(0x02, None),
             b"secret",
@@ -878,7 +878,7 @@ mod tests {
             test_chain_a(),
             make_seal(0x01, None),
             test_chain_b(),
-            SealPoint::new_unchecked(vec![], None),
+            unsafe { SealPoint::new_unchecked(vec![], None) },
             b"secret",
             100,
             200,

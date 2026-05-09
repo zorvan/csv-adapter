@@ -165,7 +165,7 @@ impl CelestiaAnchor {
 
         csv_core::seal::CommitAnchor::new(anchor_id.clone(), self.height, metadata.clone())
             .unwrap_or_else(|_| {
-                csv_core::seal::CommitAnchor::new_unchecked(anchor_id, self.height, metadata)
+                unsafe { csv_core::seal::CommitAnchor::new_unchecked(anchor_id, self.height, metadata) }
             })
     }
 

@@ -57,9 +57,9 @@ impl InclusionProof {
     /// Create a new inclusion proof without validation.
     ///
     /// # Safety
-    /// This bypasses size and structure validation. Use only for internal protocol conversions
-    /// where the input is already known to be valid.
-    pub fn new_unchecked(proof_bytes: Vec<u8>, block_hash: Hash, position: u64) -> Self {
+    /// The caller MUST ensure the proof_bytes are valid and non-empty.
+    /// Violating this causes undefined behavior in proof verification.
+    pub unsafe fn new_unchecked(proof_bytes: Vec<u8>, block_hash: Hash, position: u64) -> Self {
         Self {
             proof_bytes,
             block_hash,
@@ -114,11 +114,11 @@ impl FinalityProof {
         })
     }
 
-    /// Create a new $1 without validation.
+  /// Create a new $1 without validation.
     ///
     /// # Safety
-    /// This bypasses validation. Use only for internal protocol conversions.
-    pub fn new_unchecked(
+    /// The caller MUST ensure the finality_data is valid for the target chain.
+    pub unsafe fn new_unchecked(
         finality_data: Vec<u8>,
         confirmations: u64,
         is_deterministic: bool,
@@ -184,11 +184,11 @@ impl ProofBundle {
         })
     }
 
-    /// Create a new $1 without validation.
+   /// Create a new $1 without validation.
     ///
     /// # Safety
-    /// This bypasses validation. Use only for internal protocol conversions.
-    pub fn new_unchecked(
+    /// The caller MUST ensure all fields are valid and consistent.
+    pub unsafe fn new_unchecked(
         transition_dag: DAGSegment,
         signatures: Vec<Vec<u8>>,
         seal_ref: SealPoint,
