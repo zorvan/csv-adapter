@@ -77,7 +77,23 @@ impl LockRecord {
     pub const SIZE: usize = 32 + 32 + 32 + 1 + 32 + 1 + 32 + 32 + 1 + 32 + 8 + 1;
 }
 
-/// LockRegistry tracks all locks for refund support
+/// LockAccount stores a single lock record as a PDA
+/// This eliminates the Vec storage and O(n) lookup issues
+#[account]
+pub struct LockAccount {
+    /// The lock record data
+    pub lock: LockRecord,
+    /// PDA bump seed
+    pub bump: u8,
+}
+
+impl LockAccount {
+    /// Space required for the LockAccount
+    /// 8 (discriminator) + LockRecord::SIZE + 1 (bump)
+    pub const SIZE: usize = LockRecord::SIZE + 1;
+}
+
+/// LockRegistry tracks global lock settings (no longer stores Vec of locks)
 /// This is a singleton PDA account
 #[account]
 pub struct LockRegistry {
@@ -85,25 +101,14 @@ pub struct LockRegistry {
     pub authority: Pubkey,
     /// Refund timeout in seconds (default: 24 hours = 86400)
     pub refund_timeout: u32,
-    /// Total number of locks
+    /// Total number of locks (for statistics only)
     pub lock_count: u32,
-    /// List of all lock records
-    pub locks: Vec<LockRecord>,
     /// PDA bump seed
     pub bump: u8,
 }
 
 impl LockRegistry {
-    /// Base size without the vector
-    /// 8 (discriminator) + 32 (authority) + 4 (refund_timeout) + 4 (lock_count) + 4 (vec len) + 1 (bump)
-    pub const BASE_SIZE: usize = 32 + 4 + 4 + 4 + 1;
-    /// Maximum number of locks to prevent account bloat
-    pub const MAX_LOCKS: usize = 1000;
-    /// Fixed size for initial account creation (with empty vector)
-    pub const SIZE: usize = Self::BASE_SIZE;
-    
-    /// Calculate total size with current locks
-    pub fn size(&self) -> usize {
-        Self::BASE_SIZE + (self.locks.len() * LockRecord::SIZE)
-    }
+    /// Fixed size - no variable-length data
+    /// 8 (discriminator) + 32 (authority) + 4 (refund_timeout) + 4 (lock_count) + 1 (bump)
+    pub const SIZE: usize = 32 + 4 + 4 + 1;
 }

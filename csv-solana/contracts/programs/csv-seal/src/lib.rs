@@ -113,7 +113,7 @@ pub mod csv_seal {
     }
 
     /// Lock a Sanad for cross-chain transfer
-    /// Consumes the Sanad and records it in the LockRegistry
+    /// Consumes the Sanad and creates a LockAccount PDA for refund support
     pub fn lock_sanad(
         ctx: Context<LockSanad>,
         destination_chain: u8,
@@ -121,6 +121,7 @@ pub mod csv_seal {
     ) -> Result<()> {
         let sanad = &mut ctx.accounts.sanad_account;
         let registry = &mut ctx.accounts.registry;
+        let lock_account = &mut ctx.accounts.lock_account;
         let owner = ctx.accounts.owner.key();
 
         require!(!sanad.consumed, CsvError::AlreadyConsumed);
@@ -128,8 +129,8 @@ pub mod csv_seal {
 
         let locked_at = Clock::get()?.unix_timestamp;
 
-        // Record the lock in registry
-        let lock_record = LockRecord {
+        // Record the lock in the LockAccount PDA
+        lock_account.lock = LockRecord {
             sanad_id: sanad.sanad_id,
             commitment: sanad.commitment,
             owner,
@@ -143,8 +144,9 @@ pub mod csv_seal {
             locked_at,
             refunded: false,
         };
+        lock_account.bump = ctx.bumps.lock_account;
 
-        registry.locks.push(lock_record);
+        // Update registry statistics
         registry.lock_count += 1;
 
         sanad.locked = true;
@@ -235,37 +237,23 @@ pub mod csv_seal {
 
     /// Refund a Sanad after the lock timeout has elapsed
     /// Re-creates the SanadAccount if the lock has expired and not refunded
+    /// Closes the LockAccount PDA to reclaim rent
     pub fn refund_sanad(
         ctx: Context<RefundSanad>,
         state_root: [u8; 32],
     ) -> Result<()> {
-        let registry = &mut ctx.accounts.registry;
+        let lock_account = &ctx.accounts.lock_account;
         let sanad = &mut ctx.accounts.new_sanad_account;
         let claimant = ctx.accounts.claimant.key();
-        let sanad_id = ctx.accounts.original_sanad.sanad_id;
-
-        // Cache refund_timeout before mutable borrow
-        let refund_timeout = registry.refund_timeout;
-        
-        // Find the lock record
-        let lock_idx = registry
-            .locks
-            .iter()
-            .position(|lock| lock.sanad_id == sanad_id)
-            .ok_or(CsvError::LockNotFound)?;
-
-        let lock = &mut registry.locks[lock_idx];
+        let lock = &lock_account.lock;
 
         // Verify refund conditions
         let now = Clock::get()?.unix_timestamp;
         require!(
-            now >= lock.locked_at + refund_timeout as i64,
+            now >= lock.locked_at + ctx.accounts.registry.refund_timeout as i64,
             CsvError::RefundTimeoutNotExpired
         );
         require!(!lock.refunded, CsvError::AlreadyRefunded);
-
-        // Mark as refunded
-        lock.refunded = true;
 
         // Create new sanad account
         sanad.owner = claimant;
@@ -282,6 +270,9 @@ pub mod csv_seal {
         sanad.locked = false;
         sanad.created_at = now;
         sanad.bump = ctx.bumps.new_sanad_account;
+
+        // Update registry statistics
+        ctx.accounts.registry.lock_count -= 1;
 
         emit!(CrossChainRefund {
             sanad_id: lock.sanad_id,
@@ -451,6 +442,16 @@ pub struct LockSanad<'info> {
     )]
     pub registry: Account<'info, LockRegistry>,
     
+    /// LockAccount PDA - created during locking, seeds: [b"lock", sanad_id]
+    #[account(
+        init,
+        payer = owner,
+        space = 8 + LockAccount::SIZE,
+        seeds = [b"lock", &sanad_account.sanad_id],
+        bump
+    )]
+    pub lock_account: Account<'info, LockAccount>,
+    
     #[account(mut)]
     pub owner: Signer<'info>,
     
@@ -496,6 +497,15 @@ pub struct RefundSanad<'info> {
         bump = original_sanad.bump
     )]
     pub original_sanad: Account<'info, SanadAccount>,
+    
+    /// LockAccount PDA - closed during refund to reclaim rent, seeds: [b"lock", sanad_id]
+    #[account(
+        mut,
+        seeds = [b"lock", &original_sanad.sanad_id],
+        bump = lock_account.bump,
+        close = claimant
+    )]
+    pub lock_account: Account<'info, LockAccount>,
     
     #[account(
         init,

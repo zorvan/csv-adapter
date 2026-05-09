@@ -2,12 +2,15 @@
 
 use crate::error::{BitcoinError, BitcoinResult};
 use crate::types::BitcoinSealPoint;
+use crate::wallet::Bip86Path;
 use csv_core::hardening::{BoundedQueue, MAX_SEAL_NULLIFIER_SIZE};
 
 /// Registry for tracking used seals (prevents replay)
 pub struct SealRegistry {
     /// Set of used seal identifiers
     used_seals: std::collections::HashSet<Vec<u8>>,
+    /// Set of used derivation paths (account, change, index tuples)
+    used_paths: std::collections::HashSet<(u32, u32, u32)>,
     /// Bounded queue for rate limiting seal operations
     seal_queue: BoundedQueue<Vec<u8>>,
     /// Maximum size of the registry
@@ -24,6 +27,7 @@ impl SealRegistry {
     pub fn with_max_size(max_size: usize) -> Self {
         Self {
             used_seals: std::collections::HashSet::new(),
+            used_paths: std::collections::HashSet::new(),
             seal_queue: BoundedQueue::new(max_size),
             max_size,
         }
@@ -35,16 +39,22 @@ impl SealRegistry {
     }
 
     /// Check if a seal at a specific path has been used
-    pub fn is_seal_used_by_path(&self, path: &crate::wallet::Bip86Path) -> bool {
-        // Check if any seal with this path has been used
-        // Since path uniquely identifies a derived key, we can track by path
-        let _path_str = format!("{:?}", path);
-        self.used_seals.iter().any(|seal_bytes| {
-            // Simple heuristic: if seal bytes contain path-like data
-            // In practice, the seal's txid is derived from the key at that path
-            // so we'd need to derive the key and check
-            seal_bytes.len() > 32 // seal includes the txid which is path-dependent
-        })
+    pub fn is_seal_used_by_path(&self, path: &Bip86Path) -> bool {
+        // Check if this specific derivation path has been used
+        self.used_paths.contains(&(path.account, path.change, path.index))
+    }
+
+    /// Mark a seal as used with its derivation path
+    pub fn mark_seal_used_with_path(
+        &mut self,
+        seal: &BitcoinSealPoint,
+        path: &Bip86Path,
+    ) -> BitcoinResult<()> {
+        // First mark the seal as used
+        self.mark_seal_used(seal)?;
+        // Then track the path
+        self.used_paths.insert((path.account, path.change, path.index));
+        Ok(())
     }
 
     /// Mark a seal as used
@@ -75,6 +85,11 @@ impl SealRegistry {
     pub fn clear_seal(&mut self, seal: &BitcoinSealPoint) {
         let seal_bytes = seal.to_vec();
         self.used_seals.remove(&seal_bytes);
+    }
+
+    /// Clear a path from the used paths set (for reorg rollback)
+    pub fn clear_path(&mut self, path: &Bip86Path) {
+        self.used_paths.remove(&(path.account, path.change, path.index));
     }
 
     /// Get the current number of used seals

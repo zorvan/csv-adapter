@@ -239,9 +239,9 @@ pub fn build_proof_bundle(
     seal_id: &[u8],
     block_height: u64,
     commitment: &[u8],
+    chain_id: &str,
 ) -> String {
     let seal_point = SealPoint::new(seal_id, None);
-    let chain_id = "default";
     let built_commitment = build_commitment(seal_id, chain_id);
 
     serde_json::json!({

@@ -63,9 +63,10 @@ impl MerkleNode {
     }
 
     /// Compute the hash of an internal node from its children
+    /// Uses domain separation prefix 0x01 per RFC 6962 to prevent second-preimage attacks
     pub fn compute_internal_hash(left_hash: [u8; 32], sanad_hash: [u8; 32]) -> [u8; 32] {
-        // In Aptos, the internal hash is SHA256(left || sanad)
         let mut hasher = Sha256::new();
+        hasher.update([0x01u8]); // Domain separator for internal nodes
         hasher.update(left_hash);
         hasher.update(sanad_hash);
         hasher.finalize().into()

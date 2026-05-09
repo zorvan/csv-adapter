@@ -150,6 +150,38 @@ impl EthereumBackend {
     fn rpc(&self) -> &dyn EthereumRpc {
         self.rpc.as_ref()
     }
+
+    /// Recover sender address from transaction signature
+    #[cfg(feature = "rpc")]
+    async fn recover_sender(
+        &self,
+        signature: &secp256k1::Signature,
+        tx: &alloy::consensus::TxLegacy,
+        chain_id: u64,
+    ) -> ChainOpResult<[u8; 20]> {
+        use alloy_primitives::keccak256;
+        use secp256k1::Message;
+
+        // Build the transaction hash for signing (RLP encode with chain ID)
+        let tx_hash = keccak256(alloy::consensus::SignableTransaction::signature_hash(tx).as_slice());
+
+        // Create message from hash
+        let message = Message::from_digest(tx_hash.into());
+
+        // Recover public key
+        let secp = secp256k1::Secp256k1::new();
+        let public_key = secp
+            .recover_ecdsa(&message, signature)
+            .map_err(|e| ChainOpError::InvalidInput(format!("Signature recovery failed: {}", e)))?;
+
+        // Convert public key to address (keccak256 hash of pubkey, last 20 bytes)
+        let pubkey_bytes = public_key.serialize_uncompressed();
+        let hash = keccak256(&pubkey_bytes[1..]); // Skip 0x04 prefix
+        let mut address = [0u8; 20];
+        address.copy_from_slice(&hash[12..]);
+
+        Ok(address)
+    }
 }
 
 #[async_trait]
@@ -539,12 +571,114 @@ impl ChainBroadcaster for EthereumBackend {
             ));
         }
 
-        // Would need to:
-        // 1. RLP decode the transaction
-        // 2. Check nonce is valid for sender
-        // 3. Check gas price >= minimum
-        // 4. Check gas limit is reasonable
-        // 5. Check sender has sufficient balance
+        #[cfg(feature = "rpc")]
+        {
+            use alloy_primitives::{Address, U256};
+            use alloy_rlp::Decodable;
+            use secp256k1::{Message, RecoveryId, Signature};
+
+            // Decode the transaction using alloy's RLP decoder
+            let tx: alloy::consensus::TxLegacy = match Decodable::decode(&mut &tx_data[..]) {
+                Ok(tx) => tx,
+                Err(e) => {
+                    return Err(ChainOpError::InvalidInput(format!(
+                        "Failed to RLP decode transaction: {}",
+                        e
+                    )))
+                }
+            };
+
+            // Extract transaction fields
+            let nonce = tx.nonce;
+            let gas_price = tx.gas_price;
+            let gas_limit = tx.gas_limit;
+            let value = tx.value;
+
+            // Recover sender address from signature
+            let sig_bytes = tx_data; // Use full data for recovery
+            let chain_id = tx.chain_id.unwrap_or(1);
+
+            // Verify signature and recover sender
+            let recovery_id = RecoveryId::from_i32(
+                (tx.signature.v() - chain_id as u64 * 2 - 35) as i32
+            ).map_err(|e| ChainOpError::InvalidInput(format!("Invalid recovery ID: {}", e)))?;
+
+            let signature = Signature::from_compact(&tx.signature.r().to_be_bytes::<32>()
+                .into_iter()
+                .chain(tx.signature.s().to_be_bytes::<32>().into_iter())
+                .collect::<Vec<_>>(), recovery_id)
+                .map_err(|e| ChainOpError::InvalidInput(format!("Invalid signature: {}", e)))?;
+
+            // Get sender address from RPC
+            let sender = match self.recover_sender(&signature, &tx, chain_id).await {
+                Ok(addr) => addr,
+                Err(e) => return Err(ChainOpError::InvalidInput(format!(
+                    "Failed to recover sender: {}",
+                    e
+                ))),
+            };
+
+            // 1. Check nonce is valid for sender
+            let sender_nonce = self
+                .rpc()
+                .get_transaction_count(&format!("0x{}", hex::encode(sender)))
+                .await
+                .map_err(|e| ChainOpError::RpcError(format!("Failed to get nonce: {}", e)))?;
+
+            if nonce != sender_nonce {
+                return Err(ChainOpError::InvalidInput(format!(
+                    "Invalid nonce: expected {}, got {}",
+                    sender_nonce, nonce
+                )));
+            }
+
+            // 2. Check gas price >= minimum
+            let min_gas_price = self
+                .rpc()
+                .get_gas_price()
+                .await
+                .map_err(|e| ChainOpError::RpcError(format!("Failed to get gas price: {}", e)))?;
+
+            if gas_price < min_gas_price {
+                return Err(ChainOpError::InvalidInput(format!(
+                    "Gas price too low: {} < minimum {}",
+                    gas_price, min_gas_price
+                )));
+            }
+
+            // 3. Check gas limit is reasonable (not exceeding block gas limit)
+            let block_gas_limit = 30_000_000u64; // Mainnet block gas limit
+            if gas_limit > block_gas_limit {
+                return Err(ChainOpError::InvalidInput(format!(
+                    "Gas limit exceeds block limit: {} > {}",
+                    gas_limit, block_gas_limit
+                )));
+            }
+
+            // 4. Check sender has sufficient balance
+            let sender_balance = self
+                .rpc()
+                .get_balance(&format!("0x{}", hex::encode(sender)))
+                .await
+                .map_err(|e| ChainOpError::RpcError(format!("Failed to get balance: {}", e)))?;
+
+            let required_balance = U256::from(gas_price) * U256::from(gas_limit) + value;
+            if sender_balance < required_balance {
+                return Err(ChainOpError::InvalidInput(format!(
+                    "Insufficient balance: {} < required {}",
+                    sender_balance, required_balance
+                )));
+            }
+        }
+
+        #[cfg(not(feature = "rpc"))]
+        {
+            // Without RPC, we can only do basic structure validation
+            // Transaction validation requires chain state access
+            return Err(ChainOpError::FeatureNotEnabled(
+                "rpc feature required for full transaction validation".to_string(),
+            ));
+        }
 
         Ok(())
     }
@@ -712,7 +846,9 @@ impl ChainProofProvider for EthereumBackend {
         #[cfg(not(feature = "rpc"))]
         {
             let _ = (proof, commitment);
-            Ok(true)
+            Err(ChainOpError::FeatureNotEnabled(
+                "rpc feature required for proof verification".to_string(),
+            ))
         }
     }
 

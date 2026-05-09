@@ -165,10 +165,19 @@ module csv_seal::CSVSeal {
     /// * `from` - Current seal owner
     /// * `to` - Recipient address
     ///
+    /// # Deprecation Warning
+    /// This function is DEPRECATED and will be removed in a future version.
+    /// It allows transferring seals to any address without recipient consent,
+    /// which can be used to spam accounts or bypass security policies.
+    /// 
+    /// Use the V2 module's `initiate_transfer` / `accept_transfer` pattern instead,
+    /// which requires recipient approval for all transfers.
+    ///
     /// # Note
     /// This function moves the Seal resource from `from` to `to`.
     /// In Aptos, resources can only be moved, not copied, ensuring
     /// single-use semantics are preserved.
+    #[deprecated]
     #[cmd]
     public entry fun transfer_seal(from: &signer, to: address) {
         let from_addr = signer::address_of(from);

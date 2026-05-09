@@ -184,12 +184,20 @@ impl CommitAnchor {
     /// Create a new CommitAnchor without validation.
     ///
     /// # Safety
-    /// This bypasses validation. Use only for internal protocol conversions.
-    ///
-    /// # Safety
-    /// This bypasses size validation and should only be used when
-    /// the input is already known to be valid.
+    /// This bypasses validation and should only be used when
+    /// the input is already known to be valid. Debug assertions
+    /// will catch size violations in debug builds.
     pub fn new_unchecked(anchor_id: Vec<u8>, block_height: u64, metadata: Vec<u8>) -> Self {
+        // Debug assertions to catch issues during development
+        debug_assert!(!anchor_id.is_empty(), "anchor_id cannot be empty");
+        debug_assert!(
+            anchor_id.len() <= MAX_ANCHOR_ID_SIZE,
+            "anchor_id exceeds maximum allowed size (1KB)"
+        );
+        debug_assert!(
+            metadata.len() <= MAX_ANCHOR_METADATA_SIZE,
+            "metadata exceeds maximum allowed size (4KB)"
+        );
         Self {
             anchor_id,
             block_height,

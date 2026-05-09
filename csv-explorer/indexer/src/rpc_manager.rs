@@ -330,16 +330,105 @@ impl RpcManager {
     }
 
     /// Try endpoints in priority order, applying retry with the next one on failure.
-    /// Returns `(url, client)` for the first healthy endpoint.
+    /// Returns `(url, client)` for the first healthy endpoint that responds within timeout.
+    /// Sends a minimal JSON-RPC call to verify endpoint health.
     pub async fn get_healthy_endpoint(&self, chain_id: &str) -> Option<(String, reqwest::Client)> {
         for endpoint in self.get_all_endpoints(chain_id) {
+            if endpoint.url.is_empty() {
+                continue;
+            }
+            
             let client = build_http_client(&endpoint);
-            // Simple health: endpoint URL must be non-empty
-            if !endpoint.url.is_empty() {
+            
+            // Send health check request with 2 second timeout
+            let health_check = match endpoint.endpoint_type {
+                RpcType::Http => {
+                    // Send minimal JSON-RPC request based on chain type
+                    let payload = Self::health_check_payload(chain_id);
+                    let timeout_duration = Duration::from_secs(2);
+                    
+                    match tokio::time::timeout(
+                        timeout_duration,
+                        client.post(&endpoint.url)
+                            .header("Content-Type", "application/json")
+                            .body(payload)
+                            .send()
+                    ).await {
+                        Ok(Ok(response)) => response.status().is_success(),
+                        _ => false,
+                    }
+                }
+                RpcType::Wss => {
+                    // For WebSocket, just verify URL is valid (full check would need ws client)
+                    true
+                }
+            };
+            
+            if health_check {
                 return Some((endpoint.url, client));
             }
         }
         None
+    }
+    
+    /// Generate appropriate health check payload for each chain type
+    fn health_check_payload(chain_id: &str) -> String {
+        match chain_id {
+            "ethereum" | "sepolia" | "holesky" => {
+                // eth_blockNumber
+                serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "method": "eth_blockNumber",
+                    "params": [],
+                    "id": 1
+                }).to_string()
+            }
+            "solana" | "solana-devnet" => {
+                // getSlot
+                serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "method": "getSlot",
+                    "params": [],
+                    "id": 1
+                }).to_string()
+            }
+            "bitcoin" => {
+                // getblockcount
+                serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "method": "getblockcount",
+                    "params": [],
+                    "id": 1
+                }).to_string()
+            }
+            "aptos" => {
+                // Get latest ledger version
+                serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "method": "get_ledger_info",
+                    "params": [],
+                    "id": 1
+                }).to_string()
+            }
+            "sui" => {
+                // Get latest checkpoint
+                serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "method": "sui_getLatestCheckpointSequenceNumber",
+                    "params": [],
+                    "id": 1
+                }).to_string()
+            }
+            _ => {
+                // Generic health check
+                serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "method": "health",
+                    "params": [],
+                    "id": 1
+                }).to_string()
+            }
+        }
     }
 }
 

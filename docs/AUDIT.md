@@ -1,4 +1,5 @@
 # CSV Protocol — AI Agent Developer Masterplan
+
 **Version**: 0.5.0-dev  
 **Analyzed codebase**: v0.4.0  
 **Last updated**: 2026-05-09  
@@ -13,6 +14,7 @@ A *seal* is a one-time cryptographic commitment anchor on any supported chain.
 A *Sanad* is the cross-chain transferable asset whose state is validated client-side.
 
 ### Supported chains
+
 | Chain | Contract | Status |
 |---|---|---|
 | Bitcoin | Tapret/OP_RETURN | ✅ Working |
@@ -23,6 +25,7 @@ A *Sanad* is the cross-chain transferable asset whose state is validated client-
 | Celestia | DA blob layer | ✅ Working |
 
 ### Ultimate roadmap goals
+
 1. **Atomic Seal Swap** — cross-chain swap without escrow
 2. **ZK Seal Consumption** — Pedersen commitments + stealth addresses
 3. **IoT STARK streams** — batch verify 1,000+ sensor readings via STARK
@@ -53,6 +56,7 @@ csv-adapter/
 ```
 
 ### Core trait hierarchy (csv-core)
+
 ```
 ChainBackend
   ├── ChainOps (lock_seal, consume_seal, get_seal_status)
@@ -75,15 +79,15 @@ Every chain adapter (`csv-bitcoin`, `csv-ethereum`, etc.) implements this trait 
 | Aptos Move V2 contract | ✅ Complete | Cross-chain events, safe 2-phase transfer |
 | Solana Anchor program | ✅ Complete | PDA-based, LockRegistry with refund timeout |
 | Bitcoin Tapret encoding | ✅ Complete | BIP341, SPV proof, signet demo |
-| Ethereum EVM contracts | ✅ Complete | CSVLock.sol / CSVMint.sol deployed on Sepolia |
-| Sui Move contract | ✅ Complete | Object-based seals |
+| Ethereum EVM contracts | ✅ Complete | CSVLock.sol / CSVMint.sol deployed on Sepolia (reference instance) |
+| Sui Move contract | ✅ Complete | Object-based seals (reference instance deployed) |
 | Cross-chain state machine | ✅ Complete | TransferState enum, 7 states |
 | Merkle proofs (all chains) | ✅ Complete | Bitcoin Merkle, Ethereum MPT, Aptos accumulator |
 | ML-DSA-65 WASM bindings | ✅ Complete | pqcrypto-dilithium, keygen/sign/verify |
 | BIP39/BIP44 key derivation | ✅ Complete | csv-keys |
 | Explorer API (REST + GraphQL + WS) | ✅ Complete | axum-based |
-| Ethereum contract **deployment** | ❌ Stub | Returns `CapabilityUnavailable` |
-| Sui package deployment | ❌ Stub | `execute_with_client` errors; BCS TX builder missing |
+| Ethereum contract **deployment** (SDK) | ❌ Stub | `deploy_lock_contract` returns `CapabilityUnavailable` |
+| Sui package deployment (SDK) | ❌ Stub | `execute_with_client` errors; BCS TX builder missing |
 | ZK Pedersen commitments | ❌ Not started | File exists, no implementation |
 | ZK Stealth addresses | ❌ Not started | Planned in csv-core/zk_proof.rs |
 | STARK IoT batch verification | ❌ Not started | No code |
@@ -100,11 +104,13 @@ Every chain adapter (`csv-bitcoin`, `csv-ethereum`, etc.) implements this trait 
 #### CRITICAL
 
 **SV-01: Unconditional proof acceptance in non-RPC builds**
+
 - **File**: `csv-ethereum/src/backend.rs` → `verify_inclusion_proof`
 - **Code**: `#[cfg(not(feature = "rpc"))] { Ok(true) }` — no-feature build accepts any proof
 - **Fix**: Return `Err(ChainOpError::FeatureRequired("rpc"))` instead of `Ok(true)` when proof verification infrastructure is unavailable
 
 **SV-02: `validate_transaction` is a no-op**
+
 - **File**: `csv-ethereum/src/backend.rs` → `validate_transaction`
 - **Code**: Returns `Ok(())` after a comment listing 5 validations that are not implemented
 - **Fix**: Implement full validation: RLP decode, nonce check, gas price ≥ min, sender balance ≥ gas × price + value
@@ -112,16 +118,19 @@ Every chain adapter (`csv-bitcoin`, `csv-ethereum`, etc.) implements this trait 
 #### HIGH
 
 **SV-03: `is_seal_used_by_path` is semantically wrong**
+
 - **File**: `csv-bitcoin/src/seal.rs` → `is_seal_used_by_path`
 - **Code**: Returns `any(|seal_bytes| seal_bytes.len() > 32)` — checks byte length, not path
 - **Fix**: Derive the key at `path`, compute the expected txid from it, then check `used_seals.contains(txid)`
 
 **SV-04: Hardcoded `"default"` chain_id in WASM commitment**
+
 - **File**: `typescript-sdk/wasm/src/lib.rs` → `build_commitment`, `build_proof_bundle`
 - **Code**: `let chain_id = "default";` — produces identical commitments for different chains
 - **Fix**: Remove the internal default; require caller to pass chain_id; `build_proof_bundle` must accept `chain_id: &str` parameter
 
 **SV-05: Solana LockRegistry unbounded growth + linear scan**
+
 - **File**: `csv-solana/contracts/programs/csv-seal/src/state.rs` → `LockRegistry`
 - **Code**: `Vec<LockRecord>` stored inline; cap is 1000 but the `SIZE` constant = `BASE_SIZE` (no space for actual records)
 - **Fix**: Replace with a separate PDA per lock (use `sanad_id` as seed); remove `locks: Vec<LockRecord>` from the registry account
@@ -129,15 +138,18 @@ Every chain adapter (`csv-bitcoin`, `csv-ethereum`, etc.) implements this trait 
 #### MEDIUM
 
 **SV-06: RPC endpoint health check is URL-string-only**
+
 - **File**: `csv-explorer/indexer/src/rpc_manager.rs` → `get_healthy_endpoint`
 - **Code**: `if !endpoint.url.is_empty()` — no HTTP ping, no latency check
 - **Fix**: Send `GET /health` or a minimal JSON-RPC call; skip endpoints that time out > 2s
 
 **SV-07: `CommitAnchor::new_unchecked` skips size validation**
+
 - **File**: `csv-core/src/seal.rs`
 - **Fix**: Add an `unsafe` block with a debug-assert on anchor_id size, or deprecate the method; callers in `tapret_verify.rs` and `ops.rs` should use `new()` with proper error propagation
 
 **SV-08: Merkle tree lacks domain separation**
+
 - **File**: `csv-aptos/src/merkle.rs` → `compute_internal_hash`
 - **Code**: `SHA256(left || right)` — vulnerable to second-preimage if attacker controls leaf content
 - **Fix**: Prefix leaf hashes with `0x00` and internal nodes with `0x01` (RFC 6962 style)
@@ -145,6 +157,7 @@ Every chain adapter (`csv-bitcoin`, `csv-ethereum`, etc.) implements this trait 
 #### LOW
 
 **SV-09: Aptos V1 `transfer_seal` takes `address` not `signer`**
+
 - **File**: `csv-aptos/contracts/csv_seal.move` (V1 module) → `transfer_seal`
 - **Code**: `move_to(&to, seal_res)` where `to: address` — bypasses recipient consent
 - **Status**: V2 has the correct 2-phase `initiate_transfer` / `accept_transfer` pattern
@@ -205,23 +218,28 @@ Tasks are ordered: fix critical bugs first, then implement missing protocol feat
 ### Phase 1 — Critical Bug Fixes (do first, in this order)
 
 #### Task 1.1 — Fix unconditional proof acceptance (SV-01)
+
 **Crate**: `csv-ethereum`  
 **File**: `src/backend.rs`  
 **Action**:
+
 ```rust
 // Replace:
 #[cfg(not(feature = "rpc"))]
 { let _ = (proof, commitment); Ok(true) }
 // With:
 #[cfg(not(feature = "rpc"))]
-{ Err(ChainOpError::FeatureRequired("rpc feature required for proof verification".to_string())) }
+{ Err(ChainOpError::FeatureRequired("rpc".to_string())) }
 ```
+
 Apply same pattern to all other chain backends containing `Ok(true)` stubs in `verify_inclusion_proof`.
 
 #### Task 1.2 — Implement Ethereum transaction validation (SV-02)
+
 **Crate**: `csv-ethereum`  
 **File**: `src/backend.rs` → `validate_transaction`  
 **Action**: Add dependency `rlp = "0.5"`. RLP-decode the tx bytes. Validate:
+
 1. `nonce >= sender_nonce` (fetch from RPC)
 2. `gas_price >= min_gas_price` (fetch from RPC `eth_gasPrice`)
 3. `gas_limit <= block_gas_limit`
@@ -230,23 +248,28 @@ Apply same pattern to all other chain backends containing `Ok(true)` stubs in `v
 Return `Err(ChainOpError::InvalidInput(...))` on any failure.
 
 #### Task 1.3 — Fix Bitcoin path-based seal tracking (SV-03)
+
 **Crate**: `csv-bitcoin`  
 **File**: `src/seal.rs` → `is_seal_used_by_path`  
 **Action**: Derive the BIP86 key at `path`, construct the P2TR address, look up whether any used seal in `used_seals` was funded by that address. Remove the `len() > 32` heuristic entirely.
 
 #### Task 1.4 — Fix WASM commitment chain_id (SV-04)
+
 **Crate**: `typescript-sdk/wasm`  
 **File**: `src/lib.rs`  
-**Action**: Change `build_proof_bundle(seal_id, block_height, commitment)` → `build_proof_bundle(seal_id, block_height, commitment, chain_id)`. Pass `chain_id` to `build_commitment`. Update TypeScript bindings in `typescript-sdk/src/proof.ts`.
+**Action**: Change `build_proof_bundle(seal_id, block_height, commitment)` → `build_proof_bundle(seal_id: &[u8], block_height: u64, commitment: &[u8], chain_id: &str)`. Pass `chain_id` to `build_commitment`. Update TypeScript bindings in `typescript-sdk/src/proof.ts`.
 
 #### Task 1.5 — Fix Merkle domain separation (SV-08)
+
 **Crate**: `csv-aptos`  
 **File**: `src/merkle.rs`  
 **Action**:
+
 ```rust
 // Leaf hash: SHA256(0x00 || data)
 // Internal hash: SHA256(0x01 || left || right)
 ```
+
 Update `Leaf::hash` computation and `MerkleNode::compute_internal_hash`. Update all test vectors.
 
 ---
@@ -254,18 +277,22 @@ Update `Leaf::hash` computation and `MerkleNode::compute_internal_hash`. Update 
 ### Phase 2 — Structural Fixes
 
 #### Task 2.1 — Persist SealRegistry to storage
+
 **Crate**: `csv-bitcoin`  
 **Files**: `src/seal.rs`, `src/backend.rs`  
 **Action**:
+
 1. Add `sled` or `rusqlite` as optional dependency under `feature = "persist"`
 2. On `mark_seal_used`: write `(seal_vec, timestamp)` to the DB
 3. On `SealRegistry::new`: load existing entries from DB into `used_seals`
 4. Test: seal survives process restart
 
 #### Task 2.2 — Replace Solana LockRegistry Vec with per-lock PDAs
+
 **Crate**: `csv-solana`  
 **Files**: `contracts/programs/csv-seal/src/state.rs`, `instructions.rs`  
 **Action**:
+
 1. Define `#[account] struct LockAccount { ... }` with seeds `[b"lock", sanad_id]`
 2. Remove `locks: Vec<LockRecord>` from `LockRegistry`; keep only `authority`, `lock_count`, `refund_timeout`, `bump`
 3. Update `lock_sanad` instruction: init a `LockAccount` PDA
@@ -273,9 +300,11 @@ Update `Leaf::hash` computation and `MerkleNode::compute_internal_hash`. Update 
 5. Remove `MAX_LOCKS = 1000` constant
 
 #### Task 2.3 — Implement Ethereum contract deployment
+
 **Crate**: `csv-ethereum`  
 **File**: `src/backend.rs` → `deploy_lock_contract`, `deploy_mint_contract`  
 **Action**:
+
 1. Include compiled bytecode via `include_bytes!("../contracts/out/CSVLock.sol/CSVLock.json")`
 2. Extract `bytecode.object` field
 3. Build deployment calldata: `bytecode || abi.encode(constructor_args)`
@@ -283,23 +312,28 @@ Update `Leaf::hash` computation and `MerkleNode::compute_internal_hash`. Update 
 5. Poll for receipt; return deployed address
 
 #### Task 2.4 — Implement Sui package deployment
+
 **Crate**: `csv-sui`  
 **File**: `src/deploy.rs`  
 **Action**:
+
 1. Use `sui_sdk::TransactionBuilder` (feature-gate with `sui-sdk-deploy`)
 2. Implement `build_publish_transaction_data` using proper BCS encoding via `bcs::to_bytes`
 3. Implement `execute_with_client` using `sui_sdk::SuiClient::quorum_driver_api().execute_transaction_block`
 4. Test against Sui devnet
 
 #### Task 2.5 — Implement desktop filesystem keystore
+
 **Crate**: `csv-wallet`  
 **File**: `src/core/key_manager.rs` → `#[cfg(not(target_arch = "wasm32"))]` block  
 **Action**:
+
 1. Use `csv-keys/src/file_keystore.rs`
 2. Store to `~/.csv/keys/{chain}/{keystore_id}.enc` using AES-256-GCM
 3. Derive encryption key from passphrase via Argon2id (already a dependency)
 
 #### Task 2.6 — Fix RPC health check
+
 **Crate**: `csv-explorer`  
 **File**: `indexer/src/rpc_manager.rs` → `get_healthy_endpoint`  
 **Action**: Send a minimal JSON-RPC call (e.g. `eth_blockNumber`, `getSlot`) with `timeout(2s)`. Skip and try next endpoint on failure. Cache healthy endpoint for 30 seconds.
@@ -309,26 +343,32 @@ Update `Leaf::hash` computation and `MerkleNode::compute_internal_hash`. Update 
 ### Phase 3 — Missing Protocol Features
 
 #### Task 3.1 — Implement Atomic Seal Swap
+
 **Crate**: `csv-core`  
 **File**: `src/cross_chain.rs`  
 **Design**: Hash Time Locked Seal Exchange (HTLSE) — escrow-free variant:
+
 ```
 Alice (Chain A) locks Seal_A with H(secret)
 Bob (Chain B) locks Seal_B with H(secret)
 Alice reveals secret → consumes Seal_B on Chain B
 Bob reads secret from on-chain event → consumes Seal_A on Chain A
 ```
+
 **Action**:
+
 1. Add `AtomicSwapOffer { seal_a, seal_b, hash_lock: [u8;32], timeout_blocks: u64 }` to `cross_chain.rs`
 2. Add `initiate_swap` / `complete_swap` / `refund_swap` to each chain contract
 3. Add swap coordination logic to `csv-sdk/src/cross_chain.rs`
 4. Bitcoin: encode hash-lock in Tapscript leaf; Ethereum: add to CSVLock.sol; Solana: new instruction; Aptos: new entry fun; Sui: new Move function
 
 #### Task 3.2 — ZK Seal Consumption: Pedersen Commitments
+
 **Crate**: `csv-core`  
 **File**: `src/zk_proof.rs` (currently a skeleton)  
 **Dependencies**: Add `bulletproofs = "4"` and `curve25519-dalek = "4"` to `csv-core/Cargo.toml`  
 **Action**:
+
 1. Implement `PedersenCommitment::commit(value: u64, blinding: Scalar) -> CompressedRistretto`
 2. Implement `PedersenCommitment::verify(commitment, value, blinding) -> bool`
 3. Wrap into `ZkSealProof::Pedersen { commitment, range_proof: RangeProof }`
@@ -336,9 +376,11 @@ Bob reads secret from on-chain event → consumes Seal_A on Chain A
 5. Wire to wallet ZK proof pages (`csv-wallet/src/pages/zk_proofs/`)
 
 #### Task 3.3 — ZK Seal Consumption: Stealth Addresses
+
 **Crate**: `csv-core`  
 **File**: `src/zk_proof.rs`  
 **Action**:
+
 1. Implement dual-key stealth address scheme: `(scan_key, spend_key)` → ephemeral address
 2. `StealthAddress::generate(recipient_scan_pk, recipient_spend_pk) -> (ephemeral_pk, stealth_addr)`
 3. `StealthAddress::scan(scan_sk, ephemeral_pk) -> Option<stealth_addr>`
@@ -346,9 +388,11 @@ Bob reads secret from on-chain event → consumes Seal_A on Chain A
 5. Add stealth scanning loop to `csv-wallet/src/seals/monitor.rs`
 
 #### Task 3.4 — STARK Batch Verification for IoT Streams
+
 **Crate**: Create new `csv-stark` crate  
 **Dependencies**: `winterfell = "0.9"` (STARK prover) or `stone-prover` FFI bindings  
 **Action**:
+
 1. Define `IoTReading { device_id: [u8;32], value: u64, timestamp: u64, signature: [u8;64] }`
 2. Implement `IoTBatchProver::prove(readings: &[IoTReading]) -> StarkProof`
    - AIR (Algebraic Intermediate Representation): enforce `sig_valid(device_id, value || timestamp)`
@@ -358,10 +402,12 @@ Bob reads secret from on-chain event → consumes Seal_A on Chain A
 5. Wire to Celestia DA layer (`csv-celestia`) for proof posting
 
 #### Task 3.5 — P2P Proof Delivery via Nostr
+
 **Crate**: `csv-p2p`  
 **File**: `src/nostr.rs`, `src/proof_delivery.rs`  
 **Dependencies**: `nostr-sdk = "0.29"`  
 **Action**:
+
 1. Implement `NostrProofRelayer::publish(proof: &ProofBundle, recipient_pubkey: XOnlyPublicKey)`
    - Encrypt proof bytes with NIP-04 or NIP-44
    - Post as Nostr event kind 4 (DM) or custom kind 30078
@@ -374,9 +420,11 @@ Bob reads secret from on-chain event → consumes Seal_A on Chain A
 ### Phase 4 — Scalability & Performance
 
 #### Task 4.1 — Proof batching API
+
 **Crate**: `csv-core`  
 **File**: `src/backend.rs`  
 **Action**: Add to `ChainProofProvider`:
+
 ```rust
 async fn build_batch_proofs(
     &self,
@@ -390,30 +438,37 @@ fn verify_batch_proofs(
     commitments: &[Hash],
 ) -> ChainOpResult<bool>;
 ```
+
 Implement using Merkle aggregation: build a Merkle tree over the commitments, post the root on-chain, include per-leaf paths in `BatchProofBundle`.
 
 #### Task 4.2 — Explorer SQLite optimizations
+
 **Crate**: `csv-explorer/storage`  
 **File**: `src/schema.sql`  
 **Action**:
+
 1. Add `PRAGMA journal_mode=WAL;` to `db.rs` on connection open
 2. Add composite indexes: `CREATE INDEX idx_seals_chain_status ON seals(chain, status);`
 3. Add pagination cursor (keyset-based, not offset-based): replace `OFFSET ?` with `WHERE id > ?`
 4. Add `chain_id` column to all tables; add filtered queries per chain
 
 #### Task 4.3 — Cross-chain registry persistence
+
 **Crate**: `csv-sdk`  
 **File**: `src/cross_chain.rs`  
 **Action**:
+
 1. Add `CrossChainRegistry` struct backed by SQLite (reuse `csv-explorer/storage`)
 2. On `complete_transfer`: write `CrossChainRegistryEntry` to DB
 3. On startup: load entries from DB
 4. Expose `query_transfer_by_sanad_id` and `query_transfers_by_chain` methods
 
 #### Task 4.4 — Rate limiting and anti-DoS
+
 **Crate**: `csv-core`  
 **File**: `src/hardening.rs`  
 **Action**:
+
 1. Add `SealRateLimiter { per_address: HashMap<Vec<u8>, TokenBucket> }`
 2. Enforce max 10 seal creations per address per minute using token bucket algorithm
 3. Wire to all chain backends' `create_seal` implementations
@@ -446,6 +501,7 @@ Each task above must include tests. Required test coverage per task type:
 | Cryptographic primitive | Known-answer test (KAT) vectors + property-based test |
 
 ### How to run tests
+
 ```bash
 # All workspace tests (excluding integration)
 cargo test --workspace
@@ -476,6 +532,7 @@ cargo bench -p csv-core
 ## 8. File Creation Checklist for New Chain Adapter
 
 When adding a new chain (e.g., TON, StarkNet), create these files:
+
 ```
 csv-{chain}/
 ├── Cargo.toml          # dependencies, features: ["rpc", "persist"]
@@ -496,6 +553,7 @@ csv-{chain}/
     ├── error.rs        # ChainError enum, ChainResult<T>
     └── deploy.rs       # contract deployment logic
 ```
+
 Register the adapter in `csv-core/src/driver_registry.rs` and `csv-sdk/src/config.rs`.
 
 ---
