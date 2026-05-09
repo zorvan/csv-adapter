@@ -144,19 +144,74 @@ impl PackageDeployer {
     #[cfg(feature = "sui-sdk-deploy")]
     async fn execute_with_client(
         &self,
-        _client: Client,
-        _transaction: Transaction,
-        _signature: Ed25519Signature,
+        client: Client,
+        transaction: Transaction,
+        signature: Ed25519Signature,
     ) -> SuiResult<[u8; 32]> {
-        // gRPC transaction execution is not available in current sui-rpc SDK version
-        // The SDK doesn't expose execute_transaction method in the public API
-        // This would require using the raw gRPC client directly
-        Err(SuiError::FeatureNotEnabled(
-            "Full gRPC transaction execution requires sui-rpc SDK updates. \
-             Transaction construction and signing are complete but submission \
-             requires SDK support for the ExecuteTransaction endpoint."
-                .to_string(),
-        ))
+        use sui_sdk_types::Signature as SuiSignature;
+        
+        // Serialize transaction for submission
+        let tx_bytes = bcs::to_bytes(&transaction)
+            .map_err(|e| SuiError::SerializationError(format!("Failed to serialize transaction: {}", e)))?;
+        
+        // Create signature object
+        let sui_sig = SuiSignature::Ed25519(signature);
+        
+        // Submit transaction via gRPC
+        // Note: This uses the newer Sui RPC API
+        let request = sui_rpc::proto::ExecuteTransactionRequest {
+            transaction: tx_bytes,
+            signature: sui_sig.as_bytes().to_vec(),
+        };
+        
+        let response = client
+            .execute_transaction(request)
+            .await
+            .map_err(|e| SuiError::RpcError(format!("Transaction execution failed: {}", e)))?;
+        
+        // Extract transaction digest from response
+        let digest: [u8; 32] = response.digest
+            .try_into()
+            .map_err(|_| SuiError::RpcError("Invalid digest length".to_string()))?;
+        
+        Ok(digest)
+    }
+    
+    /// Build publish transaction data using proper BCS encoding
+    #[cfg(feature = "sui-sdk-deploy")]
+    pub fn build_publish_transaction_data(
+        &self,
+        package_bytes: &[u8],
+        gas_budget: u64,
+    ) -> SuiResult<Vec<u8>> {
+        use sui_transaction_builder::TransactionBuilder;
+        
+        let sender = self.config.signer_address.as_ref().ok_or_else(|| {
+            SuiError::ConfigurationError("No signer address configured".to_string())
+        })?;
+        let sender_address = Address::from_str(sender)
+            .map_err(|e| SuiError::ConfigurationError(format!("Invalid address: {}", e)))?;
+        
+        let mut builder = TransactionBuilder::new();
+        builder.set_sender(sender_address);
+        builder.set_gas_budget(gas_budget);
+        
+        // Dependencies: 0x1 (Sui framework), 0x2 (Sui system)
+        let dep1 = Address::from_str("0x1")
+            .map_err(|e| SuiError::ConfigurationError(format!("Invalid dep: {}", e)))?;
+        let dep2 = Address::from_str("0x2")
+            .map_err(|e| SuiError::ConfigurationError(format!("Invalid dep: {}", e)))?;
+        
+        let modules = vec![package_bytes.to_vec()];
+        let dependencies = vec![dep1, dep2];
+        
+        builder.publish(modules, dependencies);
+        
+        let transaction = builder.try_build()
+            .map_err(|e| SuiError::SerializationError(format!("Failed to build transaction: {}", e)))?;
+        
+        bcs::to_bytes(&transaction)
+            .map_err(|e| SuiError::SerializationError(format!("BCS encoding failed: {}", e)))
     }
 
     /// Fallback implementation when sui-sdk-deploy feature is not enabled

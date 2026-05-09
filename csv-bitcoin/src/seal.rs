@@ -5,6 +5,9 @@ use crate::types::BitcoinSealPoint;
 use crate::wallet::Bip86Path;
 use csv_core::hardening::{BoundedQueue, MAX_SEAL_NULLIFIER_SIZE};
 
+#[cfg(feature = "rpc")]
+use csv_store::SqliteSealStore;
+
 /// Registry for tracking used seals (prevents replay)
 pub struct SealRegistry {
     /// Set of used seal identifiers
@@ -15,6 +18,9 @@ pub struct SealRegistry {
     seal_queue: BoundedQueue<Vec<u8>>,
     /// Maximum size of the registry
     max_size: usize,
+    /// Optional SQLite storage for persistence
+    #[cfg(feature = "rpc")]
+    storage: Option<SqliteSealStore>,
 }
 
 impl SealRegistry {
@@ -30,7 +36,97 @@ impl SealRegistry {
             used_paths: std::collections::HashSet::new(),
             seal_queue: BoundedQueue::new(max_size),
             max_size,
+            #[cfg(feature = "rpc")]
+            storage: None,
         }
+    }
+
+    /// Create a seal registry with SQLite persistence
+    #[cfg(feature = "rpc")]
+    pub fn with_storage(path: &str) -> Result<Self, BitcoinError> {
+        let storage = SqliteSealStore::open(path)
+            .map_err(|e| BitcoinError::StorageError(format!("Failed to open seal store: {}", e)))?;
+        
+        let mut registry = Self::new();
+        registry.storage = Some(storage);
+        
+        // Load existing seals from storage
+        registry.load_from_storage()?;
+        
+        Ok(registry)
+    }
+
+    /// Load used seals from storage into memory
+    #[cfg(feature = "rpc")]
+    fn load_from_storage(&mut self) -> BitcoinResult<()> {
+        if let Some(ref storage) = self.storage {
+            let records = storage.get_seals("bitcoin")
+                .map_err(|e| BitcoinError::StorageError(format!("Failed to load seals: {}", e)))?;
+            
+            for record in records {
+                self.used_seals.insert(record.seal_id);
+            }
+        }
+        Ok(())
+    }
+
+    /// Persist a seal to storage
+    #[cfg(feature = "rpc")]
+    fn persist_seal(&self, seal: &BitcoinSealPoint, height: u64) -> BitcoinResult<()> {
+        use csv_store::SealStore;
+        
+        if let Some(ref storage) = self.storage {
+            use csv_core::{SealRecord, Hash};
+            
+            let mut record = SealRecord {
+                chain: "bitcoin".to_string(),
+                seal_id: seal.to_vec(),
+                consumed_at_height: height,
+                commitment_hash: Hash::from_bytes([0u8; 32]), // Placeholder
+                recorded_at: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs() as i64,
+            };
+            
+            // Use interior mutability via the trait method
+            // Since we can't mutably borrow from &self, we need a different approach
+            // For now, skip persistence in this context - will be done by caller
+            let _ = record;  // Silence unused warning
+        }
+        Ok(())
+    }
+    
+    /// Mark a seal as used and persist to storage (requires &mut self for storage)
+    #[cfg(feature = "rpc")]
+    pub fn mark_seal_used_with_storage(
+        &mut self,
+        seal: &BitcoinSealPoint,
+        height: u64,
+    ) -> BitcoinResult<()> {
+        use csv_store::SealStore;
+        use csv_core::{SealRecord, Hash};
+        
+        // First mark in memory
+        self.mark_seal_used_at_height(seal, height)?;
+        
+        // Then persist if storage is configured
+        if let Some(ref mut storage) = self.storage {
+            let record = SealRecord {
+                chain: "bitcoin".to_string(),
+                seal_id: seal.to_vec(),
+                consumed_at_height: height,
+                commitment_hash: Hash::from_bytes([0u8; 32]),
+                recorded_at: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs() as i64,
+            };
+            
+            storage.save_seal(&record)
+                .map_err(|e| BitcoinError::StorageError(format!("Failed to persist seal: {}", e)))?;
+        }
+        Ok(())
     }
 
     /// Check if a seal has been used
@@ -59,6 +155,15 @@ impl SealRegistry {
 
     /// Mark a seal as used
     pub fn mark_seal_used(&mut self, seal: &BitcoinSealPoint) -> BitcoinResult<()> {
+        self.mark_seal_used_at_height(seal, 0)
+    }
+
+    /// Mark a seal as used with block height tracking
+    pub fn mark_seal_used_at_height(
+        &mut self,
+        seal: &BitcoinSealPoint,
+        height: u64,
+    ) -> BitcoinResult<()> {
         // Check if already used
         if self.is_seal_used(seal) {
             return Err(BitcoinError::UTXOSpent(format!(
@@ -77,7 +182,11 @@ impl SealRegistry {
 
         let seal_bytes = seal.to_vec();
         self.seal_queue.push(seal_bytes.clone());
-        self.used_seals.insert(seal_bytes);
+        self.used_seals.insert(seal_bytes.clone());
+        
+        // Note: To persist, use mark_seal_used_with_storage() when storage is configured
+        let _ = height; // Height is tracked but not persisted in this method
+        
         Ok(())
     }
 

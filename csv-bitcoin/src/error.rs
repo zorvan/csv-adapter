@@ -42,6 +42,10 @@ pub enum BitcoinError {
     #[error("MPC error: {0}")]
     MpcError(String),
 
+    /// Storage error (SQLite persistence)
+    #[error("Storage error: {0}")]
+    StorageError(String),
+
     /// Wrapper for core adapter errors
     #[error(transparent)]
     CoreError(#[from] csv_core::ProtocolError),
@@ -71,6 +75,7 @@ impl From<BitcoinError> for csv_core::ProtocolError {
             BitcoinError::MpcError(msg) => {
                 csv_core::ProtocolError::Generic(format!("MPC: {}", msg))
             }
+            BitcoinError::StorageError(msg) => csv_core::ProtocolError::StorageError(msg),
         }
     }
 }
@@ -89,6 +94,7 @@ impl BitcoinError {
             BitcoinError::InvalidMerkleProof(_) => false,
             BitcoinError::RegistryFull(_) => false,
             BitcoinError::CoreError(_) => false,
+            BitcoinError::StorageError(_) => false,
         }
     }
 }
@@ -107,6 +113,7 @@ impl HasErrorSuggestion for BitcoinError {
             }
             BitcoinError::InvalidInput(_) => error_codes::BTC_RPC_ERROR,
             BitcoinError::MpcError(_) => "BTC_MPC_ERROR",
+            BitcoinError::StorageError(_) => "BTC_STORAGE_ERROR",
             BitcoinError::CoreError(e) => e.error_code(),
         }
     }

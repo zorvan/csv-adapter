@@ -44,6 +44,24 @@ pub struct EthereumBackend {
     event_builder: CommitmentEventBuilder,
 }
 
+/// Unsigned deployment transaction for contract deployment
+/// This represents a contract creation transaction before signing
+#[derive(Debug, Clone)]
+pub struct UnsignedDeployTx {
+    /// Transaction nonce
+    pub nonce: u64,
+    /// Gas price
+    pub gas_price: u64,
+    /// Gas limit
+    pub gas_limit: u64,
+    /// Deployment data (constructor + bytecode)
+    pub data: Vec<u8>,
+    /// Chain ID
+    pub chain_id: u64,
+    /// Sender address
+    pub from: [u8; 20],
+}
+
 impl EthereumBackend {
     /// Create new Ethereum chain operations from RPC client
     pub fn new(rpc: Box<dyn EthereumRpc>, config: EthereumConfig) -> Self {
@@ -689,19 +707,78 @@ impl ChainDeployer for EthereumBackend {
     async fn deploy_lock_contract(
         &self,
         admin_address: &str,
-        config: serde_json::Value,
+        _config: serde_json::Value,
     ) -> ChainOpResult<DeploymentStatus> {
-        let _ = admin_address;
-        let _ = config;
+        use crate::contract_bytecode::{CSVLOCK_BYTECODE, ContractInitParams, build_deploy_tx_data};
+        
+        // Check if bytecode is available
+        if CSVLOCK_BYTECODE.is_empty() {
+            return Err(ChainOpError::CapabilityUnavailable(
+                "Contract bytecode not available. Run `forge build` in csv-ethereum/contracts \
+                 or provide pre-compiled bytecode.".to_string()
+            ));
+        }
 
-        // Deploy the CSV seal contract
-        // The contract bytecode should be available via the included bytecode module
-        Err(ChainOpError::CapabilityUnavailable(
-            "Contract deployment requires signed transaction. \
-             Use external deployment tools or implement full deployment flow \
-             with compiled contract bytecode."
-                .to_string(),
-        ))
+        // Parse admin address
+        let admin_addr = self.parse_address(admin_address)?;
+        
+        // Build deployment parameters
+        let params = ContractInitParams {
+            admin: admin_address.to_string(),
+            ..Default::default()
+        };
+        
+        // Build deployment transaction data (constructor + bytecode)
+        let deploy_data = build_deploy_tx_data(CSVLOCK_BYTECODE, &params);
+        
+        // Get chain ID for proper transaction signing
+        let chain_id = self.config.network.chain_id();
+        
+        // Get nonce for the admin address
+        let nonce = self.rpc()
+            .get_transaction_count(admin_address)
+            .await
+            .map_err(|e| ChainOpError::RpcError(format!("Failed to get nonce: {}", e)))?;
+        
+        // Get gas price
+        let gas_price = self.rpc()
+            .get_gas_price()
+            .await
+            .map_err(|e| ChainOpError::RpcError(format!("Failed to get gas price: {}", e)))?;
+        
+        // Estimate deployment gas (bytecode size * 200 + 32000 base)
+        let estimated_gas = (deploy_data.len() as u64 * 200) + 32000;
+        
+        // Build unsigned deployment transaction
+        // Note: This returns an unsigned transaction - signing must be done externally
+        // or by a connected wallet
+        let _tx = UnsignedDeployTx {
+            nonce,
+            gas_price,
+            gas_limit: estimated_gas,
+            data: deploy_data,
+            chain_id,
+            from: admin_addr,
+        };
+        
+        // Since we can't sign without private keys, we return the transaction data
+        // that needs to be signed and submitted
+        // Return pending status with deployment info
+        Ok(DeploymentStatus {
+            contract_address: None,
+            transaction_hash: None,
+            block_height: None,
+            confirmations: 0,
+            is_deployed: false,
+            metadata: serde_json::json!({
+                "deployment_data": hex::encode(&_tx.data),
+                "gas_limit": estimated_gas,
+                "gas_price": gas_price,
+                "nonce": nonce,
+                "chain_id": chain_id,
+                "note": "Transaction must be signed and submitted via external signer"
+            }),
+        })
     }
 
     async fn deploy_mint_contract(
@@ -709,15 +786,9 @@ impl ChainDeployer for EthereumBackend {
         admin_address: &str,
         config: serde_json::Value,
     ) -> ChainOpResult<DeploymentStatus> {
-        let _ = admin_address;
-        let _ = config;
-
-        // Same contract handles both lock and mint
-        Err(ChainOpError::CapabilityUnavailable(
-            "Mint contract deployment requires signed transaction. \
-             The CSV seal contract handles both lock and mint operations."
-                .to_string(),
-        ))
+        // For now, the same contract handles both lock and mint
+        // In the future, CSVMINT_BYTECODE would be used separately
+        self.deploy_lock_contract(admin_address, config).await
     }
 
     async fn deploy_or_publish_seal_program(
@@ -725,16 +796,51 @@ impl ChainDeployer for EthereumBackend {
         program_bytes: &[u8],
         admin_address: &str,
     ) -> ChainOpResult<DeploymentStatus> {
-        let _ = program_bytes;
-        let _ = admin_address;
-
-        // In Ethereum, this deploys the contract
-        Err(ChainOpError::CapabilityUnavailable(
-            "Seal program deployment requires signed transaction. \
-             Use deploy_csv_seal_contract() with proper initialization \
-             or external deployment tools."
-                .to_string(),
-        ))
+        // Deploy custom seal program (contract) with provided bytecode
+        if program_bytes.is_empty() {
+            return Err(ChainOpError::InvalidInput(
+                "Program bytecode cannot be empty".to_string()
+            ));
+        }
+        
+        // Similar to deploy_lock_contract but with custom bytecode
+        let admin_addr = self.parse_address(admin_address)?;
+        let chain_id = self.config.network.chain_id();
+        let nonce = self.rpc()
+            .get_transaction_count(admin_address)
+            .await
+            .map_err(|e| ChainOpError::RpcError(format!("Failed to get nonce: {}", e)))?;
+        let gas_price = self.rpc()
+            .get_gas_price()
+            .await
+            .map_err(|e| ChainOpError::RpcError(format!("Failed to get gas price: {}", e)))?;
+        
+        let estimated_gas = (program_bytes.len() as u64 * 200) + 32000;
+        
+        let _tx = UnsignedDeployTx {
+            nonce,
+            gas_price,
+            gas_limit: estimated_gas,
+            data: program_bytes.to_vec(),
+            chain_id,
+            from: admin_addr,
+        };
+        
+        Ok(DeploymentStatus {
+            contract_address: None,
+            transaction_hash: None,
+            block_height: None,
+            confirmations: 0,
+            is_deployed: false,
+            metadata: serde_json::json!({
+                "deployment_data": hex::encode(&_tx.data),
+                "gas_limit": estimated_gas,
+                "gas_price": gas_price,
+                "nonce": nonce,
+                "chain_id": chain_id,
+                "note": "Transaction must be signed and submitted via external signer"
+            }),
+        })
     }
 
     async fn verify_deployment(&self, contract_address: &str) -> ChainOpResult<bool> {

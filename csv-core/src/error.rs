@@ -79,6 +79,10 @@ pub enum ProtocolError {
     #[error("Invalid input: {0}")]
     InvalidInput(String),
 
+    /// Storage error (database persistence)
+    #[error("Storage error: {0}")]
+    StorageError(String),
+
     /// Generic error with message
     #[error("Adapter error: {0}")]
     Generic(String),
@@ -113,6 +117,7 @@ impl ProtocolError {
                 | ProtocolError::PublishFailed(_)
                 | ProtocolError::FinalityNotReached(_)
                 | ProtocolError::ReorgInvalid(_)
+                | ProtocolError::StorageError(_)
         )
     }
 }
@@ -137,6 +142,7 @@ impl HasErrorSuggestion for ProtocolError {
                 error_codes::CORE_SIGNATURE_VERIFICATION_FAILED
             }
             ProtocolError::InvalidInput(_) => error_codes::CORE_INVALID_CONFIG,
+            ProtocolError::StorageError(_) => error_codes::CORE_STORAGE_ERROR,
             ProtocolError::Generic(_) => error_codes::CORE_GENERIC,
         }
     }

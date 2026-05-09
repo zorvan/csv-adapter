@@ -77,6 +77,8 @@ pub mod error_codes {
     pub const CORE_FEATURE_NOT_ENABLED: &str = "CORE_014";
     /// Seal has no on-chain anchor (fake seal detected).
     pub const CORE_SEAL_NOT_ANCHORED: &str = "CORE_015";
+    /// Storage/database error.
+    pub const CORE_STORAGE_ERROR: &str = "CORE_016";
     /// Generic core error.
     pub const CORE_GENERIC: &str = "CORE_099";
 
