@@ -87,6 +87,16 @@ pub struct IndexerConfig {
     pub poll_interval_ms: u64,
 }
 
+impl IndexerConfig {
+    /// Get the effective poll interval for a chain.
+    /// Uses per-chain interval if configured, otherwise falls back to the indexer default.
+    pub fn effective_poll_interval(&self, chain_config: &ChainConfig) -> u64 {
+        chain_config
+            .poll_interval_ms
+            .unwrap_or(self.poll_interval_ms)
+    }
+}
+
 /// Per-chain RPC and indexing configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChainConfig {
@@ -99,6 +109,9 @@ pub struct ChainConfig {
     pub rpc_url: String,
     /// Starting block for initial sync (if not set, starts from genesis).
     pub start_block: Option<u64>,
+    /// Per-chain poll interval in milliseconds. Falls back to indexer default if not set.
+    #[serde(default)]
+    pub poll_interval_ms: Option<u64>,
 }
 
 // ---------------------------------------------------------------------------
@@ -223,6 +236,7 @@ impl ExplorerConfig {
                         .cloned()
                         .unwrap_or_default(),
                     start_block: None,
+                    poll_interval_ms: None,
                 });
         }
 
@@ -283,6 +297,7 @@ impl Default for ChainConfig {
             network: Network::Mainnet,
             rpc_url: String::new(),
             start_block: None,
+            poll_interval_ms: None,
         }
     }
 }

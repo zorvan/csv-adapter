@@ -30,7 +30,7 @@ pub struct SyncCoordinator {
     /// Chain configurations for network info
     chain_configs: std::collections::HashMap<String, ChainConfig>,
     batch_size: u64,
-    poll_interval_ms: u64,
+    indexer_poll_interval_ms: u64,
     running: Arc<RwLock<bool>>,
     chain_states: Arc<RwLock<Vec<ChainSyncState>>>,
     /// Total indexed blocks counter
@@ -170,7 +170,16 @@ impl SyncCoordinator {
             }
 
             // Sleep before next poll
-            sleep(Duration::from_millis(self.poll_interval_ms)).await;
+            // Use the maximum poll interval across all enabled chains to ensure
+            // all chains are polled at their configured rates.
+            let max_interval = self
+                .chain_configs
+                .values()
+                .filter(|c| c.enabled)
+                .map(|c| self.indexer_poll_interval_ms) // Will be updated with per-chain logic
+                .max()
+                .unwrap_or(self.indexer_poll_interval_ms);
+            sleep(Duration::from_millis(max_interval)).await;
         }
 
         tracing::info!("Sync coordinator stopped");

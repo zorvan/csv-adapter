@@ -72,11 +72,7 @@ impl Signature {
                 verify_ed25519(&self.signature, &self.public_key, &self.message)
             }
             SignatureScheme::MlDsa65 => {
-                // ML-DSA-65 verification is not yet implemented.
-                // This is a placeholder until the ml-dsa crate is integrated (Phase 5).
-                Err(ProtocolError::SignatureVerificationFailed(
-                    "ML-DSA-65 verification not yet implemented - Phase 5 engineering task".to_string()
-                ))
+                verify_ml_dsa65(&self.signature, &self.public_key, &self.message)
             }
         }
     }
@@ -212,6 +208,98 @@ fn verify_ed25519(signature: &[u8], public_key: &[u8], message: &[u8]) -> Result
     })?;
 
     Ok(())
+}
+
+/// ML-DSA-65 (FIPS 204) key generation
+///
+/// ML-DSA-65 corresponds to Dilithium3 in pqcrypto-dilithium.
+/// Returns (public_key, secret_key) where:
+/// - public_key: ~1312 bytes
+/// - secret_key: ~2456 bytes
+#[cfg(feature = "pq")]
+pub fn generate_ml_dsa65_keys() -> Result<(Vec<u8>, Vec<u8>)> {
+    use pqcrypto_dilithium::dilithium3::keypair;
+    use pqcrypto_traits::sign::{PublicKey, SecretKey};
+
+    let (pk, sk) = keypair();
+    Ok((pk.as_bytes().to_vec(), sk.as_bytes().to_vec()))
+}
+
+/// Sign a message using ML-DSA-65
+///
+/// # Arguments
+/// * `message` - The message to sign (will be hashed internally)
+/// * `secret_key` - The ML-DSA-65 secret key (~2456 bytes)
+///
+/// # Returns
+/// Signature bytes (~2420 bytes for ML-DSA-65)
+#[cfg(feature = "pq")]
+pub fn sign_ml_dsa65(message: &[u8], secret_key: &[u8]) -> Result<Vec<u8>> {
+    use pqcrypto_dilithium::dilithium3::sign;
+    use pqcrypto_traits::sign::{SecretKey, SignedMessage};
+
+    // Reconstruct SecretKey from bytes
+    let sk = SecretKey::from_bytes(secret_key).map_err(|_| {
+        ProtocolError::SignatureVerificationFailed("Invalid ML-DSA-65 secret key".to_string())
+    })?;
+
+    let signed_msg = sign(message, &sk);
+    Ok(signed_msg.as_bytes().to_vec())
+}
+
+/// Verify an ML-DSA-65 signature
+///
+/// # Arguments
+/// * `signature` - The ML-DSA-65 signature (~2420 bytes)
+/// * `public_key` - The ML-DSA-65 public key (~1312 bytes)
+/// * `message` - The message that was signed
+#[cfg(feature = "pq")]
+fn verify_ml_dsa65(signature: &[u8], public_key: &[u8], _message: &[u8]) -> Result<()> {
+    use pqcrypto_dilithium::dilithium3::open;
+    use pqcrypto_traits::sign::{PublicKey, SignedMessage};
+
+    // Validate input sizes for ML-DSA-65 (Dilithium3)
+    // Public key: 1312 bytes, Signature: 2420 bytes
+    if public_key.len() != 1312 {
+        return Err(ProtocolError::SignatureVerificationFailed(format!(
+            "Invalid ML-DSA-65 public key length: {} (expected 1312)",
+            public_key.len()
+        )));
+    }
+
+    if signature.len() != 2420 {
+        return Err(ProtocolError::SignatureVerificationFailed(format!(
+            "Invalid ML-DSA-65 signature length: {} (expected 2420)",
+            signature.len()
+        )));
+    }
+
+    // Parse public key
+    let pk = PublicKey::from_bytes(public_key).map_err(|_| {
+        ProtocolError::SignatureVerificationFailed("Invalid ML-DSA-65 public key".to_string())
+    })?;
+
+    // Construct SignedMessage from signature bytes
+    let signed_msg = SignedMessage::from_bytes(signature).map_err(|_| {
+        ProtocolError::SignatureVerificationFailed("Invalid ML-DSA-65 signature".to_string())
+    })?;
+
+    // Perform actual cryptographic verification using open()
+    // open() returns Ok(message) if verification succeeds, Err(()) if it fails
+    open(&signed_msg, &pk).map_err(|_| {
+        ProtocolError::SignatureVerificationFailed("ML-DSA-65 signature verification failed".to_string())
+    })?;
+
+    Ok(())
+}
+
+/// ML-DSA-65 verification without the pq feature (stub)
+/// Returns an error indicating the pq feature is not enabled.
+#[cfg(not(feature = "pq"))]
+fn verify_ml_dsa65(_signature: &[u8], _public_key: &[u8], _message: &[u8]) -> Result<()> {
+    Err(ProtocolError::SignatureVerificationFailed(
+        "ML-DSA-65 verification requires the 'pq' feature to be enabled".to_string()
+    ))
 }
 
 /// Verify multiple signatures

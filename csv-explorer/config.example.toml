@@ -19,24 +19,29 @@ enabled = true
 network = "mainnet"
 rpc_url = "https://mempool.space/api"
 start_block = 800000
+poll_interval_ms = 15000
 
 [chains.ethereum]
 enabled = true
 network = "mainnet"
 rpc_url = "https://eth.llamarpc.com"
 start_block = 19000000
+poll_interval_ms = 12000
 
 [chains.sui]
 enabled = true
 network = "mainnet"
 rpc_url = "https://fullnode.mainnet.sui.io:443"
+poll_interval_ms = 4000
 
 [chains.aptos]
 enabled = true
 network = "mainnet"
 rpc_url = "https://fullnode.mainnet.aptoslabs.com/v1"
+poll_interval_ms = 4000
 
 [chains.solana]
 enabled = true
 network = "mainnet"
 rpc_url = "https://api.mainnet-beta.solana.com"
+poll_interval_ms = 1000
