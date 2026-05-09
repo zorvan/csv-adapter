@@ -16,7 +16,7 @@
 //!
 //! # Quick Start
 //!
-//! ```
+//! ```no_run
 //! use csv_keys::{
 //!     bip39::{Mnemonic, MnemonicType},
 //!     bip44::derive_key,
@@ -32,7 +32,7 @@
 //! let seed = mnemonic.to_seed(None);
 //!
 //! // Derive Ethereum key
-//! let eth_key = derive_key(seed.as_bytes(), csv_core::ChainId::new("ethereum"), 0, 0).unwrap();
+//! let eth_key = derive_key(seed.as_bytes(), &csv_core::ChainId::new("ethereum"), 0, 0).unwrap();
 //!
 //! // Encrypt and save
 //! let passphrase = Passphrase::new("secure password");

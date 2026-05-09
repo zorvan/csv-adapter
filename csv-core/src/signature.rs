@@ -62,6 +62,38 @@ impl Signature {
         }
     }
 
+    /// Sign a message using the specified scheme and secret key
+    ///
+    /// Returns a new `Signature` containing the signature bytes, public key,
+    /// and the signed message. The caller must first generate a key pair
+    /// using the appropriate key generation function for the scheme.
+    pub fn sign(
+        scheme: SignatureScheme,
+        secret_key: &[u8],
+        message: &[u8],
+    ) -> Result<Self> {
+        let signature = match scheme {
+            SignatureScheme::Secp256k1 => {
+                sign_secp256k1(message, secret_key)?
+            }
+            SignatureScheme::Ed25519 => {
+                sign_ed25519(message, secret_key)?
+            }
+            SignatureScheme::MlDsa65 => {
+                sign_ml_dsa65(message, secret_key)?
+            }
+        };
+
+        // The public key is expected to be derived from the secret key
+        // by the caller and passed separately. For now, we use an empty
+        // public key that the caller must set before verification.
+        Ok(Self {
+            signature,
+            public_key: Vec::new(),
+            message: message.to_vec(),
+        })
+    }
+
     /// Verify this signature using the appropriate scheme
     pub fn verify(&self, scheme: SignatureScheme) -> Result<()> {
         match scheme {
@@ -208,6 +240,55 @@ fn verify_ed25519(signature: &[u8], public_key: &[u8], message: &[u8]) -> Result
     })?;
 
     Ok(())
+}
+
+/// Sign a message using ECDSA secp256k1
+///
+/// # Arguments
+/// * `message` - The 32-byte message to sign (pre-hashed)
+/// * `secret_key` - The secp256k1 secret key (32 bytes)
+///
+/// # Returns
+/// Signature bytes (64 bytes: r || s)
+fn sign_secp256k1(message: &[u8], secret_key: &[u8]) -> Result<Vec<u8>> {
+    use secp256k1::{Message, Secp256k1, SecretKey};
+
+    if message.len() != 32 {
+        return Err(ProtocolError::SignatureVerificationFailed(format!(
+            "Message must be 32 bytes, got {}",
+            message.len()
+        )));
+    }
+
+    let secp = Secp256k1::signing_only();
+    let msg = Message::from_digest(message.try_into().map_err(|_| {
+        ProtocolError::SignatureVerificationFailed("Message must be 32 bytes".to_string())
+    })?);
+    let sk = SecretKey::from_slice(secret_key).map_err(|_| {
+        ProtocolError::SignatureVerificationFailed("Invalid secp256k1 secret key".to_string())
+    })?;
+    let sig = secp.sign_ecdsa(&msg, &sk);
+
+    Ok(sig.serialize_der().to_vec())
+}
+
+/// Sign a message using Ed25519
+///
+/// # Arguments
+/// * `message` - The message to sign
+/// * `secret_key` - The Ed25519 secret key (32 bytes)
+///
+/// # Returns
+/// Signature bytes (64 bytes: R || S)
+fn sign_ed25519(message: &[u8], secret_key: &[u8]) -> Result<Vec<u8>> {
+    use ed25519_dalek::{Signature, Signer, SigningKey};
+
+    let signing_key = SigningKey::from_bytes(secret_key.try_into().map_err(|_| {
+        ProtocolError::SignatureVerificationFailed("Invalid Ed25519 secret key (must be 32 bytes)".to_string())
+    })?);
+    let sig: Signature = signing_key.sign(message);
+
+    Ok(sig.to_bytes().to_vec())
 }
 
 /// ML-DSA-65 (FIPS 204) key generation

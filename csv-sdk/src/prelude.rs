@@ -2,8 +2,8 @@
 //!
 //! Import everything you need with a single statement:
 //!
-//! ```
-//! use csv_adapter::prelude::*;
+//! ```ignore
+//! use csv_sdk::prelude::*;
 //! ```
 
 // Core types

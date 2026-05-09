@@ -590,4 +590,52 @@ mod tests {
         let result = envelope.decrypt(&key);
         assert!(matches!(result, Err(EncryptedStorageError::IntegrityError(_))));
     }
+
+    /// Regression test: Verify encryption produces different ciphertext for same plaintext
+    /// This ensures the nonce is properly randomized each time.
+    #[test]
+    fn test_encryption_produces_different_ciphertext() {
+        let key = [0x42u8; 32];
+        let plaintext = b"test seal nullifier data";
+
+        let envelope1 = EncryptedEnvelope::encrypt(plaintext, &key).unwrap();
+        let envelope2 = EncryptedEnvelope::encrypt(plaintext, &key).unwrap();
+
+        // Ciphertexts should differ due to random nonce
+        assert_ne!(
+            envelope1.ciphertext, envelope2.ciphertext,
+            "Encryption should produce different ciphertext for same plaintext (nonce randomization)"
+        );
+
+        // But both should decrypt to the same plaintext
+        assert_eq!(plaintext.to_vec(), envelope1.decrypt(&key).unwrap());
+        assert_eq!(plaintext.to_vec(), envelope2.decrypt(&key).unwrap());
+    }
+
+    /// Regression test: Verify HMAC integrity check catches tampering
+    #[test]
+    fn test_hmac_catches_nonce_tampering() {
+        let key = [0x42u8; 32];
+        let plaintext = b"test data";
+
+        let mut envelope = EncryptedEnvelope::encrypt(plaintext, &key).unwrap();
+        // Tamper with nonce
+        envelope.nonce[0] ^= 0xFF;
+
+        let result = envelope.decrypt(&key);
+        assert!(matches!(result, Err(EncryptedStorageError::IntegrityError(_))));
+    }
+
+    /// Regression test: Verify key derivation produces consistent keys
+    #[cfg(target_arch = "wasm32")]
+    #[tokio::test]
+    async fn test_key_derivation_consistency() {
+        let password = "test-password";
+        let salt = b"test-salt";
+
+        let key1 = EncryptedStorageManager::derive_key_from_password(password, salt).await.unwrap();
+        let key2 = EncryptedStorageManager::derive_key_from_password(password, salt).await.unwrap();
+
+        assert_eq!(key1, key2, "Key derivation should be deterministic for same password/salt");
+    }
 }

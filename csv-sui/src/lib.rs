@@ -12,12 +12,9 @@
 //! ## Usage
 //!
 //! ```no_run
-//! use csv_adapter_sui::{SuiSealProtocol, SuiConfig, SuiNetwork};
+//! use csv_sui::{SuiSealProtocol, SuiConfig, SuiNetwork};
 //!
-//! // Create adapter with test RPC for testing
-//! let adapter = SuiSealProtocol::with_test().unwrap();
-//!
-//! // Or with configuration
+//! // Create adapter with configuration
 //! let config = SuiConfig::new(SuiNetwork::Testnet);
 //! // let rpc = ...;
 //! // let adapter = SuiSealProtocol::from_config(config, rpc).unwrap();

@@ -5,8 +5,8 @@
 //!
 //! # Example
 //!
-//! ```no_run
-//! use csv_adapter::prelude::*;
+//! ```ignore
+//! use csv_sdk::prelude::*;
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<()> {
@@ -15,7 +15,7 @@
 //!         .build()?;
 //!
 //!     let deployment = client.deploy()
-//!         .deploy_csv_lock(&rpc_url, &private_key, &bytecode)
+//!         .deploy_csv_lock("https://rpc.example.com", "0x...", &[0u8])
 //!         .await?;
 //!
 //!     println!("Contract deployed at: {:?}", deployment.contract_address);

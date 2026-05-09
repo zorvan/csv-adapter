@@ -38,14 +38,17 @@
 //! ## Usage
 //!
 //! ```no_run
-//! use csv_celestia::{CelestiaClient, Namespace, Blob, ProofLocation};
+//! use csv_celestia::{CelestiaClient, Namespace, ProofLocation};
 //!
 //! // Create a namespace for your Sanad proofs
 //! let namespace = Namespace::bitcoin_stark();
 //!
+//! // Create a Celestia client (requires rpc feature for real RPC)
+//! // let client = CelestiaClient::new("rpc.url").unwrap();
+//!
 //! // Post a large STARK proof - auto-routes to IPFS if > 1MB
-//! let proof_bytes = vec![/* large STARK proof */];
-//! let location: ProofLocation = client.store(proof_bytes, Some(namespace)).await.unwrap();
+//! // let proof_bytes = vec![/* large STARK proof */];
+//! // let location: ProofLocation = client.store(proof_bytes, Some(namespace)).await.unwrap();
 //!
 //! // The location (ProofId or CID+anchor) is what gets anchored on-chain (small!)
 //! // The actual proof lives on Celestia DA layer or IPFS (cheap!)

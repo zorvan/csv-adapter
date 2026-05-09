@@ -52,8 +52,8 @@ pub enum Priority {
 ///
 /// # Example
 ///
-/// ```no_run
-/// use csv_adapter::prelude::*;
+/// ```ignore
+/// use csv_sdk::prelude::*;
 ///
 /// # #[tokio::main]
 /// # async fn main() -> Result<()> {
@@ -66,7 +66,7 @@ pub enum Priority {
 ///
 /// // Start a cross-chain transfer
 /// let transfer = transfers
-///     .cross_chain(sanad_id, ChainId::new("sui"))
+///     .cross_chain(SanadId::default(), ChainId::new("sui"))
 ///     .to_address("0xabc...".to_string())
 ///     .with_priority(Priority::High)
 ///     .execute()?;

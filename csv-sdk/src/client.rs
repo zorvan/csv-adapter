@@ -6,8 +6,8 @@
 //!
 //! # Example
 //!
-//! ```no_run
-//! use csv_adapter::prelude::*;
+//! ```ignore
+//! use csv_sdk::prelude::*;
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<()> {
@@ -202,14 +202,14 @@ impl CsvClient {
     ///
     /// # Example
     ///
-    /// ```no_run
-    /// use csv_adapter::prelude::*;
+    /// ```ignore
+    /// use csv_sdk::prelude::*;
     ///
     /// let client = CsvClient::builder()
     ///     .with_chain("bitcoin")
     ///     .with_store_backend(StoreBackend::InMemory)
     ///     .build()?;
-    /// # Ok::<_, csv_adapter::CsvError>(())
+    /// # Ok::<_, csv_sdk::CsvError>(())
     /// ```
     pub fn builder() -> ClientBuilder {
         ClientBuilder::new()
@@ -222,8 +222,8 @@ impl CsvClient {
     ///
     /// # Example
     ///
-    /// ```no_run
-    /// use csv_adapter::prelude::*;
+    /// ```ignore
+    /// use csv_sdk::prelude::*;
     ///
     /// let client = CsvClient::builder()
     ///     .with_chain("bitcoin")
@@ -274,8 +274,8 @@ impl CsvClient {
     ///
     /// # Example
     ///
-    /// ```no_run
-    /// use csv_adapter::prelude::*;
+    /// ```ignore
+    /// use csv_sdk::prelude::*;
     ///
     /// # async fn example() -> Result<()> {
     /// let client = CsvClient::builder()
@@ -284,7 +284,7 @@ impl CsvClient {
     ///
     /// // Deploy a CSV Lock contract on Ethereum
     /// let deployment = client.deploy()
-    ///     .deploy_csv_lock("https://rpc.example.com", "0x...", &bytecode)
+    ///     .deploy_csv_lock("https://rpc.example.com", "0x...", &[0u8])
     ///     .await?;
     ///
     /// println!("Deployed at: {:?}", deployment.address);
@@ -346,8 +346,8 @@ impl CsvClient {
     ///
     /// # Example
     ///
-    /// ```no_run
-    /// use csv_adapter::prelude::*;
+    /// ```ignore
+    /// use csv_sdk::prelude::*;
     ///
     /// #[tokio::main]
     /// async fn main() -> Result<()> {

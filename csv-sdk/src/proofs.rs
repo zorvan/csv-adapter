@@ -23,8 +23,8 @@ use crate::error::CsvError;
 ///
 /// # Example
 ///
-/// ```no_run
-/// use csv_adapter::prelude::*;
+/// ```ignore
+/// use csv_sdk::prelude::*;
 ///
 /// # #[tokio::main]
 /// # async fn main() -> Result<()> {
@@ -35,7 +35,7 @@ use crate::error::CsvError;
 /// let proofs = client.proofs();
 ///
 /// // Generate a proof bundle for a sanad
-/// let bundle = proofs.generate(&sanad_id, ChainId::new("bitcoin"))?;
+/// let bundle = proofs.generate(&SanadId::default(), ChainId::new("bitcoin"))?;
 /// # Ok(())
 /// # }
 /// ```

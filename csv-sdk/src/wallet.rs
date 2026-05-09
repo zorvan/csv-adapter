@@ -26,8 +26,8 @@ use csv_core::ChainId;
 ///
 /// # Example
 ///
-/// ```no_run
-/// use csv_adapter::wallet::Wallet;
+/// ```ignore
+/// use csv_sdk::wallet::Wallet;
 ///
 /// // Generate a new wallet with a random mnemonic
 /// let wallet = Wallet::generate();

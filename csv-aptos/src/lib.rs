@@ -12,12 +12,9 @@
 //! ## Usage
 //!
 //! ```no_run
-//! use csv_adapter_aptos::{AptosSealProtocol, AptosConfig, AptosNetwork};
+//! use csv_aptos::{AptosSealProtocol, AptosConfig, AptosNetwork};
 //!
-//! // Create adapter with test RPC for testing
-//! let adapter = AptosSealProtocol::with_test().unwrap();
-//!
-//! // Or with configuration
+//! // Create adapter with configuration and RPC client
 //! let config = AptosConfig::new(AptosNetwork::Devnet);
 //! // let rpc = ...;
 //! // let adapter = AptosSealProtocol::from_config(config, rpc).unwrap();

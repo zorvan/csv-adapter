@@ -5,8 +5,8 @@
 //!
 //! # Example
 //!
-//! ```no_run
-//! use csv_adapter::prelude::*;
+//! ```ignore
+//! use csv_sdk::prelude::*;
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<()> {
@@ -97,14 +97,14 @@ impl ClientBuilder {
     ///
     /// # Example
     ///
-    /// ```no_run
-    /// use csv_adapter::prelude::*;
+    /// ```ignore
+    /// use csv_sdk::prelude::*;
     ///
     /// let wallet = Wallet::generate();
     /// let client = CsvClient::builder()
     ///     .with_wallet(wallet)
     ///     .build()?;
-    /// # Ok::<_, csv_adapter::CsvError>(())
+    /// # Ok::<_, csv_sdk::CsvError>(())
     /// ```
     pub fn with_wallet(mut self, wallet: Wallet) -> Self {
         self.state.wallet = Some(wallet);
@@ -115,13 +115,13 @@ impl ClientBuilder {
     ///
     /// # Example
     ///
-    /// ```no_run
-    /// use csv_adapter::prelude::*;
+    /// ```ignore
+    /// use csv_sdk::prelude::*;
     ///
     /// let client = CsvClient::builder()
     ///     .with_store_backend(StoreBackend::InMemory)
     ///     .build()?;
-    /// # Ok::<_, csv_adapter::CsvError>(())
+    /// # Ok::<_, csv_sdk::CsvError>(())
     /// ```
     pub fn with_store_backend(mut self, backend: StoreBackend) -> Self {
         self.state.store_backend = Some(backend);

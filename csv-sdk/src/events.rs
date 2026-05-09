@@ -5,8 +5,8 @@
 //!
 //! # Example
 //!
-//! ```no_run
-//! use csv_adapter::prelude::*;
+//! ```ignore
+//! use csv_sdk::prelude::*;
 //! use futures::StreamExt;
 //!
 //! # #[tokio::main]

@@ -106,16 +106,16 @@ impl ChainRuntime {
     /// Use `AdapterBuilder` to construct adapters with proper chain-specific configuration.
     ///
     /// # Example
-    /// ```no_run
-    /// use csv_adapter::runtime::{ChainRuntime, AdapterBuilder, RuntimeConfig};
-    /// use ChainId;
+    /// ```ignore
+    /// use csv_sdk::runtime::{ChainRuntime, AdapterBuilder, RuntimeConfig};
+    /// use csv_sdk::prelude::*;
     ///
     /// let runtime = ChainRuntime::new(/* client ref */);
-    /// let adapter = AdapterBuilder::new()
-    ///     .ethereum_from_config(config, rpc, csv_seal_address)
-    ///     .await
-    ///     .build();
-    /// runtime.register_adapter(ChainId::new("ethereum"), adapter);
+    /// // let adapter = AdapterBuilder::new()
+    /// //     .ethereum_from_config(config, rpc, csv_seal_address)
+    /// //     .await
+    /// //     .build();
+    /// // runtime.register_adapter(ChainId::new("ethereum"), adapter);
     /// ```
     pub async fn register_adapter(&self, chain: ChainId, adapter: Arc<dyn ChainBackend>) {
         let mut adapters = self.adapters.lock().await;

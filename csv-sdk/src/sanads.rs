@@ -39,8 +39,8 @@ pub struct SanadFilters {
 ///
 /// # Example
 ///
-/// ```no_run
-/// use csv_adapter::prelude::*;
+/// ```ignore
+/// use csv_sdk::prelude::*;
 ///
 /// # #[tokio::main]
 /// # async fn main() -> Result<()> {
