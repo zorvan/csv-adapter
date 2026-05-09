@@ -530,3 +530,292 @@ mod tests {
         assert_eq!(proof, restored);
     }
 }
+
+// ============================================================================
+// Pedersen Commitments (Phase 3.2)
+// ============================================================================
+
+#[cfg(feature = "zk")]
+pub mod pedersen {
+    use curve25519_dalek::constants;
+    use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
+    use curve25519_dalek::scalar::Scalar;
+    use serde::{Deserialize, Serialize};
+    use sha2::{Digest, Sha512, Sha256};
+
+    use crate::hash::Hash;
+
+    pub const MAX_COMMITTED_VALUE: u64 = (1u64 << 48) - 1;
+
+    const GENERATOR_DOMAIN: &[u8] = b"CSV-PEDERSEN-GEN::";
+
+    /// A Pedersen commitment to a value. C = g^v * h^r.
+    #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+    pub struct PedersenCommitment {
+        pub commitment: [u8; 32],
+        pub domain: String,
+    }
+
+    impl PedersenCommitment {
+        pub fn from_bytes(bytes: [u8; 32]) -> Self {
+            Self { commitment: bytes, domain: "CSV-PEDERSEN-GEN".to_string() }
+        }
+        pub fn as_bytes(&self) -> &[u8; 32] { &self.commitment }
+        pub fn to_point(&self) -> Option<RistrettoPoint> {
+            CompressedRistretto(self.commitment).decompress()
+        }
+        pub fn from_point(point: &RistrettoPoint) -> Self {
+            Self { commitment: point.compress().to_bytes(), domain: "CSV-PEDERSEN-GEN".to_string() }
+        }
+        pub fn hash(&self) -> Hash {
+            let mut hasher = Sha256::new();
+            hasher.update(b"CSV-COMMITMENT-HASH::");
+            hasher.update(&self.commitment);
+            Hash::new(hasher.finalize().into())
+        }
+    }
+
+    impl core::fmt::Display for PedersenCommitment {
+        fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+            write!(f, "Pedersen(0x{})", hex::encode(self.commitment))
+        }
+    }
+
+    /// The generators used for Pedersen commitments. g is the Ristretto base point;
+    /// h is derived from SHA-512 of a domain separator.
+    #[derive(Clone, Debug)]
+    pub struct PedersenGenerators {
+        pub g: RistrettoPoint,
+        pub h: RistrettoPoint,
+    }
+
+    impl Default for PedersenGenerators {
+        fn default() -> Self {
+            let g = constants::RISTRETTO_BASEPOINT_POINT;
+            let mut hasher = Sha512::new();
+            hasher.update(GENERATOR_DOMAIN);
+            let h = RistrettoPoint::hash_from_bytes::<Sha512>(&hasher.finalize());
+            Self { g, h }
+        }
+    }
+
+    /// A Pedersen commitment scheme instance.
+    pub struct PedersenScheme {
+        generators: PedersenGenerators,
+    }
+
+    impl Default for PedersenScheme {
+        fn default() -> Self { Self { generators: PedersenGenerators::default() } }
+    }
+
+    impl PedersenScheme {
+        pub fn new() -> Self { Self::default() }
+
+        /// Commit to a value with a random blinding factor. Returns (commitment, blinding).
+        pub fn commit(&self, value: u64) -> Result<(PedersenCommitment, Scalar), PedersenError> {
+            if value > MAX_COMMITTED_VALUE {
+                return Err(PedersenError::ValueTooLarge(value));
+            }
+            let mut csprng = rand_core::OsRng;
+            let blinding = Scalar::random(&mut csprng);
+            let commitment = self.generators.g * Scalar::from(value) + self.generators.h * blinding;
+            Ok((PedersenCommitment::from_point(&commitment), blinding))
+        }
+
+        /// Verify a commitment opening: C' = g^value * h^blinding == commitment.
+        pub fn verify(&self, commitment: &PedersenCommitment, value: u64, blinding: &Scalar) -> Result<bool, PedersenError> {
+            if value > MAX_COMMITTED_VALUE {
+                return Err(PedersenError::ValueTooLarge(value));
+            }
+            let expected = self.generators.g * Scalar::from(value) + self.generators.h * *blinding;
+            let actual = commitment.to_point().ok_or(PedersenError::InvalidCommitment)?;
+            Ok(expected == actual)
+        }
+
+        /// Add two commitments homomorphically: C1 + C2 = C(v1+v2, r1+r2).
+        pub fn add_commitments(&self, c1: &PedersenCommitment, c2: &PedersenCommitment) -> Option<PedersenCommitment> {
+            let p1 = c1.to_point()?;
+            let p2 = c2.to_point()?;
+            Some(PedersenCommitment::from_point(&(p1 + p2)))
+        }
+
+        /// Scale a commitment by a scalar: k * C(v, r) = C(k*v, k*r).
+        pub fn scale_commitment(&self, commitment: &PedersenCommitment, scalar: &Scalar) -> Option<PedersenCommitment> {
+            let p = commitment.to_point()?;
+            Some(PedersenCommitment::from_point(&(p * scalar)))
+        }
+
+        /// Negate a commitment.
+        pub fn negate_commitment(&self, commitment: &PedersenCommitment) -> Option<PedersenCommitment> {
+            let p = commitment.to_point()?;
+            Some(PedersenCommitment::from_point(&(-p)))
+        }
+
+        /// C1 - C2 = C(v1-v2, r1-r2).
+        pub fn subtract_commitments(&self, c1: &PedersenCommitment, c2: &PedersenCommitment) -> Option<PedersenCommitment> {
+            let p1 = c1.to_point()?;
+            let p2 = c2.to_point()?;
+            Some(PedersenCommitment::from_point(&(p1 - p2)))
+        }
+
+        /// Generate generators from a custom domain string.
+        pub fn from_domain(domain: &str) -> Self {
+            let g = constants::RISTRETTO_BASEPOINT_POINT;
+            let mut hasher = Sha512::new();
+            hasher.update(domain.as_bytes());
+            let h = RistrettoPoint::hash_from_bytes::<Sha512>(&hasher.finalize());
+            Self { generators: PedersenGenerators { g, h } }
+        }
+    }
+
+    /// Errors for Pedersen commitment operations.
+    #[derive(Debug, Clone, thiserror::Error)]
+    pub enum PedersenError {
+        #[error("Value {0} exceeds maximum committed value ({MAX_COMMITTED_VALUE})")]
+        ValueTooLarge(u64),
+        #[error("Invalid commitment point (not on curve)")]
+        InvalidCommitment,
+        #[error("Blinding factor is zero (must be non-zero)")]
+        ZeroBlinding,
+    }
+}
+
+#[cfg(test)]
+mod pedersen_tests {
+    use super::*;
+
+    #[cfg(feature = "zk")]
+    mod zk_tests {
+        use super::pedersen::*;
+        use curve25519_dalek::scalar::Scalar;
+
+        #[test]
+        fn test_commit_and_verify() {
+            let scheme = PedersenScheme::new();
+            let (commitment, blinding) = scheme.commit(42).unwrap();
+            assert!(scheme.verify(&commitment, 42, &blinding).unwrap());
+        }
+
+        #[test]
+        fn test_commit_verify_wrong_value() {
+            let scheme = PedersenScheme::new();
+            let (commitment, blinding) = scheme.commit(42).unwrap();
+            assert!(!scheme.verify(&commitment, 43, &blinding).unwrap());
+        }
+
+        #[test]
+        fn test_commit_zero_value() {
+            let scheme = PedersenScheme::new();
+            let (c, b) = scheme.commit(0).unwrap();
+            assert!(scheme.verify(&c, 0, &b).unwrap());
+        }
+
+        #[test]
+        fn test_commit_max_value() {
+            let scheme = PedersenScheme::new();
+            let (c, b) = scheme.commit(MAX_COMMITTED_VALUE).unwrap();
+            assert!(scheme.verify(&c, MAX_COMMITTED_VALUE, &b).unwrap());
+        }
+
+        #[test]
+        fn test_commit_value_too_large() {
+            let scheme = PedersenScheme::new();
+            assert!(matches!(scheme.commit(MAX_COMMITTED_VALUE + 1), Err(PedersenError::ValueTooLarge(_))));
+        }
+
+        #[test]
+        fn test_homomorphic_addition() {
+            let scheme = PedersenScheme::new();
+            let (c1, r1) = scheme.commit(10).unwrap();
+            let (c2, r2) = scheme.commit(20).unwrap();
+            let sum_c = scheme.add_commitments(&c1, &c2).unwrap();
+            assert!(scheme.verify(&sum_c, 30, &(r1 + r2)).unwrap());
+        }
+
+        #[test]
+        fn test_homomorphic_subtraction() {
+            let scheme = PedersenScheme::new();
+            let (c1, r1) = scheme.commit(50).unwrap();
+            let (c2, r2) = scheme.commit(20).unwrap();
+            let diff_c = scheme.subtract_commitments(&c1, &c2).unwrap();
+            assert!(scheme.verify(&diff_c, 30, &(r1 - r2)).unwrap());
+        }
+
+        #[test]
+        fn test_homomorphic_scaling() {
+            let scheme = PedersenScheme::new();
+            let (c, r) = scheme.commit(7).unwrap();
+            let scalar = Scalar::from(5u64);
+            let scaled = scheme.scale_commitment(&c, &scalar).unwrap();
+            assert!(scheme.verify(&scaled, 35, &(r * scalar)).unwrap());
+        }
+
+        #[test]
+        fn test_different_values_different_commitments() {
+            let scheme = PedersenScheme::new();
+            let (c1, _) = scheme.commit(1).unwrap();
+            let (c2, _) = scheme.commit(2).unwrap();
+            assert_ne!(c1.commitment, c2.commitment);
+        }
+
+        #[test]
+        fn test_same_value_different_blinding() {
+            let scheme = PedersenScheme::new();
+            let (c1, _) = scheme.commit(42).unwrap();
+            let (c2, _) = scheme.commit(42).unwrap();
+            assert_ne!(c1.commitment, c2.commitment);
+        }
+
+        #[test]
+        fn test_commitment_hash() {
+            let scheme = PedersenScheme::new();
+            let (c, _) = scheme.commit(12345).unwrap();
+            let h = c.hash();
+            assert_ne!(h.as_bytes(), &[0u8; 32]);
+            assert_eq!(h, c.hash());
+        }
+
+        #[test]
+        fn test_commitment_display() {
+            let scheme = PedersenScheme::new();
+            let (c, _) = scheme.commit(1).unwrap();
+            let s = format!("{}", c);
+            assert!(s.starts_with("Pedersen(0x"));
+        }
+
+        #[test]
+        fn test_custom_domain_generators() {
+            let s1 = PedersenScheme::from_domain("domain-a");
+            let s2 = PedersenScheme::from_domain("domain-b");
+            let (c1, r1) = s1.commit(42).unwrap();
+            let (c2, r2) = s2.commit(42).unwrap();
+            assert_ne!(c1.commitment, c2.commitment);
+            assert!(s1.verify(&c1, 42, &r1).unwrap());
+            assert!(s2.verify(&c2, 42, &r2).unwrap());
+            // Cross-verification should fail (different generators)
+            assert!(!s2.verify(&c1, 42, &r1).unwrap());
+        }
+
+        #[test]
+        fn test_sum_equals_commitment_of_sum() {
+            let scheme = PedersenScheme::new();
+            let (ca, ra) = scheme.commit(100).unwrap();
+            let (cb, rb) = scheme.commit(200).unwrap();
+            let sum_ab = scheme.add_commitments(&ca, &cb).unwrap();
+            assert!(scheme.verify(&sum_ab, 300, &(ra + rb)).unwrap());
+            assert!(!scheme.verify(&sum_ab, 400, &(ra + rb)).unwrap());
+        }
+
+        #[test]
+        fn test_multiple_values() {
+            let scheme = PedersenScheme::new();
+            for value in [0u64, 1, 42, 1000, 1_000_000, 1_000_000_000u64, MAX_COMMITTED_VALUE] {
+                let (c, b) = scheme.commit(value).unwrap();
+                assert!(scheme.verify(&c, value, &b).unwrap());
+                if value > 0 {
+                    assert!(!scheme.verify(&c, value - 1, &b).unwrap());
+                }
+            }
+        }
+    }
+}

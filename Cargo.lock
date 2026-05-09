@@ -2817,6 +2817,7 @@ dependencies = [
  "bincode",
  "bitcoin 0.30.3",
  "bloomfilter",
+ "curve25519-dalek",
  "ed25519-dalek",
  "hex",
  "lazy_static",
@@ -2824,6 +2825,7 @@ dependencies = [
  "pqcrypto-traits",
  "proptest",
  "rand 0.8.6",
+ "rand_core 0.6.4",
  "secp256k1 0.28.2",
  "serde",
  "serde_json",
@@ -2980,6 +2982,19 @@ dependencies = [
  "tokio",
  "tokio-test",
  "tracing",
+]
+
+[[package]]
+name = "csv-stark"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "csv-core",
+ "hex",
+ "rand 0.8.6",
+ "serde",
+ "sha2",
+ "thiserror 1.0.69",
 ]
 
 [[package]]

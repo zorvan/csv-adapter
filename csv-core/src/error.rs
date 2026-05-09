@@ -237,6 +237,9 @@ impl HasErrorSuggestion for ProtocolError {
                     .to_string()
             }
             ProtocolError::InvalidInput(msg) => format!("Invalid input parameters: {}", msg),
+            ProtocolError::StorageError(msg) => {
+                format!("Storage operation failed: {}. Ensure the database is accessible and has sufficient space.", msg)
+            }
             ProtocolError::Generic(_) => {
                 "An unexpected error occurred. Check the logs for details \
                  or contact support with the error context."

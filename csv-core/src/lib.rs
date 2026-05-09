@@ -131,6 +131,12 @@ pub mod tapret_verify;
 // ZK proof infrastructure (Phase 5)
 pub mod zk_proof;
 
+// Atomic swap / HTLSE (Phase 3)
+pub mod atomic_swap;
+
+// Stealth addresses (Phase 3.3)
+pub mod stealth;
+
 // ===========================================================================
 // Re-exports: Protocol Contract (🔒 STABLE + 🟡 BETA)
 // ===========================================================================
@@ -254,3 +260,29 @@ pub use vm::{
 /// These APIs may change or be removed without notice.
 #[cfg(feature = "experimental")]
 pub use rgb::{RgbConsignmentValidator, RgbValidationError, RgbValidationResult};
+
+// ===========================================================================
+// Re-exports: Phase 3 (Atomic Swap / HTLSE)
+// ===========================================================================
+
+pub use atomic_swap::{
+    AtomicSwapBackend, AtomicSwapError, AtomicSwapOffer, AtomicSwapRegistry, AtomicSwapState,
+    DefaultTimeouts, HashLock, SwapDirection, SwapRecord, blocks_to_duration, compute_swap_id,
+    derive_hash_lock, is_timeout_valid, verify_hash_lock,
+};
+
+// ===========================================================================
+// Re-exports: Phase 3 (Stealth Addresses)
+// ===========================================================================
+
+pub use stealth::{
+    compute_ephemeral_point, derive_stealth_base, EphemeralPoint, ScanPublicKey, SpendPublicKey,
+    StealthAddress, StealthAddressPair, StealthScanEntry, StealthWallet,
+};
+
+// ===========================================================================
+// Re-exports: Phase 3 (Pedersen Commitments) - feature-gated
+// ===========================================================================
+
+#[cfg(feature = "zk")]
+pub use zk_proof::pedersen;
