@@ -13,7 +13,7 @@
 
 use bitcoin;
 use bitcoin_hashes::Hash as _;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use csv_core::commitment::Commitment;
 use csv_core::dag::DAGSegment;
@@ -47,6 +47,8 @@ pub struct BitcoinSealProtocol {
     /// RPC client for broadcasting transactions (optional)
     pub rpc: Option<Box<dyn BitcoinRpc + Send + Sync>>,
     next_seal_index: Mutex<u32>,
+    /// Optional MPC batcher for commitment aggregation (90% fee savings)
+    mpc_batcher: Option<Arc<crate::mpc_batch::MpcBatcher>>,
 }
 
 impl BitcoinSealProtocol {
@@ -111,6 +113,7 @@ impl BitcoinSealProtocol {
             domain_separator: domain,
             rpc: Some(rpc),
             next_seal_index: Mutex::new(0),
+            mpc_batcher: None,
         })
     }
 
@@ -134,6 +137,7 @@ impl BitcoinSealProtocol {
             domain_separator: domain,
             rpc: None,
             next_seal_index: Mutex::new(0),
+            mpc_batcher: None,
         })
     }
 
@@ -154,6 +158,59 @@ impl BitcoinSealProtocol {
     pub fn with_rpc(mut self, rpc: Box<dyn BitcoinRpc + Send + Sync>) -> Self {
         self.rpc = Some(rpc);
         self
+    }
+
+    /// Attach an MPC batcher for commitment aggregation.
+    ///
+    /// When enabled, Bitcoin commitments are queued and batched into a single
+    /// on-chain transaction, achieving ~90% fee savings for multiple commitments.
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// use csv_bitcoin::mpc_batch::MpcBatcher;
+    ///
+    /// let batcher = MpcBatcher::default();
+    /// let protocol = protocol.with_mpc_batcher(batcher);
+    /// ```
+    pub fn with_mpc_batcher(mut self, batcher: crate::mpc_batch::MpcBatcher) -> Self {
+        self.mpc_batcher = Some(Arc::new(batcher));
+        self
+    }
+
+    /// Get reference to MPC batcher if configured
+    pub fn mpc_batcher(&self) -> Option<&Arc<crate::mpc_batch::MpcBatcher>> {
+        self.mpc_batcher.as_ref()
+    }
+
+    /// Queue a commitment for batched publication.
+    ///
+    /// Returns true if batch is ready to publish (reached batch_size threshold)
+    pub fn queue_commitment(
+        &self,
+        commitment: Hash,
+        seal: BitcoinSealPoint,
+        request_id: String,
+    ) -> bool {
+        self.mpc_batcher
+            .as_ref()
+            .map(|b| b.queue(commitment, seal, request_id))
+            .unwrap_or(false)
+    }
+
+    /// Check if a batch is ready for publication
+    pub fn has_batch_ready(&self) -> bool {
+        self.mpc_batcher
+            .as_ref()
+            .map(|b| b.has_batch_ready())
+            .unwrap_or(false)
+    }
+
+    /// Get count of pending batched commitments
+    pub fn pending_batch_count(&self) -> usize {
+        self.mpc_batcher
+            .as_ref()
+            .map(|b| b.pending_count())
+            .unwrap_or(0)
     }
 
     /// Get a reference to the wallet

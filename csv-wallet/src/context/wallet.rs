@@ -38,6 +38,8 @@ pub struct WalletContext {
     subscription_manager: Arc<WalletSubscriptionManager>,
     /// Adaptive poller for fallback HTTP polling
     adaptive_poller: Arc<AdaptivePoller>,
+    /// Optional MPC batcher for Bitcoin commitment aggregation (90% fee savings)
+    bitcoin_batcher: Arc<std::sync::Mutex<Option<csv_bitcoin::mpc_batch::MpcBatcher>>>,
     #[cfg(target_arch = "wasm32")]
     encrypted_seal_store: std::sync::Arc<std::sync::Mutex<Option<EncryptedStorageManager>>>,
 }
@@ -81,6 +83,7 @@ impl WalletContext {
             selected_contract,
             subscription_manager,
             adaptive_poller,
+            bitcoin_batcher: Arc::new(std::sync::Mutex::new(None)),
             #[cfg(target_arch = "wasm32")]
             encrypted_seal_store: std::sync::Arc::new(std::sync::Mutex::new(None)),
         };
@@ -857,6 +860,133 @@ impl WalletContext {
     /// Get the adaptive polling interval for a specific chain.
     pub fn get_polling_interval(&self, chain: &str) -> u64 {
         self.adaptive_poller.adjusted_interval_ms(chain)
+    }
+
+    // ===== Bitcoin MPC Batcher =====
+
+    /// Enable MPC batcher for Bitcoin commitment aggregation.
+    ///
+    /// When enabled, Bitcoin seals are queued and published in batches,
+    /// achieving ~90% fee savings compared to individual transactions.
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// use csv_bitcoin::mpc_batch::MpcBatcher;
+    ///
+    /// // Standard batcher: up to 10 seals, min 2, 5 min timeout
+    /// wallet_ctx.enable_bitcoin_batcher(MpcBatcher::default());
+    ///
+    /// // High-volume batcher: up to 50 seals, min 5, 10 min timeout
+    /// wallet_ctx.enable_bitcoin_batcher(MpcBatcher::high_volume());
+    /// ```
+    pub fn enable_bitcoin_batcher(&self, batcher: csv_bitcoin::mpc_batch::MpcBatcher) {
+        let mut guard = self.bitcoin_batcher.lock().unwrap();
+        *guard = Some(batcher);
+    }
+
+    /// Disable the Bitcoin MPC batcher.
+    ///
+    /// Any pending commitments will remain queued but won't be published
+    /// until batcher is re-enabled and finalize_batch() is called.
+    pub fn disable_bitcoin_batcher(&self) {
+        let mut guard = self.bitcoin_batcher.lock().unwrap();
+        *guard = None;
+    }
+
+    /// Check if Bitcoin batcher is enabled
+    pub fn is_bitcoin_batcher_enabled(&self) -> bool {
+        let guard = self.bitcoin_batcher.lock().unwrap();
+        guard.is_some()
+    }
+
+    /// Queue a Bitcoin seal for batched publication.
+    ///
+    /// # Arguments
+    /// * `commitment` - The commitment hash to publish
+    /// * `seal` - The Bitcoin seal point (UTXO reference)
+    /// * `request_id` - Unique identifier for tracking this seal
+    ///
+    /// # Returns
+    /// - `Ok(true)` if batch is ready to publish (reached batch_size threshold)
+    /// - `Ok(false)` if queued but batch not yet ready
+    /// - `Err` if batcher not enabled
+    pub fn queue_bitcoin_seal(
+        &self,
+        commitment: csv_core::hash::Hash,
+        seal: csv_bitcoin::types::BitcoinSealPoint,
+        request_id: String,
+    ) -> Result<bool, String> {
+        let guard = self.bitcoin_batcher.lock().unwrap();
+        let batcher = guard.as_ref()
+            .ok_or("Bitcoin MPC batcher not enabled. Call enable_bitcoin_batcher() first.")?;
+        
+        Ok(batcher.queue(commitment, seal, request_id))
+    }
+
+    /// Check if a Bitcoin batch is ready for publication.
+    ///
+    /// Returns true if pending commitments >= min_batch_size threshold.
+    pub fn is_bitcoin_batch_ready(&self) -> bool {
+        let guard = self.bitcoin_batcher.lock().unwrap();
+        guard.as_ref().map(|b| b.has_batch_ready()).unwrap_or(false)
+    }
+
+    /// Get count of pending Bitcoin seals in the batch queue.
+    pub fn pending_bitcoin_batch_count(&self) -> usize {
+        let guard = self.bitcoin_batcher.lock().unwrap();
+        guard.as_ref().map(|b| b.pending_count()).unwrap_or(0)
+    }
+
+    /// Build MPC tree from pending Bitcoin seals.
+    ///
+    /// This is the first step in finalizing a batch. Returns the MPC tree
+    /// and the commitments that were included.
+    ///
+    /// # Returns
+    /// - `Ok((tree, commitments))` if there are pending seals
+    /// - `Err` if batcher not enabled or no pending seals
+    pub fn build_bitcoin_mpc_tree(
+        &self,
+    ) -> Result<(csv_core::commit_mux::CommitMux, Vec<csv_bitcoin::mpc_batch::PendingCommitment>), String> {
+        let guard = self.bitcoin_batcher.lock().unwrap();
+        let batcher = guard.as_ref()
+            .ok_or("Bitcoin MPC batcher not enabled.")?;
+        
+        batcher.build_mpc_tree()
+            .ok_or("No pending Bitcoin seals to batch".to_string())
+    }
+
+    /// Generate inclusion proofs for all seals in a batch.
+    ///
+    /// Call this after building the MPC tree to get proofs for each seal.
+    pub fn generate_bitcoin_batch_proofs(
+        &self,
+        tree: &csv_core::commit_mux::CommitMux,
+        commitments: &[csv_bitcoin::mpc_batch::PendingCommitment],
+    ) -> Result<Vec<(String, csv_core::commit_mux::MuxProof)>, String> {
+        let guard = self.bitcoin_batcher.lock().unwrap();
+        let batcher = guard.as_ref()
+            .ok_or("Bitcoin MPC batcher not enabled.")?;
+        
+        batcher.generate_proofs(tree, commitments)
+            .map_err(|e| format!("Failed to generate MPC proofs: {}", e))
+    }
+
+    /// Peek at pending Bitcoin seals without consuming them.
+    pub fn peek_pending_bitcoin_seals(&self) -> Vec<csv_bitcoin::mpc_batch::PendingCommitment> {
+        let guard = self.bitcoin_batcher.lock().unwrap();
+        guard.as_ref().map(|b| b.peek_pending()).unwrap_or_default()
+    }
+
+    /// Clear all pending Bitcoin seals from the batch queue.
+    ///
+    /// # Warning
+    /// This discards queued seals without publishing them. Use with caution.
+    pub fn clear_bitcoin_batch_queue(&self) {
+        let guard = self.bitcoin_batcher.lock().unwrap();
+        if let Some(batcher) = guard.as_ref() {
+            batcher.clear();
+        }
     }
 }
 

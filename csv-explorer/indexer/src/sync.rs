@@ -5,6 +5,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use rand::Rng;
 use tokio::sync::RwLock;
 use tokio::time::sleep;
 
@@ -35,6 +36,22 @@ pub struct SyncCoordinator {
     chain_states: Arc<RwLock<Vec<ChainSyncState>>>,
     /// Total indexed blocks counter
     total_indexed: Arc<RwLock<u64>>,
+    /// Per-chain polling intervals (chain_id -> duration)
+    chain_intervals: std::collections::HashMap<String, Duration>,
+}
+
+/// Default polling intervals per chain (base values before jitter).
+fn default_chain_intervals() -> std::collections::HashMap<String, Duration> {
+    [
+        ("solana", Duration::from_millis(1000)),
+        ("sui", Duration::from_millis(4000)),
+        ("aptos", Duration::from_millis(4000)),
+        ("ethereum", Duration::from_millis(12000)),
+        ("bitcoin", Duration::from_millis(15000)),
+    ]
+    .into_iter()
+    .map(|(k, v)| (k.to_string(), v))
+    .collect()
 }
 
 /// Per-chain sync state.
@@ -99,12 +116,34 @@ impl SyncCoordinator {
             running: Arc::new(RwLock::new(false)),
             chain_states: Arc::new(RwLock::new(chain_states)),
             total_indexed: Arc::new(RwLock::new(0)),
+            chain_intervals: default_chain_intervals(),
         }
     }
 
     /// Get a reference to the database pool.
     pub fn get_pool(&self) -> &SqlitePool {
         &self.pool
+    }
+
+    /// Get the polling interval for a specific chain with jitter.
+    ///
+    /// Applies ±20% random jitter to prevent thundering herd on RPC endpoints.
+    fn get_chain_interval(&self, chain_id: &str) -> Duration {
+        let base = self
+            .chain_intervals
+            .get(chain_id)
+            .copied()
+            .unwrap_or(Duration::from_millis(self.poll_interval_ms));
+
+        self.apply_jitter(base)
+    }
+
+    /// Apply ±20% jitter to a duration using a thread-local RNG.
+    fn apply_jitter(&self, duration: Duration) -> u64 {
+        let mut rng = rand::thread_rng();
+        // Jitter factor: 0.8 to 1.2 (±20%)
+        let jitter_factor = rng.gen_range(0.8..=1.2);
+        (duration.as_millis() as f64 * jitter_factor) as u64
     }
 
     /// Initialize all chain indexers.
@@ -132,54 +171,80 @@ impl SyncCoordinator {
         *running = true;
         drop(running);
 
-        tracing::info!("Starting sync coordinator");
+        tracing::info!("Starting sync coordinator with per-chain polling");
 
-        // Run the sync loop directly (not spawned) to avoid lifetime issues with trait objects
-        while *self.running.read().await {
-            // Update chain states
-            {
-                let mut states = self.chain_states.write().await;
-                for (i, indexer) in self.indexers.iter().enumerate() {
-                    if let Ok(tip) = indexer.get_chain_tip().await {
-                        states[i].latest_block = tip;
-                        states[i].status = ChainStatus::Synced;
-                    } else {
-                        states[i].status = ChainStatus::Error;
+        // Spawn a dedicated sync task for each chain with its own interval
+        let indexers: Vec<_> = self.indexers.iter().collect();
+        let chain_configs = &self.chain_configs;
+        let pool = &self.pool;
+        let batch_size = self.batch_size;
+        let total_indexed = &self.total_indexed;
+
+        for indexer in indexers {
+            let chain_id = indexer.chain_id().to_string();
+            let chain_config = chain_configs.get(chain_id.as_str());
+
+            // Only spawn if the chain is enabled
+            if let Some(config) = chain_config {
+                if !config.enabled {
+                    continue;
+                }
+            }
+
+            let poll_interval = self.get_chain_interval(&chain_id);
+            tracing::info!(chain = %chain_id, interval_ms = poll_interval.as_millis(), "Starting chain sync task");
+
+            // Clone shared state for the spawned task
+            let pool_for_task = pool.clone();
+            let total_for_task = Arc::clone(total_indexed);
+            let running = Arc::clone(self.running);
+            let chain_states = Arc::clone(self.chain_states);
+
+            let sync_ctx = SyncContext::new(
+                &self.sync_repo,
+                &self.sanads_repo,
+                &self.seals_repo,
+                &self.transfers_repo,
+                &self.contracts_repo,
+                &self.advanced_repo,
+                batch_size,
+                &total_for_task,
+                chain_config,
+            );
+
+            let indexer_clone = Box::new(indexer.as_ref());
+
+            tokio::spawn(async move {
+                let mut interval = tokio::time::interval(poll_interval);
+                interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+
+                while *running.read().await {
+                    interval.tick().await;
+
+                    if let Err(e) = sync_chain(indexer_clone.as_ref(), &sync_ctx).await {
+                        tracing::warn!(chain = %chain_id, error = %e, "Per-chain sync error");
+                    }
+
+                    // Update chain state after sync attempt
+                    if let Ok(tip) = indexer_clone.get_chain_tip().await {
+                        let mut states = chain_states.write().await;
+                        for state in states.iter_mut() {
+                            if state.chain_id == chain_id {
+                                state.latest_block = tip;
+                                state.status = ChainStatus::Synced;
+                                break;
+                            }
+                        }
                     }
                 }
-            }
 
-            // Sync each chain
-            for indexer in &self.indexers {
-                let chain_id = indexer.chain_id();
-                let chain_config = self.chain_configs.get(chain_id);
-                let ctx = SyncContext::new(
-                    &self.sync_repo,
-                    &self.sanads_repo,
-                    &self.seals_repo,
-                    &self.transfers_repo,
-                    &self.contracts_repo,
-                    &self.advanced_repo,
-                    self.batch_size,
-                    &self.total_indexed,
-                    chain_config,
-                );
-                if let Err(e) = sync_chain(indexer.as_ref(), &ctx).await {
-                    tracing::error!(chain = indexer.chain_id(), error = %e, "Sync error");
-                }
-            }
+                tracing::info!(chain = %chain_id, "Chain sync task stopped");
+            });
+        }
 
-            // Sleep before next poll
-            // Use the maximum poll interval across all enabled chains to ensure
-            // all chains are polled at their configured rates.
-            let max_interval = self
-                .chain_configs
-                .values()
-                .filter(|c| c.enabled)
-                .map(|c| self.indexer_poll_interval_ms) // Will be updated with per-chain logic
-                .max()
-                .unwrap_or(self.indexer_poll_interval_ms);
-            sleep(Duration::from_millis(max_interval)).await;
+        // Main loop: keep the coordinator running and update status periodically
+        while *self.running.read().await {
+            sleep(Duration::from_secs(5)).await;
         }
 
         tracing::info!("Sync coordinator stopped");

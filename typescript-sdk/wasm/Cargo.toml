@@ -1,0 +1,27 @@
+[package]
+name = "csv-crypto-wasm"
+version = "0.4.0"
+edition = "2021"
+description = "WASM bindings for CSV protocol crypto operations (ML-DSA-65, seal verification)"
+license = "MIT OR Apache-2.0"
+authors = ["Amin Razavi"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha3 = "0.10"
+digest = "0.10"
+pqcrypto-dilithium = { version = "0.5", optional = true }
+pqcrypto-traits = { version = "0.3", optional = true }
+rand = "0.8"
+hex = "0.4"
+
+[features]
+default = ["pq"]
+pq = ["dep:pqcrypto-dilithium", "dep:pqcrypto-traits"]

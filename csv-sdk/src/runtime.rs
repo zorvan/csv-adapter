@@ -478,6 +478,18 @@ impl ChainRuntime {
     /// Get the adapter for the specified chain.
     async fn get_adapter(&self, chain: ChainId) -> Result<Arc<dyn ChainBackend>, CsvError> {
         let adapters = self.adapters.lock().await;
+
+        // Validate that RPC endpoints were configured and adapters initialized.
+        // This is a configuration error, not a runtime failure — it should be
+        // caught immediately at startup per the "Fail Closed, Always" principle.
+        if adapters.is_empty() {
+            panic!(
+                "CRITICAL: No chain adapters registered in ChainRuntime. \
+                 Call `client.init_adapters(NetworkType::Testnet)` or `init_adapters(NetworkType::Mainnet)` \
+                 with proper RPC configuration before using runtime operations."
+            );
+        }
+
         adapters
             .get(&chain)
             .cloned()

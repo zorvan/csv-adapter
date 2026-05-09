@@ -12,6 +12,7 @@ members = [
     "csv-sdk",
     "csv-cli",
     "csv-wallet",
+    "csv-p2p",
 ]
 resolver = "2"
 
