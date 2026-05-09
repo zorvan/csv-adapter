@@ -80,7 +80,16 @@ impl Signature {
                 sign_ed25519(message, secret_key)?
             }
             SignatureScheme::MlDsa65 => {
-                sign_ml_dsa65(message, secret_key)?
+                #[cfg(feature = "pq")]
+                {
+                    sign_ml_dsa65(message, secret_key)?
+                }
+                #[cfg(not(feature = "pq"))]
+                {
+                    return Err(ProtocolError::SignatureVerificationFailed(
+                        "ML-DSA-65 signing requires the 'pq' feature to be enabled".to_string()
+                    ));
+                }
             }
         };
 

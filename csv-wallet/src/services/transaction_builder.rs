@@ -1311,6 +1311,7 @@ mod tests {
     ///
     /// Tests that changing ETH_CHAIN_ID changes the RLP output, proving the
     /// chain ID is actually being used rather than hardcoded.
+    #[serial_test::serial]
     #[test]
     fn test_eth_rlp_chain_id_configurable() {
         let to = "f010101010101010101010101010101010101010";
@@ -1341,6 +1342,7 @@ mod tests {
     }
 
     /// Regression test: Verify nonce is correctly encoded in RLP.
+    #[serial_test::serial]
     #[test]
     fn test_eth_rlp_nonce_encoding() {
         std::env::set_var("ETH_CHAIN_ID", "1");

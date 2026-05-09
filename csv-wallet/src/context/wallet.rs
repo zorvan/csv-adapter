@@ -2,10 +2,11 @@
 
 use crate::context::state::AppState;
 use crate::context::types::*;
+use crate::services::subscription::{WalletSubscriptionManager, AdaptivePoller};
 use crate::storage::{self, LocalStorageManager, UNIFIED_STORAGE_KEY, WALLET_MNEMONIC_KEY};
 use crate::wallet_core::{ChainAccount, WalletData};
 use dioxus::prelude::*;
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 
 #[cfg(target_arch = "wasm32")]
 use csv_store::{EncryptedStorageManager, seal_nullifier_storage};
@@ -33,6 +34,10 @@ pub struct WalletContext {
     store: Option<LocalStorageManager>,
     loaded: Signal<bool>,
     selected_contract: Signal<Option<ContractRecord>>,
+    /// WebSocket subscription manager for real-time updates
+    subscription_manager: Arc<WalletSubscriptionManager>,
+    /// Adaptive poller for fallback HTTP polling
+    adaptive_poller: Arc<AdaptivePoller>,
     #[cfg(target_arch = "wasm32")]
     encrypted_seal_store: std::sync::Arc<std::sync::Mutex<Option<EncryptedStorageManager>>>,
 }
@@ -52,11 +57,30 @@ impl WalletContext {
         selected_contract: Signal<Option<ContractRecord>>,
     ) -> Self {
         let store = storage::wallet_storage().ok();
+        
+        // Initialize WebSocket subscription manager with default explorer URL
+        let explorer_url = std::env::var("EXPLORER_URL").unwrap_or_else(|_| "http://localhost:8080".to_string());
+        let subscription_manager = Arc::new(WalletSubscriptionManager::new(explorer_url));
+        
+        // Initialize adaptive poller with per-chain intervals
+        let adaptive_poller = Arc::new(AdaptivePoller::new());
+        
+        // Set chain intervals in subscription manager
+        let mut intervals = std::collections::HashMap::new();
+        intervals.insert("solana".to_string(), 1000);
+        intervals.insert("sui".to_string(), 4000);
+        intervals.insert("aptos".to_string(), 4000);
+        intervals.insert("ethereum".to_string(), 12000);
+        intervals.insert("bitcoin".to_string(), 15000);
+        subscription_manager.set_chain_intervals(intervals);
+        
         let mut ctx = Self {
             state,
             store,
             loaded,
             selected_contract,
+            subscription_manager,
+            adaptive_poller,
             #[cfg(target_arch = "wasm32")]
             encrypted_seal_store: std::sync::Arc::new(std::sync::Mutex::new(None)),
         };
@@ -806,6 +830,33 @@ impl WalletContext {
             let _ = store.delete(UNIFIED_STORAGE_KEY);
             let _ = store.delete(WALLET_MNEMONIC_KEY);
         }
+    }
+
+    /// Get the WebSocket subscription manager.
+    pub fn subscription_manager(&self) -> Arc<WalletSubscriptionManager> {
+        Arc::clone(&self.subscription_manager)
+    }
+
+    /// Get the adaptive poller.
+    pub fn adaptive_poller(&self) -> Arc<AdaptivePoller> {
+        Arc::clone(&self.adaptive_poller)
+    }
+
+    /// Subscribe to real-time updates for a specific address and chain.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub async fn subscribe_to_address(&self, address: &str, chain: Option<&str>) -> Result<(), String> {
+        self.subscription_manager.subscribe(address, chain, None).await
+    }
+
+    /// Unsubscribe from updates for a specific address.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub async fn unsubscribe_from_address(&self, address: &str, chain: Option<&str>) -> Result<(), String> {
+        self.subscription_manager.unsubscribe(address, chain).await
+    }
+
+    /// Get the adaptive polling interval for a specific chain.
+    pub fn get_polling_interval(&self, chain: &str) -> u64 {
+        self.adaptive_poller.adjusted_interval_ms(chain)
     }
 }
 

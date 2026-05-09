@@ -6,4 +6,5 @@ pub mod chain_api;
 pub mod explorer;
 pub mod network;
 pub mod seal_service;
+pub mod subscription;
 pub mod transaction_builder;
