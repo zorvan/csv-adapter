@@ -9,7 +9,6 @@ use crate::error::{BitcoinError, BitcoinResult};
 use crate::rpc::BitcoinRpc;
 use crate::wallet::SealWallet;
 use bitcoin::key::TapTweak;
-use bitcoin_hashes::Hash as BitcoinHash;
 
 /// Bitcoin contract deployment transaction
 pub struct ContractDeployment {

@@ -7,7 +7,9 @@ use solana_sdk::{
     account::Account, pubkey::Pubkey, signature::Signature, transaction::Transaction,
 };
 
-use crate::error::{SolanaError, SolanaResult};
+use crate::error::SolanaResult;
+#[cfg(test)]
+use crate::error::SolanaError;
 use crate::types::{AccountChange, ConfirmationStatus};
 
 /// Trait for Solana RPC operations (synchronous, matching other chain adapters)

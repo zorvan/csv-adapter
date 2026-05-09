@@ -30,7 +30,9 @@ use crate::checkpoint::CheckpointVerifier;
 use crate::config::{AptosConfig, AptosNetwork};
 use crate::error::{AptosError, AptosResult};
 use crate::proofs::{CommitmentEventBuilder, EventProofVerifier, StateProofVerifier};
-use crate::rpc::{AptosLedgerInfo, AptosRpc, AptosTransaction};
+#[cfg(not(feature = "rpc"))]
+use crate::rpc::{AptosLedgerInfo, AptosTransaction};
+use crate::rpc::AptosRpc;
 use crate::seal::SealRegistry;
 use crate::types::{AptosCommitAnchor, AptosFinalityProof, AptosInclusionProof, AptosSealPoint};
 
@@ -154,13 +156,12 @@ impl AptosSealProtocol {
         }
 
         // Check on-chain resource
-        let resource_type = format!(
-            "{}::csv_seal::{}",
-            self.config.seal_contract.module_address, self.config.seal_contract.seal_resource
-        );
-
         #[cfg(feature = "rpc")]
         let exists = {
+            let resource_type = format!(
+                "{}::csv_seal::{}",
+                self.config.seal_contract.module_address, self.config.seal_contract.seal_resource
+            );
             let rpc = self.rpc.clone_boxed();
             let rt = Handle::current();
             rt.block_on(async {
@@ -617,10 +618,9 @@ impl SealProtocol for AptosSealProtocol {
             anchor.version
         );
 
-        let f_plus_one = self.config.f_plus_one();
-
-        #[cfg(feature = "rpc")]
+         #[cfg(feature = "rpc")]
         let is_certified = {
+            let f_plus_one = self.config.f_plus_one();
             let rt = Handle::current();
             match rt.block_on(async {
                 self.checkpoint_verifier

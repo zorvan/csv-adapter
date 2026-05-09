@@ -22,7 +22,6 @@
 //! - Fraud proofs can challenge unavailability
 
 use cid::Cid;
-use multibase::Base;
 use multihash::Multihash;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};

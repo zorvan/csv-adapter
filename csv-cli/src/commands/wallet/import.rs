@@ -4,11 +4,10 @@
 //! all chain accounts using BIP-44 derivation. Keys are stored in the
 //! encrypted file keystore.
 
-use crate::config::{Chain, Config, Network};
+use crate::config::{Config, Network};
 use crate::output;
 use crate::state::UnifiedStateManager;
 use anyhow::Result;
-use csv_core::ChainId as CoreChain;
 use csv_keys::{
     bip39::Mnemonic,
     bip44::{derive_address_from_key, derive_all_chain_keys},

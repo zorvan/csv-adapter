@@ -276,6 +276,7 @@ pub struct EnhancedCommitment {
 
 impl EnhancedCommitment {
     /// Create a new enhanced commitment with default metadata
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         version: u8,
         protocol_id: [u8; 32],
@@ -318,14 +319,14 @@ impl EnhancedCommitment {
         let mut hasher = Sha256::new();
 
         // Domain separator for commitment hashing
-        hasher.update(&self.domain_separator);
+        hasher.update(self.domain_separator);
         hasher.update([self.version]);
-        hasher.update(&self.protocol_id);
-        hasher.update(&self.mpc_root);
-        hasher.update(&self.contract_id);
-        hasher.update(&self.previous_commitment);
-        hasher.update(&self.transition_payload_hash);
-        hasher.update(&self.seal_id);
+        hasher.update(self.protocol_id);
+        hasher.update(self.mpc_root);
+        hasher.update(self.contract_id);
+        hasher.update(self.previous_commitment);
+        hasher.update(self.transition_payload_hash);
+        hasher.update(self.seal_id);
 
         Hash::new(hasher.finalize().into())
     }
@@ -396,7 +397,7 @@ impl PedersenCommitment {
         // For now, we compute a hash-based commitment
         let mut hasher = Sha256::new();
         hasher.update(blinding_factor);
-        hasher.update(&value.to_le_bytes());
+        hasher.update(value.to_le_bytes());
         let commitment = hasher.finalize().to_vec();
 
         Self {
@@ -412,7 +413,7 @@ impl PedersenCommitment {
     pub fn verify(&self) -> bool {
         let mut hasher = Sha256::new();
         hasher.update(&self.blinding_factor);
-        hasher.update(&self.value.to_le_bytes());
+        hasher.update(self.value.to_le_bytes());
         let computed = hasher.finalize().to_vec();
         computed == self.commitment
     }

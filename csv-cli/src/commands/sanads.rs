@@ -69,7 +69,6 @@ fn cmd_create(
     output::header(&format!("Creating Sanad on {}", chain));
 
     // Use the new runtime to create the sanad
-    use csv_core::ChainId;
     use csv_sdk::CsvClient;
     use csv_sdk::StoreBackend;
 

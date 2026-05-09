@@ -67,7 +67,7 @@ pub enum TransferState {
     ProofReady {
         /// The proof bundle
         #[serde(skip_serializing_if = "Option::is_none")]
-        bundle: Option<crate::proof::ProofBundle>,
+        bundle: Option<Box<crate::proof::ProofBundle>>,
     },
     /// Minting on destination chain
     Minting {

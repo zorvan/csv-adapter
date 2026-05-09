@@ -25,7 +25,6 @@ use csv_core::seal::SealPoint;
 use csv_core::zk_proof::{
     ChainWitness, ProofSystem, VerifierKey, ZkError, ZkProver, ZkPublicInputs, ZkSealProof,
 };
-use csv_core::ChainId;
 use sha2::{Digest, Sha256};
 
 /// Bitcoin SPV ZK Prover using SP1
@@ -248,6 +247,7 @@ impl Sp1BtcSpvInput {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use csv_core::ChainId;
 
     #[test]
     fn test_bitcoin_spv_prover_creation() {

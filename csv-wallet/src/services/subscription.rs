@@ -227,7 +227,7 @@ impl WalletSubscriptionManager {
         let connected = Arc::clone(&self.connected);
         let event_sender = Arc::clone(&self.event_sender);
 
-        let (tx, mut rx) = mpsc::unbounded_channel::<SubscriptionEvent>();
+        let (tx, mut _rx) = mpsc::unbounded_channel::<SubscriptionEvent>();
         *event_sender.write().await = Some(tx);
 
         let handle = tokio::spawn(async move {
@@ -371,7 +371,7 @@ impl WalletSubscriptionManager {
         
         let address = address.to_string();
         let chain = chain_str.to_string();
-        let on_event = Arc::new(on_event);
+        let _on_event = Arc::new(on_event);
         
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(Duration::from_millis(poll_interval));

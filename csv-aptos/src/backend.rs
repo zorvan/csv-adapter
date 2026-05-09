@@ -4,6 +4,7 @@
 //! enabling Aptos to be used through the unified chain adapter interface.
 
 use async_trait::async_trait;
+#[cfg(feature = "rpc")]
 use base64::Engine;
 use csv_core::chain_config::ChainConfig;
 use csv_core::driver::{
@@ -359,6 +360,7 @@ impl ChainDriver for AptosSealProtocol {
 
         #[cfg(not(feature = "rpc"))]
         {
+            let _ = rpc_url;
             Err(ChainError::FeatureNotEnabled(
                 "Real Aptos RPC requires the 'rpc' feature to be enabled".to_string(),
             ))
@@ -440,6 +442,7 @@ pub fn create_aptos_adapter(config: &ChainConfig) -> ChainResult<AptosSealProtoc
     // Otherwise, return error indicating rpc feature is needed
     #[cfg(not(any(test, feature = "rpc")))]
     {
+        let _ = aptos_config;
         Err(ChainError::FeatureNotEnabled(
             "Real Aptos RPC requires the 'rpc' feature to be enabled".to_string(),
         ))

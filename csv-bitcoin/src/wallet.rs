@@ -4,11 +4,12 @@
 
 use bitcoin::{
     bip32::{DerivationPath as BitcoinDerivationPath, Xpriv, Xpub},
-    hashes::Hash as BitcoinHash,
     key::TapTweak,
     secp256k1::{self, Secp256k1, SecretKey, XOnlyPublicKey},
-    Address, Network, OutPoint, Txid,
+    Address, Network, OutPoint,
 };
+#[cfg(test)]
+use bitcoin::Txid;
 use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 use std::sync::Mutex;

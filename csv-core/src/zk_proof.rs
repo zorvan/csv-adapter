@@ -72,7 +72,7 @@ impl VerifierKey {
         let mut hasher = Sha256::new();
         hasher.update(self.chain.as_bytes());
         hasher.update(&self.key_bytes);
-        hasher.update(&self.version.to_le_bytes());
+        hasher.update(self.version.to_le_bytes());
         Hash::new(hasher.finalize().into())
     }
 }
@@ -235,11 +235,11 @@ impl ChainWitness {
         let mut hasher = Sha256::new();
         hasher.update(self.chain.as_bytes());
         hasher.update(self.block_hash.as_bytes());
-        hasher.update(&self.block_height.to_le_bytes());
+        hasher.update(self.block_height.to_le_bytes());
         hasher.update(&self.tx_data);
         hasher.update(&self.inclusion_proof);
         hasher.update(&self.finality_proof);
-        hasher.update(&self.timestamp.to_le_bytes());
+        hasher.update(self.timestamp.to_le_bytes());
         Hash::new(hasher.finalize().into())
     }
 }

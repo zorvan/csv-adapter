@@ -295,7 +295,7 @@ where
         })
     }
 
-    fn rollback(&self, anchor: Self::CommitAnchor) -> CoreResult<()> {
+    fn rollback(&self, _anchor: Self::CommitAnchor) -> CoreResult<()> {
         // Handle rollback for a specific anchor due to chain reorganization
         // In production, this would:
         // 1. Verify the anchor is no longer in the canonical chain

@@ -29,6 +29,9 @@ use std::sync::OnceLock;
 use crate::chain_config::{AccountModel, ChainCapabilities, ChainConfig, ChainConfigLoader};
 use crate::driver::ChainDriver;
 
+/// Type alias for the driver factory function stored in the registry.
+type DriverFactory = Arc<dyn Fn(Option<ChainConfig>) -> Box<dyn ChainDriver> + Send + Sync>;
+
 // Driver imports are commented out temporarily due to cyclic dependency issues
 // These will be re-enabled once the dependency cycle is resolved
 // #[cfg(feature = "bitcoin")]
@@ -122,8 +125,7 @@ pub trait DriverPlugin: Send + Sync + Any {
 /// `DriverRegistry`, providing both direct factory registration
 /// and plugin-based adapter creation from a single API.
 pub struct DriverRegistry {
-    factories:
-        HashMap<String, Arc<dyn Fn(Option<ChainConfig>) -> Box<dyn ChainDriver> + Send + Sync>>,
+    factories: HashMap<String, DriverFactory>,
     plugins: HashMap<String, Arc<dyn DriverPlugin>>,
 }
 
@@ -333,7 +335,7 @@ impl DriverRegistry {
     pub fn register_with_config(
         &mut self,
         chain_id: &str,
-        factory: Arc<dyn Fn(Option<ChainConfig>) -> Box<dyn ChainDriver> + Send + Sync>,
+        factory: DriverFactory,
     ) {
         self.factories.insert(chain_id.to_string(), factory);
     }

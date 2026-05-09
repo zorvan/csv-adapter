@@ -382,7 +382,7 @@ where
         Blob::new(proof_id.namespace, data)
     }
 
-    async fn verify_availability(&self, proof_id: &ProofId, samples: u32) -> Result<bool> {
+    async fn verify_availability(&self, proof_id: &ProofId, _samples: u32) -> Result<bool> {
         // For mock/testing, just check if data exists
         let result = self
             .celestia_client
@@ -423,7 +423,7 @@ where
         let ipfs_ref = IpfsReference::new(cid.clone(), data.len() as u64);
         let anchor_data = ipfs_ref.to_anchor_bytes();
 
-        let (height, commitment) = self
+        let (height, _commitment) = self
             .celestia_client
             .submit_blob(namespace, &anchor_data)
             .await?;

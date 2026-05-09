@@ -5,7 +5,6 @@
 use anyhow::Result;
 
 use csv_core::hash::Hash;
-use csv_core::ChainId;
 use csv_sdk::CsvClient;
 
 use crate::config::{Chain, Config};

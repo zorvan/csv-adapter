@@ -1367,15 +1367,17 @@ impl BitcoinBackend {
         use crate::tapret::TapretCommitment;
 
         // Create a seal point for funding this transaction
-        let funding_seal = crate::types::BitcoinSealPoint::new(
+        let _funding_seal = crate::types::BitcoinSealPoint::new(
             [0u8; 32], // Placeholder - would be derived from wallet
             0,
             Some(10_000), // 10k sats for fees
         );
 
         // Build tapret commitment with MPC root
-        let tapret = TapretCommitment::new(mpc_root.as_bytes().to_vec())
-            .map_err(|e| ChainOpError::TransactionError(format!("Invalid tapret: {}", e)))?;
+        let mut protocol_id = [0u8; 32];
+        protocol_id.copy_from_slice(&mpc_root.as_bytes()[..32]);
+        let commitment = csv_core::Hash::default();
+        let tapret = TapretCommitment::new(protocol_id, commitment);
 
         // Build the publication transaction
         let tx = Transaction {
@@ -1389,8 +1391,7 @@ impl BitcoinBackend {
             }],
             output: vec![TxOut {
                 value: bitcoin::Amount::from_sat(546), // Dust limit
-                script_pubkey: tapret.to_script_pubkey()
-                    .map_err(|e| ChainOpError::TransactionError(e.to_string()))?,
+                script_pubkey: tapret.leaf_script(),
             }],
         };
 
@@ -1403,7 +1404,7 @@ impl BitcoinBackend {
         let txid_hex = self.submit_transaction(&tx_bytes).await?;
         
         let txid = hex::decode(txid_hex.trim_start_matches("0x"))
-            .map_err(|e| ChainOpError::SerializationError(format!("Invalid txid: {}", e)))?;
+            .map_err(|e| ChainOpError::InvalidInput(format!("Invalid txid: {}", e)))?;
         
         if txid.len() != 32 {
             return Err(ChainOpError::InvalidInput("Invalid txid length".to_string()));

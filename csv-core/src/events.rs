@@ -144,6 +144,7 @@ pub enum EventData {
 
 impl CsvEvent {
     /// Create a new SanadCreated event
+    #[allow(clippy::too_many_arguments)]
     pub fn sanad_created(
         chain: &str,
         block_height: u64,
@@ -200,6 +201,7 @@ impl CsvEvent {
     }
 
     /// Create a new SanadTransferred event
+    #[allow(clippy::too_many_arguments)]
     pub fn sanad_transferred(
         chain: &str,
         block_height: u64,
@@ -227,6 +229,7 @@ impl CsvEvent {
     }
 
     /// Create a new CrossChainLock event
+    #[allow(clippy::too_many_arguments)]
     pub fn cross_chain_lock(
         chain: &str,
         block_height: u64,
@@ -256,6 +259,7 @@ impl CsvEvent {
     }
 
     /// Create a new CrossChainMint event
+    #[allow(clippy::too_many_arguments)]
     pub fn cross_chain_mint(
         chain: &str,
         block_height: u64,
@@ -285,6 +289,7 @@ impl CsvEvent {
     }
 
     /// Create a new CrossChainRefund event
+    #[allow(clippy::too_many_arguments)]
     pub fn cross_chain_refund(
         chain: &str,
         block_height: u64,

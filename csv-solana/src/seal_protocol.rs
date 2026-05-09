@@ -6,7 +6,7 @@
 
 use csv_core::seal_protocol::SealProtocol;
 use csv_core::{
-    dag::DAGSegment, proof::ProofBundle, signature::SignatureScheme, Hash, ProtocolError, Result,
+    dag::DAGSegment, proof::ProofBundle, signature::SignatureScheme, Hash, Result,
 };
 use sha2::{Digest, Sha256};
 use solana_sdk::pubkey::Pubkey;

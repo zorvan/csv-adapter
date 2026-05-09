@@ -19,13 +19,20 @@
 //! - `/api/v0/pin/add` - Pin content
 //! - `/api/v0/block/stat` - Get content stats
 
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "rpc")]
+use async_trait::async_trait;
+
+#[cfg(feature = "rpc")]
 use crate::commitment::CommitmentProof;
+#[cfg(feature = "rpc")]
 use crate::da_layer::CelestiaRpc;
+#[cfg(feature = "rpc")]
 use crate::error::{CelestiaError, Result};
+#[cfg(feature = "rpc")]
 use crate::namespace::Namespace;
+#[cfg(feature = "rpc")]
 use crate::types::{CelestiaFinalityProof, CelestiaHeader};
 
 /// Celestia node RPC client

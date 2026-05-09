@@ -22,7 +22,9 @@ use sha3::{Digest, Sha3_256};
 
 use crate::config::AptosNetwork;
 use crate::proofs::CommitmentEventBuilder;
-use crate::rpc::{AptosLedgerInfo, AptosRpc, AptosTransaction};
+#[cfg(not(feature = "rpc"))]
+use crate::rpc::AptosLedgerInfo;
+use crate::rpc::{AptosRpc, AptosTransaction};
 use crate::seal_protocol::AptosSealProtocol;
 
 /// Aptos chain operations implementation

@@ -83,8 +83,9 @@ use crate::signature::{verify_signatures, Signature, SignatureScheme};
 /// 2. The seal_registry callback is actually invoked (not cached/stale)
 /// 3. Signature parsing is robust against malformed input
 /// 4. All error cases are properly handled and logged
-/// Maximum age of a proof bundle in seconds (24 hours)
-/// Reserved for future timestamp-based replay protection
+///
+/// Maximum age of a proof bundle in seconds (24 hours).
+/// Reserved for future timestamp-based replay protection.
 #[allow(dead_code)]
 const MAX_PROOF_AGE_SECONDS: u64 = 86400;
 

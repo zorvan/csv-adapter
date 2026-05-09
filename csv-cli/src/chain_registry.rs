@@ -5,7 +5,7 @@
 
 #![allow(dead_code)]
 
-use crate::config::{Chain, ChainId};
+use crate::config::Chain;
 use csv_core::{ChainCapabilities, ChainDriver, DriverRegistry};
 
 /// Get the chain ID string for a Chain enum variant
@@ -114,6 +114,7 @@ pub fn get_badge_class(chain: &Chain) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::ChainId;
 
     #[test]
     fn test_chain_id() {

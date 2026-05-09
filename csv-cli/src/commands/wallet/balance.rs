@@ -78,7 +78,6 @@ pub fn cmd_list(_config: &Config, state: &mut UnifiedStateManager) -> Result<()>
 /// This function uses only the unified CsvClient runtime, avoiding direct
 /// chain adapter dependencies per Phase 5 of the Production Guarantee Plan.
 async fn query_balance(chain: &Chain, address: &str, config: &Config) -> Result<f64> {
-    use csv_core::ChainId;
     use csv_sdk::prelude::NetworkType;
 
     // Map CLI Chain to core Chain

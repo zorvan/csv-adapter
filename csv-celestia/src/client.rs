@@ -10,7 +10,7 @@
 //! Data Size >= 1MB:   Store on IPFS, anchor CID on Celestia
 //! ```
 
-use crate::blob::{Blob, BlobWithMetadata};
+use crate::blob::Blob;
 use crate::commitment::BlobCommitment;
 use crate::da_layer::{CelestiaDaLayer, CelestiaRpc, DaLayerConfig, DataAvailabilityLayer};
 use crate::error::{CelestiaError, Result};

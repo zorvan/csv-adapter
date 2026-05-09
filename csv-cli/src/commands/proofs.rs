@@ -65,7 +65,6 @@ fn cmd_generate(
     config: &Config,
     _state: &UnifiedStateManager,
 ) -> Result<()> {
-    use csv_core::ChainId;
     use csv_sdk::prelude::CsvClient;
 
     use csv_core::sanad::SanadId;
@@ -154,7 +153,6 @@ fn cmd_verify(
     _config: &Config,
     _state: &UnifiedStateManager,
 ) -> Result<()> {
-    use csv_core::ChainId;
     use csv_core::{proof::ProofBundle, sanad::SanadId};
     use csv_sdk::prelude::CsvClient;
 
