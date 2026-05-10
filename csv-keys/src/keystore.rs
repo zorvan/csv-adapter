@@ -165,7 +165,7 @@ impl KeystoreFile {
         let kdfparams = match kdf_type {
             KdfType::Scrypt => KdfParams {
                 dklen: 32,
-                salt: hex::encode(&salt),
+                salt: hex::encode(salt),
                 n: Some(262144), // 2^18
                 r: Some(8),
                 p: Some(1),
@@ -174,7 +174,7 @@ impl KeystoreFile {
             },
             KdfType::Pbkdf2 => KdfParams {
                 dklen: 32,
-                salt: hex::encode(&salt),
+                salt: hex::encode(salt),
                 n: None,
                 r: None,
                 p: None,
@@ -187,7 +187,7 @@ impl KeystoreFile {
             cipher: "aes-256-gcm".to_string(),
             ciphertext: hex::encode(&ciphertext),
             cipherparams: CipherParams {
-                iv: hex::encode(&iv_bytes),
+                iv: hex::encode(iv_bytes),
             },
             kdf: match kdf_type {
                 KdfType::Scrypt => "scrypt",
@@ -195,7 +195,7 @@ impl KeystoreFile {
             }
             .to_string(),
             kdfparams,
-            mac: hex::encode(&mac),
+            mac: hex::encode(mac),
         };
 
         Ok(Self {
@@ -287,18 +287,15 @@ impl KeystoreFile {
 
 /// Key derivation function type.
 #[derive(Debug, Clone, Copy)]
+#[derive(Default)]
 pub enum KdfType {
     /// Scrypt KDF (memory-hard, recommended).
+    #[default]
     Scrypt,
     /// PBKDF2 KDF (NIST standard, faster).
     Pbkdf2,
 }
 
-impl Default for KdfType {
-    fn default() -> Self {
-        KdfType::Scrypt
-    }
-}
 
 /// Derive an encryption key from passphrase and salt using the specified KDF.
 fn derive_key(

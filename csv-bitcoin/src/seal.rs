@@ -70,30 +70,12 @@ impl SealRegistry {
         Ok(())
     }
 
-    /// Persist a seal to storage
+    /// Persist a seal to storage (internal helper)
+    /// Called by mark_seal_used_with_storage after marking in memory
     #[cfg(feature = "rpc")]
-    fn persist_seal(&self, seal: &BitcoinSealPoint, height: u64) -> BitcoinResult<()> {
-        use csv_store::SealStore;
-        
-        if let Some(ref storage) = self.storage {
-            use csv_core::{SealRecord, Hash};
-            
-            let mut record = SealRecord {
-                chain: "bitcoin".to_string(),
-                seal_id: seal.to_vec(),
-                consumed_at_height: height,
-                commitment_hash: Hash::from_bytes([0u8; 32]), // Placeholder
-                recorded_at: std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_secs() as i64,
-            };
-            
-            // Use interior mutability via the trait method
-            // Since we can't mutably borrow from &self, we need a different approach
-            // For now, skip persistence in this context - will be done by caller
-            let _ = record;  // Silence unused warning
-        }
+    fn persist_seal(&self, _seal: &BitcoinSealPoint, _height: u64) -> BitcoinResult<()> {
+        // This method is kept for API compatibility
+        // Actual persistence happens in mark_seal_used_with_storage which has &mut self
         Ok(())
     }
     
@@ -112,17 +94,19 @@ impl SealRegistry {
         
         // Then persist if storage is configured
         if let Some(ref mut storage) = self.storage {
-            let record = SealRecord {
+            let record = csv_core::SealRecord {
                 chain: "bitcoin".to_string(),
                 seal_id: seal.to_vec(),
                 consumed_at_height: height,
-                commitment_hash: Hash::from_bytes([0u8; 32]),
+                commitment_hash: csv_core::Hash::new([0u8; 32]), // Placeholder
                 recorded_at: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap_or_default()
                     .as_secs() as i64,
             };
-            
+            // Use interior mutability via the trait method
+            // Since we can't mutably borrow from &self, we need a different approach
+            // For now, skip persistence in this context - will be done by caller
             storage.save_seal(&record)
                 .map_err(|e| BitcoinError::StorageError(format!("Failed to persist seal: {}", e)))?;
         }

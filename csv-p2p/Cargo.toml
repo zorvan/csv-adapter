@@ -19,7 +19,8 @@ nostr-sdk = { version = "0.33", optional = true }
 hex = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+chrono = { version = "0.4", optional = true }
 
 [features]
 default = ["nostr"]
-nostr = ["dep:nostr-sdk", "dep:tokio"]
+nostr = ["dep:nostr-sdk", "dep:tokio", "dep:chrono"]

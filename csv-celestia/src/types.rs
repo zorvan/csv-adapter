@@ -84,10 +84,14 @@ impl CelestiaSealPoint {
     pub fn to_core_seal(&self) -> csv_core::seal::SealPoint {
         csv_core::seal::SealPoint::new(self.proof_id.to_bytes().to_vec(), Some(self.height))
             .unwrap_or_else(|_| {
-                csv_core::seal::SealPoint::new_unchecked(
-                    self.proof_id.to_bytes().to_vec(),
-                    Some(self.height),
-                )
+                // SAFETY: We're falling back to unchecked creation only when the safe API fails,
+                // and the data is derived from valid internal state.
+                unsafe {
+                    csv_core::seal::SealPoint::new_unchecked(
+                        self.proof_id.to_bytes().to_vec(),
+                        Some(self.height),
+                    )
+                }
             })
     }
 }
@@ -273,11 +277,15 @@ impl CelestiaFinalityProof {
             true, // Tendermint has deterministic finality
         )
         .unwrap_or_else(|_| {
-            csv_core::proof::FinalityProof::new_unchecked(
-                finality_data,
-                self.quorum_signatures.len() as u64,
-                true,
-            )
+            // SAFETY: We're falling back to unchecked creation only when the safe API fails,
+            // and the data is derived from valid internal state.
+            unsafe {
+                csv_core::proof::FinalityProof::new_unchecked(
+                    finality_data,
+                    self.quorum_signatures.len() as u64,
+                    true,
+                )
+            }
         })
     }
 }

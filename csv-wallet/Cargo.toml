@@ -19,7 +19,7 @@ path = "src/main.rs"
 csv-sdk = { path = "../csv-sdk", default-features = false, features = ["in-memory", "wallet", "tokio"] }
 csv-core = { path = "../csv-core" }
 csv-store = { path = "../csv-store", default-features = false, features = ["browser-storage", "encrypted-storage"] }
-csv-keys = { path = "../csv-keys", features = ["wasm"] }
+csv-keys = { path = "../csv-keys", features = ["wasm", "production"] }
 csv-solana = { path = "../csv-solana", optional = true }
 csv-bitcoin = { path = "../csv-bitcoin", optional = true }
 csv-ethereum = { path = "../csv-ethereum", optional = true }
@@ -63,10 +63,11 @@ serde_json = "1.0"
 thiserror = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.0", features = ["v4", "serde", "js"] }
+dirs = "5.0"
 
 # Web/wasm
 console_error_panic_hook = "0.1"
-web-sys = { version = "0.3.70", features = ["Window", "Storage", "Document", "Element", "HtmlInputElement", "FileReader", "Blob", "BlobPropertyBag", "Url", "HtmlAnchorElement", "File", "FileList", "ProgressEvent", "Clipboard", "ClipboardEvent", "Navigator"] }
+web-sys = { version = "0.3.70", features = ["Window", "Storage", "Document", "Element", "HtmlInputElement", "FileReader", "Blob", "BlobPropertyBag", "Url", "HtmlAnchorElement", "File", "FileList", "ProgressEvent", "Clipboard", "ClipboardEvent", "Navigator", "DataTransfer", "Event", "DragEvent"] }
 wasm-bindgen = "0.2.93"
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3.70"

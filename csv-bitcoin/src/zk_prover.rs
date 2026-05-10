@@ -48,8 +48,7 @@ impl BitcoinSpvProver {
         // Check if SP1 prover key is available in environment
         let prover_key = std::env::var("SP1_PROVER_KEY")
             .ok()
-            .map(|k| hex::decode(k).ok())
-            .flatten();
+            .and_then(|k| hex::decode(k).ok());
 
         let sp1_available = prover_key.is_some();
 
@@ -77,7 +76,7 @@ impl BitcoinSpvProver {
         let mut hasher = Sha256::new();
         hasher.update(&seal.id);
         hasher.update(witness.block_hash.as_bytes());
-        hasher.update(&witness.block_height.to_le_bytes());
+        hasher.update(witness.block_height.to_le_bytes());
         let mock_proof_hash: [u8; 32] = hasher.finalize().into();
 
         // Mock proof is 128 bytes of hash-derived data

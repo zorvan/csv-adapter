@@ -116,7 +116,7 @@ impl MerkleAccumulator {
         let mut hashes: Vec<[u8; 32]> = leaves.to_vec();
 
         while hashes.len() > 1 {
-            let mut next_level = Vec::with_capacity((hashes.len() + 1) / 2);
+            let mut next_level = Vec::with_capacity(hashes.len().div_ceil(2));
             let mut i = 0;
             while i < hashes.len() {
                 if i + 1 < hashes.len() {
@@ -166,7 +166,7 @@ impl MerkleAccumulator {
         let mut hashes: Vec<[u8; 32]> = nodes.iter().map(|n| n.hash()).collect();
 
         while hashes.len() > 1 {
-            let mut next_level = Vec::with_capacity((hashes.len() + 1) / 2);
+            let mut next_level = Vec::with_capacity(hashes.len().div_ceil(2));
             let mut i = 0;
             while i < hashes.len() {
                 if i + 1 < hashes.len() {

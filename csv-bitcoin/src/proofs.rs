@@ -69,7 +69,7 @@ pub fn compute_merkle_root(txids: &[[u8; 32]]) -> Option<[u8; 32]> {
 
     let mut current_level: Vec<[u8; 32]> = txids.to_vec();
     while current_level.len() > 1 {
-        let mut next_level = Vec::with_capacity((current_level.len() + 1) / 2);
+        let mut next_level = Vec::with_capacity(current_level.len().div_ceil(2));
         for i in (0..current_level.len()).step_by(2) {
             let left = current_level[i];
             let sanad = if i + 1 < current_level.len() {
@@ -114,7 +114,7 @@ pub fn compute_merkle_branch(
     let mut idx = target_index;
 
     while current_level.len() > 1 {
-        let mut next_level = Vec::with_capacity((current_level.len() + 1) / 2);
+        let mut next_level = Vec::with_capacity(current_level.len().div_ceil(2));
         for i in (0..current_level.len()).step_by(2) {
             let left = current_level[i];
             let sanad = if i + 1 < current_level.len() {
@@ -418,12 +418,12 @@ fn extract_merkle_branch_from_pmt(pmt: &PartialMerkleTree, target_index: usize) 
     let mut indexes = Vec::new();
     if let Ok(_root) = pmt.extract_matches(&mut txids, &mut indexes) {
         // Rebuild the tree to find siblings for the target index
-        let mut current_level: Vec<[u8; 32]> = txids.iter().map(|t| txid_to_bytes(t)).collect();
+        let mut current_level: Vec<[u8; 32]> = txids.iter().map(txid_to_bytes).collect();
         let mut branch = Vec::new();
         let mut idx = target_index % current_level.len();
 
         while current_level.len() > 1 {
-            let mut next_level = Vec::with_capacity((current_level.len() + 1) / 2);
+            let mut next_level = Vec::with_capacity(current_level.len().div_ceil(2));
             for i in (0..current_level.len()).step_by(2) {
                 let left = current_level[i];
                 let sanad = if i + 1 < current_level.len() {
@@ -506,11 +506,13 @@ pub fn to_core_inclusion_proof(proof: &BitcoinInclusionProof) -> csv_core::Inclu
     proof_bytes.extend_from_slice(&proof.tx_index.to_le_bytes());
     proof_bytes.extend_from_slice(&proof.block_height.to_le_bytes());
 
-    csv_core::InclusionProof::new_unchecked(
-        proof_bytes,
-        CoreHash::new(proof.block_hash),
-        proof.tx_index as u64,
-    )
+    unsafe {
+        csv_core::InclusionProof::new_unchecked(
+            proof_bytes,
+            CoreHash::new(proof.block_hash),
+            proof.tx_index as u64,
+        )
+    }
 }
 
 /// Convert core CSV inclusion proof to Bitcoin-specific type.

@@ -417,11 +417,8 @@ impl ChainBroadcaster for AptosBackend {
                     });
                 }
                 Err(_) => {
-                    #[cfg(feature = "rpc")]
+                    // PF-03: always async (no cfg-gated blocking sleep)
                     tokio::time::sleep(poll_interval).await;
-
-                    #[cfg(not(feature = "rpc"))]
-                    std::thread::sleep(poll_interval);
                 }
             }
         }
@@ -655,7 +652,7 @@ impl ChainProofProvider for AptosBackend {
         let inclusion_valid = self.verify_inclusion_proof(inclusion_proof, commitment)?;
         let finality_valid = self.verify_finality_proof(
             finality_proof,
-            &format!("{}", hex::encode(inclusion_proof.block_hash.as_bytes())),
+            &hex::encode(inclusion_proof.block_hash.as_bytes()).to_string(),
         )?;
 
         Ok(inclusion_valid && finality_valid)

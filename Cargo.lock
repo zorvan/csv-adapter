@@ -3019,6 +3019,7 @@ name = "csv-p2p"
 version = "0.4.0"
 dependencies = [
  "async-trait",
+ "chrono",
  "csv-core",
  "hex",
  "nostr-sdk",
@@ -3045,6 +3046,7 @@ dependencies = [
  "csv-bitcoin",
  "csv-core",
  "csv-ethereum",
+ "csv-explorer-shared",
  "csv-explorer-storage",
  "csv-solana",
  "csv-store",
@@ -3187,6 +3189,7 @@ dependencies = [
  "csv-store",
  "dioxus",
  "dioxus-router",
+ "dirs",
  "ed25519-dalek",
  "ethereum-types",
  "futures",

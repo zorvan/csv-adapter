@@ -58,7 +58,7 @@ impl DerivationPath {
     pub fn new_bip86(account: u32, address_index: u32) -> Self {
         Self {
             purpose: 86 | 0x8000_0000,  // BIP-86 hardened
-            coin_type: 0 | 0x8000_0000, // Bitcoin hardened
+            coin_type: 0x8000_0000, // Bitcoin hardened
             account: account | 0x8000_0000,
             change: 0,
             address_index,
@@ -187,11 +187,11 @@ fn derive_secp256k1(seed: &[u8; 64], path: &DerivationPath) -> Result<SecretKey,
     use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
     hasher.update(seed);
-    hasher.update(&path.purpose.to_le_bytes());
-    hasher.update(&path.coin_type.to_le_bytes());
-    hasher.update(&path.account.to_le_bytes());
-    hasher.update(&path.change.to_le_bytes());
-    hasher.update(&path.address_index.to_le_bytes());
+    hasher.update(path.purpose.to_le_bytes());
+    hasher.update(path.coin_type.to_le_bytes());
+    hasher.update(path.account.to_le_bytes());
+    hasher.update(path.change.to_le_bytes());
+    hasher.update(path.address_index.to_le_bytes());
 
     let result = hasher.finalize();
     let mut key_bytes = [0u8; 32];
@@ -212,9 +212,9 @@ fn derive_ed25519(seed: &[u8; 64], path: &DerivationPath) -> Result<SecretKey, B
     let mut hasher = Sha256::new();
     hasher.update(b"ed25519 seed");
     hasher.update(seed);
-    hasher.update(&path.purpose.to_le_bytes());
-    hasher.update(&path.coin_type.to_le_bytes());
-    hasher.update(&path.account.to_le_bytes());
+    hasher.update(path.purpose.to_le_bytes());
+    hasher.update(path.coin_type.to_le_bytes());
+    hasher.update(path.account.to_le_bytes());
 
     let result = hasher.finalize();
     let mut key_bytes = [0u8; 32];

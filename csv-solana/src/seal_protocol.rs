@@ -460,57 +460,69 @@ impl SealProtocol for SolanaSealProtocol {
             seals
                 .first()
                 .map(|s| {
-                    csv_core::seal::SealPoint::new_unchecked(
-                        s.account.to_bytes().to_vec(),
-                        Some(s.lamports),
-                    )
+                    unsafe {
+                        csv_core::seal::SealPoint::new_unchecked(
+                            s.account.to_bytes().to_vec(),
+                            Some(s.lamports),
+                        )
+                    }
                 })
                 .unwrap_or_else(|| {
-                    csv_core::seal::SealPoint::new_unchecked(
-                        anchor_ref.signature.as_ref()[..32].to_vec(),
-                        None,
-                    )
+                    unsafe {
+                        csv_core::seal::SealPoint::new_unchecked(
+                            anchor_ref.signature.as_ref()[..32].to_vec(),
+                            None,
+                        )
+                    }
                 })
         };
 
         // Create anchor_ref from SolanaCommitAnchor
-        let core_anchor_ref = csv_core::seal::CommitAnchor::new_unchecked(
-            anchor_ref.signature.as_ref().to_vec(),
-            anchor_ref.block_height,
-            serde_json::to_vec(&anchor_ref.account_changes).unwrap_or_default(),
-        );
+        let core_anchor_ref = unsafe {
+            csv_core::seal::CommitAnchor::new_unchecked(
+                anchor_ref.signature.as_ref().to_vec(),
+                anchor_ref.block_height,
+                serde_json::to_vec(&anchor_ref.account_changes).unwrap_or_default(),
+            )
+        };
 
         // Create inclusion proof
-        let inclusion_proof = csv_core::proof::InclusionProof::new_unchecked(
-            solana_inclusion
-                .account_proofs
-                .iter()
-                .flat_map(|p| p.proof.iter().flatten().cloned())
-                .collect(),
-            csv_core::hash::Hash::new(
-                anchor_ref.signature.as_ref()[..32]
-                    .try_into()
-                    .unwrap_or([0u8; 32]),
-            ),
-            anchor_ref.slot,
-        );
+        let inclusion_proof = unsafe {
+            csv_core::proof::InclusionProof::new_unchecked(
+                solana_inclusion
+                    .account_proofs
+                    .iter()
+                    .flat_map(|p| p.proof.iter().flatten().cloned())
+                    .collect(),
+                csv_core::hash::Hash::new(
+                    anchor_ref.signature.as_ref()[..32]
+                        .try_into()
+                        .unwrap_or([0u8; 32]),
+                ),
+                anchor_ref.slot,
+            )
+        };
 
         // Create finality proof - Solana has deterministic finality after 31 slots
-        let finality_proof = csv_core::proof::FinalityProof::new_unchecked(
-            solana_finality.block_hash.as_bytes().to_vec(),
-            solana_finality.confirmation_depth,
-            true, // Solana has deterministic finality
-        );
+        let finality_proof = unsafe {
+            csv_core::proof::FinalityProof::new_unchecked(
+                solana_finality.block_hash.as_bytes().to_vec(),
+                solana_finality.confirmation_depth,
+                true, // Solana has deterministic finality
+            )
+        };
 
         // Create a complete proof bundle
-        let bundle = csv_core::proof::ProofBundle::new_unchecked(
-            segment,
-            vec![anchor_ref.signature.as_ref().to_vec()],
-            seal_ref,
-            core_anchor_ref,
-            inclusion_proof,
-            finality_proof,
-        );
+        let bundle = unsafe {
+            csv_core::proof::ProofBundle::new_unchecked(
+                segment,
+                vec![anchor_ref.signature.as_ref().to_vec()],
+                seal_ref,
+                core_anchor_ref,
+                inclusion_proof,
+                finality_proof,
+            )
+        };
 
         Ok(bundle)
     }

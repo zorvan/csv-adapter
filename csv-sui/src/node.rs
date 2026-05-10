@@ -113,7 +113,7 @@ impl SuiRpc for SuiNode {
             owner: data["owner"].to_string().into_bytes(),
             object_type: data["type"].as_str().unwrap_or("").to_string(),
             has_public_transfer: data["hasPublicTransfer"].as_bool().unwrap_or(false),
-            bcs_data: data["bcs"].as_str().map(|s| hex::decode(s).ok()).flatten(),
+            bcs_data: data["bcs"].as_str().and_then(|s| hex::decode(s).ok()),
         }))
     }
 

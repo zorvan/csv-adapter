@@ -116,7 +116,7 @@ impl ProofId {
     /// Compute a hash of this ProofId for additional indexing
     pub fn hash(&self) -> [u8; 32] {
         let mut hasher = Sha256::new();
-        hasher.update(&self.to_bytes());
+        hasher.update(self.to_bytes());
         hasher.finalize().into()
     }
 }

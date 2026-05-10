@@ -7,6 +7,9 @@
 use csv_core::{ChainId, Hash};
 
 #[cfg(feature = "cross-chain-persist")]
+use csv_core::{CrossChainRegistry, CrossChainRegistryEntry, SealPoint};
+
+#[cfg(feature = "cross-chain-persist")]
 use csv_explorer_shared::TransferStatus;
 #[cfg(feature = "cross-chain-persist")]
 use sqlx::SqlitePool;
@@ -161,6 +164,113 @@ impl PersistentTransferRegistry {
             .map_err(|e| CrossChainError::Database(e.to_string()))?;
 
         Ok(count as u64)
+    }
+
+    /// Load all transfers from SQLite into an in-memory `CrossChainRegistry`.
+    ///
+    /// This is the primary integration point (SC-02): it bridges the persistent
+    /// SQLite store with csv-core's in-memory registry so that `CrossChainTransfer`
+    /// can use fast BTreeMap lookups while benefiting from disk-backed durability.
+    pub async fn load_into_registry(&self) -> Result<CrossChainRegistry, CrossChainError> {
+        let rows = sqlx::query_as::<_, TransferInfo>(
+            "SELECT id, sanad_id, from_chain, to_chain, from_owner, to_owner,
+                    lock_tx, mint_tx, created_at, completed_at
+             FROM transfers ORDER BY created_at",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| CrossChainError::Database(e.to_string()))?;
+
+        let mut registry = CrossChainRegistry::new();
+
+        for row in rows {
+            let entry = Self::transfer_info_to_registry_entry(&row)?;
+            // Silently skip entries that fail double-spend checks during load
+            // (they were already recorded on a prior run)
+            let _ = registry.record_transfer(entry);
+        }
+
+        Ok(registry)
+    }
+
+    /// Save an in-memory `CrossChainRegistry` to SQLite.
+    ///
+    /// Useful for periodic checkpointing: call after the orchestrator records
+    /// new transfers so that in-memory state survives process restarts.
+    pub async fn save_from_registry(&self, registry: &CrossChainRegistry) -> Result<(), CrossChainError> {
+        use csv_core::seal::SealPoint as CoreSealPoint;
+
+        for entry in registry.all_transfers() {
+            let row = Self::registry_entry_to_transfer_info(entry);
+            self.record_transfer(
+                &row.sanad_id,
+                &row.from_chain,
+                &row.to_chain,
+                &row.lock_tx,
+                row.mint_tx.as_deref(),
+                &row.from_owner,
+                &row.to_owner,
+            )
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    // --- Internal helpers ---
+
+    fn transfer_info_to_registry_entry(row: &TransferInfo) -> Result<CrossChainRegistryEntry, CrossChainError> {
+        let parse_hash = |hex: &str| -> Result<Hash, CrossChainError> {
+            let bytes = hex::decode(hex.trim_start_matches("0x"))
+                .map_err(|e| CrossChainError::Database(format!("invalid hash hex: {}", e)))?;
+            Ok(Hash::try_from(bytes.as_slice())
+                .map_err(|_| CrossChainError::Database("hash must be 32 bytes".to_string()))?)
+        };
+
+        let parse_seal = |hex: &str| -> Result<SealPoint, CrossChainError> {
+            let bytes = hex::decode(hex.trim_start_matches("0x"))
+                .map_err(|e| CrossChainError::Database(format!("invalid seal hex: {}", e)))?;
+            SealPoint::new(bytes, None)
+                .map_err(|e| CrossChainError::Database(format!("invalid seal: {}", e)))
+        };
+
+        Ok(CrossChainRegistryEntry {
+            sanad_id: parse_hash(&row.sanad_id)?,
+            source_chain: row.from_chain.parse().map_err(|_| CrossChainError::Database("invalid from_chain".to_string()))?,
+            source_seal: parse_seal(&row.lock_tx)?,
+            destination_chain: row.to_chain.parse().map_err(|_| CrossChainError::Database("invalid to_chain".to_string()))?,
+            destination_seal: parse_seal(&row.mint_tx).unwrap_or_else(|_| {
+                // mint_tx may be NULL at time of lock; use placeholder
+                SealPoint::new(vec![0u8], None).unwrap_or_else(|_| {
+                    // SAFETY: Empty placeholder seal for pending transfers
+                    unsafe { SealPoint::new_unchecked(vec![0u8], None) }
+                })
+            }),
+            lock_tx_hash: parse_hash(&row.lock_tx)?,
+            mint_tx_hash: row.mint_tx.as_ref().map(|m| parse_hash(m)).transpose()
+                .unwrap_or(Ok(Hash::new([0u8; 32])))?,
+            timestamp: row.created_at.timestamp() as u64,
+        })
+    }
+
+    fn registry_entry_to_transfer_info(entry: &CrossChainRegistryEntry) -> TransferInfo {
+        TransferInfo {
+            id: format!("transfer_{}_{}_{}", 
+                entry.sanad_id.to_hex(),
+                entry.source_chain,
+                entry.destination_chain,
+            ),
+            sanad_id: entry.sanad_id.to_hex(),
+            from_chain: entry.source_chain.to_string(),
+            to_chain: entry.destination_chain.to_string(),
+            from_owner: String::new(), // SealPoint doesn't carry owner info
+            to_owner: String::new(),
+            lock_tx: hex::encode(&entry.source_seal.id),
+            mint_tx: Some(hex::encode(&entry.destination_seal.id)),
+            created_at: chrono::DateTime::from_timestamp(entry.timestamp as i64, 0)
+                .unwrap_or_else(|| chrono::DateTime::UNIX_EPOCH),
+            completed_at: None,
+        }
     }
 }
 

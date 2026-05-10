@@ -11,6 +11,8 @@ pub struct EthereumConfig {
     pub use_checkpoint_finality: bool,
     /// RPC endpoint URL
     pub rpc_url: String,
+    /// Optional private key hex (for signing/deployment; may be None for read-only)
+    pub private_key: Option<String>,
 }
 
 /// Ethereum network type
@@ -64,6 +66,7 @@ impl Default for EthereumConfig {
             finality_depth: 15,
             use_checkpoint_finality: true,
             rpc_url: "http://127.0.0.1:8545".to_string(),
+            private_key: None,
         }
     }
 }

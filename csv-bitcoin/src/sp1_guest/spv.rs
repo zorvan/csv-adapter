@@ -120,7 +120,7 @@ impl Sp1BtcSpvOutput {
         let public_inputs = ZkPublicInputs {
             seal_ref: input.seal_ref.clone(),
             block_hash: Hash::new(input.expected_block_hash),
-            commitment: input.commitment.clone(),
+            commitment: input.commitment,
             source_chain: builtin::BITCOIN.clone(),
             block_height: input.block_height,
             timestamp: 0, // Would be extracted from block header

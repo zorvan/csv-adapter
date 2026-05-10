@@ -479,6 +479,7 @@ impl CsvClient {
                     finality_depth: if _is_testnet { 15 } else { 12 },
                     use_checkpoint_finality: !_is_testnet,
                     rpc_url: rpc_url.clone(),
+                    private_key: None,
                 };
                 let csv_seal_address = [0u8; 20]; // Default, should be configured
                 let rpc = csv_ethereum::node::EthereumNode::new(&rpc_url, csv_seal_address)

@@ -462,9 +462,7 @@ These require human input before agents should implement:
 | Item | Assessment |
 |---|---|
 | Staleness | ⚠️ Several items marked "stub" have been fixed. See updated inventory above. |
-| New findings | ✅ **SV-01b** fixed in csv-ethereum, csv-solana, csv-aptos — `Ok(true)` replaced with `FeatureNotEnabled` |
-| Open items | SV-09 (Aptos V1 deprecated), SC-03/04 |
-| Phase 3 status | ✅ All 5 tasks completed (atomic swap, Pedersen, stealth, STARK types, P2P routing) |
+|
 
 ---
 

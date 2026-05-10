@@ -43,8 +43,7 @@ impl EthereumGroth16Verifier {
         // Check if GROTH16_VK env var is set (verification key)
         let verifier_key = std::env::var("GROTH16_VK")
             .ok()
-            .map(|k| hex::decode(k).ok())
-            .flatten();
+            .and_then(|k| hex::decode(k).ok());
 
         let initialized = verifier_key.is_some();
 
@@ -83,8 +82,8 @@ impl EthereumGroth16Verifier {
         let mut hasher = Sha256::new();
         hasher.update(&public_inputs.seal_ref.id);
         hasher.update(public_inputs.block_hash.as_bytes());
-        hasher.update(&public_inputs.block_height.to_le_bytes());
-        hasher.update(&public_inputs.timestamp.to_le_bytes());
+        hasher.update(public_inputs.block_height.to_le_bytes());
+        hasher.update(public_inputs.timestamp.to_le_bytes());
 
         let input_hash: [u8; 32] = hasher.finalize().into();
 

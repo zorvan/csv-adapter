@@ -11,6 +11,9 @@
 #[cfg(not(feature = "bytecode-from-build"))]
 pub mod contract_bytecode;
 
+#[cfg(not(feature = "bytecode-from-build"))]
+pub use contract_bytecode::{CSVLOCK_BYTECODE, CSVMINT_BYTECODE};
+
 #[cfg(feature = "bytecode-from-build")]
 include!(concat!(env!("OUT_DIR"), "/contract_bytecode.rs"));
 

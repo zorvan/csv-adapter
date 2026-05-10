@@ -29,6 +29,7 @@ pub enum Bip39Error {
 
 /// Type of mnemonic phrase.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum MnemonicType {
     /// 12 words (128 bits entropy).
     Words12,
@@ -39,6 +40,7 @@ pub enum MnemonicType {
     /// 21 words (224 bits entropy).
     Words21,
     /// 24 words (256 bits entropy).
+    #[default]
     Words24,
 }
 
@@ -71,11 +73,6 @@ impl MnemonicType {
     }
 }
 
-impl Default for MnemonicType {
-    fn default() -> Self {
-        MnemonicType::Words24 // Most secure default
-    }
-}
 
 /// A BIP-39 mnemonic phrase.
 #[derive(Debug, Clone)]

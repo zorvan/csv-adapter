@@ -130,6 +130,12 @@ impl HasErrorSuggestion for BitcoinError {
                  3) Rate limits haven't been exceeded. \
                  Retry with a different RPC provider if needed."
                 .to_string(),
+            BitcoinError::StorageError(_) => "Database storage error. Check: \
+                 1) Disk space is available, \
+                 2) The data directory has write permissions, \
+                 3) The database file is not corrupted. \
+                 Try restarting with a clean data directory."
+                .to_string(),
             BitcoinError::TransactionNotFound(txid) => {
                 format!(
                     "Transaction {} was not found. It may not have been broadcast yet, \
@@ -204,7 +210,7 @@ impl HasErrorSuggestion for BitcoinError {
             BitcoinError::InsufficientConfirmations { need, .. } => {
                 Some(FixAction::WaitForConfirmations {
                     confirmations: *need as u32,
-                    estimated_seconds: (*need as u64) * 600,
+                    estimated_seconds: *need * 600,
                 })
             }
             BitcoinError::ReorgDetected { .. } => Some(FixAction::CheckState {

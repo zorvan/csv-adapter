@@ -206,9 +206,9 @@ impl MultiAccountProof {
     /// Create a new multi-account proof
     pub fn new(slot: u64, parent_slot: u64, accounts: Vec<AccountProof>, finalized: bool) -> Self {
         let mut hasher = Sha256::new();
-        hasher.update(&slot.to_le_bytes());
-        hasher.update(&parent_slot.to_le_bytes());
-        hasher.update(&[if finalized { 1u8 } else { 0u8 }]);
+        hasher.update(slot.to_le_bytes());
+        hasher.update(parent_slot.to_le_bytes());
+        hasher.update([if finalized { 1u8 } else { 0u8 }]);
         for account in &accounts {
             hasher.update(account.pubkey.as_ref());
             hasher.update(account.data_hash.as_bytes());

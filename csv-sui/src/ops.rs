@@ -321,7 +321,7 @@ impl ChainSigner for SuiBackend {
         // Sui address is derived from public key using SHA2-256 (or SHA3-256 in production)
         // Address = SHA2-256(pubkey)[0..32]
         use sha2::{Digest, Sha256};
-        let hash = Sha256::digest(&pubkey);
+        let hash = Sha256::digest(pubkey);
         let mut addr = [0u8; 32];
         addr.copy_from_slice(&hash[..32]);
 
@@ -588,7 +588,7 @@ impl ChainDeployer for SuiBackend {
                 modules: _,
                 dependencies: _,
             }) => {
-                let package_id_hex = format!("0x{}", hex::encode(&package_id));
+                let package_id_hex = format!("0x{}", hex::encode(package_id));
 
                 Ok(DeploymentStatus::Success {
                     contract_address: package_id_hex.clone(),
@@ -614,7 +614,7 @@ impl ChainDeployer for SuiBackend {
         // Rough estimate: 0.1 SUI base + 0.001 SUI per KB of bytecode
         let base_cost = 100_000_000; // 0.1 SUI in MIST
         let per_kb_cost = 1_000_000; // 0.001 SUI per KB
-        let size_kb = (program_bytes.len() + 1023) / 1024;
+        let size_kb = program_bytes.len().div_ceil(1024);
 
         Ok(base_cost + (size_kb as u64 * per_kb_cost))
     }

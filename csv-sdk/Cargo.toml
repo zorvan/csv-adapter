@@ -35,6 +35,7 @@ csv-solana = { version = "0.4.0", path = "../csv-solana", optional = true }
 # Persistence
 csv-store = { version = "0.4.0", path = "../csv-store", optional = true }
 csv-explorer-storage = { version = "0.4.0", path = "../csv-explorer/storage", optional = true }
+csv-explorer-shared = { version = "0.4.0", path = "../csv-explorer/shared", optional = true }
 
 # Async runtime
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "sync", "time"], optional = true }
@@ -102,7 +103,7 @@ sqlite = ["dep:csv-store", "dep:sqlx", "dep:chrono"]
 in-memory = []
 
 # Cross-chain persistence (SC-02)
-cross-chain-persist = ["dep:csv-explorer-storage", "dep:sqlx", "dep:chrono"]
+cross-chain-persist = ["dep:csv-explorer-storage", "dep:csv-explorer-shared", "dep:sqlx", "dep:chrono"]
 
 # Wallet / crypto
 wallet = ["dep:ed25519-dalek", "dep:bip32"]

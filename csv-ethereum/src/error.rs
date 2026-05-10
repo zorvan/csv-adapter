@@ -148,7 +148,7 @@ impl HasErrorSuggestion for EthereumError {
             EthereumError::InsufficientConfirmations { need, .. } => {
                 Some(FixAction::WaitForConfirmations {
                     confirmations: *need as u32,
-                    estimated_seconds: (*need as u64) * 12,
+                    estimated_seconds: *need * 12,
                 })
             }
             EthereumError::ReorgDetected { .. } => Some(FixAction::CheckState {

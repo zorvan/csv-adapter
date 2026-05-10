@@ -64,7 +64,7 @@ impl ModuleDeployer {
         // Get sender address from signing key
         let public_key = self.signing_key.verifying_key();
         let sender_bytes = public_key.to_bytes();
-        let sender = format!("0x{}", hex::encode(&sender_bytes));
+        let sender = format!("0x{}", hex::encode(sender_bytes));
 
         // Get account info via RPC
         let sequence_number = self
@@ -197,7 +197,7 @@ impl ModuleDeployer {
 
     /// Verify a module is deployed
     pub fn verify_module(&self, address: [u8; 32], module_name: &str) -> AptosResult<bool> {
-        let module_resource = format!("0x1::code::PackageRegistry");
+        let module_resource = "0x1::code::PackageRegistry".to_string();
 
         let resource = {
             let rpc = self.rpc.clone_boxed();
@@ -224,7 +224,7 @@ impl ModuleDeployer {
     pub fn estimate_deployment_cost(&self, module_size: usize) -> u64 {
         // Aptos gas estimation
         // Base gas + per-byte cost
-        let base_gas = self.config.transaction.max_gas as u64;
+        let base_gas = self.config.transaction.max_gas;
         let per_byte_cost = 10u64; // Rough estimate
 
         base_gas + (module_size as u64 * per_byte_cost)
@@ -361,7 +361,7 @@ pub async fn publish_csv_module_http(
     // Derive sender address from signing key
     let public_key = signing_key.verifying_key();
     let sender_bytes = public_key.to_bytes();
-    let sender = format!("0x{}", hex::encode(&sender_bytes));
+    let sender = format!("0x{}", hex::encode(sender_bytes));
 
     // Get account info
     let client = reqwest::Client::new();

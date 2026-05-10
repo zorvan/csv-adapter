@@ -131,7 +131,7 @@ impl Blob {
     ///
     /// Celestia organizes data into shares (typically 512 bytes each).
     pub fn share_count(&self, share_size: usize) -> usize {
-        (self.data.len() + share_size - 1) / share_size
+        self.data.len().div_ceil(share_size)
     }
 
     /// Serialize blob to bytes (namespace || data)
@@ -236,7 +236,7 @@ impl BlobBundle {
         // Compute bundle ID as hash of all commitments
         let mut hasher = Sha256::new();
         for blob in &blobs {
-            hasher.update(&blob.commitment());
+            hasher.update(blob.commitment());
         }
         let bundle_id: [u8; 32] = hasher.finalize().into();
 

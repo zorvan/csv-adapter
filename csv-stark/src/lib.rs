@@ -86,7 +86,7 @@ impl IoTReading {
     pub fn hash(&self) -> Hash {
         let mut hasher = Sha256::new();
         hasher.update(b"CSV-IOT-READING::");
-        hasher.update(&self.device_id);
+        hasher.update(self.device_id);
         hasher.update(self.value.to_le_bytes());
         hasher.update(self.timestamp.to_le_bytes());
         hasher.update(&self.signature);
@@ -207,22 +207,22 @@ impl IoTReadingsBatch {
         let mut leaves: Vec<[u8; 32]> = readings.iter().map(|r| r.hash().into_inner()).collect();
 
         while leaves.len() > 1 {
-            let mut next_level = Vec::with_capacity((leaves.len() + 1) / 2);
+            let mut next_level = Vec::with_capacity(leaves.len().div_ceil(2));
             let mut i = 0;
             while i < leaves.len() {
                 if i + 1 < leaves.len() {
                     // Pair: hash(0x01 || left || right)
                     let mut hasher = Sha256::new();
                     hasher.update([0x01u8]);
-                    hasher.update(&leaves[i]);
-                    hasher.update(&leaves[i + 1]);
+                    hasher.update(leaves[i]);
+                    hasher.update(leaves[i + 1]);
                     next_level.push(hasher.finalize().into());
                     i += 2;
                 } else {
                     // Odd node: hash(0x00 || node)
                     let mut hasher = Sha256::new();
                     hasher.update([0x00u8]);
-                    hasher.update(&leaves[i]);
+                    hasher.update(leaves[i]);
                     next_level.push(hasher.finalize().into());
                     i += 1;
                 }

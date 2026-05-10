@@ -366,10 +366,12 @@ impl ChainBroadcaster for SolanaBackend {
                     });
                 }
                 Ok(_) => {
-                    std::thread::sleep(poll_interval);
+                    // PF-03: async poll (non-blocking)
+                    tokio::time::sleep(poll_interval).await;
                 }
                 Err(_) => {
-                    std::thread::sleep(poll_interval);
+                    // PF-03: async poll (non-blocking)
+                    tokio::time::sleep(poll_interval).await;
                 }
             }
         }
@@ -616,7 +618,7 @@ impl ChainProofProvider for SolanaBackend {
         let inclusion_valid = self.verify_inclusion_proof(inclusion_proof, commitment)?;
         let finality_valid = self.verify_finality_proof(
             finality_proof,
-            &format!("{}", hex::encode(inclusion_proof.block_hash.as_bytes())),
+            &hex::encode(inclusion_proof.block_hash.as_bytes()).to_string(),
         )?;
 
         Ok(inclusion_valid && finality_valid)

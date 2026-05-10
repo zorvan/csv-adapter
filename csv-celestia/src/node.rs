@@ -11,9 +11,7 @@
 //! csv-celestia = { version = "0.4", features = ["rpc"] }
 //! ```
 
-use crate::rpc::CelestiaNode;
-
-/// Re-export the RPC client
+// RPC client re-exported from rpc module
 pub use crate::rpc::CelestiaNode;
 
 /// Additional node-specific functionality

@@ -25,7 +25,7 @@ use serde_json::Value as JsonValue;
 
 // Chain IDs, transfer status, sync status, error codes from protocol contract
 pub use csv_core::protocol_version::{
-    Chain, ErrorCode, SyncStatus, TransferStatus, PROTOCOL_VERSION,
+    ChainId, ErrorCode, SyncStatus, TransferStatus, PROTOCOL_VERSION,
 };
 
 // ===========================================================================
@@ -542,20 +542,27 @@ impl SanadRecord {
             Hash::zero()
         };
 
-        let data = EventData::empty()
-            .with_sanad_id(SanadId(id_hash))
-            .with_owner(&self.owner);
+        let data = EventData::SanadCreated {
+            sanad_id: SanadId(id_hash),
+            owner: self.owner.clone(),
+            commitment: Hash::zero(), // Explorer records don't store commitment
+            asset_class: self.metadata.as_ref()
+                .and_then(|m| m.get("asset_class"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown")
+                .to_string(),
+            asset_id: self.id.clone(),
+            metadata: self.metadata.clone(),
+        };
 
         CsvEvent {
-            event_name: event_names::SANAD_CREATED.to_string(),
-            chain_id: self.chain.clone(),
+            event_type: event_names::SANAD_CREATED.to_string(),
+            chain: self.chain.clone(),
             block_height: block_info.height,
-            block_hash: block_info.hash,
             tx_hash: block_info.tx_hash,
-            log_index: block_info.log_index,
             timestamp: block_info.timestamp,
             data,
-            finality_status: EventFinalityStatus::Confirmed,
+            metadata: None,
         }
     }
 }
@@ -567,7 +574,7 @@ impl TransferRecord {
         use csv_core::hash::Hash;
         use csv_core::sanad::SanadId;
 
-        let event_name = if is_cross_chain {
+        let event_type = if is_cross_chain {
             if self.from_chain == self.to_chain {
                 event_names::CROSS_CHAIN_LOCK
             } else {
@@ -584,24 +591,55 @@ impl TransferRecord {
         } else {
             Hash::zero()
         };
+        let sanad_id = SanadId(id_hash);
 
-        let data = EventData::empty()
-            .with_sanad_id(SanadId(id_hash))
-            .with_previous_owner(&self.from_owner)
-            .with_new_owner(&self.to_owner)
-            .with_source_chain(&self.from_chain)
-            .with_destination_chain(&self.to_chain);
+        let (data, chain) = if is_cross_chain {
+            if self.from_chain == self.to_chain {
+                // CrossChainLock
+                (
+                    EventData::CrossChainLock {
+                        sanad_id: sanad_id.clone(),
+                        source_chain: self.from_chain.clone(),
+                        destination_chain: self.to_chain.clone(),
+                        destination_owner: self.to_owner.clone(),
+                        proof_hash: Hash::zero(),
+                    },
+                    self.from_chain.clone()
+                )
+            } else {
+                // CrossChainMint
+                (
+                    EventData::CrossChainMint {
+                        sanad_id: sanad_id.clone(),
+                        source_chain: self.from_chain.clone(),
+                        source_sanad_id: sanad_id.clone(),
+                        owner: self.to_owner.clone(),
+                        proof_hash: Hash::zero(),
+                    },
+                    self.to_chain.clone()
+                )
+            }
+        } else {
+            // SanadTransferred
+            (
+                EventData::SanadTransferred {
+                    sanad_id,
+                    from: self.from_owner.clone(),
+                    to: self.to_owner.clone(),
+                    metadata: None,
+                },
+                self.from_chain.clone()
+            )
+        };
 
         CsvEvent {
-            event_name: event_name.to_string(),
-            chain_id: self.from_chain.clone(),
+            event_type: event_type.to_string(),
+            chain,
             block_height: block_info.height,
-            block_hash: block_info.hash,
             tx_hash: block_info.tx_hash,
-            log_index: block_info.log_index,
             timestamp: block_info.timestamp,
             data,
-            finality_status: EventFinalityStatus::Confirmed,
+            metadata: None,
         }
     }
 }

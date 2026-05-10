@@ -23,6 +23,8 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "rpc")]
 use async_trait::async_trait;
+#[cfg(feature = "rpc")]
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 
 #[cfg(feature = "rpc")]
 use crate::commitment::CommitmentProof;
@@ -89,7 +91,7 @@ impl CelestiaRpc for CelestiaNode {
             hasher.finalize().into()
         };
 
-        let base64_data = base64::encode(data);
+        let base64_data = BASE64.encode(data);
         let namespace_hex = hex::encode(namespace.as_bytes());
 
         let params = serde_json::json!({
@@ -164,7 +166,7 @@ impl CelestiaRpc for CelestiaNode {
             .as_str()
             .ok_or_else(|| CelestiaError::RpcError("Missing data in response".to_string()))?;
 
-        base64::decode(data_b64)
+        BASE64.decode(data_b64)
             .map_err(|e| CelestiaError::DeserializationError(format!("Base64 decode error: {}", e)))
     }
 
@@ -325,13 +327,12 @@ impl IpfsRpcClient {
 }
 
 #[cfg(feature = "rpc")]
-#[async_trait]
 impl crate::ipfs::IpfsClient for IpfsRpcClient {
-    async fn put(
-        &self,
-        data: &[u8],
+    fn put<'a>(
+        &'a self,
+        data: &'a [u8],
     ) -> std::pin::Pin<
-        Box<dyn std::future::Future<Output = Result<crate::ipfs::IpfsCid>> + Send + '_>,
+        Box<dyn std::future::Future<Output = Result<crate::ipfs::IpfsCid>> + Send + 'a>,
     > {
         Box::pin(async move {
             let form = reqwest::multipart::Form::new()

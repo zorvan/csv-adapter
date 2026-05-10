@@ -426,9 +426,9 @@ impl AtomicSwapRegistry {
         let initiator_swaps = self
             .swaps_by_initiator
             .entry(offer.initiator.clone())
-            .or_insert_with(Vec::new);
+            .or_default();
         let active_count = initiator_swaps.iter().filter(|sid| {
-            self.swaps.get(sid).map_or(false, |r| r.state.is_active())
+            self.swaps.get(sid).is_some_and(|r| r.state.is_active())
         }).count();
         if active_count >= MAX_ACTIVE_SWAPS {
             return Err(AtomicSwapError::RegistryFull);

@@ -158,7 +158,7 @@ impl SanadMetadata {
     /// Compute unique ID from proof location and commitment
     fn compute_id(location: &ProofLocation, commitment: &BlobCommitment) -> [u8; 32] {
         let mut hasher = Sha256::new();
-        hasher.update(&location.to_bytes());
+        hasher.update(location.to_bytes());
         hasher.update(commitment.as_bytes());
         hasher.finalize().into()
     }
@@ -435,8 +435,8 @@ impl MetadataBatch {
         let merkle_root = Self::compute_merkle_root(&entries);
 
         let mut hasher = Sha256::new();
-        hasher.update(&merkle_root);
-        hasher.update(&timestamp.to_le_bytes());
+        hasher.update(merkle_root);
+        hasher.update(timestamp.to_le_bytes());
         let batch_id: [u8; 32] = hasher.finalize().into();
 
         Self {
@@ -455,7 +455,7 @@ impl MetadataBatch {
 
         let mut hasher = Sha256::new();
         for entry in entries {
-            hasher.update(&entry.id);
+            hasher.update(entry.id);
         }
         hasher.finalize().into()
     }

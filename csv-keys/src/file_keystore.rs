@@ -216,8 +216,8 @@ impl FileKeystore {
                 let home = dirs::home_dir().ok_or(FileKeystoreError::DirectoryNotFound(
                     "Home directory not found".to_string(),
                 ))?;
-                let p = home.join(".csv/keystore");
-                p
+                
+                home.join(".csv/keystore")
             }
         };
 
@@ -393,7 +393,7 @@ impl FileKeystore {
 
     /// Check if session is active.
     pub fn is_session_active(&self) -> bool {
-        self.session.as_ref().map_or(false, |s| s.is_valid())
+        self.session.as_ref().is_some_and(|s| s.is_valid())
     }
 
     /// Delete a key from the keystore.

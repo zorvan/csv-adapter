@@ -7,7 +7,6 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use crate::types::Network;
-use csv_core::ChainDiscovery;
 
 /// Top-level explorer configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -218,28 +217,9 @@ impl ExplorerConfig {
     }
 
     /// Merge in chain defaults discovered from the shared `chains/` configuration directory.
-    pub fn with_discovered_chains(mut self) -> Self {
-        let mut discovery = ChainDiscovery::new();
-        if discovery.load_default_chains().is_err() {
-            return self;
-        }
-
-        for (chain_id, chain_config) in discovery.all_chain_configs() {
-            self.chains
-                .entry(chain_id.clone())
-                .or_insert_with(|| ChainConfig {
-                    enabled: default_chain_enabled(),
-                    network: parse_network(&chain_config.default_network),
-                    rpc_url: chain_config
-                        .rpc_endpoints
-                        .first()
-                        .cloned()
-                        .unwrap_or_default(),
-                    start_block: None,
-                    poll_interval_ms: None,
-                });
-        }
-
+    pub fn with_discovered_chains(self) -> Self {
+        // TODO: Implement chain discovery from config files
+        // For now, return config as-is without chain discovery
         self
     }
 }

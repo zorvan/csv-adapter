@@ -33,7 +33,7 @@ impl RpcClient for BitcoinRpcClient {
     async fn send_transaction(&self, tx: &[u8]) -> ChainResult<String> {
         self.inner
             .send_raw_transaction(tx.to_vec())
-            .map(|txid| hex::encode(txid))
+            .map(hex::encode)
             .map_err(|e| ChainError::RpcError(e.to_string()))
     }
 

@@ -108,7 +108,7 @@ impl ChainQuery for BitcoinChainQuery {
         } else {
             TransactionStatus::Confirmed {
                 block_height: 0,
-                confirmations: confirmations as u64,
+                confirmations: confirmations,
             }
         };
 
@@ -428,7 +428,7 @@ impl ChainBroadcaster for BitcoinChainBroadcaster {
                 use csv_core::backend::TransactionStatus;
                 return Ok(TransactionStatus::Confirmed {
                     block_height: 0,
-                    confirmations: confirmations as u64,
+                    confirmations: confirmations,
                 });
             }
 
@@ -623,42 +623,53 @@ impl ChainProofProvider for BitcoinChainProofProvider {
     }
 
     fn verify_finality_proof(&self, proof: &FinalityProof, tx_hash: &str) -> ChainOpResult<bool> {
-        // Verify a finality proof by checking confirmation depth and chain context
-        // Bitcoin uses 6 confirmations as standard finality threshold
+        #[cfg(feature = "rpc")]
+        {
+            // Verify a finality proof by checking confirmation depth and chain context
+            // Bitcoin uses 6 confirmations as standard finality threshold
 
-        const FINALITY_CONFIRMATIONS: u64 = 6;
+            const FINALITY_CONFIRMATIONS: u64 = 6;
 
-        // The finality_data contains chain-specific finality information
-        // For Bitcoin: confirmation count is stored directly in the proof struct
+            // The finality_data contains chain-specific finality information
+            // For Bitcoin: confirmation count is stored directly in the proof struct
 
-        // Check if we have the minimum required confirmations
-        if proof.confirmations < FINALITY_CONFIRMATIONS {
-            return Ok(false); // Not enough confirmations for finality
-        }
+            // Check if we have the minimum required confirmations
+            if proof.confirmations < FINALITY_CONFIRMATIONS {
+                return Ok(false); // Not enough confirmations for finality
+            }
 
-        // The finality_data can contain additional verification data if needed
-        // Format could be: [block_header (80 bytes), confirmation_count (8 bytes)]
-        if proof.finality_data.len() >= 88 {
-            // Extract confirmation count from data if available
-            let data_confirmations =
-                u64::from_le_bytes(proof.finality_data[80..88].try_into().unwrap_or([0u8; 8]));
+            // The finality_data can contain additional verification data if needed
+            // Format could be: [block_header (80 bytes), confirmation_count (8 bytes)]
+            if proof.finality_data.len() >= 88 {
+                // Extract confirmation count from data if available
+                let data_confirmations =
+                    u64::from_le_bytes(proof.finality_data[80..88].try_into().unwrap_or([0u8; 8]));
 
-            // Verify consistency between struct field and data
-            if data_confirmations != proof.confirmations {
-                return Err(ChainOpError::ProofVerificationError(
-                    "Confirmation count mismatch in finality proof".to_string(),
+                // Verify consistency between struct field and data
+                if data_confirmations != proof.confirmations {
+                    return Err(ChainOpError::ProofVerificationError(
+                        "Confirmation count mismatch in finality proof".to_string(),
+                    ));
+                }
+            }
+
+            // Additional verification: ensure tx_hash is reasonable
+            if tx_hash.len() != 64 && tx_hash.len() != 66 {
+                return Err(ChainOpError::InvalidInput(
+                    "Invalid tx_hash format".to_string(),
                 ));
             }
+
+            Ok(true)
         }
 
-        // Additional verification: ensure tx_hash is reasonable
-        if tx_hash.len() != 64 && tx_hash.len() != 66 {
-            return Err(ChainOpError::InvalidInput(
-                "Invalid tx_hash format".to_string(),
-            ));
+        #[cfg(not(feature = "rpc"))]
+        {
+            let _ = (proof, tx_hash);
+            Err(ChainOpError::FeatureNotEnabled(
+                "rpc feature required for finality proof verification".to_string(),
+            ))
         }
-
-        Ok(true)
     }
 
     fn domain_separator(&self) -> [u8; 32] {
@@ -1078,7 +1089,7 @@ impl ChainSanadOps for BitcoinChainSanadOps {
             block_height: self.adapter.get_current_height(),
             chain_id: "bitcoin".to_string(),
             metadata: serde_json::json!({
-                "lock_txid": hex::encode(&lock_seal_txid),
+                "lock_txid": hex::encode(lock_seal_txid),
                 "lock_vout": lock_seal_vout,
                 "refund_height": current_height,
             }),
@@ -1141,7 +1152,7 @@ impl ChainSanadOps for BitcoinChainSanadOps {
             transaction_hash: signed_tx,
             block_height: self.adapter.get_current_height(),
             chain_id: "bitcoin".to_string(),
-            metadata: metadata,
+            metadata,
         })
     }
 

@@ -148,6 +148,9 @@ impl PackageDeployer {
         transaction: Transaction,
         signature: Ed25519Signature,
     ) -> SuiResult<[u8; 32]> {
+        // SUI SDK API compatibility: execute_transaction method not available in current crate version
+        // This requires sui-rpc crate version alignment
+
         use sui_sdk_types::Signature as SuiSignature;
         
         // Serialize transaction for submission
@@ -174,7 +177,11 @@ impl PackageDeployer {
             .try_into()
             .map_err(|_| SuiError::RpcError("Invalid digest length".to_string()))?;
         
-        Ok(digest)
+    //Ok(digest)
+
+        Err(SuiError::RpcError(
+            "SUI SDK deploy feature requires API alignment. Use JSON-RPC deployment instead.".to_string()
+        ))
     }
     
     /// Build publish transaction data using proper BCS encoding
@@ -310,18 +317,6 @@ impl PackageDeployer {
         Ok(base_cost + storage_cost)
     }
 
-    /// Build the BCS-encoded transaction data for publishing
-    fn build_publish_transaction_data(
-        &self,
-        _package_bytes: &[u8],
-        _gas_budget: u64,
-    ) -> SuiResult<Vec<u8>> {
-        // Build BCS-encoded TransactionData::Publish
-        // This is complex and requires proper BCS serialization
-        Err(SuiError::SerializationError(
-            "BCS transaction building not yet implemented".to_string(),
-        ))
-    }
 }
 
 /// Deploy the CSV seal package on Sui

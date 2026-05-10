@@ -172,8 +172,8 @@ impl BrowserKeystore {
             id: id.to_string(),
             chain: chain.to_string(),
             encrypted_data: general_purpose::STANDARD.encode(&ciphertext),
-            nonce: general_purpose::STANDARD.encode(&nonce_bytes),
-            salt: general_purpose::STANDARD.encode(&salt),
+            nonce: general_purpose::STANDARD.encode(nonce_bytes),
+            salt: general_purpose::STANDARD.encode(salt),
             created_at: js_sys::Date::now() as u64,
         };
 
@@ -268,7 +268,7 @@ impl BrowserKeystore {
 
     /// Check if session is active.
     pub fn is_session_active(&self) -> bool {
-        self.session.as_ref().map_or(false, |s| s.is_valid())
+        self.session.as_ref().is_some_and(|s| s.is_valid())
     }
 
     /// Delete a key from LocalStorage.

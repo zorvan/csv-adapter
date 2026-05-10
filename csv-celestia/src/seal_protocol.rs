@@ -144,7 +144,7 @@ where
         let proof = CommitmentProof::new(
             anchor.height,
             self.namespace,
-            anchor.commitment.clone(),
+            anchor.commitment,
             [0u8; 32], // row_root
             [0u8; 32], // data_root
             anchor.block_hash,

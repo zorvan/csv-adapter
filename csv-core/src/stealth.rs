@@ -136,7 +136,7 @@ impl StealthWallet {
     /// * `ephemeral` — The sender's ephemeral point R = n*G
     /// * `scan_pk` — Recipient's scan public key
     /// * `spend_pk` — Recipient's spend public key
-    pub fn generate(recipient_scan_pk: &ScanPublicKey, recipient_spend_pk: &SpendPublicKey, ephemeral: &EphemeralPoint) -> StealthAddress {
+    pub fn generate(recipient_scan_pk: &ScanPublicKey, _recipient_spend_pk: &SpendPublicKey, ephemeral: &EphemeralPoint) -> StealthAddress {
         // P' = SHA-256(R || scan_pk) * spend_pk (simplified: direct hash-based derivation)
         let mut hasher = Sha256::new();
         hasher.update(b"CSV-STEALTH-ADDR::");

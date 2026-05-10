@@ -165,9 +165,9 @@ impl Wallet for SolanaWallet {
 
     fn generate_address(&self) -> ChainResult<String> {
         // ProgramWallet generates a new keypair internally
-        Ok(ProgramWallet::new()
+        ProgramWallet::new()
             .map(|w| w.pubkey().to_string())
-            .map_err(|e| ChainError::WalletError(e.to_string()))?)
+            .map_err(|e| ChainError::WalletError(e.to_string()))
     }
 
     fn import_from_private_key(&self, private_key: &str) -> ChainResult<()> {

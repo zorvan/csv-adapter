@@ -60,8 +60,8 @@ impl IpfsCid {
         Ok(Self {
             cid: cid_str.to_string(),
             version: cid.version().into(),
-            codec: cid.codec().into(),
-            hash_code: hash.code().into(),
+            codec: cid.codec(),
+            hash_code: hash.code(),
             hash: hash.digest().to_vec(),
         })
     }
@@ -340,10 +340,10 @@ impl HybridStorageInfo {
 /// - Browser-based (js-ipfs, helia)
 pub trait IpfsClient: Send + Sync {
     /// Store data on IPFS
-    fn put(
-        &self,
-        data: &[u8],
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<IpfsCid>> + Send + '_>>;
+    fn put<'a>(
+        &'a self,
+        data: &'a [u8],
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<IpfsCid>> + Send + 'a>>;
 
     /// Retrieve data from IPFS
     fn get(

@@ -30,6 +30,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 #[cfg(all(feature = "tokio", not(feature = "wasm")))]
 use tokio::sync::Mutex;
+#[cfg(not(feature = "tokio"))]
+use std::sync::Mutex;
 #[cfg(feature = "wasm")]
 use wasm_bindgen_futures::spawn_local;
 
