@@ -240,7 +240,8 @@ impl TransferBuilder {
     /// 1. Locks the Sanad on the source chain (consumes the seal)
     /// 2. Polls for transaction finality
     /// 3. Builds an inclusion proof of the lock transaction
-    /// 4. Returns a transfer ID for tracking progress
+    /// 4. Mints a new Sanad on the destination chain
+    /// 5. Returns a transfer ID for tracking progress
     ///
     /// # Returns
     ///
@@ -263,6 +264,27 @@ impl TransferBuilder {
         // Generate a unique transfer ID
         let transfer_id = format!("xfer-{}", hex::encode(generate_salt()));
 
+        // Create initial transfer record
+        let mut record = TransferRecord {
+            transfer_id: transfer_id.clone(),
+            sanad_id: self.sanad_id.clone(),
+            from_chain: self.from_chain.clone(),
+            to_chain: self.to_chain.clone(),
+            to_address: to_address.clone(),
+            status: crate::TransferStatus::Initiated,
+            lock_tx_hash: None,
+            inclusion_proof: None,
+        };
+
+        // Persist initial record
+        {
+            let mut transfers = self
+                .transfers
+                .lock()
+                .map_err(|e| CsvError::StoreError(e.to_string()))?;
+            transfers.insert(transfer_id.clone(), record.clone());
+        }
+
         // Step 1: Lock the sanad on the source chain
         let lock_result = self
             .runtime
@@ -276,6 +298,20 @@ impl TransferBuilder {
 
         let lock_tx_hash = lock_result.transaction_hash.clone();
         let lock_block_height = lock_result.block_height;
+
+        // Update status to Locking
+        record.status = crate::TransferStatus::Locking {
+            current_confirmations: 0,
+            required_confirmations: 1,
+        };
+        record.lock_tx_hash = Some(lock_tx_hash.clone());
+        {
+            let mut transfers = self
+                .transfers
+                .lock()
+                .map_err(|e| CsvError::StoreError(e.to_string()))?;
+            transfers.insert(transfer_id.clone(), record.clone());
+        }
 
         // Step 2: Poll for transaction finality
         let tx_status = self
@@ -291,6 +327,15 @@ impl TransferBuilder {
         let finality_block = match tx_status {
             csv_core::backend::TransactionStatus::Confirmed { block_height, .. } => block_height,
             csv_core::backend::TransactionStatus::Failed { reason } => {
+                record.status = crate::TransferStatus::Failed {
+                    error_code: "LOCK_FAILED".to_string(),
+                    retryable: true,
+                };
+                let mut transfers = self
+                    .transfers
+                    .lock()
+                    .map_err(|e| CsvError::StoreError(e.to_string()))?;
+                transfers.insert(transfer_id.clone(), record);
                 return Err(CsvError::TransferFailed {
                     transfer_id: transfer_id.clone(),
                     error: format!("Lock transaction failed: {}", reason),
@@ -298,6 +343,18 @@ impl TransferBuilder {
             }
             _ => lock_block_height,
         };
+
+        // Update status to GeneratingProof
+        record.status = crate::TransferStatus::GeneratingProof {
+            progress_percent: 0,
+        };
+        {
+            let mut transfers = self
+                .transfers
+                .lock()
+                .map_err(|e| CsvError::StoreError(e.to_string()))?;
+            transfers.insert(transfer_id.clone(), record.clone());
+        }
 
         // Step 3: Build inclusion proof of the lock transaction
         let commitment_bytes: [u8; 32] = {
@@ -312,7 +369,29 @@ impl TransferBuilder {
             .build_inclusion_proof(self.from_chain.clone(), &commitment, finality_block)
             .await?;
 
+        // Update status to ProofReady
+        record.status = crate::TransferStatus::ProofReady {
+            proof_block: finality_block,
+        };
+        record.inclusion_proof = Some(inclusion_proof.clone());
+        {
+            let mut transfers = self
+                .transfers
+                .lock()
+                .map_err(|e| CsvError::StoreError(e.to_string()))?;
+            transfers.insert(transfer_id.clone(), record.clone());
+        }
+
         // Step 4: Mint sanad on destination chain
+        record.status = crate::TransferStatus::Minting;
+        {
+            let mut transfers = self
+                .transfers
+                .lock()
+                .map_err(|e| CsvError::StoreError(e.to_string()))?;
+            transfers.insert(transfer_id.clone(), record.clone());
+        }
+
         let _mint_result = self
             .runtime
             .mint_sanad(
@@ -324,24 +403,15 @@ impl TransferBuilder {
             )
             .await?;
 
-        // Step 5: Update transfer record with all collected data
-        let record = TransferRecord {
-            transfer_id: transfer_id.clone(),
-            sanad_id: self.sanad_id,
-            from_chain: self.from_chain,
-            to_chain: self.to_chain,
-            to_address: to_address.clone(),
-            status: crate::TransferStatus::Completed,
-            lock_tx_hash: Some(lock_tx_hash),
-            inclusion_proof: Some(inclusion_proof),
-        };
-
-        // Record the transfer
-        let mut transfers = self
-            .transfers
-            .lock()
-            .map_err(|e| CsvError::StoreError(e.to_string()))?;
-        transfers.insert(transfer_id.clone(), record);
+        // Step 5: Update transfer record to Completed
+        record.status = crate::TransferStatus::Completed;
+        {
+            let mut transfers = self
+                .transfers
+                .lock()
+                .map_err(|e| CsvError::StoreError(e.to_string()))?;
+            transfers.insert(transfer_id.clone(), record);
+        }
 
         Ok(transfer_id)
     }

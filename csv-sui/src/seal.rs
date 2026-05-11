@@ -184,6 +184,11 @@ impl SealRegistry {
     }
 
     /// Get all seal records.
+    pub fn get_seal_records(&self) -> Vec<SealRecord> {
+        self.seal_records.clone()
+    }
+
+    /// Get all seal records.
     pub fn records(&self) -> &[SealRecord] {
         &self.seal_records
     }

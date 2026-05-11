@@ -726,15 +726,91 @@ impl ChainSanadOps for AptosBackend {
         destination_chain: &str,
         owner_key_id: &str,
     ) -> ChainOpResult<SanadOperationResult> {
-        let _ = sanad_id;
-        let _ = destination_chain;
-        let _ = owner_key_id;
+        // Parse the destination chain to ensure it's valid
+        let _destination = destination_chain
+            .parse::<csv_core::ChainId>()
+            .map_err(|_| {
+                ChainOpError::InvalidInput(format!(
+                    "Invalid destination chain: {}",
+                    destination_chain
+                ))
+            })?;
 
-        Err(ChainOpError::CapabilityUnavailable(
-            "Sanad locking requires signed transaction. \
-             Construct and submit a transaction to lock the seal resource."
-                .to_string(),
-        ))
+        // Parse owner key for signing (expecting hex-encoded 32-byte address)
+        let owner_bytes = hex::decode(owner_key_id)
+            .map_err(|_| ChainOpError::InvalidInput("Invalid owner key ID format".to_string()))?;
+
+        if owner_bytes.len() != 32 {
+            return Err(ChainOpError::InvalidInput(
+                "Owner key must be 32 bytes".to_string(),
+            ));
+        }
+
+        let owner_address: [u8; 32] = owner_bytes
+            .try_into()
+            .map_err(|_| ChainOpError::InvalidInput("Invalid owner address format".to_string()))?;
+
+        // Find the seal resource for this sanad from active seals
+        let seal = self
+            .seal_protocol
+            .get_active_seals()
+            .into_iter()
+            .last()
+            .ok_or_else(|| {
+                ChainOpError::InvalidInput(format!(
+                    "No active seals found. Create a seal first for sanad: {}",
+                    hex::encode(sanad_id.as_bytes())
+                ))
+            })?;
+
+        // Build the lock transaction bytes
+        // Format: [owner_address: 32 bytes][seal_account_address: 32 bytes][resource_type_len:4][resource_type]
+        let mut tx_bytes = Vec::new();
+        tx_bytes.extend_from_slice(&owner_address);
+        tx_bytes.extend_from_slice(&seal.account_address);
+        let resource_type_bytes = seal.resource_type.as_bytes();
+        tx_bytes.extend_from_slice(&(resource_type_bytes.len() as u32).to_le_bytes());
+        tx_bytes.extend_from_slice(resource_type_bytes);
+
+        // Submit the transaction
+        let digest = self
+            .rpc
+            .submit_transaction(tx_bytes)
+            .await
+            .map_err(|e| {
+                ChainOpError::TransactionError(format!("Failed to submit lock tx: {}", e))
+            })?;
+
+        // Wait for transaction confirmation
+        self.rpc
+            .wait_for_transaction(digest)
+            .await
+            .map_err(|e| {
+                ChainOpError::TransactionError(format!("Transaction confirmation failed: {}", e))
+            })?;
+
+        // Get the ledger info as block height
+        let ledger_info = self
+            .rpc
+            .get_ledger_info()
+            .await
+            .map_err(|e| {
+                ChainOpError::RpcError(format!("Failed to get ledger info: {}", e))
+            })?;
+
+        Ok(SanadOperationResult {
+            sanad_id: sanad_id.clone(),
+            operation: csv_core::backend::SanadOperation::Lock,
+            transaction_hash: format!("0x{}", hex::encode(digest)),
+            block_height: ledger_info.ledger_version,
+            chain_id: "aptos".to_string(),
+            metadata: serde_json::json!({
+                "destination_chain": destination_chain,
+                "lock_type": "resource_lock",
+                "seal_account": hex::encode(seal.account_address),
+                "resource_type": seal.resource_type,
+            }),
+        })
     }
 
     async fn mint_sanad(

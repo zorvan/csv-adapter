@@ -796,6 +796,23 @@ impl AptosSealProtocol {
             self.event_builder.event_type.clone(),
         )
     }
+
+    /// Get all active seals from the registry.
+    pub fn get_active_seals(&self) -> Vec<AptosSealPoint> {
+        if let Ok(registry) = self.seal_registry.lock() {
+            registry
+                .get_seal_records()
+                .into_iter()
+                .map(|record| AptosSealPoint {
+                    account_address: record.account_address,
+                    resource_type: record.resource_type.clone(),
+                    nonce: record.nonce,
+                })
+                .collect()
+        } else {
+            Vec::new()
+        }
+    }
 }
 
 #[cfg(all(test, debug_assertions))]

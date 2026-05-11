@@ -175,6 +175,11 @@ impl SealRegistry {
         self.max_size
     }
 
+    /// Get all seal records.
+    pub fn get_seal_records(&self) -> Vec<SealRecord> {
+        self.seal_records.clone()
+    }
+
     /// Mark a seal as used with size limit check.
     ///
     /// # Arguments

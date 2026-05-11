@@ -850,6 +850,23 @@ impl SuiSealProtocol {
             self.event_builder.event_type.clone(),
         )
     }
+
+    /// Get all active seals from the registry.
+    pub fn get_active_seals(&self) -> Vec<SuiSealPoint> {
+        if let Ok(registry) = self.seal_registry.lock() {
+            registry
+                .get_seal_records()
+                .into_iter()
+                .map(|record| SuiSealPoint {
+                    object_id: record.object_id,
+                    version: record.object_version,
+                    nonce: record.nonce,
+                })
+                .collect()
+        } else {
+            Vec::new()
+        }
+    }
 }
 
 #[cfg(all(test, debug_assertions))]
