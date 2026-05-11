@@ -292,7 +292,15 @@ impl SuiSealProtocol {
             },
             ..Default::default()
         };
-        let rpc = Box::new(crate::rpc::MockSuiRpc::new(1000));
+        let mut rpc = crate::rpc::MockSuiRpc::new(1000);
+        rpc.add_checkpoint(crate::rpc::SuiCheckpoint {
+            sequence_number: 500,
+            digest: [1u8; 32],
+            epoch: 1,
+            network_total_transactions: 50000,
+            certified: true,
+        });
+        let rpc = Box::new(rpc);
         Self::from_config(config, rpc)
     }
 

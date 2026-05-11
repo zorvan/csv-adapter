@@ -21,6 +21,7 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 chrono = { version = "0.4", optional = true }
 futures = "0.3"
+dirs-next = "2.0"
 
 [features]
 default = ["nostr"]

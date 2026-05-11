@@ -1,5 +1,6 @@
 import { SealPoint, CommitAnchor } from './seal';
 import { Sanad, OwnershipProof } from './sanad';
+import { bytesToHex } from './types';
 
 /**
  * Commitment — encodes state transition rules.

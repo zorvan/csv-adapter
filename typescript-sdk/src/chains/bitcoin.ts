@@ -18,8 +18,20 @@ export namespace BitcoinChain {
   export function createSeal(txid: string, vout: number): SealPoint {
     const txidBytes = hexToBytes(txid);
     // Pad to at least 32 bytes
-    while (txidBytes.length < 32) {
-      txidBytes.push(0);
+    if (txidBytes.length < 32) {
+      const padded = new Uint8Array(32);
+      padded.set(txidBytes);
+      const txidBytes2 = padded;
+      const voutBytes = new Uint8Array([
+        vout & 0xff,
+        (vout >> 8) & 0xff,
+        (vout >> 16) & 0xff,
+        (vout >> 24) & 0xff,
+      ]);
+      const sealId = new Uint8Array(txidBytes2.length + voutBytes.length);
+      sealId.set(txidBytes2);
+      sealId.set(voutBytes, txidBytes2.length);
+      return { sealId, nonce: null };
     }
     // Append vout as 4 bytes
     const voutBytes = new Uint8Array([

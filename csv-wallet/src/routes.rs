@@ -51,14 +51,6 @@ pub enum Route {
     #[route("/cross-chain/transfer/:id")]
     TransferDetail { id: String },
 
-    // Contracts
-    #[route("/contracts")]
-    Contracts {},
-    #[route("/contracts/add")]
-    AddContract {},
-    #[route("/contracts/status")]
-    ContractStatus {},
-
     // Seals
     #[route("/seals")]
     Seals {},

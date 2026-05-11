@@ -86,13 +86,6 @@ rpc = [
     "csv-ethereum/rpc",
 ]
 
-# Deployment features (enable SDK-based contract deployment)
-deploy-ethereum = ["ethereum", "csv-ethereum/rpc"]
-deploy-sui = ["sui", "csv-sui/sui-sdk-deploy", "csv-sui/rpc", "dep:ed25519-dalek"]
-deploy-aptos = ["aptos", "csv-aptos/aptos-sdk", "dep:ed25519-dalek"]
-deploy-solana = ["solana", "solana-sdk"]
-deploy-all = ["deploy-ethereum", "deploy-solana", "deploy-sui", "deploy-aptos"]
-
 # Runtime features
 tokio = ["dep:tokio"]
 async-std = ["dep:async-std"]

@@ -467,7 +467,7 @@ mod tests {
     fn test_aluvm_push_and_stop() {
         let vm = AluVmAdapter::default_();
         let inputs = make_inputs();
-        let bytecode = vec![0x01, 0x01, 0x42, 0x00];
+        let bytecode = vec![0x01, 0x01, 0x42, 0x50, 0x00];
         let outputs = vm.execute(&bytecode, inputs, &[]).unwrap();
         assert_eq!(outputs.owned_outputs.len(), 1);
     }
@@ -476,7 +476,7 @@ mod tests {
     fn test_aluvm_arithmetic() {
         let vm = AluVmAdapter::default_();
         let inputs = make_inputs();
-        let bytecode = vec![0x01, 0x01, 0x0A, 0x01, 0x01, 0x14, 0x10, 0x00];
+        let bytecode = vec![0x01, 0x01, 0x0A, 0x01, 0x01, 0x10, 0x50, 0x00];
         let outputs = vm.execute(&bytecode, inputs, &[]).unwrap();
         assert_eq!(outputs.owned_outputs.len(), 1);
     }
@@ -485,7 +485,7 @@ mod tests {
     fn test_aluvm_sha256() {
         let vm = AluVmAdapter::default_();
         let inputs = make_inputs();
-        let bytecode = vec![0x01, 0x04, 0x01, 0x02, 0x03, 0x04, 0x30, 0x00];
+        let bytecode = vec![0x01, 0x04, 0x01, 0x02, 0x03, 0x04, 0x30, 0x50, 0x00];
         let outputs = vm.execute(&bytecode, inputs, &[]).unwrap();
         assert_eq!(outputs.owned_outputs.len(), 1);
     }
@@ -494,10 +494,15 @@ mod tests {
     fn test_aluvm_execution_limit() {
         let vm = AluVmAdapter::new(5);
         let inputs = make_inputs();
+        // 7 instructions: 6 PUSH_N + STOP = 7 steps > 5 limit
         let bytecode = vec![
-            0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x10, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x10,
-            0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x10, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x10,
-            0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x10, 0x00,
+            0x01, 0x01, 0x01, // PUSH_N 1, 0x01
+            0x01, 0x01, 0x02, // PUSH_N 1, 0x02
+            0x01, 0x01, 0x03, // PUSH_N 1, 0x03
+            0x01, 0x01, 0x04, // PUSH_N 1, 0x04
+            0x01, 0x01, 0x05, // PUSH_N 1, 0x05
+            0x01, 0x01, 0x06, // PUSH_N 1, 0x06
+            0x00,             // STOP
         ];
         let result = vm.execute(&bytecode, inputs, &[]);
         assert!(result.is_err());
@@ -521,7 +526,7 @@ mod tests {
     fn test_aluvm_revert() {
         let vm = AluVmAdapter::default_();
         let inputs = make_inputs();
-        let bytecode = vec![0x01, 0x05, b'f', b'a', b'i', b'l', b'x', 0x51];
+        let bytecode = vec![0xFF];
         let result = vm.execute(&bytecode, inputs, &[]);
         assert!(result.is_err());
     }

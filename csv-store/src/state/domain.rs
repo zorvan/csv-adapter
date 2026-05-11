@@ -49,6 +49,9 @@ pub struct SanadRecord {
     pub status: SanadStatus,
     /// Creation timestamp (Unix seconds).
     pub created_at: u64,
+    /// Chain-anchored transaction hash (the on-chain txid where this Sanad was published).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub anchor_tx_hash: Option<String>,
 }
 
 /// Status of a cross-chain transfer.

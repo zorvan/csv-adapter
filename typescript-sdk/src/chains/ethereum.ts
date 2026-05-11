@@ -21,8 +21,12 @@ export namespace EthereumChain {
       : contractAddress;
     const addressBytes = hexToBytes(address);
     // Pad to 20 bytes (standard Ethereum address length)
-    while (addressBytes.length < 20) {
-      addressBytes.unshift(0);
+    let addressBytes2: Uint8Array;
+    if (addressBytes.length < 20) {
+      addressBytes2 = new Uint8Array(20);
+      addressBytes2.set(addressBytes);
+    } else {
+      addressBytes2 = addressBytes;
     }
     // Append storage slot as 32 bytes
     const slotBytes = new Uint8Array(32);
@@ -30,9 +34,9 @@ export namespace EthereumChain {
     slotBytes[30] = (storageSlot >> 8) & 0xff;
     slotBytes[29] = (storageSlot >> 16) & 0xff;
     slotBytes[28] = (storageSlot >> 24) & 0xff;
-    const sealId = new Uint8Array(addressBytes.length + slotBytes.length);
-    sealId.set(addressBytes);
-    sealId.set(slotBytes, addressBytes.length);
+    const sealId = new Uint8Array(addressBytes2.length + slotBytes.length);
+    sealId.set(addressBytes2);
+    sealId.set(slotBytes, addressBytes2.length);
     return { sealId, nonce: null };
   }
 

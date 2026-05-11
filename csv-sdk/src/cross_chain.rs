@@ -10,8 +10,6 @@ use csv_core::{ChainId, Hash};
 use csv_core::{CrossChainRegistry, CrossChainRegistryEntry, SealPoint};
 
 #[cfg(feature = "cross-chain-persist")]
-use csv_explorer_shared::TransferStatus;
-#[cfg(feature = "cross-chain-persist")]
 use sqlx::SqlitePool;
 
 use crate::CsvError;
@@ -198,7 +196,6 @@ impl PersistentTransferRegistry {
     /// Useful for periodic checkpointing: call after the orchestrator records
     /// new transfers so that in-memory state survives process restarts.
     pub async fn save_from_registry(&self, registry: &CrossChainRegistry) -> Result<(), CrossChainError> {
-        use csv_core::seal::SealPoint as CoreSealPoint;
 
         for entry in registry.all_transfers() {
             let row = Self::registry_entry_to_transfer_info(entry);
@@ -239,16 +236,22 @@ impl PersistentTransferRegistry {
             source_chain: row.from_chain.parse().map_err(|_| CrossChainError::Database("invalid from_chain".to_string()))?,
             source_seal: parse_seal(&row.lock_tx)?,
             destination_chain: row.to_chain.parse().map_err(|_| CrossChainError::Database("invalid to_chain".to_string()))?,
-            destination_seal: parse_seal(&row.mint_tx).unwrap_or_else(|_| {
-                // mint_tx may be NULL at time of lock; use placeholder
-                SealPoint::new(vec![0u8], None).unwrap_or_else(|_| {
-                    // SAFETY: Empty placeholder seal for pending transfers
+            destination_seal: match row.mint_tx.as_ref() {
+                Some(mint) => parse_seal(mint).unwrap_or_else(|_| {
+                    // mint_tx may be invalid at time of lock; use placeholder
+                    // SAFETY: Placeholder seal for pending transfers with valid non-empty id
                     unsafe { SealPoint::new_unchecked(vec![0u8], None) }
-                })
-            }),
+                }),
+                None => {
+                    // mint_tx is NULL at time of lock; use placeholder
+                    unsafe { SealPoint::new_unchecked(vec![0u8], None) }
+                }
+            },
             lock_tx_hash: parse_hash(&row.lock_tx)?,
-            mint_tx_hash: row.mint_tx.as_ref().map(|m| parse_hash(m)).transpose()
-                .unwrap_or(Ok(Hash::new([0u8; 32])))?,
+            mint_tx_hash: match row.mint_tx.as_ref() {
+                Some(m) => parse_hash(m)?,
+                None => Hash::new([0u8; 32]),
+            },
             timestamp: row.created_at.timestamp() as u64,
         })
     }

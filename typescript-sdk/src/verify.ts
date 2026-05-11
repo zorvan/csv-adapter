@@ -1,7 +1,7 @@
 import { ProofBundle } from './proof';
 import { Consignment } from './consignment';
 import { Sanad } from './sanad';
-import { ErrorCode } from './types';
+import { ErrorCode, hexToBytes, bytesToHex } from './types';
 
 /**
  * Verification result for a proof bundle.

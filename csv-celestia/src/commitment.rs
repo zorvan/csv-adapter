@@ -491,7 +491,7 @@ mod tests {
 
     #[test]
     fn test_fraud_proof() {
-        let commitment = BlobCommitment::new([0u8; 32]);
+        let commitment = BlobCommitment::new([1u8; 32]);
         let evidence = FraudEvidence::MissingShare {
             row_index: 5,
             share_index: 10,

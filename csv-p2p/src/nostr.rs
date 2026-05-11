@@ -12,13 +12,79 @@
 //! | 4     | Encrypted DM proofs (NIP-04/44)      |
 //! | 30078 | Custom sealed exchange (future)      |
 
-use std::{sync::Arc, time::Duration};
+use std::{fs, path::Path, sync::Arc, time::Duration};
+
+#[cfg(all(unix, feature = "nostr"))]
+use std::os::unix::fs::PermissionsExt;
 
 use csv_core::proof::ProofBundle;
 use nostr_sdk::{Client, Keys, RelayPoolNotification};
 use tracing::{debug, info, warn};
 
 use crate::{DeliveredProof, EventId, ProofFilter, ProofTransport, TransportError, DEFAULT_RELAYS};
+
+/// Default path for persistent Nostr secret key storage.
+const DEFAULT_NOSTR_KEY_PATH: &str = "~/.csv/nostr_secret_key.hex";
+
+/// Expand `~` to the home directory for file paths.
+fn expand_home(path: &str) -> std::path::PathBuf {
+    if let Some(stripped) = path.strip_prefix("~/") {
+        if let Some(home) = dirs_next::home_dir() {
+            return home.join(stripped);
+        }
+    }
+    std::path::PathBuf::from(path)
+}
+
+/// Load existing Nostr keys from disk, or generate and persist new ones.
+///
+/// Keys are stored as a 64-character hex string (32 bytes) in
+/// `~/.csv/nostr_secret_key.hex` with `0o600` permissions.
+fn load_or_generate_nostr_keys() -> Keys {
+    let key_path = expand_home(DEFAULT_NOSTR_KEY_PATH);
+
+    if let Ok(mut file) = fs::File::open(&key_path) {
+        use std::io::Read;
+        let mut hex_secret = String::new();
+        if file.read_to_string(&mut hex_secret).is_ok() {
+            let hex_secret = hex_secret.trim().to_string();
+            if let Ok(secret_bytes) = hex::decode(&hex_secret) {
+                if secret_bytes.len() == 32 {
+                    if let Ok(secret_key) = nostr_sdk::SecretKey::from_slice(&secret_bytes) {
+                        let keys = Keys::new(secret_key);
+                        debug!(
+                            pubkey = %keys.public_key(),
+                            "Loaded existing Nostr identity from disk"
+                        );
+                        return keys;
+                    }
+                }
+            }
+            warn!(
+                path = %key_path.display(),
+                "Invalid Nostr key file format, generating new identity"
+            );
+        }
+    }
+
+    let keys = Keys::generate();
+    if let Some(parent) = key_path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    if let Ok(secret_key) = keys.secret_key() {
+        let secret_bytes: &[u8; 32] = secret_key.as_ref();
+        if let Ok(()) = fs::write(&key_path, format!("{}\n", hex::encode(secret_bytes))) {
+            #[cfg(unix)]
+            let _ = fs::set_permissions(&key_path, fs::Permissions::from_mode(0o600));
+            debug!(
+                pubkey = %keys.public_key(),
+                path = %key_path.display(),
+                "Persisted new Nostr identity to disk"
+            );
+        }
+    }
+    keys
+}
 
 /// Helper function to extract chain IDs from Nostr event tags
 fn extract_chain_ids_from_tags(_tags: &[nostr_sdk::Tag]) -> Vec<String> {
@@ -56,8 +122,11 @@ pub struct NostrTransport {
 
 impl NostrTransport {
     /// Create a new Nostr transport with default relays.
+    ///
+    /// Loads persistent Nostr identity from `~/.csv/nostr_secret_key.hex`
+    /// if present, otherwise generates and persists a new identity.
     pub fn new() -> Self {
-        let keys = Keys::generate();
+        let keys = load_or_generate_nostr_keys();
         let client = Client::new(keys.clone());
         Self {
             relays: DEFAULT_RELAYS.iter().map(|s| s.to_string()).collect(),
@@ -70,8 +139,11 @@ impl NostrTransport {
     }
 
     /// Create a new Nostr transport with custom relays.
+    ///
+    /// Loads persistent Nostr identity from `~/.csv/nostr_secret_key.hex`
+    /// if present, otherwise generates and persists a new identity.
     pub fn with_relays(relays: Vec<String>) -> Self {
-        let keys = Keys::generate();
+        let keys = load_or_generate_nostr_keys();
         let client = Client::new(keys.clone());
         Self {
             relays,

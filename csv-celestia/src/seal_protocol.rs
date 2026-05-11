@@ -366,9 +366,12 @@ where
 
         let proof_id = match &location {
             crate::proof_id::ProofLocation::Hybrid { metadata_id, .. } => *metadata_id,
+            crate::proof_id::ProofLocation::IpfsBacked { anchor_height, .. } => {
+                ProofId::new(*anchor_height, self.namespace, [0u8; 32])
+            }
             _ => {
                 return Err(CelestiaError::InternalError(
-                    "Expected hybrid location".to_string(),
+                    "Expected hybrid or ipfs-backed location".to_string(),
                 ))
             }
         };

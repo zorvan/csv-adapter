@@ -157,7 +157,8 @@ async fn main() -> anyhow::Result<()> {
 
     // Load configuration
     let config = Config::load(cli.config.as_deref())?;
-    let mut state = UnifiedStateManager::load()?;
+    let passphrase = UnifiedStateManager::prompt_passphrase()?;
+    let mut state = UnifiedStateManager::load(&passphrase)?;
 
     // Dispatch commands
     let result = match cli.command {

@@ -5,12 +5,12 @@
 //!
 //! Run with: `cargo run --example parallel_verification --features "all-chains,tokio" --release`
 
-use csv_adapter::prelude::*;
+use csv_sdk::prelude::*;
 use std::sync::Arc;
 use std::thread;
 use std::time::Instant;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<()> {
     println!("=== CSV Adapter: Parallel Operations Demo ===\n");
 
     let client = CsvClient::builder()

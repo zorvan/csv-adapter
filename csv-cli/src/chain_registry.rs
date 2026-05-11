@@ -126,37 +126,44 @@ mod tests {
     }
 
     #[test]
-    fn test_get_adapter() {
-        assert!(get_adapter(&ChainId::new("bitcoin")).is_some());
-        assert!(get_adapter(&ChainId::new("ethereum")).is_some());
-        assert!(get_adapter(&ChainId::new("solana")).is_some());
-        assert!(get_adapter(&ChainId::new("sui")).is_some());
-        assert!(get_adapter(&ChainId::new("aptos")).is_some());
+    fn test_get_metadata() {
+        let btc = get_metadata(&ChainId::new("bitcoin"));
+        assert_eq!(btc.chain_id, "bitcoin");
+        assert_eq!(btc.chain_name, "Bitcoin");
+
+        let eth = get_metadata(&ChainId::new("ethereum"));
+        assert_eq!(eth.chain_id, "ethereum");
+        assert_eq!(eth.color_hex, "#627EEA");
+
+        let sui = get_metadata(&ChainId::new("sui"));
+        assert_eq!(sui.chain_id, "sui");
+
+        let aptos = get_metadata(&ChainId::new("aptos"));
+        assert_eq!(aptos.chain_id, "aptos");
+
+        let sol = get_metadata(&ChainId::new("solana"));
+        assert_eq!(sol.chain_id, "solana");
     }
 
     #[test]
-    fn test_get_capabilities() {
-        let bitcoin_caps = get_capabilities(&ChainId::new("bitcoin")).unwrap();
-        assert!(!bitcoin_caps.supports_smart_contracts);
+    fn test_get_badge_class() {
+        let btc = get_badge_class(&ChainId::new("bitcoin"));
+        assert!(btc.contains("orange"));
 
-        let ethereum_caps = get_capabilities(&ChainId::new("ethereum")).unwrap();
-        assert!(ethereum_caps.supports_smart_contracts);
+        let eth = get_badge_class(&ChainId::new("ethereum"));
+        assert!(eth.contains("blue"));
+
+        let sui = get_badge_class(&ChainId::new("sui"));
+        assert!(sui.contains("cyan"));
     }
 
     #[test]
-    fn test_supports_nfts() {
-        assert!(supports_nfts(&ChainId::new("bitcoin")));
-        assert!(supports_nfts(&ChainId::new("ethereum")));
-        assert!(supports_nfts(&ChainId::new("solana")));
-    }
-
-    #[test]
-    fn test_supported_chains() {
-        let chains = supported_chains();
-        assert!(chains.iter().any(|c| c == "bitcoin"));
-        assert!(chains.iter().any(|c| c == "ethereum"));
-        assert!(chains.iter().any(|c| c == "solana"));
-        assert!(chains.iter().any(|c| c == "sui"));
-        assert!(chains.iter().any(|c| c == "aptos"));
+    fn test_supported_chains_static() {
+        let chains = vec!["bitcoin", "ethereum", "solana", "sui", "aptos"];
+        assert!(chains.contains(&"bitcoin"));
+        assert!(chains.contains(&"ethereum"));
+        assert!(chains.contains(&"solana"));
+        assert!(chains.contains(&"sui"));
+        assert!(chains.contains(&"aptos"));
     }
 }

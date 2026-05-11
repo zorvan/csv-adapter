@@ -1,3 +1,5 @@
+import { hexToBytes, bytesToHex } from './types';
+
 /**
  * SealPoint — single-use seal reference.
  * Mirrors csv_adapter_core::seal::SealPoint

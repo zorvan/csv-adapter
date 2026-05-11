@@ -495,6 +495,7 @@ mod tests {
         let message = [0u8; 32];
         let signature = make_secp256k1_signature_bytes(&message);
 
+        let seal_id = vec![1u8, 2, 3];
         let bundle = ProofBundle::new(
             DAGSegment::new(
                 vec![DAGNode::new(
@@ -507,13 +508,13 @@ mod tests {
                 Hash::zero(),
             ),
             vec![signature],
-            SealPoint::new(vec![1, 2, 3], Some(42))
+            SealPoint::new(seal_id.clone(), Some(42))
                 .map_err(|e| ProtocolError::Generic(e.to_string()))?,
-            CommitAnchor::new(vec![4, 5, 6], 100, vec![])
+            CommitAnchor::new(seal_id, 100, vec![])
                 .map_err(|e| ProtocolError::Generic(e.to_string()))?,
             InclusionProof::new(vec![0xCD; 32], Hash::new([2u8; 32]), 0)
                 .map_err(|e| ProtocolError::Generic(e.to_string()))?,
-            FinalityProof::new(vec![], 6, false)
+            FinalityProof::new(vec![0xAB; 16], 6, false)
                 .map_err(|e| ProtocolError::Generic(e.to_string()))?,
         )
         .map_err(|e| ProtocolError::Generic(e.to_string()))?;

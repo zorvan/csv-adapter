@@ -483,7 +483,17 @@ pub fn create_sui_adapter(config: &ChainConfig) -> ChainResult<SuiSealProtocol> 
         _ => SuiNetwork::Testnet,
     };
 
-    let sui_config = SuiConfig::new(network);
+    let sui_config = SuiConfig {
+        seal_contract: crate::SealContractConfig {
+            package_id: Some(
+                "0x0000000000000000000000000000000000000000000000000000000000000002"
+                    .to_string(),
+            ),
+            ..Default::default()
+        },
+        network,
+        ..Default::default()
+    };
 
     // In test builds, use test RPC
     #[cfg(test)]

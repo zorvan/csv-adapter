@@ -27,10 +27,10 @@ jobs:
         run: |
           # Search for stub functions that return "not.*implemented" or similar
           STUBS=$(rg -i "not.*yet.*reimplemented|stub.*function|TODO.*implement|FIXME.*implement" \
-            --type rust csv-adapter/src csv-adapter-core/src csv-adapter-bitcoin/src \
-            csv-adapter-ethereum/src csv-adapter-sui/src csv-adapter-aptos/src \
-            csv-adapter-solana/src csv-wallet/src csv-cli/src \
-            --exclude-pattern "tests/" --exclude-pattern "examples/" || true)
+             --type rust csv-core/src csv-bitcoin/src \
+             csv-ethereum/src csv-sui/src csv-aptos/src \
+             csv-solana/src csv-wallet/src csv-cli/src \
+             --exclude-pattern "tests/" --exclude-pattern "examples/" || true)
           
           if [ -n "$STUBS" ]; then
             echo "ERROR: Found production stubs that need implementation:"
@@ -43,12 +43,12 @@ jobs:
         run: |
           # Search for TODO and FIXME comments in production source files
           # This is a hard failure to enforce production code completeness
-          TODO_FIXME=$(rg -i "TODO|FIXME|XXX|HACK" \
-            --type rust csv-adapter/src csv-adapter-core/src csv-adapter-bitcoin/src \
-            csv-adapter-ethereum/src csv-adapter-sui/src csv-adapter-aptos/src \
-            csv-adapter-solana/src csv-wallet/src csv-cli/src \
-            --exclude-pattern "tests/" --exclude-pattern "examples/" \
-            --exclude-pattern "// (TODO|FIXME|XXX|HACK):.*test" || true)
+         TODO_FIXME=$(rg -i "TODO|FIXME|XXX|HACK" \
+             --type rust csv-core/src csv-bitcoin/src \
+             csv-ethereum/src csv-sui/src csv-aptos/src \
+             csv-solana/src csv-wallet/src csv-cli/src \
+             --exclude-pattern "tests/" --exclude-pattern "examples/" \
+             --exclude-pattern "// (TODO|FIXME|XXX|HACK):.*test" || true)
           
           if [ -n "$TODO_FIXME" ]; then
             echo "ERROR: Found TODO/FIXME/XXX/HACK comments in production code:"
@@ -63,10 +63,11 @@ jobs:
       - name: Check for fake/simulation code
         run: |
           # Search for fake hashes, mock signatures, simulation code outside tests
-          FAKE=$(rg -i "fake.*hash|mock.*signature|simulation.*mode|demo.*only" \
-            --type rust csv-adapter/src csv-adapter-core/src \
-            csv-wallet/src csv-cli/src \
-            --exclude-pattern "tests/" --exclude-pattern "examples/" || true)
+         FAKE=$(rg -i "fake.*hash|mock.*signature|simulation.*mode|demo.*only" \
+             --type rust csv-core/src csv-bitcoin/src \
+             csv-ethereum/src csv-sui/src csv-aptos/src \
+             csv-solana/src csv-wallet/src csv-cli/src \
+             --exclude-pattern "tests/" --exclude-pattern "examples/" || true)
           
           if [ -n "$FAKE" ]; then
             echo "ERROR: Found fake/simulation code in production:"
@@ -166,14 +167,14 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
 
       - name: Build Ethereum contracts
-        run: |
-          if [ -d "csv-adapter-ethereum/contracts" ]; then
-            cd csv-adapter-ethereum/contracts
-            forge build
-          else
-            echo "Ethereum contracts directory not found"
-            exit 1
-          fi
+         run: |
+           if [ -d "csv-ethereum/contracts" ]; then
+             cd csv-ethereum/contracts
+             forge build
+           else
+             echo "Ethereum contracts directory not found"
+             exit 1
+           fi
 
       - name: Install Sui CLI
         run: |
@@ -185,15 +186,15 @@ jobs:
           sudo mv sui /usr/local/bin/
           sui --version
 
-      - name: Build Sui contracts
-        run: |
-          if [ -d "csv-adapter-sui/contracts" ]; then
-            cd csv-adapter-sui/contracts
-            sui move build
-          else
-            echo "Sui contracts directory not found"
-            exit 1
-          fi
+     - name: Build Sui contracts
+         run: |
+           if [ -d "csv-sui/contracts" ]; then
+             cd csv-sui/contracts
+             sui move build
+           else
+             echo "Sui contracts directory not found"
+             exit 1
+           fi
 
       - name: Install Aptos CLI
         run: |
@@ -205,15 +206,15 @@ jobs:
           sudo mv aptos /usr/local/bin/
           aptos --version
 
-      - name: Build Aptos contracts
-        run: |
-          if [ -d "csv-adapter-aptos/contracts" ]; then
-            cd csv-adapter-aptos/contracts
-            aptos move compile
-          else
-            echo "Aptos contracts directory not found"
-            exit 1
-          fi
+    - name: Build Aptos contracts
+         run: |
+           if [ -d "csv-aptos/contracts" ]; then
+             cd csv-aptos/contracts
+             aptos move compile
+           else
+             echo "Aptos contracts directory not found"
+             exit 1
+           fi
 
       - name: Install Anchor
         run: |
@@ -226,15 +227,15 @@ jobs:
           avm use latest
           anchor --version
 
-      - name: Build Solana contracts
-        run: |
-          if [ -d "csv-adapter-solana/contracts" ]; then
-            cd csv-adapter-solana/contracts
-            NO_DNA=1 anchor build
-          else
-            echo "Solana contracts directory not found"
-            exit 1
-          fi
+    - name: Build Solana contracts
+         run: |
+           if [ -d "csv-solana/contracts" ]; then
+             cd csv-solana/contracts
+             NO_DNA=1 anchor build
+           else
+             echo "Solana contracts directory not found"
+             exit 1
+           fi
 
   # ── Phase 5: WASM Compatibility ─────────────────────────────
   wasm-check:
@@ -285,55 +286,55 @@ jobs:
 
       - name: Check that core traits exist
         run: |
-          # Verify that chain_operations module exists and exports traits
-          if ! grep -q "pub mod chain_operations" csv-adapter-core/src/lib.rs; then
-            echo "ERROR: chain_operations module not found"
-            exit 1
-          fi
+           # Verify that chain_operations module exists and exports traits
+           if ! grep -q "pub mod chain_operations" csv-core/src/lib.rs; then
+             echo "ERROR: chain_operations module not found"
+             exit 1
+           fi
 
-          if ! grep -q "ChainQuery" csv-adapter-core/src/lib.rs; then
-            echo "ERROR: ChainQuery trait not re-exported"
-            exit 1
-          fi
+           if ! grep -q "ChainQuery" csv-core/src/lib.rs; then
+             echo "ERROR: ChainQuery trait not re-exported"
+             exit 1
+           fi
 
-          if ! grep -q "ChainSigner" csv-adapter-core/src/lib.rs; then
-            echo "ERROR: ChainSigner trait not re-exported"
-            exit 1
-          fi
+           if ! grep -q "ChainSigner" csv-core/src/lib.rs; then
+             echo "ERROR: ChainSigner trait not re-exported"
+             exit 1
+           fi
 
-          if ! grep -q "ChainBroadcaster" csv-adapter-core/src/lib.rs; then
-            echo "ERROR: ChainBroadcaster trait not re-exported"
-            exit 1
-          fi
+           if ! grep -q "ChainBroadcaster" csv-core/src/lib.rs; then
+             echo "ERROR: ChainBroadcaster trait not re-exported"
+             exit 1
+           fi
 
-          if ! grep -q "ChainDeployer" csv-adapter-core/src/lib.rs; then
-            echo "ERROR: ChainDeployer trait not re-exported"
-            exit 1
-          fi
+           if ! grep -q "ChainDeployer" csv-core/src/lib.rs; then
+             echo "ERROR: ChainDeployer trait not re-exported"
+             exit 1
+           fi
 
-          if ! grep -q "ChainProofProvider" csv-adapter-core/src/lib.rs; then
-            echo "ERROR: ChainProofProvider trait not re-exported"
-            exit 1
-          fi
+           if ! grep -q "ChainProofProvider" csv-core/src/lib.rs; then
+             echo "ERROR: ChainProofProvider trait not re-exported"
+             exit 1
+           fi
 
-          if ! grep -q "ChainSanadOps" csv-adapter-core/src/lib.rs; then
-            echo "ERROR: ChainSanadOps trait not re-exported"
-            exit 1
-          fi
+           if ! grep -q "ChainSanadOps" csv-core/src/lib.rs; then
+             echo "ERROR: ChainSanadOps trait not re-exported"
+             exit 1
+           fi
 
           echo "✓ All core chain traits are defined"
 
       - name: Check that event module exists
-        run: |
-          if ! grep -q "pub mod events" csv-adapter-core/src/lib.rs; then
-            echo "ERROR: events module not found"
-            exit 1
-          fi
+      run: |
+           if ! grep -q "pub mod events" csv-core/src/lib.rs; then
+             echo "ERROR: events module not found"
+             exit 1
+           fi
 
-          if ! grep -q "CsvEvent" csv-adapter-core/src/lib.rs; then
-            echo "ERROR: CsvEvent not re-exported"
-            exit 1
-          fi
+           if ! grep -q "CsvEvent" csv-core/src/lib.rs; then
+             echo "ERROR: CsvEvent not re-exported"
+             exit 1
+           fi
 
           echo "✓ Event schemas module is defined"
 

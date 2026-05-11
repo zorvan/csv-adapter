@@ -5,7 +5,6 @@
 //! - `sanads` - Sanads management (list, create, show, transfer, consume)
 //! - `proofs` - Proof generation and verification
 //! - `cross_chain` - Cross-chain transfers
-//! - `contracts` - Contract deployment and management
 //! - `seals` - Seal creation and verification
 //! - `tests` - Test scenarios
 //! - `validate` - Validation utilities
@@ -25,7 +24,6 @@ pub mod wallet_page;
 
 // Feature modules (re-exporting from old_pages during migration)
 pub mod accounts;
-pub mod contracts;
 pub mod cross_chain;
 pub mod proofs;
 pub mod sanads;
@@ -51,9 +49,6 @@ pub use proofs::{GenerateProof, ProofBundlePage, Proofs, VerifyCrossChainProof, 
 
 // Re-exports from cross_chain module
 pub use cross_chain::{CrossChain, CrossChainRetry, CrossChainStatus, CrossChainTransfer};
-
-// Re-exports from contracts module
-pub use contracts::{AddContract, ContractStatus, Contracts};
 
 // Re-exports from seals module
 pub use seals::{ConsumeSeal, CreateSeal, SealRegistry, Seals, VerifySeal};

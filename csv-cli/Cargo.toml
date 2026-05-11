@@ -51,6 +51,12 @@ ed25519-dalek = { version = "2.0", features = ["rand_core"] }
 secp256k1 = { version = "0.28", features = ["rand-std"] }
 rand = "0.8"
 
+# State file encryption
+aes-gcm = { version = "0.10", features = ["std"] }
+aead = "0.5"
+argon2 = { version = "0.5", features = ["std"] }
+base64 = "0.21"
+
 # HTTP client for RPC calls
 reqwest = { version = "0.12", features = ["json", "blocking"] }
 thiserror = "1.0"

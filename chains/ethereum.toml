@@ -4,8 +4,6 @@ chain_id = "ethereum"
 chain_name = "Ethereum"
 default_network = "mainnet"
 rpc_endpoints = [
-    "https://eth-mainnet.alchemyapi.io/v2/demo",
-    "https://mainnet.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161",
     "https://ethereum.publicnode.com"
 ]
 program_id = "0x1234567890123456789012345678901234567890"

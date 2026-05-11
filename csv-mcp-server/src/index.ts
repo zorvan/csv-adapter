@@ -28,6 +28,131 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 // =========================================================================
+// Input validation — SEC-07
+// =========================================================================
+
+const VALID_CHAINS = ['bitcoin', 'ethereum', 'sui', 'aptos', 'solana'] as const;
+type ValidChain = (typeof VALID_CHAINS)[number];
+
+/**
+ * Return a validation error result object.
+ */
+function err(msg: string): { content: Array<{ type: 'text'; text: string }>; isError: true } {
+  return { content: [{ type: 'text', text: `Validation error: ${msg}` }], isError: true };
+}
+
+/**
+ * Validate a sanad ID: must be a 64-character hex string (32 bytes).
+ * Returns null if valid, error message if invalid.
+ */
+function validateSanadId(id: unknown): string | null {
+  if (typeof id !== 'string') return 'sanad_id must be a string';
+  if (id.length === 0) return 'sanad_id must not be empty';
+  if (id.startsWith('-') || id.startsWith('--')) return 'sanad_id must not start with a dash';
+  if (!/^[0-9a-fA-F]{64}$/.test(id)) return 'sanad_id must be a 64-character hex string (32 bytes)';
+  return null;
+}
+
+/**
+ * Validate a transfer ID: same format as sanad ID.
+ */
+function validateTransferId(id: unknown): string | null {
+  return validateSanadId(id);
+}
+
+/**
+ * Validate a chain name against the allowed enum.
+ * Returns the lowercased chain if valid, error message if invalid.
+ */
+function validateChain(chain: unknown): ValidChain | string {
+  if (typeof chain !== 'string') return 'chain must be a string';
+  if (chain.startsWith('-') || chain.startsWith('--')) return 'chain must not start with a dash';
+  const lower = chain.toLowerCase();
+  if ((VALID_CHAINS as readonly string[]).includes(lower)) return lower as ValidChain;
+  return `chain must be one of: ${VALID_CHAINS.join(', ')}`;
+}
+
+/**
+ * Validate a blockchain address: hex string with optional 0x prefix, 20-66 chars.
+ */
+function validateAddress(address: unknown): string | null {
+  if (typeof address !== 'string') return 'address must be a string';
+  if (address.length === 0) return 'address must not be empty';
+  if (address.startsWith('-') || address.startsWith('--')) return 'address must not start with a dash';
+  const checkStr = address.startsWith('0x') || address.startsWith('0X') ? address.slice(2) : address;
+  if (checkStr.length < 20 || checkStr.length > 66) return 'address length must be 20-66 hex characters (with or without 0x prefix)';
+  if (!/^[0-9a-fA-F]+$/.test(checkStr)) return 'address must contain only hex characters';
+  return null;
+}
+
+/**
+ * Validate a destination string (address or owner identifier).
+ */
+function validateDestination(destination: unknown): string | null {
+  if (typeof destination !== 'string') return 'destination must be a string';
+  if (destination.length === 0) return 'destination must not be empty';
+  if (destination.startsWith('-') || destination.startsWith('--')) return 'destination must not start with a dash';
+  if (/[;|&$`\\!#(){}[\]~\s]/.test(destination)) return 'destination contains characters that are not allowed';
+  const checkStr = destination.startsWith('0x') || destination.startsWith('0X') ? destination.slice(2) : destination;
+  if (/^[0-9a-fA-F]+$/.test(checkStr)) {
+    if (checkStr.length < 20 || checkStr.length > 66) return 'destination address length must be 20-66 hex characters';
+  }
+  return null;
+}
+
+/**
+ * Validate a value parameter: must be a positive number.
+ * Returns the parsed number if valid, error message if invalid.
+ */
+function validatePositiveNumber(value: unknown): number | string {
+  if (typeof value !== 'number' && typeof value !== 'string') return 'value must be a number';
+  const num = typeof value === 'string' ? parseFloat(value) : value;
+  if (isNaN(num) || num <= 0 || !isFinite(num)) return 'value must be a positive number';
+  return num;
+}
+
+/**
+ * Validate that a string is valid JSON.
+ * Returns parsed value if valid, error message if invalid.
+ */
+function validateJsonString(json: unknown): { parsed: any } | string {
+  if (typeof json !== 'string') return 'bundle must be a JSON string';
+  if (json.length === 0) return 'bundle string must not be empty';
+  if (json.startsWith('-') || json.startsWith('--')) return 'bundle must not start with a dash';
+  try {
+    const parsed = JSON.parse(json);
+    return { parsed };
+  } catch {
+    return 'bundle must be valid JSON';
+  }
+}
+
+/**
+ * Validate a consignment JSON string: must parse as a JSON object.
+ */
+function validateConsignment(json: unknown): { parsed: any } | string {
+  const result = validateJsonString(json);
+  if (typeof result === 'string') return result;
+  if (typeof result.parsed !== 'object' || result.parsed === null || Array.isArray(result.parsed)) {
+    return 'consignment must be a JSON object';
+  }
+  return result;
+}
+
+/**
+ * Validate a hex ID (generic): alphanumeric + optional 0x prefix.
+ */
+function validateHexId(id: unknown, label: string, expectedLength?: number): string | null {
+  if (typeof id !== 'string') return `${label} must be a string`;
+  if (id.length === 0) return `${label} must not be empty`;
+  if (id.startsWith('-') || id.startsWith('--')) return `${label} must not start with a dash`;
+  const checkStr = id.startsWith('0x') || id.startsWith('0X') ? id.slice(2) : id;
+  if (!/^[0-9a-fA-F]+$/.test(checkStr)) return `${label} must be a hex string`;
+  if (expectedLength && checkStr.length !== expectedLength) return `${label} must be exactly ${expectedLength} hex characters`;
+  return null;
+}
+
+// =========================================================================
 // CSV CLI wrapper
 // =========================================================================
 
@@ -331,9 +456,13 @@ async function startServer(transportType: 'stdio' | 'sse' = 'stdio', port?: numb
     description: tools.find((t) => t.name === 'create_seal')!.description,
     inputSchema: tools.find((t) => t.name === 'create_seal')!.inputSchema as any,
   }, async (args: any) => {
-    const chain = args.chain;
-    const value = args.value;
-    const result = await executeCsvCommand(['seal', 'create', '--chain', chain, ...(value ? ['--value', String(value)] : [])]);
+    const chainCheck = validateChain(args.chain);
+    if (typeof chainCheck === 'string') return err(chainCheck);
+    if (args.value !== undefined) {
+      const valueCheck = validatePositiveNumber(args.value);
+      if (typeof valueCheck === 'string') return err(valueCheck);
+    }
+    const result = await executeCsvCommand(['seal', 'create', '--chain', chainCheck, ...(args.value ? ['--value', String(args.value)] : [])]);
     return {
       content: [{ type: 'text' as const, text: result.stdout }],
       isError: result.exitCode !== 0,
@@ -345,11 +474,28 @@ async function startServer(transportType: 'stdio' | 'sse' = 'stdio', port?: numb
     description: tools.find((t) => t.name === 'transfer_sanad')!.description,
     inputSchema: tools.find((t) => t.name === 'transfer_sanad')!.inputSchema as any,
   }, async (args: any) => {
+    const idErr = validateSanadId(args.sanad_id);
+    if (idErr) return err(idErr);
+    const destErr = validateDestination(args.destination);
+    if (destErr) return err(destErr);
+    if (args.chain) {
+      const chainCheck = validateChain(args.chain);
+      if (typeof chainCheck === 'string') return err(chainCheck);
+      const result = await executeCsvCommand([
+        'sanad', 'transfer',
+        args.sanad_id,
+        '--to', args.destination,
+        '--chain', chainCheck,
+      ]);
+      return {
+        content: [{ type: 'text' as const, text: result.stdout }],
+        isError: result.exitCode !== 0,
+      };
+    }
     const result = await executeCsvCommand([
       'sanad', 'transfer',
       args.sanad_id,
       '--to', args.destination,
-      ...(args.chain ? ['--chain', args.chain] : []),
     ]);
     return {
       content: [{ type: 'text' as const, text: result.stdout }],
@@ -362,8 +508,8 @@ async function startServer(transportType: 'stdio' | 'sse' = 'stdio', port?: numb
     description: tools.find((t) => t.name === 'verify_proof')!.description,
     inputSchema: tools.find((t) => t.name === 'verify_proof')!.inputSchema as any,
   }, async (args: any) => {
-    // For proof verification, we need to handle the bundle JSON properly
-    // Create a temporary file or pass via stdin
+    const bundleCheck = validateJsonString(args.bundle_json);
+    if (typeof bundleCheck === 'string') return err(bundleCheck);
     const result = await executeCsvCommand(['proof', 'verify', '--proof', args.bundle_json]);
     return {
       content: [{ type: 'text' as const, text: result.stdout }],
@@ -376,10 +522,24 @@ async function startServer(transportType: 'stdio' | 'sse' = 'stdio', port?: numb
     description: tools.find((t) => t.name === 'get_sanads')!.description,
     inputSchema: tools.find((t) => t.name === 'get_sanads')!.inputSchema as any,
   }, async (args: any) => {
+    const addrErr = validateAddress(args.address);
+    if (addrErr) return err(addrErr);
+    if (args.chain) {
+      const chainCheck = validateChain(args.chain);
+      if (typeof chainCheck === 'string') return err(chainCheck);
+      const result = await executeCsvCommand([
+        'sanad', 'list',
+        args.address,
+        '--chain', chainCheck,
+      ]);
+      return {
+        content: [{ type: 'text' as const, text: result.stdout }],
+        isError: result.exitCode !== 0,
+      };
+    }
     const result = await executeCsvCommand([
       'sanad', 'list',
       args.address,
-      ...(args.chain ? ['--chain', args.chain] : []),
     ]);
     return {
       content: [{ type: 'text' as const, text: result.stdout }],
@@ -392,6 +552,8 @@ async function startServer(transportType: 'stdio' | 'sse' = 'stdio', port?: numb
     description: tools.find((t) => t.name === 'monitor_transfer')!.description,
     inputSchema: tools.find((t) => t.name === 'monitor_transfer')!.inputSchema as any,
   }, async (args: any) => {
+    const idErr = validateTransferId(args.transfer_id);
+    if (idErr) return err(idErr);
     const result = await executeCsvCommand(['cross-chain', 'status', args.transfer_id]);
     return {
       content: [{ type: 'text' as const, text: result.stdout }],
@@ -436,10 +598,24 @@ async function startServer(transportType: 'stdio' | 'sse' = 'stdio', port?: numb
     description: tools.find((t) => t.name === 'export_proof_bundle')!.description,
     inputSchema: tools.find((t) => t.name === 'export_proof_bundle')!.inputSchema as any,
   }, async (args: any) => {
+    const idErr = validateSanadId(args.sanad_id);
+    if (idErr) return err(idErr);
+    if (args.chain) {
+      const chainCheck = validateChain(args.chain);
+      if (typeof chainCheck === 'string') return err(chainCheck);
+      const result = await executeCsvCommand([
+        'proof', 'generate',
+        '--sanad-id', args.sanad_id,
+        '--chain', chainCheck,
+      ]);
+      return {
+        content: [{ type: 'text' as const, text: result.stdout }],
+        isError: result.exitCode !== 0,
+      };
+    }
     const result = await executeCsvCommand([
       'proof', 'generate',
       '--sanad-id', args.sanad_id,
-      ...(args.chain ? ['--chain', args.chain] : []),
     ]);
     return {
       content: [{ type: 'text' as const, text: result.stdout }],
@@ -452,6 +628,8 @@ async function startServer(transportType: 'stdio' | 'sse' = 'stdio', port?: numb
     description: tools.find((t) => t.name === 'accept_consignment')!.description,
     inputSchema: tools.find((t) => t.name === 'accept_consignment')!.inputSchema as any,
   }, async (args: any) => {
+    const consignmentCheck = validateConsignment(args.consignment_json);
+    if (typeof consignmentCheck === 'string') return err(consignmentCheck);
     const result = await executeCsvCommand(['validate', 'accept', '--json', args.consignment_json]);
     return {
       content: [{ type: 'text' as const, text: result.stdout }],

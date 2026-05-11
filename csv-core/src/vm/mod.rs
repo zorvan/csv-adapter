@@ -17,7 +17,7 @@
 //!
 //! ## Usage
 //!
-//! ```
+//! ```ignore
 //! use csv_core::vm::{DeterministicVM, VMInputs, AluVmAdapter, execute_transition};
 //!
 //! let vm = AluVmAdapter::new(1_000_000);

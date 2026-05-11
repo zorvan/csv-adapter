@@ -1,6 +1,10 @@
 //! CLI state management — persistent state using unified storage
 
 use std::path::Path;
+use std::io::{self, Write};
+
+#[path = "encrypt.rs"]
+mod encrypt;
 
 pub use csv_store::state::{
     Chain, ContractRecord, GasAccount, SanadRecord, SanadStatus, SealRecord, TransactionRecord,
@@ -12,6 +16,7 @@ pub use csv_store::state::{
 pub struct UnifiedStateManager {
     pub storage: UnifiedStorage,
     file_path: String,
+    passphrase: String,
 }
 
 impl UnifiedStateManager {
@@ -29,12 +34,33 @@ impl UnifiedStateManager {
         }
     }
 
-    /// Load unified state from file
-    pub fn load() -> anyhow::Result<Self> {
+    /// Prompt user for a passphrase interactively.
+    pub fn prompt_passphrase() -> anyhow::Result<String> {
+        print!("Enter CSV state passphrase: ");
+        io::stdout().flush()?;
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+        let passphrase = input.trim().to_string();
+        if passphrase.is_empty() {
+            anyhow::bail!("Passphrase cannot be empty");
+        }
+        Ok(passphrase)
+    }
+
+    /// Load unified state from file with passphrase.
+    pub fn load(passphrase: &str) -> anyhow::Result<Self> {
         let path = Self::default_path();
         let storage = if Path::new(&path).exists() {
             let content = std::fs::read_to_string(&path)?;
-            serde_json::from_str(&content)?
+            if encrypt::is_encrypted(&content) {
+                let encrypted: encrypt::EncryptedState = serde_json::from_str(&content)?;
+                let plaintext = encrypt::decrypt(&encrypted, passphrase)?;
+                let plaintext_str = String::from_utf8(plaintext)?;
+                serde_json::from_str::<UnifiedStorage>(&plaintext_str)?
+            } else {
+                // Plaintext file - load as-is, will be encrypted on next save
+                serde_json::from_str(&content)?
+            }
         } else {
             UnifiedStorage::new().with_defaults()
         };
@@ -42,14 +68,22 @@ impl UnifiedStateManager {
         Ok(Self {
             storage,
             file_path: path,
+            passphrase: passphrase.to_string(),
         })
     }
 
-    /// Load from a specific path
-    pub fn load_from(path: &str) -> anyhow::Result<Self> {
+    /// Load from a specific path with passphrase.
+    pub fn load_from(path: &str, passphrase: &str) -> anyhow::Result<Self> {
         let storage = if Path::new(path).exists() {
             let content = std::fs::read_to_string(path)?;
-            serde_json::from_str(&content)?
+            if encrypt::is_encrypted(&content) {
+                let encrypted: encrypt::EncryptedState = serde_json::from_str(&content)?;
+                let plaintext = encrypt::decrypt(&encrypted, passphrase)?;
+                let plaintext_str = String::from_utf8(plaintext)?;
+                serde_json::from_str::<UnifiedStorage>(&plaintext_str)?
+            } else {
+                serde_json::from_str(&content)?
+            }
         } else {
             UnifiedStorage::new().with_defaults()
         };
@@ -57,25 +91,24 @@ impl UnifiedStateManager {
         Ok(Self {
             storage,
             file_path: path.to_string(),
+            passphrase: passphrase.to_string(),
         })
     }
 
-    /// Create new with defaults
-    pub fn new() -> Self {
+    /// Create new with defaults (requires passphrase for encryption).
+    pub fn new(passphrase: &str) -> Self {
         Self {
             storage: UnifiedStorage::new().with_defaults(),
             file_path: Self::default_path(),
+            passphrase: passphrase.to_string(),
         }
     }
 
-    /// Save state to file
+    /// Save state to file (encrypted).
     pub fn save(&self) -> anyhow::Result<()> {
         let path = Path::new(&self.file_path);
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
         let content = serde_json::to_string_pretty(&self.storage)?;
-        std::fs::write(&self.file_path, content)?;
+        encrypt::save(path, &content, &self.passphrase)?;
         Ok(())
     }
 

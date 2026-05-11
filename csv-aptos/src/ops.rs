@@ -44,8 +44,7 @@ impl AptosBackend {
     pub fn new(rpc: Box<dyn AptosRpc>, network: AptosNetwork) -> Self {
         let mut domain = [0u8; 32];
         domain[..10].copy_from_slice(b"CSV-APTOS-");
-        let chain_id = network.chain_id().to_le_bytes();
-        domain[10..18].copy_from_slice(&chain_id);
+        domain[10] = network.chain_id();
 
         // Build event builder with default module address
         let module_address = [0u8; 32];

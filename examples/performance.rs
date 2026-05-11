@@ -5,10 +5,10 @@
 //!
 //! Run with: `cargo run --example performance --features "all-chains,tokio" --release`
 
-use csv_adapter::prelude::*;
+use csv_sdk::prelude::*;
 use std::time::Instant;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<()> {
     println!("=== CSV Adapter: Performance Benchmarks ===\n");
 
     let client = CsvClient::builder()

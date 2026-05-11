@@ -9,9 +9,9 @@
 //! ```
 
 use bitcoin::Network as BtcNetwork;
-use csv_adapter_bitcoin::mempool_rpc::MempoolSignetRpc;
-use csv_adapter_bitcoin::wallet::{Bip86Path, SealWallet};
-use csv_adapter_bitcoin::{BitcoinConfig, BitcoinSealProtocol, Network};
+use csv_bitcoin::mempool_rpc::MempoolSignetRpc;
+use csv_bitcoin::wallet::{Bip86Path, SealWallet};
+use csv_bitcoin::{BitcoinConfig, BitcoinSealProtocol, Network};
 use csv_core::{Hash, SealProtocol};
 
 fn main() {
@@ -35,7 +35,7 @@ fn main() {
 
     // Get UTXOs from mempool.space
     println!("\n--- Scanning for UTXOs ---");
-    let utxos = csv_adapter_bitcoin::mempool_rpc::get_address_utxos(&rpc, &key.address)
+    let utxos = csv_bitcoin::mempool_rpc::get_address_utxos(&rpc, &key.address)
         .expect("Failed to get UTXOs");
 
     if utxos.is_empty() {
@@ -64,6 +64,7 @@ fn main() {
         finality_depth: 1, // Signet blocks come fast, 1 conf is enough for demo
         publication_timeout_seconds: 300,
         rpc_url: "https://mempool.space/signet".to_string(),
+        xpub: None,
     };
 
     let required_depth = config.finality_depth;

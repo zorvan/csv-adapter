@@ -12,7 +12,7 @@ use async_trait::async_trait;
 use csv_core::backend::{
     BalanceInfo, ChainBroadcaster, ChainDeployer, ChainOpError, ChainOpResult, ChainProofProvider,
     ChainQuery, ChainSanadOps, ChainSigner, ContractStatus, DeploymentStatus, FinalityStatus,
-    SanadOperationResult, TransactionInfo, TransactionStatus,
+    SanadOperation, SanadOperationResult, TransactionInfo, TransactionStatus,
 };
 use csv_core::hash::Hash;
 use csv_core::proof::{FinalityProof, InclusionProof as CoreInclusionProof};
@@ -221,9 +221,11 @@ impl EthereumBackend {
         signer_key: &str,
     ) -> ChainOpResult<[u8; 32]> {
         use crate::node::EthereumNode;
-        use alloy::primitives::{Address, Bytes, U256};
-        use alloy::consensus::TxLegacy;
+        use alloy::consensus::{SignableTransaction, TxEip1559, TxEnvelope};
+        use alloy::eips::eip2718::Encodable2718;
+        use alloy::primitives::{Address, Bytes, TxKind, U256};
         use alloy::signers::local::PrivateKeySigner;
+        use alloy::signers::SignerSync;
         use std::str::FromStr;
 
         // Parse the signer key
@@ -247,25 +249,31 @@ impl EthereumBackend {
             .await
             .map_err(|e| ChainOpError::RpcError(format!("Failed to get gas price: {}", e)))?;
 
-        // Build legacy transaction
-        let mut tx = TxLegacy {
+        // Build EIP-1559 transaction
+        let tx = TxEip1559 {
+            chain_id: self.config.network.chain_id(),
             nonce,
-            gas_price: gas_price as u128,
-            gas_limit: 500_000u64, // Gas limit for contract calls
-            to: alloy::primitives::TxKind::Call(to.into()),
+            max_fee_per_gas: gas_price as u128,
+            max_priority_fee_per_gas: 1_000_000_000u128, // 1 Gwei priority fee
+            gas_limit: 500_000u64,
+            to: TxKind::Call(to.into()),
             value: U256::ZERO,
             input: Bytes::from(calldata.to_vec()),
-            chain_id: Some(self.config.network.chain_id()),
+            access_list: Default::default(),
         };
 
-        // Sign the transaction
-        let signature = signer.sign_transaction(&mut tx)
-            .await
+        // Sign the transaction using SignableTransaction + SignerSync
+        let sig_hash = tx.signature_hash();
+        let signature = signer
+            .sign_hash_sync(&sig_hash)
             .map_err(|e| ChainOpError::SigningError(format!("Failed to sign transaction: {}", e)))?;
 
-        // Encode the signed transaction
+        // Convert to signed transaction
         let signed_tx = tx.into_signed(signature);
-        let tx_bytes = signed_tx.eip2718_encoded();
+
+        // Build the signed transaction envelope and encode using EIP-2718
+        let tx_envelope = TxEnvelope::Eip1559(signed_tx);
+        let tx_bytes = tx_envelope.encoded_2718();
 
         // Send the raw transaction
         let tx_hash = self.rpc()
@@ -302,7 +310,7 @@ impl EthereumBackend {
             }
         }
 
-        Err(ChainOpError::TimeoutError(
+        Err(ChainOpError::Timeout(
             "Transaction not confirmed within timeout period".to_string()
         ))
     }
@@ -760,43 +768,9 @@ impl ChainDeployer for EthereumBackend {
         _admin_address: &str,
         _config: serde_json::Value,
     ) -> ChainOpResult<DeploymentStatus> {
-        use crate::contract_bytecode::CSVLOCK_BYTECODE;
-
-        if CSVLOCK_BYTECODE.is_empty() {
-            return Err(ChainOpError::CapabilityUnavailable(
-                "Contract bytecode not available. Run `forge build` in csv-ethereum/contracts \
-                 or provide pre-compiled bytecode.".to_string()
-            ));
-        }
-
-        #[cfg(feature = "rpc")]
-        {
-            // Full deployment via Alloy (real signing + broadcasting)
-            match crate::deploy::deploy_csv_lock(
-                &self.config.rpc_url,
-                self.config.private_key.as_deref().unwrap_or(""),
-                CSVLOCK_BYTECODE,
-                self.config.network,
-                false,
-            )
-            .await
-            {
-                Ok(deployment) => Ok(DeploymentStatus::Success {
-                    contract_address: format!("0x{}", hex::encode(deployment.contract_address)),
-                    transaction_hash: format!("0x{}", hex::encode(deployment.transaction_hash)),
-                    block_height: deployment.block_number,
-                }),
-                Err(e) => Ok(DeploymentStatus::Failed {
-                    reason: format!("Deployment failed: {}", e),
-                }),
-            }
-        }
-
-        #[cfg(not(feature = "rpc"))]
-        {
-            // RPC feature not enabled — return pending with note
-            Ok(DeploymentStatus::Pending)
-        }
+        Err(ChainOpError::FeatureNotEnabled(
+            "Contract deployment is not supported. Deploy contracts manually using Foundry/forge and provide the address.".to_string()
+        ))
     }
 
     async fn deploy_mint_contract(
@@ -804,79 +778,19 @@ impl ChainDeployer for EthereumBackend {
         _admin_address: &str,
         _config: serde_json::Value,
     ) -> ChainOpResult<DeploymentStatus> {
-        use crate::contract_bytecode::CSVMINT_BYTECODE;
-
-        if CSVMINT_BYTECODE.is_empty() {
-            return Err(ChainOpError::CapabilityUnavailable(
-                "CSVMint bytecode not available. Run `forge build` in csv-ethereum/contracts".to_string()
-            ));
-        }
-
-        #[cfg(feature = "rpc")]
-        {
-            match crate::deploy::deploy_csv_lock(
-                &self.config.rpc_url,
-                self.config.private_key.as_deref().unwrap_or(""),
-                CSVMINT_BYTECODE,
-                self.config.network,
-                false,
-            )
-            .await
-            {
-                Ok(deployment) => Ok(DeploymentStatus::Success {
-                    contract_address: format!("0x{}", hex::encode(deployment.contract_address)),
-                    transaction_hash: format!("0x{}", hex::encode(deployment.transaction_hash)),
-                    block_height: deployment.block_number,
-                }),
-                Err(e) => Ok(DeploymentStatus::Failed {
-                    reason: format!("Deployment failed: {}", e),
-                }),
-            }
-        }
-
-        #[cfg(not(feature = "rpc"))]
-        {
-            Ok(DeploymentStatus::Pending)
-        }
+        Err(ChainOpError::FeatureNotEnabled(
+            "Contract deployment is not supported. Deploy contracts manually using Foundry/forge and provide the address.".to_string()
+        ))
     }
 
     async fn deploy_or_publish_seal_program(
         &self,
-        program_bytes: &[u8],
+        _program_bytes: &[u8],
         _admin_address: &str,
     ) -> ChainOpResult<DeploymentStatus> {
-        if program_bytes.is_empty() {
-            return Err(ChainOpError::InvalidInput(
-                "Program bytecode cannot be empty".to_string()
-            ));
-        }
-
-        #[cfg(feature = "rpc")]
-        {
-            match crate::deploy::deploy_csv_lock(
-                &self.config.rpc_url,
-                self.config.private_key.as_deref().unwrap_or(""),
-                program_bytes,
-                self.config.network,
-                false,
-            )
-            .await
-            {
-                Ok(deployment) => Ok(DeploymentStatus::Success {
-                    contract_address: format!("0x{}", hex::encode(deployment.contract_address)),
-                    transaction_hash: format!("0x{}", hex::encode(deployment.transaction_hash)),
-                    block_height: deployment.block_number,
-                }),
-                Err(e) => Ok(DeploymentStatus::Failed {
-                    reason: format!("Deployment failed: {}", e),
-                }),
-            }
-        }
-
-        #[cfg(not(feature = "rpc"))]
-        {
-            Ok(DeploymentStatus::Pending)
-        }
+        Err(ChainOpError::FeatureNotEnabled(
+            "Contract deployment is not supported. Deploy contracts manually using Foundry/forge and provide the address.".to_string()
+        ))
     }
 
     async fn verify_deployment(&self, contract_address: &str) -> ChainOpResult<bool> {
@@ -1169,10 +1083,12 @@ impl ChainSanadOps for EthereumBackend {
             // Wait for receipt
             let receipt = self.wait_for_receipt(&tx_hash).await?;
             
-            Ok(SanadOperationResult::Success {
-                sanad_id: sanad_id.to_string(),
+            Ok(SanadOperationResult {
+                sanad_id: sanad_id.clone(),
+                operation: SanadOperation::Lock,
                 transaction_hash: hex::encode(&tx_hash),
                 block_height: receipt.block_number,
+                chain_id: self.config.network.chain_id().to_string(),
                 metadata: serde_json::json!({
                     "operation": "lock",
                     "destination_chain": destination_chain,
@@ -1230,10 +1146,12 @@ impl ChainSanadOps for EthereumBackend {
             // Wait for receipt
             let receipt = self.wait_for_receipt(&tx_hash).await?;
             
-            Ok(SanadOperationResult::Success {
-                sanad_id: source_sanad_id.to_string(),
+            Ok(SanadOperationResult {
+                sanad_id: source_sanad_id.clone(),
+                operation: SanadOperation::Mint,
                 transaction_hash: hex::encode(&tx_hash),
                 block_height: receipt.block_number,
+                chain_id: self.config.network.chain_id().to_string(),
                 metadata: serde_json::json!({
                     "operation": "mint",
                     "source_chain": source_chain,
@@ -1281,10 +1199,12 @@ impl ChainSanadOps for EthereumBackend {
             // Wait for receipt
             let receipt = self.wait_for_receipt(&tx_hash).await?;
             
-            Ok(SanadOperationResult::Success {
-                sanad_id: sanad_id.to_string(),
+            Ok(SanadOperationResult {
+                sanad_id: sanad_id.clone(),
+                operation: SanadOperation::Refund,
                 transaction_hash: hex::encode(&tx_hash),
                 block_height: receipt.block_number,
+                chain_id: self.config.network.chain_id().to_string(),
                 metadata: serde_json::json!({
                     "operation": "refund",
                     "contract": hex::encode(&lock_contract),
@@ -1326,10 +1246,12 @@ impl ChainSanadOps for EthereumBackend {
             let _calldata = CsvLockAbi::encode_get_lock_info(sanad_id_bytes);
             
             // For now, return success noting that metadata was recorded at lock time
-            Ok(SanadOperationResult::Success {
-                sanad_id: sanad_id.to_string(),
+            Ok(SanadOperationResult {
+                sanad_id: sanad_id.clone(),
+                operation: SanadOperation::RecordMetadata,
                 transaction_hash: String::new(), // No separate tx - metadata recorded at lock
                 block_height: 0,
+                chain_id: self.config.network.chain_id().to_string(),
                 metadata: serde_json::json!({
                     "operation": "record_metadata",
                     "note": "On Ethereum, metadata is recorded during lockSanad operation",
@@ -1426,25 +1348,27 @@ mod tests {
     #[test]
     fn test_ethereum_chain_operations_creation() {
         let rpc = Box::new(MockEthereumRpc::new(1000));
-        let config = EthereumConfig {
-            network: Network::Mainnet,
-            finality_depth: 15,
-            use_checkpoint_finality: true,
-            rpc_url: "http://127.0.0.1:8545".to_string(),
-        };
-        let ops = EthereumBackend::new(rpc, config);
-        assert_eq!(ops.config.network.chain_id(), 1);
-    }
+      let config = EthereumConfig {
+             network: Network::Mainnet,
+             finality_depth: 15,
+             use_checkpoint_finality: true,
+             rpc_url: "http://127.0.0.1:8545".to_string(),
+             private_key: None,
+         };
+         let ops = EthereumBackend::new(rpc, config);
+         assert_eq!(ops.config.network.chain_id(), 1);
+     }
 
-    #[test]
-    fn test_address_validation() {
-        let rpc = Box::new(MockEthereumRpc::new(1000));
-        let config = EthereumConfig {
-            network: Network::Mainnet,
-            finality_depth: 15,
-            use_checkpoint_finality: true,
-            rpc_url: "http://127.0.0.1:8545".to_string(),
-        };
+     #[test]
+     fn test_address_validation() {
+         let rpc = Box::new(MockEthereumRpc::new(1000));
+         let config = EthereumConfig {
+             network: Network::Mainnet,
+             finality_depth: 15,
+             use_checkpoint_finality: true,
+             rpc_url: "http://127.0.0.1:8545".to_string(),
+             private_key: None,
+         };
         let ops = EthereumBackend::new(rpc, config);
 
         // Valid address

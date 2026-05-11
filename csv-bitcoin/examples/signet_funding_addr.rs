@@ -6,7 +6,7 @@
 //! ```
 
 use bitcoin::Network as BtcNetwork;
-use csv_adapter_bitcoin::wallet::SealWallet;
+use csv_bitcoin::wallet::SealWallet;
 
 fn main() {
     let wallet = SealWallet::generate_random(BtcNetwork::Signet);

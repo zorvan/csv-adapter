@@ -9,7 +9,6 @@
 
 pub mod backend;
 pub mod config;
-pub mod deploy;
 pub mod error;
 pub mod mint;
 pub mod ops;
@@ -23,7 +22,6 @@ pub mod wallet;
 
 pub use backend::{create_solana_adapter, SolanaRpcClient, SolanaWallet};
 pub use config::{Network, SolanaConfig};
-pub use deploy::{deploy_csv_program, deploy_csv_seal_program, ProgramDeployer, ProgramDeployment};
 pub use error::{SolanaError, SolanaResult};
 pub use mint::mint_sanad_from_hex_key;
 pub use rpc::SolanaRpc;

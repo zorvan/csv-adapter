@@ -21,19 +21,20 @@ use crate::types::BitcoinInclusionProof;
 /// Convert a 32-byte array to a Txid using hex encoding.
 #[inline]
 fn bytes_to_txid(bytes: [u8; 32]) -> Txid {
-    hex::encode(bytes).parse::<Txid>().expect("valid 32-byte txid")
+    use bitcoin::hashes::Hash;
+    Txid::from_raw_hash(sha256d::Hash::from_slice(&bytes).expect("valid 32 bytes"))
 }
 
 /// Convert a Txid to a 32-byte array using hex encoding.
 #[inline]
 fn txid_to_bytes(txid: &Txid) -> [u8; 32] {
-    let hex_str = txid.to_string();
-    let hex_str = hex_str.strip_prefix("0x").unwrap_or(&hex_str);
-    let mut bytes = [0u8; 32];
-    hex::decode_to_slice(hex_str, &mut bytes).expect("valid txid hex");
-    bytes
+    let bytes = txid.to_byte_array();
+    let mut reversed = bytes;
+    reversed.reverse();
+    reversed
 }
 use bitcoin::{blockdata::block::Header, merkle_tree::PartialMerkleTree, Txid};
+use bitcoin::hashes::sha256d;
 use csv_core::Hash as CoreHash;
 
 /// Double-SHA256 hash of two 32-byte inputs (Bitcoin Merkle node hash).
@@ -159,8 +160,16 @@ pub fn verify_merkle_proof(
     }
 
     let mut current_hash = *txid;
+    let mut idx = proof.tx_index as usize;
     for sibling in &proof.merkle_branch {
-        current_hash = double_sha256(&current_hash, sibling);
+        if idx % 2 == 1 {
+            // Current node is right child: sibling is left
+            current_hash = double_sha256(sibling, &current_hash);
+        } else {
+            // Current node is left child: sibling is right
+            current_hash = double_sha256(&current_hash, sibling);
+        }
+        idx /= 2;
     }
     current_hash == *merkle_root
 }
@@ -473,7 +482,11 @@ pub fn compute_merkle_root_rust_bitcoin(txids: &[Txid]) -> Option<[u8; 32]> {
     if txids.is_empty() {
         return None;
     }
-    bitcoin::merkle_tree::calculate_root(txids.iter().copied()).map(|h| txid_to_bytes(&h))
+    bitcoin::merkle_tree::calculate_root(txids.iter().copied()).map(|h| {
+        let mut bytes = txid_to_bytes(&h);
+        bytes.reverse();
+        bytes
+    })
 }
 
 /// Verify a block's Merkle root using rust-bitcoin's implementation.
@@ -665,10 +678,16 @@ mod tests {
 
     #[test]
     fn test_from_core_inclusion_proof() {
+        let mut proof_bytes = Vec::new();
+        proof_bytes.extend_from_slice(&[0xAB; 32]);
+        proof_bytes.extend_from_slice(&[0xCD; 32]);
+        proof_bytes.extend_from_slice(&5u64.to_le_bytes());
+        proof_bytes.extend_from_slice(&100u64.to_le_bytes());
         let core_proof =
-            csv_core::InclusionProof::new(vec![0xAB; 64], CoreHash::new([1u8; 32]), 5).unwrap();
+            csv_core::InclusionProof::new(proof_bytes, CoreHash::new([1u8; 32]), 5).unwrap();
         let bitcoin_proof = from_core_inclusion_proof(&core_proof);
         assert_eq!(bitcoin_proof.tx_index, 5);
+        assert_eq!(bitcoin_proof.block_height, 100);
     }
 
     // ── rust-bitcoin integration tests ──

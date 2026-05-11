@@ -35,7 +35,6 @@
 pub mod backend;
 pub mod checkpoint;
 pub mod config;
-pub mod deploy;
 pub mod error;
 pub mod merkle;
 pub mod ops;
@@ -50,14 +49,10 @@ pub mod types;
 pub mod node;
 
 pub use backend::{create_aptos_adapter, AptosWallet};
-pub use deploy::deploy_csv_seal_module;
-pub use deploy::{ModuleDeployer, ModuleDeployment};
 pub use seal_protocol::AptosSealProtocol;
 
 pub use checkpoint::CheckpointVerifier;
 pub use config::{AptosConfig, AptosNetwork, CheckpointConfig};
-#[cfg(feature = "aptos-sdk")]
-pub use deploy::publish_csv_module;
 pub use error::AptosError;
 #[cfg(feature = "rpc")]
 pub use node::AptosNode;

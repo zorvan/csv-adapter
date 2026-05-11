@@ -288,10 +288,11 @@ pub fn verify_inclusion_proof(proof: &InclusionProof, commitment: &Hash) -> bool
     }
 
     // Verify the commitment is embedded in the proof
-    // The commitment is stored at offset 112-144 in the proof bytes
-    if proof.proof_bytes.len() >= 144 {
+    // The commitment is stored at offset 113-145 in the proof bytes
+    // (after slot(8) + signature(64) + block_hash(32) + confirmations(8) + finalized(1))
+    if proof.proof_bytes.len() >= 145 {
         let proof_commitment: [u8; 32] =
-            proof.proof_bytes[112..144].try_into().unwrap_or([0u8; 32]);
+            proof.proof_bytes[113..145].try_into().unwrap_or([0u8; 32]);
         if proof_commitment != *commitment.as_bytes() {
             return false;
         }

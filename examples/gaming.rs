@@ -5,9 +5,9 @@
 //!
 //! Run with: `cargo run --example gaming --features "all-chains,tokio"`
 
-use csv_adapter::prelude::*;
+use csv_sdk::prelude::*;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<()> {
     println!("=== CSV Adapter: Gaming Assets Demo ===\n");
 
     let client = CsvClient::builder()

@@ -5,9 +5,9 @@
 //!
 //! Run with: `cargo run --example subscriptions --features "all-chains,tokio"`
 
-use csv_adapter::prelude::*;
+use csv_sdk::prelude::*;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<()> {
     println!("=== CSV Adapter: Cross-Chain Subscriptions Demo ===\n");
 
     // Initialize client with all chains

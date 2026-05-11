@@ -672,10 +672,10 @@ mod tests {
                 segment,
                 vec![signature],
                 SealPoint::new(vec![1, 2, 3], Some(42)).unwrap(),
-                crate::seal::CommitAnchor::new(vec![4, 5, 6], 100, vec![]).unwrap(),
+                crate::seal::CommitAnchor::new(vec![1, 2, 3], 100, vec![]).unwrap(),
                 crate::proof::InclusionProof::new(vec![0xDD; 32], Hash::new([10u8; 32]), 0)
                     .unwrap(),
-                crate::proof::FinalityProof::new(vec![], 6, false).unwrap(),
+                crate::proof::FinalityProof::new(vec![0xAB; 16], 6, false).unwrap(),
             )
             .unwrap();
 

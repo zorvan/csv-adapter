@@ -28,11 +28,12 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
-#[cfg(all(feature = "tokio", not(feature = "wasm")))]
+#[cfg(feature = "tokio")]
 use tokio::sync::Mutex;
 #[cfg(not(feature = "tokio"))]
 use std::sync::Mutex;
 #[cfg(feature = "wasm")]
+#[allow(unused_imports)]
 use wasm_bindgen_futures::spawn_local;
 
 // Imports for contract call encoding

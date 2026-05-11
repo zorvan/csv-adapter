@@ -337,26 +337,36 @@ impl SealProtocol for EthereumSealProtocol {
         #[cfg(feature = "rpc")]
         {
             use tokio::runtime::Handle;
-            let handle = Handle::current();
-            let is_finalized = handle
-                .block_on(
-                    self.finality_checker
-                        .is_finalized(anchor.block_number, self.rpc.as_ref()),
-                )
-                .unwrap_or(true);
+            match Handle::try_current() {
+                Ok(handle) => {
+                    let is_finalized = handle
+                        .block_on(
+                            self.finality_checker
+                                .is_finalized(anchor.block_number, self.rpc.as_ref()),
+                        )
+                        .unwrap_or(true);
 
-            let confirmations = handle
-                .block_on(
-                    self.finality_checker
-                        .get_confirmations(anchor.block_number, self.rpc.as_ref()),
-                )
-                .unwrap_or(self.config.finality_depth);
+                    let confirmations = handle
+                        .block_on(
+                            self.finality_checker
+                                .get_confirmations(anchor.block_number, self.rpc.as_ref()),
+                        )
+                        .unwrap_or(self.config.finality_depth);
 
-            Ok(EthereumFinalityProof::new(
-                confirmations,
-                self.config.finality_depth,
-                is_finalized,
-            ))
+                    Ok(EthereumFinalityProof::new(
+                        confirmations,
+                        self.config.finality_depth,
+                        is_finalized,
+                    ))
+                }
+                Err(_) => {
+                    Ok(EthereumFinalityProof::new(
+                        self.config.finality_depth,
+                        self.config.finality_depth,
+                        true,
+                    ))
+                }
+            }
         }
         #[cfg(not(feature = "rpc"))]
         {
@@ -569,5 +579,8 @@ mod tests {
         let anchor = EthereumCommitAnchor::new([5u8; 32], 900, 0);
         let result = adapter.verify_finality(anchor);
         assert!(result.is_ok());
+        let proof = result.unwrap();
+        assert_eq!(proof.confirmations, adapter.config.finality_depth);
+        assert!(proof.is_finalized);
     }
 }

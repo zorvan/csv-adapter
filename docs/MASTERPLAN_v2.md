@@ -56,7 +56,7 @@ The wallet is a developer wallet and a proof verification tool. It is not compet
 
 **The product**:
 
-- MCP server with 5 implemented tools: `create_seal`, `consume_seal`, `build_proof_bundle`, `verify_proof_bundle`, `initiate_cross_chain_transfer`
+- MCP server with 7 implemented tools: `create_seal`, `transfer_sanad`, `verify_proof`, `get_sanads`, `monitor_transfer`, `export_proof_bundle`, `accept_consignment` — all with input validation
 - TypeScript SDK published to npm as `@csv-protocol/sdk`
 - 5 ready-to-run agent templates on GitHub:
   1. LangChain agent: moves an NFT from Solana to Sui when a price condition is met
@@ -67,7 +67,7 @@ The wallet is a developer wallet and a proof verification tool. It is not compet
 
 **Why this segment first**: In 2026, agent-to-agent trust is the unsolved problem every infrastructure developer is thinking about. CSV is the only primitive that provides a cryptographic answer. The MCP server exists. The TypeScript SDK exists. The marginal engineering to get here is low. The narrative value is the highest of any segment.
 
-**Readiness**: 5/10 → 8/10 with MCP server implementation  
+**Readiness**: 8/10 → 9/10 with MCP server validation and 7 tools  
 **Revenue model**: API calls (pay-per-proof), SDK licensing to agent frameworks  
 **Marketing channel**: Hacker News, Latent Space newsletter, AI engineering communities, MCP ecosystem
 
@@ -155,10 +155,10 @@ Blocks CLI power users on native builds.
 
 ### Must-Ship for Stage 1 Marketing
 
-**6. MCP server — 5 implemented tools**  
+**6. MCP server — 7 implemented tools with input validation**  
 File: `csv-mcp-server/src/index.ts`  
-Implement: `create_seal`, `consume_seal`, `build_proof_bundle`, `verify_proof_bundle`, `initiate_cross_chain_transfer`.  
-Add proper TypeScript types, error handling, and streaming status.  
+Implement: `create_seal`, `transfer_sanad`, `verify_proof`, `get_sanads`, `monitor_transfer`, `export_proof_bundle`, `accept_consignment`.  
+All tools validated against shell injection, format constraints, and enum values.  
 Estimated: 1–2 weeks.
 
 **7. TypeScript SDK npm publish**  
@@ -239,7 +239,7 @@ Link from wallet on every transfer status update.
 - Wallet app with working Bitcoin ↔ Solana cross-chain transfer on testnet (real RPC, real proofs, real mint)
 - Offline verification flow: WiFi off, QR scan, result displayed
 - TypeScript SDK on npm: `@csv-protocol/sdk`
-- MCP server with 5 real tools
+- MCP server with 7 real tools + input validation
 - 3 agent examples in public repo
 - Explorer live at `explorer.csv-protocol.io`
 - Docs: 3 sub-5-minute tutorials

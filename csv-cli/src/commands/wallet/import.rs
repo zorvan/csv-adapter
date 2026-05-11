@@ -27,9 +27,9 @@ pub fn cmd_import(
     output::header("Importing Wallet from Mnemonic");
 
     // Prompt for passphrase (to encrypt imported keys)
-    let passphrase = prompt_passphrase("Enter keystore passphrase (min 8 chars)")?;
-    if passphrase.len() < 8 {
-        anyhow::bail!("Passphrase must be at least 8 characters");
+    let passphrase = prompt_passphrase("Enter keystore passphrase (min 12 chars)")?;
+    if passphrase.len() < 12 {
+        anyhow::bail!("Passphrase must be at least 12 characters");
     }
     let passphrase = Passphrase::new(passphrase);
 

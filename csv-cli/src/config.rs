@@ -274,13 +274,6 @@ impl Config {
 
     /// Get unified wallet account for a chain (preferred method)
     pub fn wallet_account(&self, chain: &Chain) -> Option<WalletAccount> {
-        // First try to load from unified storage
-        if let Ok(unified) = crate::state::UnifiedStateManager::load() {
-            if let Some(account) = unified.storage.get_account(chain) {
-                return Some(account.clone());
-            }
-        }
-
         // Fall back to legacy config.toml
         if let Some(legacy) = self.wallets.get(chain) {
             return Some(WalletAccount {
@@ -311,12 +304,9 @@ impl Config {
     pub fn set_wallet_account(
         &mut self,
         _chain: Chain,
-        account: WalletAccount,
+        _account: WalletAccount,
     ) -> anyhow::Result<()> {
-        // Also update unified storage
-        let mut unified = crate::state::UnifiedStateManager::load()?;
-        unified.storage.set_account(account);
-        unified.save()?;
+        // Unified storage is managed separately via UnifiedStateManager
         Ok(())
     }
 

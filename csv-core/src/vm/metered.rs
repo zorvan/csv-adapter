@@ -105,6 +105,8 @@ impl<V: DeterministicVM> DeterministicVM for MeteredVMAdapter<V> {
     ) -> Result<VMOutputs, VMError> {
         self.meter.borrow_mut().reset();
         let result = self.inner.execute(bytecode, inputs, signatures);
+        let steps = bytecode.len() as u64;
+        self.meter.borrow_mut().record(steps);
         self.meter.borrow_mut().commit();
         result
     }

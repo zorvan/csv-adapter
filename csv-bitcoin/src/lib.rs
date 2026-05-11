@@ -10,7 +10,6 @@
 pub mod backend;
 pub mod bip341;
 pub mod config;
-pub mod deploy;
 pub mod error;
 pub mod mpc_batch;
 pub mod ops;
@@ -36,7 +35,6 @@ pub mod mempool_rpc;
 pub use backend::{create_bitcoin_adapter, BitcoinRpcClient, BitcoinWallet};
 pub use bip341::{derive_output_key, generate_test_keypair, Bip341Error, TaprootOutput};
 pub use config::{BitcoinConfig, Network};
-pub use deploy::{deploy_csv_seal_contract, ContractDeployer, ContractDeployment};
 pub use rpc::BitcoinRpc;
 pub use seal_protocol::BitcoinSealProtocol;
 pub use sp1_guest::{

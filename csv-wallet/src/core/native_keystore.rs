@@ -579,8 +579,13 @@ mod tests {
         SecretKey::new(bytes)
     }
 
+    fn cleanup_test_dir(dir: &str) {
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     #[test]
     fn test_roundtrip_store_and_retrieve() {
+        cleanup_test_dir("/tmp/csv-test-keystore-1");
         let mut keystore = NativeKeystore::with_dir("/tmp/csv-test-keystore-1").unwrap();
         let secret_key = test_secret_key();
         let passphrase = test_passphrase();
@@ -592,6 +597,7 @@ mod tests {
 
     #[test]
     fn test_passphrase_mismatch() {
+        cleanup_test_dir("/tmp/csv-test-keystore-2");
         let mut keystore = NativeKeystore::with_dir("/tmp/csv-test-keystore-2").unwrap();
         let secret_key = test_secret_key();
         let good_passphrase = Passphrase::new("correct-password");
@@ -604,6 +610,7 @@ mod tests {
 
     #[test]
     fn test_security_policy_validation() {
+        cleanup_test_dir("/tmp/csv-test-keystore-security");
         let mut keystore = NativeKeystore::with_dir("/tmp/csv-test-keystore-security").unwrap();
         let secret_key = test_secret_key();
         let weak_passphrase = Passphrase::new("123"); // Too short
@@ -614,6 +621,7 @@ mod tests {
 
     #[test]
     fn test_failed_attempts_tracking() {
+        cleanup_test_dir("/tmp/csv-test-keystore-fail");
         let mut keystore = NativeKeystore::with_dir("/tmp/csv-test-keystore-fail").unwrap();
         let secret_key = test_secret_key();
         let good_passphrase = Passphrase::new("good-password");
@@ -635,6 +643,7 @@ mod tests {
 
     #[test]
     fn test_backup_creation() {
+        cleanup_test_dir("/tmp/csv-test-keystore-backup");
         let mut keystore = NativeKeystore::with_dir("/tmp/csv-test-keystore-backup").unwrap();
         let secret_key = test_secret_key();
         let passphrase = test_passphrase();
@@ -651,6 +660,7 @@ mod tests {
 
     #[test]
     fn test_key_rotation_check() {
+        cleanup_test_dir("/tmp/csv-test-keystore-rotation");
         let mut keystore = NativeKeystore::with_dir("/tmp/csv-test-keystore-rotation").unwrap();
         let secret_key = test_secret_key();
         let passphrase = test_passphrase();
@@ -669,6 +679,7 @@ mod tests {
 
     #[test]
     fn test_list_and_delete() {
+        cleanup_test_dir("/tmp/csv-test-keystore-3");
         let mut keystore = NativeKeystore::with_dir("/tmp/csv-test-keystore-3").unwrap();
         let secret_key = test_secret_key();
         let passphrase = test_passphrase();

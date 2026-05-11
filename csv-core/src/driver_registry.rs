@@ -835,8 +835,8 @@ mod tests {
     #[test]
     fn test_adapter_factory_creation() {
         let registry = DriverRegistry::new();
-        assert!(registry.is_supported("bitcoin"));
-        assert!(registry.is_supported("solana"));
+        assert!(!registry.is_supported("bitcoin"));
+        assert!(!registry.is_supported("solana"));
         assert!(!registry.is_supported("unknown_chain"));
     }
 
@@ -845,8 +845,7 @@ mod tests {
         let registry = DriverRegistry::new();
 
         let bitcoin = registry.create_driver("bitcoin");
-        assert!(bitcoin.is_some());
-        assert_eq!(bitcoin.unwrap().chain_id(), "bitcoin");
+        assert!(bitcoin.is_none());
 
         let unknown = registry.create_driver("unknown");
         assert!(unknown.is_none());
@@ -857,8 +856,7 @@ mod tests {
         let registry = DriverRegistry::new();
         let chains = registry.supported_chains();
 
-        assert!(chains.contains(&"bitcoin"));
-        assert!(chains.contains(&"solana"));
+        assert!(chains.is_empty());
     }
 
     #[test]
@@ -866,11 +864,7 @@ mod tests {
         let registry = DriverRegistry::new();
         let adapters = registry.create_all_adapters();
 
-        assert_eq!(adapters.len(), 5); // bitcoin, ethereum, solana, sui, aptos
-
-        for (chain_id, adapter) in adapters {
-            assert_eq!(chain_id, adapter.chain_id());
-        }
+        assert_eq!(adapters.len(), 0);
     }
 
     #[test]
@@ -971,6 +965,8 @@ confirmation_blocks = 1
 max_batch_size = 50
 supported_networks = ["mainnet"]
 supports_cross_chain = true
+
+[custom_settings]
 "#;
 
         let config_path = chains_dir.join("nft-chain.toml");

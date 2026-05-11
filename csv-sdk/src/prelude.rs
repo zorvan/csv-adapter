@@ -16,7 +16,7 @@ pub use crate::events::Event;
 #[cfg(feature = "tokio")]
 pub use crate::events::EventStream;
 pub use crate::proofs::ProofManager;
-pub use crate::sanads::SanadsManager;
+pub use crate::sanads::{SanadFilters, SanadsManager};
 pub use crate::transfers::{TransferBuilder, TransferManager};
 pub use crate::wallet::Wallet;
 

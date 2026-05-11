@@ -37,7 +37,6 @@ use tokio::sync::broadcast;
 
 use crate::builder::ClientBuilder;
 use crate::config::Config;
-use crate::deploy::DeploymentManager;
 use crate::error::CsvError;
 #[cfg(feature = "tokio")]
 use crate::events::EventStream;
@@ -267,32 +266,15 @@ impl CsvClient {
             })
     }
 
-    /// Get a [`DeploymentManager`] for deploying CSV contracts.
+    /// Returns an error indicating that contract deployment is not supported.
     ///
-    /// Provides a unified interface for deploying CSV seal contracts
-    /// across all supported blockchains using their respective SDKs.
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// use csv_sdk::prelude::*;
-    ///
-    /// # async fn example() -> Result<()> {
-    /// let client = CsvClient::builder()
-    ///     .with_chain("ethereum")
-    ///     .build()?;
-    ///
-    /// // Deploy a CSV Lock contract on Ethereum
-    /// let deployment = client.deploy()
-    ///     .deploy_csv_lock("https://rpc.example.com", "0x...", &[0u8])
-    ///     .await?;
-    ///
-    /// println!("Deployed at: {:?}", deployment.address);
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn deploy(&self) -> DeploymentManager {
-        DeploymentManager::new(Arc::new(self.clone_ref()))
+    /// Contract deployment must be done manually using Foundry/forge.
+    /// Once deployed, provide the contract address directly to the SDK.
+    pub fn deploy(&self) -> crate::Result<()> {
+        Err(CsvError::CapabilityUnavailable {
+            chain: csv_core::ChainId::new("unknown"),
+            capability: "contract_deployment".to_string(),
+        })
     }
 
     /// Get an [`EventStream`] for watching CSV events.

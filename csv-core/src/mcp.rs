@@ -541,10 +541,11 @@ mod tests {
     #[test]
     fn test_chain_from_str() {
         assert_eq!("bitcoin".parse::<ChainId>().unwrap(), *builtin::BITCOIN);
-        assert_eq!("btc".parse::<ChainId>().unwrap(), *builtin::BITCOIN);
-        assert_eq!("ETH".parse::<ChainId>().unwrap(), *builtin::ETHEREUM);
+        assert_eq!("BITCOIN".parse::<ChainId>().unwrap(), *builtin::BITCOIN);
+        assert_eq!("ethereum".parse::<ChainId>().unwrap(), *builtin::ETHEREUM);
+        assert_eq!("ETHEREUM".parse::<ChainId>().unwrap(), *builtin::ETHEREUM);
         assert_eq!("solana".parse::<ChainId>().unwrap(), *builtin::SOLANA);
-        assert_eq!("SOL".parse::<ChainId>().unwrap(), *builtin::SOLANA);
+        assert_eq!("SOLANA".parse::<ChainId>().unwrap(), *builtin::SOLANA);
     }
 
     #[test]

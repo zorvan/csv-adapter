@@ -146,16 +146,16 @@ pub fn CrossChainTransfer() -> Element {
         let sanads_for_source_closure = sanads_for_closure.clone();
         if !_has_source_contract {
             error.set(Some(format!(
-                "No contract deployed on {:?}. Deploy a contract first.",
-                from_chain.read().clone()
+                "No contract deployed on {:?}. Deploy contracts manually using Foundry/forge and set the address with `csv contracts set {} <address>`.",
+                from_chain.read().clone(), from_chain.read().clone()
             )));
             return;
         }
 
         if !has_target_contract {
             error.set(Some(format!(
-                "No contract deployed on {:?}. Deploy a contract first.",
-                to_chain.read().clone()
+                "No contract deployed on {:?}. Deploy contracts manually using Foundry/forge and set the address with `csv contracts set {} <address>`.",
+                to_chain.read().clone(), to_chain.read().clone()
             )));
             return;
         }
@@ -692,8 +692,8 @@ pub fn CrossChainTransfer() -> Element {
                         "Watch-Only Account (Cannot Sign)"
                     } else if !has_sanads {
                         "No Sanads Available"
-                    } else if !has_target_contract {
-                        "Deploy Target Contract First"
+                   } else if !has_target_contract {
+                         "Set Target Contract Address"
                     } else if !has_dest_account {
                         "Add Destination Account First"
                     } else if !dest_has_enough_balance {
@@ -721,7 +721,7 @@ pub fn CrossChainTransfer() -> Element {
                 }
                 if !has_target_contract {
                     p { class: "text-xs text-red-500 mt-2",
-                        {format!("Note: Deploy a CSV contract on {:?} target chain first", to_chain.read().clone())}
+                        {format!("Note: Deploy a CSV contract on {:?} manually using Foundry/forge, then set the address with `csv contracts set`", to_chain.read().clone())}
                     }
                 }
                 if !has_dest_account {

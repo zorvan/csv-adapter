@@ -69,7 +69,6 @@ pub mod builder;
 pub mod client;
 pub mod config;
 pub mod cross_chain;
-pub mod deploy;
 pub mod error;
 pub mod events;
 pub mod prelude;
@@ -118,28 +117,9 @@ pub use builder::{ClientBuilder, StoreBackend};
 /// Re-export runtime types
 pub use runtime::{AdapterBuilder, ChainRuntime, RuntimeConfig, RuntimeManager};
 
-/// Re-export deployment types
-pub use deploy::{ContractDeployment, DeploymentError, DeploymentManager, DeploymentResult};
-
 /// Unified result type alias.
 ///
 /// Equivalent to `Result<T, CsvError>`.
 pub type Result<T> = core::result::Result<T, CsvError>;
 
 // Note: TransferStatus is already re-exported from protocol_version module above
-
-// ===========================================================================
-// Chain-specific deployment re-exports
-// ===========================================================================
-
-#[cfg(feature = "deploy-ethereum")]
-pub use csv_ethereum::deploy::deploy_csv_lock;
-
-#[cfg(feature = "deploy-sui")]
-pub use csv_sui::deploy::publish_csv_package;
-
-#[cfg(feature = "deploy-aptos")]
-pub use csv_aptos::deploy::publish_csv_module;
-
-#[cfg(feature = "deploy-solana")]
-pub use csv_solana::deploy::deploy_csv_program;

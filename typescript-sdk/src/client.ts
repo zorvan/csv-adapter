@@ -1,9 +1,9 @@
-import { Chain, ProtocolVersion, Capabilities, SyncStatus, TransferStatus } from './types';
+import { Chain, ProtocolVersion, Capabilities, SyncStatus, TransferStatus, bytesToHex } from './types';
 import { Sanad } from './sanad';
 import { SealPoint, CommitAnchor } from './seal';
 import { ProofBundle } from './proof';
 import { Consignment } from './consignment';
-import { VerificationResult, verifyProofBundle, verifyConsignment } from './verify';
+import { VerificationResult, verifyProofBundle, verifyConsignment, verifyProofBundleFromJson } from './verify';
 
 /**
  * Configuration for the CSV client.

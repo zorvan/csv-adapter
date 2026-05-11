@@ -1,6 +1,7 @@
 //! Sanad lifecycle commands
 
 use anyhow::Result;
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use clap::Subcommand;
 use sha2::Digest;
 

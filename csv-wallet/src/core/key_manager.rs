@@ -1,6 +1,7 @@
 //! Key manager for multi-chain wallet.
 //!
 //! Handles key derivation and signing operations for all supported chains.
+//! Supports both in-memory seed-based keys and persistent native keystore storage.
 
 use csv_core::ChainId;
 use csv_core::mcp::{HasErrorSuggestion, FixAction, error_codes};
@@ -9,6 +10,11 @@ use ed25519_dalek::{SigningKey, VerifyingKey, Signer};
 use sha2::Digest;
 use sha3::Keccak256;
 use blake2::Blake2b;
+
+#[cfg(not(target_arch = "wasm32"))]
+use crate::core::native_keystore::{NativeKeystore, NativeKeystoreError};
+#[cfg(not(target_arch = "wasm32"))]
+use csv_keys::memory::{Passphrase, SecretKey as MemorySecretKey};
 
 /// Error type for key management operations.
 #[derive(Debug, thiserror::Error)]
@@ -92,12 +98,98 @@ impl HasErrorSuggestion for KeyError {
 pub struct KeyManager {
     /// Wallet seed (64 bytes from BIP-39)
     seed: [u8; 64],
+    /// Optional native keystore for persistent key storage
+    #[cfg(not(target_arch = "wasm32"))]
+    keystore: Option<NativeKeystore>,
 }
 
 impl KeyManager {
     /// Create a new key manager from a seed.
     pub fn new(seed: [u8; 64]) -> Self {
-        Self { seed }
+        Self {
+            seed,
+            #[cfg(not(target_arch = "wasm32"))]
+            keystore: None,
+        }
+    }
+
+    /// Create a new key manager from a seed with native keystore support.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn new_with_keystore(seed: [u8; 64]) -> Result<Self, KeyError> {
+        Ok(Self {
+            seed,
+            keystore: Some(NativeKeystore::new().map_err(|e| KeyError::DerivationError(format!("Failed to initialize keystore: {}", e)))?),
+        })
+    }
+
+    /// Store a derived key in the native keystore.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn store_key_in_keystore(
+        &mut self,
+        key_id: &str,
+        chain: &str,
+        label: Option<&str>,
+        secret_key: &[u8; 32],
+        passphrase: &Passphrase,
+    ) -> Result<(), KeyError> {
+        let keystore = self.keystore.as_mut()
+            .ok_or_else(|| KeyError::DerivationError("Native keystore not available".to_string()))?;
+
+        let memory_key = MemorySecretKey::new(*secret_key);
+        keystore.store_key(key_id, chain, label, &memory_key, passphrase)
+            .map_err(|e| match e {
+                NativeKeystoreError::Encryption(msg) => KeyError::DerivationError(format!("Encryption failed: {}", msg)),
+                NativeKeystoreError::Filesystem(msg) => KeyError::DerivationError(format!("Filesystem error: {}", msg)),
+                NativeKeystoreError::KeyNotFound(id) => KeyError::InvalidKeyFormat(id),
+                _ => KeyError::DerivationError(format!("Keystore error: {}", e)),
+            })
+    }
+
+    /// Retrieve a stored key from the native keystore.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn retrieve_key_from_keystore(
+        &mut self,
+        key_id: &str,
+        passphrase: &Passphrase,
+    ) -> Result<[u8; 32], KeyError> {
+        let keystore = self.keystore.as_mut()
+            .ok_or_else(|| KeyError::DerivationError("Native keystore not available".to_string()))?;
+
+        let secret_key = keystore.retrieve_key(key_id, passphrase)
+            .map_err(|e| match e {
+                NativeKeystoreError::KeyNotFound(id) => KeyError::InvalidKeyFormat(id),
+                NativeKeystoreError::PassphraseMismatch => KeyError::InvalidKeyFormat("Incorrect passphrase".to_string()),
+                NativeKeystoreError::Encryption(msg) => KeyError::DerivationError(format!("Encryption error: {}", msg)),
+                NativeKeystoreError::Filesystem(msg) => KeyError::DerivationError(format!("Filesystem error: {}", msg)),
+                _ => KeyError::DerivationError(format!("Keystore error: {}", e)),
+            })?;
+
+        Ok(*secret_key.as_bytes())
+    }
+
+    /// Check if keystore is available.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn has_keystore(&self) -> bool {
+        self.keystore.is_some()
+    }
+
+    /// List all stored key IDs in the keystore.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn list_keystore_keys(&self) -> Result<Vec<String>, KeyError> {
+        let keystore = self.keystore.as_ref()
+            .ok_or_else(|| KeyError::DerivationError("Native keystore not available".to_string()))?;
+
+        Ok(keystore.list_keys())
+    }
+
+    /// Delete a key from the keystore.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn delete_key_from_keystore(&mut self, key_id: &str) -> Result<(), KeyError> {
+        let keystore = self.keystore.as_mut()
+            .ok_or_else(|| KeyError::DerivationError("Native keystore not available".to_string()))?;
+
+        keystore.delete_key(key_id)
+            .map_err(|e| KeyError::DerivationError(format!("Failed to delete key: {}", e)))
     }
 
     /// Derive Bitcoin Taproot key pair.

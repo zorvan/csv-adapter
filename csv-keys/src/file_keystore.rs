@@ -25,6 +25,9 @@ use crate::memory::{Passphrase, SecretKey};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+
 /// Error type for file keystore operations.
 #[derive(Debug, Error)]
 pub enum FileKeystoreError {
@@ -226,9 +229,11 @@ impl FileKeystore {
         // Expand ~ in path
         let dir = expand_tilde(&dir);
 
-        // Create directory if it doesn't exist
+        // Create directory if it doesn't exist with restrictive permissions (0o700)
         if !dir.exists() {
             std::fs::create_dir_all(&dir)?;
+            #[cfg(unix)]
+            std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700))?;
         }
 
         // Load or create metadata
@@ -252,6 +257,8 @@ impl FileKeystore {
         let dir = expand_tilde(dir.as_ref());
         if !dir.exists() {
             std::fs::create_dir_all(&dir)?;
+            #[cfg(unix)]
+            std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700))?;
         }
 
         let meta_path = dir.join(Self::META_FILE);

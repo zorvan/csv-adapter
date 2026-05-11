@@ -546,7 +546,7 @@ mod tests {
             let parsed: Result<ChainId, _> = id_str.parse();
             assert_eq!(parsed, Ok(chain));
         }
-        assert!("unknown".parse::<ChainId>().is_err());
+        assert_eq!("unknown".parse::<ChainId>().unwrap().to_string(), "unknown");
     }
 
     #[test]

@@ -1,4 +1,5 @@
 import { SealPoint, CommitAnchor } from './seal';
+import { hexToBytes, bytesToHex } from './types';
 
 /**
  * Inclusion proof — proves a commitment was included in a block.
