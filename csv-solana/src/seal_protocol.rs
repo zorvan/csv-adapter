@@ -171,6 +171,15 @@ impl SolanaSealProtocol {
             None
         }
     }
+
+    /// Get all active seals
+    pub fn get_active_seals(&self) -> Vec<SolanaSealPoint> {
+        if let Ok(seals) = self.active_seals.lock() {
+            seals.clone()
+        } else {
+            Vec::new()
+        }
+    }
 }
 
 impl SealProtocol for SolanaSealProtocol {

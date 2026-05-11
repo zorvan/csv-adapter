@@ -10,15 +10,18 @@
 
 use async_trait::async_trait;
 use csv_core::backend::{
-    BalanceInfo, ChainBroadcaster, ChainDeployer, ChainOpError, ChainOpResult, ChainProofProvider,
-    ChainQuery, ChainSanadOps, ChainSigner, ContractStatus, DeploymentStatus, FinalityStatus,
-    SanadOperationResult, TransactionInfo, TransactionStatus,
+    BalanceInfo, ChainBackend, ChainBroadcaster, ChainCapability, ChainDeployer, ChainOpError,
+    ChainOpResult, ChainProofProvider, ChainQuery, ChainSanadOps, ChainSigner, ContractStatus,
+    DeploymentStatus, FinalityStatus, SanadOperationResult, TransactionInfo, TransactionStatus,
 };
 use csv_core::hash::Hash;
 use csv_core::proof::{FinalityProof, InclusionProof as CoreInclusionProof};
 use csv_core::sanad::SanadId;
+use csv_core::seal::{CommitAnchor, SealPoint};
 use csv_core::signature::SignatureScheme;
+use csv_core::SealProtocol;
 use ed25519_dalek::{Verifier, VerifyingKey};
+use std::sync::Arc;
 
 use crate::config::SuiConfig;
 use crate::deploy::{PackageDeployer, PackageDeployment};
@@ -61,6 +64,8 @@ pub struct SuiBackend {
     domain_separator: [u8; 32],
     /// Commitment event builder for proof construction
     event_builder: CommitmentEventBuilder,
+    /// Reference to seal protocol for seal creation and publishing
+    seal_protocol: Arc<SuiSealProtocol>,
 }
 
 impl SuiBackend {
@@ -77,22 +82,32 @@ impl SuiBackend {
         let event_builder =
             CommitmentEventBuilder::new(package_id, "csv_seal::AnchorEvent".to_string());
 
+        // Create a minimal seal protocol for backward compatibility
+        let mock_rpc = Box::new(crate::rpc::MockSuiRpc::new(0));
+        let seal = SuiSealProtocol::from_config(config.clone(), mock_rpc)
+            .unwrap_or_else(|_| {
+                // Ultimate fallback
+                SuiSealProtocol::from_config(SuiConfig::default(), Box::new(crate::rpc::MockSuiRpc::new(0))).unwrap()
+            });
+
         Self {
             rpc,
             config,
             domain_separator: domain,
             event_builder,
+            seal_protocol: Arc::new(seal),
         }
     }
 
     /// Create from SuiSealProtocol
-    pub fn from_seal_protocol(seal: &SuiSealProtocol) -> ChainOpResult<Self> {
+    pub fn from_seal_protocol(seal: Arc<SuiSealProtocol>) -> ChainOpResult<Self> {
         let (module_addr, event_type) = seal.event_builder_config();
         Ok(Self {
             rpc: seal.get_rpc().clone_boxed(),
             config: seal.config.clone(),
             domain_separator: seal.get_domain_separator(),
             event_builder: CommitmentEventBuilder::new(module_addr, event_type),
+            seal_protocol: seal,
         })
     }
 
@@ -949,7 +964,7 @@ impl ChainSanadOps for SuiBackend {
             }
         };
 
-        Ok(actual_state == expected_state)
+    Ok(actual_state == expected_state)
     }
 }
 
@@ -992,6 +1007,63 @@ impl From<SuiError> for ChainOpError {
             )),
             SuiError::CoreError(e) => ChainOpError::Unknown(format!("Core error: {}", e)),
         }
+   }
+}
+
+impl ChainBackend for SuiBackend {
+    fn chain_id(&self) -> &'static str {
+        "sui"
+    }
+
+    fn chain_name(&self) -> &'static str {
+        "Sui"
+    }
+
+    fn is_capability_available(&self, _capability: ChainCapability) -> bool {
+        true
+    }
+
+    fn create_seal(&self, value: Option<u64>) -> ChainOpResult<SealPoint> {
+        let sui_seal = self.seal_protocol.create_seal(value)
+            .map_err(|e| ChainOpError::Unknown(format!("Seal creation failed: {}", e)))?;
+
+        // Convert SuiSealPoint to core SealPoint
+        // SuiSealPoint has object_id (32 bytes) stored in id
+        Ok(SealPoint {
+            id: sui_seal.object_id.to_vec(),
+            nonce: Some(sui_seal.nonce),
+        })
+    }
+
+    fn publish_seal(&self, seal: SealPoint) -> ChainOpResult<CommitAnchor> {
+        // Convert core SealPoint to SuiSealPoint
+        if seal.id.len() < 32 {
+            return Err(ChainOpError::InvalidInput(
+                "Seal ID too short for Sui, expected at least 32 bytes".to_string(),
+            ));
+        }
+
+        let mut object_id = [0u8; 32];
+        object_id.copy_from_slice(&seal.id[..32]);
+
+        let nonce = seal.nonce.unwrap_or(0);
+        let sui_seal = crate::types::SuiSealPoint::new(object_id, 0, nonce);
+
+        // Generate a random commitment for the publish call
+        let mut commitment_bytes = [0u8; 32];
+        commitment_bytes[..8].copy_from_slice(b"csv-seal");
+        let commitment = Hash::new(commitment_bytes);
+
+        // Call the seal protocol's publish method
+        let sui_anchor = self.seal_protocol.publish(commitment, sui_seal)
+            .map_err(|e| ChainOpError::Unknown(format!("Seal publishing failed: {}", e)))?;
+
+        // Convert SuiCommitAnchor to core CommitAnchor
+        Ok(CommitAnchor {
+            anchor_id: sui_anchor.tx_digest.to_vec(),
+            block_height: sui_anchor.checkpoint,
+            metadata: sui_anchor.object_id.to_vec(),
+        })
     }
 }
 

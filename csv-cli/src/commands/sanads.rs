@@ -47,13 +47,13 @@ pub enum SanadAction {
     },
 }
 
-pub fn execute(
+pub async fn execute(
     action: SanadAction,
     config: &Config,
     state: &mut UnifiedStateManager,
 ) -> Result<()> {
     match action {
-        SanadAction::Create { chain, value } => cmd_create(chain, value, config, state),
+        SanadAction::Create { chain, value } => cmd_create(chain, value, config, state).await,
         SanadAction::Show { sanad_id } => cmd_show(sanad_id, state),
         SanadAction::List { chain } => cmd_list(chain, state),
         SanadAction::Transfer { sanad_id, to } => cmd_transfer(sanad_id, to, state),
@@ -61,7 +61,7 @@ pub fn execute(
     }
 }
 
-fn cmd_create(
+async fn cmd_create(
     chain: Chain,
     value: Option<u64>,
     _config: &Config,
@@ -97,17 +97,31 @@ fn cmd_create(
     };
     let commitment = csv_core::Hash::new(commitment_bytes);
 
+    // Step 1: Create a seal on the chain
+    let runtime = client.chain_runtime();
+    let seal = runtime.create_seal(core_chain.clone(), value)
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to create seal: {}", e))?;
+
+    // Step 2: Publish the commitment under the seal
+    let anchor = runtime.publish_seal(core_chain.clone(), seal.clone())
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to publish seal: {}", e))?;
+
     // Create the sanad through the runtime
-    match client.sanads().create(commitment, core_chain) {
+    match client.sanads().create(commitment, core_chain.clone()) {
         Ok(sanad) => {
             let sanad_id_hex = hex::encode(sanad.id.as_bytes());
 
-            // Track the sanad in local state
+            // Convert seal to base64 for storage
+            let seal_ref_encoded = STANDARD.encode(seal.to_vec());
+
+            // Track the sanad in local state with anchor_tx_hash populated
             let tracked = SanadRecord {
                 id: sanad_id_hex.clone(),
                 chain: chain.clone(),
-                seal_ref: String::new(), // Would be populated by the runtime
-                owner: String::new(),    // Would be populated by the runtime
+                seal_ref: seal_ref_encoded,
+                owner: String::new(),
                 value: value.unwrap_or(0),
                 commitment: hex::encode(commitment.as_bytes()),
                 nullifier: None,
@@ -116,6 +130,7 @@ fn cmd_create(
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap_or_default()
                     .as_secs(),
+                anchor_tx_hash: Some(hex::encode(&anchor.anchor_id)),
             };
 
             state.storage.sanads.push(tracked);
@@ -129,11 +144,13 @@ fn cmd_create(
                     .map(|v| v.to_string())
                     .unwrap_or_else(|| "default".to_string()),
             );
-            output::kv("Status", "Created via runtime");
+            output::kv("Anchor TX Hash", &hex::encode(&anchor.anchor_id));
+            output::kv("Block Height", &anchor.block_height.to_string());
+            output::kv("Status", "Created and published via runtime");
 
             // UnifiedStateManager is automatically saved after command execution
             println!();
-            output::info("Sanad created successfully via runtime. Use 'csv sanad show <sanad_id>' to view details");
+            output::info("Sanad created and published successfully. Use 'csv sanad show <sanad_id>' to view details");
         }
         Err(e) => {
             output::error(&format!("Failed to create sanad via runtime: {}", e));

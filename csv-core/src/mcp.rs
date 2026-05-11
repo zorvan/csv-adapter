@@ -284,8 +284,10 @@ pub mod error_codes {
     /// CSV sanad not found.
     pub const CSV_SANAD_NOT_FOUND: &str = "CSV_004";
     /// CSV transfer not found.
-    pub const CSV_TRANSFER_NOT_FOUND: &str = "CSV_005";
-    /// CSV sanad already consumed.
+  pub const CSV_TRANSFER_NOT_FOUND: &str = "CSV_005";
+
+    pub const CSV_TRANSFER_FAILED: &str = "CSV_020";
+
     pub const CSV_SANAD_ALREADY_CONSUMED: &str = "CSV_006";
     /// CSV invalid commitment.
     pub const CSV_INVALID_COMMITMENT: &str = "CSV_007";

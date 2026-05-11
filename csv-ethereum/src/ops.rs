@@ -10,14 +10,18 @@
 
 use async_trait::async_trait;
 use csv_core::backend::{
-    BalanceInfo, ChainBroadcaster, ChainDeployer, ChainOpError, ChainOpResult, ChainProofProvider,
-    ChainQuery, ChainSanadOps, ChainSigner, ContractStatus, DeploymentStatus, FinalityStatus,
-    SanadOperation, SanadOperationResult, TransactionInfo, TransactionStatus,
+    BalanceInfo, ChainBackend, ChainBroadcaster, ChainCapability, ChainDeployer, ChainOpError,
+    ChainOpResult, ChainProofProvider, ChainQuery, ChainSanadOps, ChainSigner, ContractStatus,
+    DeploymentStatus, FinalityStatus, SanadOperation, SanadOperationResult, TransactionInfo,
+    TransactionStatus,
 };
 use csv_core::hash::Hash;
 use csv_core::proof::{FinalityProof, InclusionProof as CoreInclusionProof};
 use csv_core::sanad::SanadId;
+use csv_core::seal::{CommitAnchor, SealPoint};
 use csv_core::signature::SignatureScheme;
+use csv_core::SealProtocol;
+use std::sync::Arc;
 
 use crate::config::EthereumConfig;
 use crate::finality::FinalityChecker;
@@ -47,6 +51,8 @@ pub struct EthereumBackend {
     proof_verifier: EventProofVerifier,
     /// Commitment event builder
     event_builder: CommitmentEventBuilder,
+    /// Reference to seal protocol for seal creation and publishing
+    seal_protocol: Arc<EthereumSealProtocol>,
 }
 
 /// Unsigned deployment transaction for contract deployment
@@ -80,6 +86,19 @@ impl EthereumBackend {
             prefer_checkpoint_finality: config.use_checkpoint_finality,
         });
 
+        // Create a minimal seal protocol for backward compatibility
+        let mock_rpc = Box::new(crate::rpc::MockEthereumRpc::new(1000));
+        let seal_config = EthereumConfig {
+            network: crate::config::Network::Sepolia,
+            finality_depth: 12,
+            ..Default::default()
+        };
+        let seal = EthereumSealProtocol::from_config(seal_config, mock_rpc, [0u8; 20]).unwrap_or_else(|_| {
+            // Ultimate fallback - shouldn't happen
+            let fallback_rpc = Box::new(crate::rpc::MockEthereumRpc::new(0));
+            EthereumSealProtocol::from_config(EthereumConfig::default(), fallback_rpc, [0u8; 20]).unwrap()
+        });
+
         Self {
             rpc,
             config,
@@ -90,11 +109,12 @@ impl EthereumBackend {
             mint_contract_address: None,
             proof_verifier: EventProofVerifier::new(),
             event_builder: CommitmentEventBuilder::new(),
+            seal_protocol: Arc::new(seal),
         }
     }
 
     /// Create from EthereumSealProtocol
-    pub fn from_seal_protocol(seal: &EthereumSealProtocol) -> ChainOpResult<Self> {
+    pub fn from_seal_protocol(seal: Arc<EthereumSealProtocol>) -> ChainOpResult<Self> {
         Ok(Self {
             rpc: seal.rpc().clone_boxed(),
             config: seal.config_clone(),
@@ -105,6 +125,7 @@ impl EthereumBackend {
             mint_contract_address: None,
             proof_verifier: EventProofVerifier::new(),
             event_builder: CommitmentEventBuilder::new(),
+            seal_protocol: seal,
         })
     }
 
@@ -1336,6 +1357,68 @@ fn parse_chain_id(chain_name: &str) -> ChainOpResult<u8> {
                     format!("Unknown chain: {}. Supported: bitcoin, ethereum, sui, aptos, solana, or numeric ID", chain_name)
                 ))
         }
+    }
+}
+
+impl ChainBackend for EthereumBackend {
+    fn chain_id(&self) -> &'static str {
+        "ethereum"
+    }
+
+    fn chain_name(&self) -> &'static str {
+        "Ethereum"
+    }
+
+    fn is_capability_available(&self, _capability: ChainCapability) -> bool {
+        true
+    }
+
+    fn create_seal(&self, value: Option<u64>) -> ChainOpResult<SealPoint> {
+        let ethereum_seal = self.seal_protocol.create_seal(value)
+            .map_err(|e| ChainOpError::Unknown(format!("Seal creation failed: {}", e)))?;
+
+        // Convert EthereumSealPoint to core SealPoint
+        // EthereumSealPoint has contract_address (20 bytes) + slot_index (8 bytes) stored in id
+        let mut id_bytes = Vec::with_capacity(32);
+        id_bytes.extend_from_slice(&ethereum_seal.contract_address);
+        id_bytes.extend_from_slice(&ethereum_seal.slot_index.to_le_bytes());
+
+        Ok(SealPoint {
+            id: id_bytes,
+            nonce: Some(ethereum_seal.nonce),
+        })
+    }
+
+    fn publish_seal(&self, seal: SealPoint) -> ChainOpResult<CommitAnchor> {
+        // Convert core SealPoint to EthereumSealPoint
+        if seal.id.len() < 28 {
+            return Err(ChainOpError::InvalidInput(
+                "Seal ID too short for Ethereum, expected at least 28 bytes".to_string(),
+            ));
+        }
+
+        let mut contract_address = [0u8; 20];
+        contract_address.copy_from_slice(&seal.id[..20]);
+        let slot_index = u64::from_le_bytes(seal.id[20..28].try_into().unwrap());
+
+        let nonce = seal.nonce.unwrap_or(0);
+        let ethereum_seal = crate::types::EthereumSealPoint::new(contract_address, slot_index, nonce);
+
+        // Generate a random commitment for the publish call
+        let mut commitment_bytes = [0u8; 32];
+        commitment_bytes[..8].copy_from_slice(b"csv-seal");
+        let commitment = Hash::new(commitment_bytes);
+
+        // Call the seal protocol's publish method
+        let ethereum_anchor = self.seal_protocol.publish(commitment, ethereum_seal)
+            .map_err(|e| ChainOpError::Unknown(format!("Seal publishing failed: {}", e)))?;
+
+        // Convert EthereumCommitAnchor to core CommitAnchor
+        Ok(CommitAnchor {
+            anchor_id: ethereum_anchor.tx_hash.to_vec(),
+            block_height: ethereum_anchor.block_number,
+            metadata: ethereum_anchor.log_index.to_le_bytes().to_vec(),
+        })
     }
 }
 

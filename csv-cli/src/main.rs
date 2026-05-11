@@ -164,9 +164,9 @@ async fn main() -> anyhow::Result<()> {
     let result = match cli.command {
         Commands::Chain { action } => chain::execute(action, &config),
         Commands::Wallet { action } => wallet::execute(action, &config, &mut state).await,
-        Commands::Sanad { action } => sanads::execute(action, &config, &mut state),
+        Commands::Sanad { action } => sanads::execute(action, &config, &mut state).await,
         Commands::Proof { action } => proofs::execute(action, &config, &state),
-        Commands::CrossChain { action } => cross_chain::execute(action, &config, &mut state),
+        Commands::CrossChain { action } => cross_chain::execute(action, &config, &mut state).await,
         Commands::Contract { action } => contracts::execute(action, &config, &mut state),
         Commands::Seal { action } => seals::execute(action, &config, &mut state),
         Commands::Test { action } => tests::execute(action, &config, &state),

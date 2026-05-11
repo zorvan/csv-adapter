@@ -362,6 +362,25 @@ impl ChainRuntime {
             })
     }
 
+    /// Publish a commitment under a single-use seal.
+    ///
+    /// Delegates to ChainBackend::publish_seal.
+    pub async fn publish_seal(
+        &self,
+        chain: ChainId,
+        seal: csv_core::SealPoint,
+    ) -> Result<csv_core::CommitAnchor, CsvError> {
+        let adapter = self.get_adapter(chain.clone()).await?;
+
+        // Delegate to the adapter's publish_seal method
+        adapter
+            .publish_seal(seal)
+            .map_err(|e| CsvError::ProtocolError {
+                chain: chain.clone(),
+                message: format!("Seal publishing failed: {}", e),
+            })
+    }
+
     /// Mint a sanad on the destination chain.
     ///
     /// Delegates to ChainSanadOps::mint_sanad.
@@ -821,7 +840,7 @@ impl AdapterBuilder {
 
         // Create ChainOperations from SealProtocol (this implements ChainBackend)
         let operations =
-            EthereumBackend::from_seal_protocol(&seal).map_err(|e| CsvError::ProtocolError {
+            EthereumBackend::from_seal_protocol(Arc::new(seal)).map_err(|e| CsvError::ProtocolError {
                 chain: ChainId::new("ethereum"),
                 message: format!("Failed to create Ethereum chain operations: {}", e),
             })?;
@@ -846,7 +865,7 @@ impl AdapterBuilder {
             })?;
 
         let operations =
-            SuiBackend::from_seal_protocol(&seal).map_err(|e| CsvError::ProtocolError {
+            SuiBackend::from_seal_protocol(Arc::new(seal)).map_err(|e| CsvError::ProtocolError {
                 chain: ChainId::new("sui"),
                 message: format!("Failed to create Sui chain operations: {}", e),
             })?;
@@ -871,7 +890,7 @@ impl AdapterBuilder {
             })?;
 
         let operations =
-            AptosBackend::from_seal_protocol(&seal).map_err(|e| CsvError::ProtocolError {
+            AptosBackend::from_seal_protocol(Arc::new(seal)).map_err(|e| CsvError::ProtocolError {
                 chain: ChainId::new("aptos"),
                 message: format!("Failed to create Aptos chain operations: {}", e),
             })?;
@@ -897,7 +916,7 @@ impl AdapterBuilder {
             })?;
 
         let operations =
-            SolanaBackend::from_seal_protocol(&seal).map_err(|e| CsvError::ProtocolError {
+            SolanaBackend::from_seal_protocol(Arc::new(seal)).map_err(|e| CsvError::ProtocolError {
                 chain: ChainId::new("solana"),
                 message: format!("Failed to create Solana chain operations: {}", e),
             })?;
@@ -923,7 +942,7 @@ impl AdapterBuilder {
             })?;
 
         let operations =
-            BitcoinBackend::from_seal_protocol(&seal).map_err(|e| CsvError::ProtocolError {
+            BitcoinBackend::from_seal_protocol(Arc::new(seal)).map_err(|e| CsvError::ProtocolError {
                 chain: ChainId::new("bitcoin"),
                 message: format!("Failed to create Bitcoin chain operations: {}", e),
             })?;

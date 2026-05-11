@@ -7,18 +7,21 @@
 //! - ChainDeployer: Move module deployment
 //! - ChainProofProvider: Proof building and verification
 //! - ChainSanadOps: Sanad management operations
-
+//!
 use async_trait::async_trait;
 use csv_core::backend::{
-    BalanceInfo, ChainBroadcaster, ChainDeployer, ChainOpError, ChainOpResult, ChainProofProvider,
-    ChainQuery, ChainSanadOps, ChainSigner, ContractStatus, DeploymentStatus, FinalityStatus,
-    SanadOperationResult, TransactionInfo, TransactionStatus,
+    BalanceInfo, ChainBackend, ChainBroadcaster, ChainCapability, ChainDeployer, ChainOpError,
+    ChainOpResult, ChainProofProvider, ChainQuery, ChainSanadOps, ChainSigner, ContractStatus,
+    DeploymentStatus, FinalityStatus, SanadOperationResult, TransactionInfo, TransactionStatus,
 };
 use csv_core::hash::Hash;
 use csv_core::proof::{FinalityProof, InclusionProof as CoreInclusionProof};
 use csv_core::sanad::SanadId;
+use csv_core::seal::{CommitAnchor, SealPoint};
 use csv_core::signature::SignatureScheme;
+use csv_core::SealProtocol;
 use sha3::{Digest, Sha3_256};
+use std::sync::Arc;
 
 use crate::config::AptosNetwork;
 use crate::proofs::CommitmentEventBuilder;
@@ -37,6 +40,8 @@ pub struct AptosBackend {
     domain_separator: [u8; 32],
     /// Commitment event builder
     event_builder: CommitmentEventBuilder,
+    /// Reference to seal protocol for seal creation and publishing
+    seal_protocol: Arc<AptosSealProtocol>,
 }
 
 impl AptosBackend {
@@ -50,22 +55,43 @@ impl AptosBackend {
         let module_address = [0u8; 32];
         let event_builder = CommitmentEventBuilder::new(module_address, "CSV::AnchorEvent");
 
+        // Create a minimal seal protocol for backward compatibility
+        let mock_rpc = Box::new(crate::rpc::MockAptosRpc::new(0));
+        let seal = AptosSealProtocol::from_config(
+            crate::config::AptosConfig {
+                network: network.clone(),
+                ..Default::default()
+            },
+            mock_rpc,
+        ).unwrap_or_else(|_| {
+            // Ultimate fallback
+            AptosSealProtocol::from_config(
+                crate::config::AptosConfig {
+                    network: AptosNetwork::Testnet,
+                    ..Default::default()
+                },
+                Box::new(crate::rpc::MockAptosRpc::new(0)),
+            ).unwrap()
+        });
+
         Self {
             rpc,
             network,
             domain_separator: domain,
             event_builder,
+            seal_protocol: Arc::new(seal),
         }
     }
 
     /// Create from AptosSealProtocol
-    pub fn from_seal_protocol(seal: &AptosSealProtocol) -> ChainOpResult<Self> {
+    pub fn from_seal_protocol(seal: Arc<AptosSealProtocol>) -> ChainOpResult<Self> {
         let (module_addr, event_type) = seal.event_builder_config();
         Ok(Self {
             rpc: seal.rpc().clone_boxed(),
             network: seal.network(),
             domain_separator: seal.domain(),
             event_builder: CommitmentEventBuilder::new(module_addr, event_type),
+            seal_protocol: seal,
         })
     }
 
@@ -806,7 +832,64 @@ impl ChainSanadOps for AptosBackend {
         // Simplified check: account exists means "active"
         let actual_state = if account_exists { "active" } else { "consumed" };
 
-        Ok(actual_state == expected_state)
+ Ok(actual_state == expected_state)
+    }
+}
+
+impl ChainBackend for AptosBackend {
+    fn chain_id(&self) -> &'static str {
+        "aptos"
+    }
+
+    fn chain_name(&self) -> &'static str {
+        "Aptos"
+    }
+
+    fn is_capability_available(&self, _capability: ChainCapability) -> bool {
+        true
+    }
+
+    fn create_seal(&self, value: Option<u64>) -> ChainOpResult<SealPoint> {
+        let aptos_seal = self.seal_protocol.create_seal(value)
+            .map_err(|e| ChainOpError::Unknown(format!("Seal creation failed: {}", e)))?;
+
+        // Convert AptosSealPoint to core SealPoint
+        // AptosSealPoint has account_address (32 bytes) stored in id
+        Ok(SealPoint {
+            id: aptos_seal.account_address.to_vec(),
+            nonce: Some(aptos_seal.nonce),
+        })
+    }
+
+    fn publish_seal(&self, seal: SealPoint) -> ChainOpResult<CommitAnchor> {
+        // Convert core SealPoint to AptosSealPoint
+        if seal.id.len() < 32 {
+            return Err(ChainOpError::InvalidInput(
+                "Seal ID too short for Aptos, expected at least 32 bytes".to_string(),
+            ));
+        }
+
+        let mut account_address = [0u8; 32];
+        account_address.copy_from_slice(&seal.id[..32]);
+
+        let nonce = seal.nonce.unwrap_or(0);
+        let aptos_seal = crate::types::AptosSealPoint::new(account_address, String::from("csv_seal"), nonce);
+
+        // Generate a random commitment for the publish call
+        let mut commitment_bytes = [0u8; 32];
+        commitment_bytes[..8].copy_from_slice(b"csv-seal");
+        let commitment = Hash::new(commitment_bytes);
+
+        // Call the seal protocol's publish method
+        let aptos_anchor = self.seal_protocol.publish(commitment, aptos_seal)
+            .map_err(|e| ChainOpError::Unknown(format!("Seal publishing failed: {}", e)))?;
+
+        // Convert AptosCommitAnchor to core CommitAnchor
+        Ok(CommitAnchor {
+            anchor_id: aptos_anchor.event_handle.to_vec(),
+            block_height: aptos_anchor.version,
+            metadata: aptos_anchor.sequence_number.to_le_bytes().to_vec(),
+        })
     }
 }
 

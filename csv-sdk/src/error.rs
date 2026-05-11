@@ -51,6 +51,15 @@ pub enum CsvError {
     #[error("Sanad already consumed: {0}")]
     SanadAlreadyConsumed(String),
 
+    /// A transfer operation failed.
+    #[error("Transfer failed: {error}")]
+    TransferFailed {
+        /// The transfer identifier.
+        transfer_id: String,
+        /// Human-readable error message.
+        error: String,
+    },
+
     /// The commitment hash is invalid.
     #[error("Invalid commitment: {0}")]
     InvalidCommitment(String),
@@ -139,6 +148,7 @@ impl HasErrorSuggestion for CsvError {
             Self::SanadNotFound(_) => error_codes::CSV_SANAD_NOT_FOUND,
             Self::TransferNotFound(_) => error_codes::CSV_TRANSFER_NOT_FOUND,
             Self::SanadAlreadyConsumed(_) => error_codes::CSV_SANAD_ALREADY_CONSUMED,
+            Self::TransferFailed { .. } => error_codes::CSV_TRANSFER_FAILED,
             Self::InvalidCommitment(_) => error_codes::CSV_INVALID_COMMITMENT,
             Self::ProofVerificationFailed(_) => error_codes::CSV_PROOF_VERIFICATION_FAILED,
             Self::WalletError(_) => error_codes::CSV_WALLET_ERROR,
@@ -208,6 +218,13 @@ impl HasErrorSuggestion for CsvError {
                     "Sanad '{}' has already been consumed. Sanads are single-use seals. \
                      You cannot transfer or use this sanad again.",
                     id
+                )
+            }
+            Self::TransferFailed { transfer_id, error } => {
+                format!(
+                    "Transfer '{}' failed: {}. Check source chain RPC connectivity, \
+                     wallet funds for gas, and that the sanad exists on the source chain.",
+                    transfer_id, error
                 )
             }
             Self::InvalidCommitment(msg) => {

@@ -5,6 +5,7 @@
 use anyhow::Result;
 
 use csv_core::hash::Hash;
+use csv_core::SanadId;
 use csv_sdk::CsvClient;
 
 use crate::config::{Chain, Config};
@@ -14,7 +15,7 @@ use crate::state::{TransferRecord, TransferStatus, UnifiedStateManager};
 use super::to_core_chain;
 
 /// Execute cross-chain transfer using only runtime API
-pub fn cmd_transfer(
+pub async fn cmd_transfer(
     from: Chain,
     to: Chain,
     sanad_id: String,
@@ -43,9 +44,6 @@ pub fn cmd_transfer(
     sanad_bytes.copy_from_slice(&bytes[..32]);
     let sanad_id_hash = Hash::new(sanad_bytes);
 
-    // Generate transfer ID
-    let transfer_id = generate_transfer_id(&sanad_id_hash, &from, &to);
-
     // Check if we have the sanad
     if state.get_sanad(&sanad_id_hash.to_string()).is_none() {
         return Err(anyhow::anyhow!(
@@ -66,23 +64,26 @@ pub fn cmd_transfer(
 
     let dest_addr = dest_owner_str.unwrap();
 
-    output::info(&format!("Initiating transfer {}...", transfer_id));
-    output::info(&format!("Destination address: {}", dest_addr));
-
     // Create client builder with source and destination chains
     let client = CsvClient::builder()
-        .with_chain(from_chain)
-        .with_chain(to_chain)
+        .with_chain(from_chain.clone())
+        .with_chain(to_chain.clone())
         .build()
         .map_err(|e| anyhow::anyhow!("Failed to create CSV client: {}", e))?;
 
-    // Use runtime transfer manager
-    let _transfers = client.transfers();
+    // Execute the real cross-chain transfer via runtime
+    output::info(&format!("Locking Sanad {} on {:?}", sanad_id_hash, from_chain));
+    let sanad = SanadId(sanad_id_hash);
+    let transfer_id = client
+        .transfers()
+        .cross_chain(sanad, to_chain.clone())
+        .to_address(dest_addr.clone())
+        .from_chain(from_chain.clone())
+        .execute()
+        .await
+        .map_err(|e| anyhow::anyhow!("Transfer execution failed: {}", e))?;
 
-    // In a full implementation, this would execute the cross-chain transfer
-    // using the runtime's cross_chain method. For now, we record the intent.
-    output::info("Cross-chain transfer requires chain adapter integration.");
-    output::info("Using runtime API - implementation pending in chain adapters.");
+    output::success(&format!("Transfer {} initiated. Sanad locked on source chain.", transfer_id));
 
     // Clone for use in record after get_address call
     let from_chain_clone = from.clone();
@@ -110,7 +111,7 @@ pub fn cmd_transfer(
     state.add_transfer(transfer_record);
 
     output::success(&format!(
-        "Transfer {} recorded. Status: Pending (runtime integration required)",
+        "Transfer {} recorded in local state.",
         transfer_id
     ));
 

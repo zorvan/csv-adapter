@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use crate::hash::Hash;
 use crate::proof::{FinalityProof, InclusionProof};
 use crate::sanad::SanadId;
-use crate::seal::SealPoint;
+use crate::seal::{CommitAnchor, SealPoint};
 
 /// Result type for chain operations
 pub type ChainOpResult<T> = Result<T, ChainOpError>;
@@ -529,6 +529,19 @@ pub trait ChainBackend:
     /// * `Ok(SealPoint)` - The created seal reference
     /// * `Err` - If seal creation fails or is not supported
     fn create_seal(&self, value: Option<u64>) -> ChainOpResult<SealPoint>;
+
+    /// Publish a commitment under a single-use seal.
+    ///
+    /// This method publishes a commitment hash to the chain using the provided seal.
+    /// The seal is consumed atomically with the commitment publication.
+    ///
+    /// # Arguments
+    /// * `seal` - The seal reference to use for publishing
+    ///
+    /// # Returns
+    /// * `Ok(CommitAnchor)` - The anchor reference containing tx hash and block height
+    /// * `Err` - If publication fails or seal already consumed
+    fn publish_seal(&self, seal: SealPoint) -> ChainOpResult<CommitAnchor>;
 }
 
 /// Chain capabilities that may not be available on all chains
@@ -566,40 +579,6 @@ pub enum ChainCapability {
     Nfts,
     /// Supports cross-chain transfers
     CrossChain,
-}
-
-/// Blanket implementation to allow trait objects
-impl<
-        T: ChainQuery
-            + ChainSigner
-            + ChainBroadcaster
-            + ChainDeployer
-            + ChainProofProvider
-            + ChainSanadOps
-            + Send
-            + Sync,
-    > ChainBackend for T
-{
-    fn chain_id(&self) -> &'static str {
-        "unknown"
-    }
-
-    fn chain_name(&self) -> &'static str {
-        "Unknown Chain"
-    }
-
-    fn is_capability_available(&self, _capability: ChainCapability) -> bool {
-        // By default, assume all capabilities are available
-        // Individual adapters should override this
-        true
-    }
-
-    fn create_seal(&self, _value: Option<u64>) -> ChainOpResult<SealPoint> {
-        // Default implementation returns error - adapters must override
-        Err(ChainOpError::CapabilityUnavailable(
-            "Seal creation not implemented for this chain".into(),
-        ))
-    }
 }
 
 #[cfg(test)]

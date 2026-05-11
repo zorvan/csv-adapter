@@ -194,7 +194,6 @@ pub struct AptosBlockInfo {
 }
 
 /// Mock Aptos RPC for testing
-#[cfg(test)]
 pub struct MockAptosRpc {
     pub latest_version: u64,
     pub chain_id: u64,
@@ -208,7 +207,6 @@ pub struct MockAptosRpc {
     pub next_tx_events: std::sync::Mutex<Vec<AptosEvent>>,
 }
 
-#[cfg(test)]
 impl MockAptosRpc {
     pub fn new(latest_version: u64) -> Self {
         Self {
@@ -267,7 +265,6 @@ impl MockAptosRpc {
     }
 }
 
-#[cfg(test)]
 impl AptosRpc for MockAptosRpc {
     fn get_ledger_info(
         &self,

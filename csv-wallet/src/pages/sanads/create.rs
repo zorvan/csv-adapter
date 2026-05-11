@@ -75,6 +75,7 @@ pub fn CreateSanadForm() -> Element {
                                     nullifier: None,
                                     status: SanadStatus::Active,
                                     created_at: js_sys::Date::now() as u64 / 1000,
+                                    anchor_tx_hash: None,
                                 };
                                 wallet_ctx.add_sanad(sanad);
                                 result.set(None);

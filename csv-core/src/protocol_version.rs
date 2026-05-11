@@ -228,6 +228,11 @@ pub enum TransferStatus {
         /// Progress percentage (0-100)
         progress_percent: u8,
     },
+    /// Inclusion proof ready, waiting for P2P delivery
+    ProofReady {
+        /// Block height where the lock transaction was confirmed
+        proof_block: u64,
+    },
     /// Proof submitted to destination chain
     SubmittingProof,
     /// Proof verification in progress on destination chain
@@ -275,6 +280,7 @@ impl TransferStatus {
                 }
             }
             Self::GeneratingProof { progress_percent } => *progress_percent,
+            Self::ProofReady { .. } => 40,
             Self::SubmittingProof => 50,
             Self::Verifying => 75,
             Self::Minting => 90,
@@ -305,6 +311,7 @@ impl std::fmt::Display for TransferStatus {
             Self::Initiated => write!(f, "initiated"),
             Self::Locking { .. } => write!(f, "locking"),
             Self::GeneratingProof { .. } => write!(f, "generating_proof"),
+            Self::ProofReady { .. } => write!(f, "proof_ready"),
             Self::SubmittingProof => write!(f, "submitting_proof"),
             Self::Verifying => write!(f, "verifying"),
             Self::Minting => write!(f, "minting"),
@@ -327,6 +334,7 @@ impl std::str::FromStr for TransferStatus {
             "generating_proof" => Ok(Self::GeneratingProof {
                 progress_percent: 0,
             }),
+            "proof_ready" => Ok(Self::ProofReady { proof_block: 0 }),
             "submitting_proof" => Ok(Self::SubmittingProof),
             "verifying" => Ok(Self::Verifying),
             "minting" => Ok(Self::Minting),

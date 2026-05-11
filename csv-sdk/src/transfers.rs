@@ -15,10 +15,11 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use csv_core::{ChainId, SanadId};
+use csv_core::{ChainId, Hash, SanadId};
 
 use crate::client::ClientRef;
 use crate::error::CsvError;
+use crate::runtime::ChainRuntime;
 
 /// Filter options for listing transfers.
 #[derive(Debug, Clone, Default)]
@@ -79,14 +80,17 @@ pub enum Priority {
 pub struct TransferManager {
     #[allow(dead_code)]
     client: Arc<ClientRef>,
+    /// Chain runtime for executing real chain operations
+    runtime: Arc<ChainRuntime>,
     /// Local transfer records wrapped in Arc for shared ownership
     transfers: Arc<std::sync::Mutex<HashMap<String, TransferRecord>>>,
 }
 
 impl TransferManager {
-    pub(crate) fn new(client: Arc<ClientRef>) -> Self {
+    pub(crate) fn new(client: Arc<ClientRef>, runtime: Arc<ChainRuntime>) -> Self {
         Self {
             client,
+            runtime,
             transfers: Arc::new(std::sync::Mutex::new(HashMap::new())),
         }
     }
@@ -98,7 +102,12 @@ impl TransferManager {
     /// * `sanad_id` — The Sanad to transfer.
     /// * `to_chain` — The destination chain.
     pub fn cross_chain(&self, sanad_id: SanadId, to_chain: ChainId) -> TransferBuilder {
-        TransferBuilder::new(self.transfers.clone(), sanad_id, to_chain)
+        TransferBuilder::new(
+            self.transfers.clone(),
+            self.runtime.clone(),
+            sanad_id,
+            to_chain,
+        )
     }
 
     /// Get the current status of a transfer.
@@ -158,6 +167,11 @@ pub struct TransferRecord {
     pub to_address: String,
     /// Current status.
     pub status: crate::TransferStatus,
+    /// Lock transaction hash on source chain (populated after lock)
+    pub lock_tx_hash: Option<String>,
+    /// Inclusion proof of the lock transaction (populated after proof generation)
+    #[allow(dead_code)]
+    pub inclusion_proof: Option<csv_core::InclusionProof>,
 }
 
 /// Fluent builder for a cross-chain transfer.
@@ -165,7 +179,9 @@ pub struct TransferRecord {
 /// Created via [`TransferManager::cross_chain()`].
 pub struct TransferBuilder {
     transfers: std::sync::Arc<std::sync::Mutex<HashMap<String, TransferRecord>>>,
+    runtime: Arc<ChainRuntime>,
     sanad_id: SanadId,
+    from_chain: ChainId,
     to_chain: ChainId,
     to_address: Option<String>,
     priority: Priority,
@@ -175,17 +191,26 @@ pub struct TransferBuilder {
 impl TransferBuilder {
     pub(crate) fn new(
         transfers: std::sync::Arc<std::sync::Mutex<HashMap<String, TransferRecord>>>,
+        runtime: Arc<ChainRuntime>,
         sanad_id: SanadId,
         to_chain: ChainId,
     ) -> Self {
         Self {
             transfers,
+            runtime,
             sanad_id,
+            from_chain: ChainId::new("bitcoin"),
             to_chain,
             to_address: None,
             priority: Priority::default(),
             metadata: HashMap::new(),
         }
+    }
+
+    /// Set the source chain for this transfer.
+    pub fn from_chain(mut self, chain: ChainId) -> Self {
+        self.from_chain = chain;
+        self
     }
 
     /// Set the destination address for the transfer.
@@ -213,8 +238,9 @@ impl TransferBuilder {
     ///
     /// This initiates the lock-and-prove protocol:
     /// 1. Locks the Sanad on the source chain (consumes the seal)
-    /// 2. Generates the inclusion proof
-    /// 3. Returns a transfer ID for tracking progress
+    /// 2. Polls for transaction finality
+    /// 3. Builds an inclusion proof of the lock transaction
+    /// 4. Returns a transfer ID for tracking progress
     ///
     /// # Returns
     ///
@@ -227,7 +253,7 @@ impl TransferBuilder {
     /// - [`CsvError::SanadAlreadyConsumed`] if the seal was already used
     /// - [`CsvError::ChainNotSupported`] if the destination chain is not enabled
     /// - [`CsvError::InsufficientFunds`] if the wallet lacks funds
-    pub fn execute(self) -> Result<String, CsvError> {
+    pub async fn execute(self) -> Result<String, CsvError> {
         let to_address = self.to_address.as_ref().ok_or_else(|| {
             CsvError::BuilderError(
                 "Destination address is required. Use .to_address() to set it.".to_string(),
@@ -237,17 +263,77 @@ impl TransferBuilder {
         // Generate a unique transfer ID
         let transfer_id = format!("xfer-{}", hex::encode(generate_salt()));
 
-        // Determine source chain (default to Bitcoin for now)
-        let from_chain = ChainId::new("bitcoin");
+        // Step 1: Lock the sanad on the source chain
+        let lock_result = self
+            .runtime
+            .lock_sanad(
+                self.from_chain.clone(),
+                &self.sanad_id,
+                self.to_chain.to_string().as_str(),
+                &self.from_chain.to_string(),
+            )
+            .await?;
 
-        // Create and store the transfer record
+        let lock_tx_hash = lock_result.transaction_hash.clone();
+        let lock_block_height = lock_result.block_height;
+
+        // Step 2: Poll for transaction finality
+        let tx_status = self
+            .runtime
+            .confirm_transaction(
+                self.from_chain.clone(),
+                &lock_tx_hash,
+                1, // required confirmations
+                300, // 5 minute timeout
+            )
+            .await?;
+
+        let finality_block = match tx_status {
+            csv_core::backend::TransactionStatus::Confirmed { block_height, .. } => block_height,
+            csv_core::backend::TransactionStatus::Failed { reason } => {
+                return Err(CsvError::TransferFailed {
+                    transfer_id: transfer_id.clone(),
+                    error: format!("Lock transaction failed: {}", reason),
+                });
+            }
+            _ => lock_block_height,
+        };
+
+        // Step 3: Build inclusion proof of the lock transaction
+        let commitment_bytes: [u8; 32] = {
+            use sha2::{Digest, Sha256};
+            let mut hasher = Sha256::new();
+            hasher.update(lock_tx_hash.as_bytes());
+            hasher.finalize().into()
+        };
+        let commitment = Hash::new(commitment_bytes);
+        let inclusion_proof = self
+            .runtime
+            .build_inclusion_proof(self.from_chain.clone(), &commitment, finality_block)
+            .await?;
+
+        // Step 4: Mint sanad on destination chain
+        let _mint_result = self
+            .runtime
+            .mint_sanad(
+                self.to_chain.clone(),
+                self.from_chain.to_string().as_str(),
+                &self.sanad_id,
+                &inclusion_proof,
+                &to_address,
+            )
+            .await?;
+
+        // Step 5: Update transfer record with all collected data
         let record = TransferRecord {
             transfer_id: transfer_id.clone(),
             sanad_id: self.sanad_id,
-            from_chain,
+            from_chain: self.from_chain,
             to_chain: self.to_chain,
             to_address: to_address.clone(),
-            status: crate::TransferStatus::Initiated,
+            status: crate::TransferStatus::Completed,
+            lock_tx_hash: Some(lock_tx_hash),
+            inclusion_proof: Some(inclusion_proof),
         };
 
         // Record the transfer

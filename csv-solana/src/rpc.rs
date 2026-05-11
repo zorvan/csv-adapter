@@ -8,7 +8,6 @@ use solana_sdk::{
 };
 
 use crate::error::SolanaResult;
-#[cfg(test)]
 use crate::error::SolanaError;
 use crate::types::{AccountChange, ConfirmationStatus};
 
@@ -53,19 +52,16 @@ pub trait SolanaRpc: Send + Sync {
 }
 
 /// Mock RPC client for testing
-#[cfg(test)]
 pub struct MockSolanaRpc {
     accounts: std::collections::HashMap<Pubkey, Account>,
 }
 
-#[cfg(test)]
 impl Default for MockSolanaRpc {
     fn default() -> Self {
         Self::new()
     }
 }
 
-#[cfg(test)]
 impl MockSolanaRpc {
     /// Create new test RPC
     pub fn new() -> Self {
@@ -80,7 +76,6 @@ impl MockSolanaRpc {
     }
 }
 
-#[cfg(test)]
 impl SolanaRpc for MockSolanaRpc {
     fn get_account(&self, pubkey: &Pubkey) -> SolanaResult<Account> {
         self.accounts

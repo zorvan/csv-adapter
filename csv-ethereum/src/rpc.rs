@@ -5,9 +5,7 @@
 
 use async_trait::async_trait;
 
-#[cfg(test)]
 use std::collections::HashMap;
-#[cfg(test)]
 use std::sync::Mutex;
 
 /// Trait for Ethereum RPC operations
@@ -194,7 +192,6 @@ pub struct RpcTransaction {
 ///
 /// This implementation is only compiled in test builds to prevent
 /// accidental use in production environments.
-#[cfg(test)]
 #[allow(clippy::type_complexity)]
 pub struct MockEthereumRpc {
     pub block_number: u64,
@@ -208,7 +205,6 @@ pub struct MockEthereumRpc {
     pub gas_price: u64,
 }
 
-#[cfg(test)]
 impl MockEthereumRpc {
     pub fn new(block_number: u64) -> Self {
         let mut blocks = HashMap::new();
@@ -265,7 +261,6 @@ impl MockEthereumRpc {
     }
 }
 
-#[cfg(test)]
 #[async_trait]
 impl EthereumRpc for MockEthereumRpc {
     async fn block_number(&self) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {

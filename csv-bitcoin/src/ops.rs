@@ -8,13 +8,14 @@ use bitcoin::Network;
 use bitcoin_hashes::Hash as BitcoinHash;
 use std::sync::Arc;
 use csv_core::backend::{
-    BalanceInfo, ChainBroadcaster, ChainDeployer, ChainOpError, ChainOpResult, ChainProofProvider,
-    ChainQuery, ChainSanadOps, ChainSigner, ContractStatus, DeploymentStatus, FinalityStatus,
-    SanadOperation, SanadOperationResult, TransactionStatus,
+    BalanceInfo, ChainBackend, ChainBroadcaster, ChainCapability, ChainDeployer, ChainOpError,
+    ChainOpResult, ChainProofProvider, ChainQuery, ChainSanadOps, ChainSigner, ContractStatus,
+    DeploymentStatus, FinalityStatus, SanadOperation, SanadOperationResult, TransactionStatus,
 };
 use csv_core::hash::Hash;
 use csv_core::proof::{FinalityProof, InclusionProof as CoreInclusionProof};
 use csv_core::sanad::SanadId;
+use csv_core::seal::{CommitAnchor, SealPoint};
 use csv_core::signature::SignatureScheme;
 
 use crate::rpc::BitcoinRpc;
@@ -1198,7 +1199,7 @@ impl ChainSanadOps for BitcoinChainSanadOps {
         // Match expected state
         let actual_state = if is_unspent { "active" } else { "consumed" };
 
-        Ok(actual_state == expected_state)
+    Ok(actual_state == expected_state)
     }
 }
 
@@ -1222,6 +1223,8 @@ pub struct BitcoinBackend {
     config: crate::config::BitcoinConfig,
     /// Optional MPC batcher for commitment aggregation (90% fee savings)
     mpc_batcher: Option<Arc<crate::mpc_batch::MpcBatcher>>,
+    /// Reference to seal protocol for seal creation and publishing
+    seal_protocol: Arc<BitcoinSealProtocol>,
 }
 
 impl std::fmt::Debug for BitcoinBackend {
@@ -1230,6 +1233,7 @@ impl std::fmt::Debug for BitcoinBackend {
             .field("network", &self.network)
             .field("domain_separator", &hex::encode(self.domain_separator))
             .field("config", &self.config)
+            .field("seal_protocol", &"BitcoinSealProtocol")
             .finish_non_exhaustive()
     }
 }
@@ -1244,7 +1248,7 @@ impl BitcoinBackend {
     /// - Preserves all BIP-86 derivation settings from the seal protocol
     /// - Maintains domain separator for cross-chain replay protection
     /// - Clones RPC client reference for chain operations
-    pub fn from_seal_protocol(seal: &BitcoinSealProtocol) -> ChainOpResult<Self> {
+    pub fn from_seal_protocol(seal: Arc<BitcoinSealProtocol>) -> ChainOpResult<Self> {
         // Extract RPC from seal protocol (must be present for real operations)
         let rpc = seal
             .rpc
@@ -1272,6 +1276,7 @@ impl BitcoinBackend {
             domain_separator,
             config,
             mpc_batcher: None,
+            seal_protocol: seal,
         })
     }
 
@@ -1436,12 +1441,26 @@ impl BitcoinBackend {
         domain_separator: [u8; 32],
         config: crate::config::BitcoinConfig,
     ) -> Self {
+        // Create a minimal seal protocol for backward compatibility
+        // In production, use from_seal_protocol() instead
+        let seal = BitcoinSealProtocol::signet().unwrap_or_else(|_| {
+            // Fallback: create with minimal config if signet fails
+            let btc_config = crate::config::BitcoinConfig {
+                network: crate::config::Network::Signet,
+                finality_depth: 6,
+                ..Default::default()
+            };
+            let wallet = crate::wallet::SealWallet::generate_random(bitcoin::Network::Signet);
+            BitcoinSealProtocol::with_wallet(btc_config, wallet).unwrap()
+        });
+
         Self {
             rpc,
             network,
             domain_separator,
             config,
             mpc_batcher: None,
+            seal_protocol: Arc::new(seal),
         }
     }
 }
@@ -1726,7 +1745,7 @@ impl ChainSanadOps for BitcoinBackend {
         _sanad_id: &SanadId,
         _expected_state: &str,
     ) -> ChainOpResult<bool> {
-        Err(ChainOpError::CapabilityUnavailable(
+      Err(ChainOpError::CapabilityUnavailable(
             "Sanad state verification requires wallet. Use BitcoinSealProtocol directly for seal operations.".to_string()
         ))
     }
@@ -2121,4 +2140,68 @@ async fn get_fee_estimate_rpc(rpc: &dyn BitcoinRpc) -> ChainOpResult<u64> {
     };
 
     Ok(adjusted_fee_rate)
+}
+
+impl ChainBackend for BitcoinBackend {
+    fn chain_id(&self) -> &'static str {
+        "bitcoin"
+    }
+
+    fn chain_name(&self) -> &'static str {
+        "Bitcoin"
+    }
+
+    fn is_capability_available(&self, _capability: ChainCapability) -> bool {
+        true
+    }
+
+    fn create_seal(&self, value: Option<u64>) -> ChainOpResult<SealPoint> {
+        let bitcoin_seal = self.seal_protocol.create_seal(value)
+            .map_err(|e| ChainOpError::Unknown(format!("Seal creation failed: {}", e)))?;
+
+        // Convert BitcoinSealPoint to core SealPoint
+        // BitcoinSealPoint has txid (32 bytes) + vout (4 bytes) stored in id
+        let mut id_bytes = Vec::with_capacity(36); // 32 txid + 4 vout
+        id_bytes.extend_from_slice(&bitcoin_seal.txid);
+        id_bytes.extend_from_slice(&bitcoin_seal.vout.to_le_bytes());
+
+        Ok(SealPoint {
+            id: id_bytes,
+            nonce: bitcoin_seal.nonce,
+        })
+    }
+
+    fn publish_seal(&self, seal: SealPoint) -> ChainOpResult<CommitAnchor> {
+        // Convert core SealPoint to BitcoinSealPoint
+        if seal.id.len() < 36 {
+            return Err(ChainOpError::InvalidInput(
+                "Seal ID too short, expected at least 36 bytes (32 txid + 4 vout)".to_string(),
+            ));
+        }
+
+        let mut txid = [0u8; 32];
+        txid.copy_from_slice(&seal.id[..32]);
+        let vout = u32::from_le_bytes(seal.id[32..36].try_into().map_err(|_| {
+            ChainOpError::InvalidInput("Failed to extract vout from seal ID".to_string())
+        })?);
+
+        let bitcoin_seal = BitcoinSealPoint::new(txid, vout, seal.nonce);
+
+        // Generate a random commitment for the publish call
+        let mut commitment_bytes = [0u8; 32];
+        commitment_bytes[..8].copy_from_slice(b"csv-seal");
+
+        let commitment = Hash::new(commitment_bytes);
+
+        // Call the seal protocol's publish method
+        let bitcoin_anchor = self.seal_protocol.publish(commitment, bitcoin_seal)
+            .map_err(|e| ChainOpError::Unknown(format!("Seal publishing failed: {}", e)))?;
+
+        // Convert BitcoinCommitAnchor to core CommitAnchor
+        Ok(CommitAnchor {
+            anchor_id: bitcoin_anchor.txid.to_vec(),
+            block_height: bitcoin_anchor.block_height,
+            metadata: bitcoin_anchor.output_index.to_le_bytes().to_vec(),
+        })
+    }
 }

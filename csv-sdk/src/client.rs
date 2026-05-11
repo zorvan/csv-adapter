@@ -242,7 +242,10 @@ impl CsvClient {
 
     /// Get a [`TransferManager`] for cross-chain transfer operations.
     pub fn transfers(&self) -> TransferManager {
-        TransferManager::new(Arc::new(self.clone_ref()))
+        TransferManager::new(
+            Arc::new(self.clone_ref()),
+            Arc::new(self.chain_runtime.clone()),
+        )
     }
 
     /// Get a [`ProofManager`] for generating and verifying proofs.
