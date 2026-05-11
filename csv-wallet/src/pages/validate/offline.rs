@@ -20,18 +20,17 @@ use csv_core::proof::ProofBundle;
 use csv_core::signature::SignatureScheme;
 use csv_core::verifier::verify_proof;
 use dioxus::prelude::*;
-use web_sys::FileReader;
+use dioxus::html::FileData;
 use wasm_bindgen::JsCast;
-use wasm_bindgen::closure::Closure;
 
 /// Handle file upload with validation and error handling
-fn handle_file_upload(
-    file_data: &dioxus::prelude::FileData,
-    proof_input: Signal<String>,
+async fn handle_file_upload(
+    file_data: &FileData,
+    mut proof_input: Signal<String>,
     mut file_error: Signal<Option<String>>,
 ) {
     let file_name = file_data.name();
-    let file_size = file_data.size();
+    let file_size = file_data.size() as f64;
     
     // Validate file size (10MB limit)
     const MAX_FILE_SIZE: f64 = 10.0 * 1024.0 * 1024.0; // 10MB in bytes
@@ -68,59 +67,32 @@ fn handle_file_upload(
         &format!("{} ({})", file_name, format_file_size(file_size)).into()
     );
     
-    // Read file content using file_data's inner web_sys::File
-    let file_reader = FileReader::new().unwrap();
-    let file_blob: &web_sys::Blob = file_data.as_ref();
-    let mut proof_input_clone = proof_input.clone();
-    let mut file_error_clone = file_error.clone();
-    
-    let onload = Closure::wrap(Box::new(move |event: web_sys::Event| {
-        let file_reader = event.target().unwrap().dyn_into::<web_sys::FileReader>().unwrap();
-        let content = file_reader.result().unwrap();
-        
-        match content.as_string() {
-            Some(text) if !text.is_empty() => {
-                // Validate that it looks like a JSON proof bundle
-                if text.trim().starts_with('{') && text.trim().ends_with('}') {
-                    let text_len = text.len();
-                    proof_input_clone.set(text);
-                    web_sys::console::log_1(
-                        &format!("✅ Successfully loaded {} bytes from {}", text_len, file_name).into()
-                    );
-                } else {
-                    file_error_clone.set(Some(
-                        "File does not appear to contain valid JSON proof data".to_string()
-                    ));
-                    web_sys::console::log_1(&"❌ Invalid JSON format in file".into());
-                }
-            }
-            Some(_) => {
-                file_error_clone.set(Some("File content is empty".to_string()));
-                web_sys::console::log_1(&"❌ File content is empty".into());
-            }
-            None => {
-                file_error_clone.set(Some("Failed to read file content".to_string()));
-                web_sys::console::log_1(&"❌ Failed to read file content".into());
+    // Read file content as raw text using Dioxus FileData API
+    match file_data.read_string().await {
+        Ok(text) if !text.is_empty() => {
+            // Validate that it looks like a JSON proof bundle
+            if text.trim().starts_with('{') && text.trim().ends_with('}') {
+                let text_len = text.len();
+                proof_input.set(text);
+                web_sys::console::log_1(
+                    &format!("Successfully loaded {} bytes from {}", text_len, file_name).into()
+                );
+            } else {
+                file_error.set(Some(
+                    "File does not appear to contain valid JSON proof data".to_string()
+                ));
+                web_sys::console::log_1(&"Invalid JSON format in file".into());
             }
         }
-    }) as Box<dyn FnMut(_)>);
-    
-    let onerror = Closure::wrap(Box::new(move |_: web_sys::Event| {
-        file_error_clone.set(Some("Failed to read file".to_string()));
-        web_sys::console::log_1(&"❌ Error reading file".into());
-    }) as Box<dyn FnMut(_)>);
-    
-    file_reader.set_onload(Some(onload.as_ref().unchecked_ref()));
-    file_reader.set_onerror(Some(onerror.as_ref().unchecked_ref()));
-    
-    if let Err(e) = file_reader.read_as_data_url(file_blob) {
-        file_error.set(Some(format!("Failed to read file: {:?}", e)));
-        web_sys::console::log_1(&"❌ Failed to start file reading".into());
+        Ok(_) => {
+            file_error.set(Some("File content is empty".to_string()));
+            web_sys::console::log_1(&"File content is empty".into());
+        }
+        Err(e) => {
+            file_error.set(Some(format!("Failed to read file content: {}", e)));
+            web_sys::console::log_1(&"Failed to read file content".into());
+        }
     }
-    
-    // Prevent memory leaks
-    onload.forget();
-    onerror.forget();
 }
 
 /// Format file size in human readable format
@@ -193,8 +165,16 @@ pub fn OfflineVerify() -> Element {
                         is_dragging.set(false);
                         
                         let files = e.data_transfer().files();
-                        if let Some(file) = files.get(0) {
-                            handle_file_upload(file, proof_input.clone(), file_error.clone());
+                        if let Some(file_data) = files.get(0) {
+                            let file_data = file_data.clone();
+                            let proof_input_clone = proof_input.clone();
+                            let file_error_clone = file_error.clone();
+                            use_future(move || {
+                                let file_data_clone = file_data.clone();
+                                async move {
+                                    handle_file_upload(&file_data_clone, proof_input_clone, file_error_clone).await;
+                                }
+                            });
                         }
                     },
                     
@@ -205,14 +185,22 @@ pub fn OfflineVerify() -> Element {
                             p { class: "text-sm text-gray-400", "or click to browse" }
                         }
                         
-                        input {
+                      input {
                             r#type: "file",
                             accept: ".json,.proof,.csv",
                             class: "hidden",
                             id: "file-input",
-                            onchange: move |e| {
-                                if let Some(file) = e.files().get(0) {
-                                    handle_file_upload(file, proof_input.clone(), file_error.clone());
+                            onchange: move |e: dioxus::html::events::FormEvent| {
+                      if let Some(file_data) = e.files().get(0) {
+                                    let file_data = file_data.clone();
+                                    let proof_input_clone = proof_input.clone();
+                                    let file_error_clone = file_error.clone();
+                                    use_future(move || {
+                                        let file_data_clone = file_data.clone();
+                                        async move {
+                                            handle_file_upload(&file_data_clone, proof_input_clone, file_error_clone).await;
+                                        }
+                                    });
                                 }
                             }
                         }
@@ -364,7 +352,13 @@ fn perform_offline_verification(input: &str) -> VerificationResult {
         name: "Structure Validation".to_string(),
         passed: has_required_fields,
         details: if has_required_fields {
-            "All required fields present with valid data".to_string()
+            format!(
+                "All required fields present: {} signatures, seal {} bytes, anchor {} bytes, inclusion proof {} bytes",
+                bundle.signatures.len(),
+                bundle.seal_ref.id.len(),
+                bundle.anchor_ref.anchor_id.len(),
+                bundle.inclusion_proof.proof_bytes.len()
+            )
         } else {
             "Missing required fields (seal_ref, anchor_ref, or inclusion_proof)".to_string()
         },
@@ -399,12 +393,13 @@ fn perform_offline_verification(input: &str) -> VerificationResult {
         passed: inclusion_valid,
         details: if inclusion_valid {
             format!(
-                "Inclusion proof valid ({} bytes, block hash: {})",
+                "Inclusion proof valid ({} bytes, position: {}, block hash: {})",
                 bundle.inclusion_proof.proof_bytes.len(),
-                hex::encode(&bundle.inclusion_proof.block_hash.as_bytes()[..8])
+                bundle.inclusion_proof.position,
+                hex::encode(&bundle.inclusion_proof.block_hash.as_bytes()[..8.min(bundle.inclusion_proof.block_hash.as_bytes().len())])
             )
         } else {
-            "Inclusion proof missing or invalid".to_string()
+            "Inclusion proof missing or invalid (empty proof or zero block hash)".to_string()
         },
     });
 
@@ -416,43 +411,111 @@ fn perform_offline_verification(input: &str) -> VerificationResult {
         passed: finality_valid,
         details: if finality_valid {
             format!(
-                "Finality confirmed with {} confirmations",
-                bundle.finality_proof.confirmations
+                "Finality confirmed: {} confirmations, deterministic: {}, finality data: {} bytes",
+                bundle.finality_proof.confirmations,
+                bundle.finality_proof.is_deterministic,
+                bundle.finality_proof.finality_data.len()
             )
         } else {
             format!(
-                "Insufficient confirmations: {} (need at least 6)",
-                bundle.finality_proof.confirmations
+                "Insufficient confirmations: {} (need at least 6), deterministic: {}",
+                bundle.finality_proof.confirmations,
+                bundle.finality_proof.is_deterministic
             )
         },
     });
 
-    // Step 6: Seal validity check
+   // Step 6: Seal validity check
     let seal_valid = !bundle.seal_ref.id.is_empty();
     steps.push(VerificationStep {
         name: "Seal Registry Check".to_string(),
         passed: seal_valid,
         details: if seal_valid {
+            let nonce_info = bundle.seal_ref.nonce.map(|n| format!(", nonce: {n}")).unwrap_or_default();
             format!(
-                "Seal valid: {} ({} bytes)",
+                "Seal valid: {} ({} bytes){}",
                 hex::encode(&bundle.seal_ref.id[..8.min(bundle.seal_ref.id.len())]),
-                bundle.seal_ref.id.len()
+                bundle.seal_ref.id.len(),
+                nonce_info
             )
         } else {
             "Seal reference empty or invalid".to_string()
         },
     });
 
+    // Step 7: Anchor reference validation
+    let anchor_valid = !bundle.anchor_ref.anchor_id.is_empty();
+    steps.push(VerificationStep {
+        name: "Anchor Reference".to_string(),
+        passed: anchor_valid,
+        details: if anchor_valid {
+            format!(
+                "Anchor valid: {} ({} bytes), block height: {}, metadata: {} bytes",
+                hex::encode(&bundle.anchor_ref.anchor_id[..8.min(bundle.anchor_ref.anchor_id.len())]),
+                bundle.anchor_ref.anchor_id.len(),
+                bundle.anchor_ref.block_height,
+                bundle.anchor_ref.metadata.len()
+            )
+        } else {
+            "Anchor reference empty or invalid".to_string()
+        },
+    });
+
     let all_passed = steps.iter().all(|s| s.passed);
+
+    let failed_steps: Vec<&str> = steps.iter().filter(|s| !s.passed).map(|s| s.name.as_str()).collect();
+    let summary = if all_passed {
+        let anchor_id_hex = hex::encode(&bundle.anchor_ref.anchor_id[..8.min(bundle.anchor_ref.anchor_id.len())]);
+        let block_hash_hex = hex::encode(&bundle.inclusion_proof.block_hash.as_bytes()[..8.min(bundle.inclusion_proof.block_hash.as_bytes().len())]);
+        let seal_id_hex = hex::encode(&bundle.seal_ref.id[..8.min(bundle.seal_ref.id.len())]);
+        let root_commitment_hex = hex::encode(bundle.transition_dag.root_commitment.as_bytes());
+        let dag_nodes = bundle.transition_dag.nodes.len();
+        let metadata_hex = if !bundle.anchor_ref.metadata.is_empty() {
+            format!(", metadata: {} bytes", bundle.anchor_ref.metadata.len())
+        } else {
+            String::new()
+        };
+
+        let nonce_str = bundle.seal_ref.nonce.map(|n| format!(", nonce: {n}")).unwrap_or_default();
+        format!(
+            "All {} verification steps passed. This proof bundle is cryptographically valid and self-contained.\n\n\
+             Chain Origin:\n\
+             · Anchor ID: {}… ({} bytes{})\n\
+             · Block Height: {}\n\
+             · Block Hash: {}… ({} bytes)\n\
+             · Finality: {} confirmations, {} deterministic\n\n\
+             Transition DAG:\n\
+             · Root Commitment: {}…\n\
+             · Nodes: {}\n\
+             · Signatures: {}\n\n\
+             Seal: {}… ({} bytes){}",
+            steps.len(),
+            anchor_id_hex,
+            bundle.anchor_ref.anchor_id.len(),
+            metadata_hex,
+            bundle.anchor_ref.block_height,
+            block_hash_hex,
+            bundle.inclusion_proof.block_hash.as_bytes().len(),
+            bundle.finality_proof.confirmations,
+            if bundle.finality_proof.is_deterministic { "is" } else { "not" },
+            root_commitment_hex,
+            dag_nodes,
+            bundle.signatures.len(),
+            seal_id_hex,
+            bundle.seal_ref.id.len(),
+            nonce_str
+        )
+    } else {
+        let failed = failed_steps.join(", ");
+        format!(
+            "Verification failed. The following checks did not pass: {failed}. The proof bundle may be invalid, corrupted, or from an unsupported chain."
+        )
+    };
 
     VerificationResult {
         success: all_passed,
         steps,
-        summary: if all_passed {
-            "✓ All verification steps passed. This proof is cryptographically valid.".to_string()
-        } else {
-            "✗ Verification failed. Some cryptographic checks did not pass.".to_string()
-        },
+        summary,
     }
 }
 

@@ -11,6 +11,9 @@ use std::sync::{Arc, OnceLock};
 #[cfg(target_arch = "wasm32")]
 use csv_store::{EncryptedStorageManager, seal_nullifier_storage};
 
+#[cfg(not(target_arch = "wasm32"))]
+use crate::core::native_keystore::{NativeKeystore, NativeKeystoreError};
+
 /// Shared seal encryption key, set during wallet unlock.
 static SEAL_ENCRYPTION_KEY: OnceLock<[u8; 32]> = OnceLock::new();
 
@@ -42,6 +45,8 @@ pub struct WalletContext {
     bitcoin_batcher: Arc<std::sync::Mutex<Option<csv_bitcoin::mpc_batch::MpcBatcher>>>,
     #[cfg(target_arch = "wasm32")]
     encrypted_seal_store: std::sync::Arc<std::sync::Mutex<Option<EncryptedStorageManager>>>,
+    #[cfg(not(target_arch = "wasm32"))]
+    native_keystore: std::sync::Arc<std::sync::Mutex<Option<NativeKeystore>>>,
 }
 
 impl PartialEq for WalletContext {
@@ -86,6 +91,8 @@ impl WalletContext {
             bitcoin_batcher: Arc::new(std::sync::Mutex::new(None)),
             #[cfg(target_arch = "wasm32")]
             encrypted_seal_store: std::sync::Arc::new(std::sync::Mutex::new(None)),
+            #[cfg(not(target_arch = "wasm32"))]
+            native_keystore: std::sync::Arc::new(std::sync::Mutex::new(None)),
         };
         ctx.load_persisted();
         #[cfg(target_arch = "wasm32")]
@@ -129,6 +136,21 @@ impl WalletContext {
         }
 
         Ok(count)
+    }
+
+    /// Initialize the native keystore for desktop builds.
+    /// This should be called during wallet setup with the user's passphrase.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn init_native_keystore(&self, _passphrase: &str) -> Result<(), NativeKeystoreError> {
+        let keystore = NativeKeystore::new()?;
+        *self.native_keystore.lock().unwrap() = Some(keystore);
+        Ok(())
+    }
+
+    /// Get a reference to the native keystore for desktop builds.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn get_native_keystore(&self) -> Result<std::sync::MutexGuard<'_, Option<NativeKeystore>>, String> {
+        self.native_keystore.lock().map_err(|e| format!("Failed to lock keystore: {}", e))
     }
 
     /// Check if wallet data has been loaded from storage.
@@ -501,9 +523,11 @@ impl WalletContext {
 
         #[cfg(not(target_arch = "wasm32"))]
         {
-            // For non-WASM builds, store in memory (production would use file system)
-            let _ = (chain_name, secret_key, passphrase_obj);
-            // TODO: Implement filesystem keystore for desktop builds
+            let mut ks_guard = self.native_keystore.lock().map_err(|e| format!("Failed to lock keystore: {}", e))?;
+            let keystore = ks_guard.as_mut()
+                .ok_or("Native keystore not initialized. Call init_native_keystore() first.")?;
+            keystore.store_key(&keystore_id, &chain_name, Some(name), &secret_key, &passphrase_obj)
+                .map_err(|e| e.to_string())?;
         }
 
         // Create account with keystore reference
@@ -519,6 +543,26 @@ impl WalletContext {
         self.add_account(account);
 
         Ok(())
+    }
+
+    /// Retrieve a stored key from the native keystore.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn retrieve_key_from_keystore(&self, key_id: &str, passphrase: &str) -> Result<String, String> {
+        let mut ks_guard = self.native_keystore.lock().map_err(|e| format!("Failed to lock keystore: {}", e))?;
+        let keystore = ks_guard.as_mut()
+            .ok_or("Native keystore not initialized. Call init_native_keystore() first.")?;
+        let secret_key = keystore.retrieve_key(key_id, &csv_keys::memory::Passphrase::new(passphrase))
+            .map_err(|e| e.to_string())?;
+        Ok(hex::encode(secret_key.as_bytes()))
+    }
+
+    /// List all stored key IDs in the native keystore.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn list_stored_keys(&self) -> Result<Vec<String>, String> {
+        let ks_guard = self.native_keystore.lock().map_err(|e| format!("Failed to lock keystore: {}", e))?;
+        let keystore = ks_guard.as_ref()
+            .ok_or("Native keystore not initialized. Call init_native_keystore() first.")?;
+        Ok(keystore.list_keys())
     }
 
     pub fn remove_account(&mut self, chain: ChainId, address: &str) -> bool {

@@ -275,6 +275,11 @@ function getTools() {
             type: 'string',
             description: 'The sanad ID to generate a proof bundle for',
           },
+          chain: {
+            type: 'string',
+            enum: ['bitcoin', 'ethereum', 'sui', 'aptos', 'solana'],
+            description: 'Optional chain filter for the proof bundle',
+          },
         },
         required: ['sanad_id'],
       },
@@ -373,6 +378,7 @@ async function startServer(transportType: 'stdio' | 'sse' = 'stdio', port?: numb
   }, async (args: any) => {
     const result = await executeCsvCommand([
       'sanad', 'list',
+      args.address,
       ...(args.chain ? ['--chain', args.chain] : []),
     ]);
     return {
@@ -397,7 +403,7 @@ async function startServer(transportType: 'stdio' | 'sse' = 'stdio', port?: numb
   server.registerTool('get_protocol_info', {
     description: tools.find((t) => t.name === 'get_protocol_info')!.description,
     inputSchema: tools.find((t) => t.name === 'get_protocol_info')!.inputSchema as any,
-  }, async () => {
+  }, async (_args: any) => {
     const info = {
       protocol: 'CSV (Client-Side Validation)',
       version: '0.4.0',
@@ -418,8 +424,9 @@ async function startServer(transportType: 'stdio' | 'sse' = 'stdio', port?: numb
         'Cross-chain provenance — tamper-evident audit log',
       ],
     };
+    const text = JSON.stringify(info, null, 2);
     return {
-      content: [{ type: 'text' as const, text: JSON.stringify(info, null, 2) }],
+      content: [{ type: 'text' as const, text }],
       isError: false,
     };
   });
@@ -429,7 +436,11 @@ async function startServer(transportType: 'stdio' | 'sse' = 'stdio', port?: numb
     description: tools.find((t) => t.name === 'export_proof_bundle')!.description,
     inputSchema: tools.find((t) => t.name === 'export_proof_bundle')!.inputSchema as any,
   }, async (args: any) => {
-    const result = await executeCsvCommand(['proof', 'generate', '--chain', 'bitcoin', '--sanad-id', args.sanad_id]);
+    const result = await executeCsvCommand([
+      'proof', 'generate',
+      '--sanad-id', args.sanad_id,
+      ...(args.chain ? ['--chain', args.chain] : []),
+    ]);
     return {
       content: [{ type: 'text' as const, text: result.stdout }],
       isError: result.exitCode !== 0,
@@ -452,7 +463,7 @@ async function startServer(transportType: 'stdio' | 'sse' = 'stdio', port?: numb
   server.registerTool('health_check', {
     description: tools.find((t) => t.name === 'health_check')!.description,
     inputSchema: tools.find((t) => t.name === 'health_check')!.inputSchema as any,
-  }, async () => {
+  }, async (_args: any) => {
     try {
       // Try to run a simple CLI command to check if it's working
       const result = await executeCsvCommand(['--version']);
@@ -475,8 +486,9 @@ async function startServer(transportType: 'stdio' | 'sse' = 'stdio', port?: numb
           mcp_server_version: '0.4.0',
           timestamp: new Date().toISOString(),
         };
+        const text = JSON.stringify(healthInfo, null, 2);
         return {
-          content: [{ type: 'text', text: JSON.stringify(healthInfo, null, 2) }],
+          content: [{ type: 'text' as const, text }],
           isError: true,
         };
       }
@@ -487,8 +499,9 @@ async function startServer(transportType: 'stdio' | 'sse' = 'stdio', port?: numb
         mcp_server_version: '0.4.0',
         timestamp: new Date().toISOString(),
       };
+      const text = JSON.stringify(healthInfo, null, 2);
       return {
-        content: [{ type: 'text', text: JSON.stringify(healthInfo, null, 2) }],
+        content: [{ type: 'text' as const, text }],
         isError: true,
       };
     }
@@ -500,9 +513,9 @@ async function startServer(transportType: 'stdio' | 'sse' = 'stdio', port?: numb
     await server.connect(transport);
     console.error('CSV MCP Server running on stdio');
   } else if (transportType === 'sse' && port) {
-    const transport = await SSEServerTransport.create({ port });
-    await server.connect(transport);
-    console.error(`CSV MCP Server running on SSE at http://localhost:${port}`);
+    console.error('SSE transport requires an HTTP server (e.g., Express). Use stdio transport for now.');
+    console.error('To enable SSE, integrate with an HTTP server and use SSEServerTransport with ServerResponse.');
+    process.exit(1);
   }
 }
 

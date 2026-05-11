@@ -60,6 +60,23 @@ impl ProofFilter {
     pub fn matches_author(&self, author: &str) -> bool {
         self.authors.is_empty() || self.authors.contains(&author.to_string())
     }
+
+    /// Check if this filter matches the given proof bundle.
+    ///
+    /// Matches if the proof's anchor chain matches and/or the author pubkey matches.
+    pub fn matches_proof(&self, proof: &ProofBundle) -> bool {
+        let chain_matches = self.chain_ids.is_empty() 
+            || self.chain_ids.iter().any(|chain| {
+                // Try to match chain ID from anchor metadata
+                std::str::from_utf8(&proof.anchor_ref.metadata)
+                    .map(|s| s.trim() == chain)
+                    .unwrap_or(false)
+            });
+        
+        // For now, we don't have author info in the proof bundle itself,
+        // so we only filter by chain. Author filtering is done at the Nostr event level.
+        chain_matches
+    }
 }
 
 /// A simple proof cache that prevents duplicate processing.

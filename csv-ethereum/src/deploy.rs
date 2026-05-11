@@ -3,7 +3,7 @@
 //! This module provides RPC-based deployment of Ethereum smart contracts
 //! using the Alloy SDK, replacing CLI commands like `forge create`.
 
-use crate::config::EthereumConfig;
+use crate::config::{EthereumConfig, Network};
 use crate::error::{EthereumError, EthereumResult};
 use crate::rpc::EthereumRpc;
 
@@ -148,6 +148,24 @@ impl ContractDeployer {
     }
 }
 
+/// Validate that deployment is targeting a non-mainnet network.
+///
+/// Returns an error if attempting to deploy to mainnet without explicit override.
+/// This prevents accidental real-ETH deployments during development.
+pub fn validate_deployment_network(
+    network: Network,
+    allow_mainnet: bool,
+) -> EthereumResult<()> {
+    if network == Network::Mainnet && !allow_mainnet {
+        return Err(EthereumError::DeploymentError(
+            "Refusing to deploy to Ethereum mainnet. Set allow_mainnet=true to override. \
+             Use Network::Sepolia for testing."
+                .to_string(),
+        ));
+    }
+    Ok(())
+}
+
 /// Deploy the CSV seal contract on Ethereum using Alloy
 ///
 /// This deploys the CSV (Client-Side Validation) seal contract
@@ -157,6 +175,8 @@ impl ContractDeployer {
 /// * `rpc_url` - Ethereum RPC endpoint URL
 /// * `private_key_hex` - Deployer private key (hex string, with or without 0x prefix)
 /// * `bytecode` - Compiled contract bytecode
+/// * `network` - Target network for chain ID validation
+/// * `allow_mainnet` - Whether to allow mainnet deployment (default: false)
 ///
 /// # Returns
 /// The contract deployment result with address and transaction hash
@@ -165,7 +185,12 @@ pub async fn deploy_csv_lock(
     rpc_url: &str,
     private_key_hex: &str,
     bytecode: &[u8],
+    network: Network,
+    allow_mainnet: bool,
 ) -> EthereumResult<ContractDeployment> {
+    // Validate network before attempting deployment
+    validate_deployment_network(network, allow_mainnet)?;
+
     // Parse private key
     let key_clean = private_key_hex.trim_start_matches("0x");
     let signer = PrivateKeySigner::from_str(key_clean)
@@ -188,11 +213,12 @@ pub async fn deploy_csv_lock(
         .await
         .map_err(|e| EthereumError::RpcError(format!("Failed to get nonce: {}", e)))?;
 
-    // Build deployment transaction
+    // Build deployment transaction with chain ID
     let tx = TransactionRequest::default()
         .from(sender)
         .nonce(nonce)
         .input(Bytes::from(bytecode.to_vec()).into())
+        .chain_id(network.chain_id())
         .gas_limit(3_000_000u64); // Estimate or use dynamic gas
 
     // Send transaction and wait for receipt

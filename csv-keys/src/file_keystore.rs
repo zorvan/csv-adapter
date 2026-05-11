@@ -24,7 +24,6 @@ use crate::keystore::{KdfType, KeystoreFile};
 use crate::memory::{Passphrase, SecretKey};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use uuid::Uuid;
 
 /// Error type for file keystore operations.
 #[derive(Debug, Error)]
@@ -158,11 +157,13 @@ pub struct KeyEntry {
     pub label: Option<String>,
     /// File keystore creation timestamp.
     pub created_at: u64,
+    /// UUID of the keystore file.
+    pub file_id: String,
 }
 
 impl KeystoreMeta {
     /// Add a key entry to the registry.
-    pub fn add_key(&mut self, id: String, chain: String, label: Option<String>) {
+    pub fn add_key(&mut self, id: String, chain: String, label: Option<String>, file_id: String) {
         self.keys.push(KeyEntry {
             id: id.clone(),
             chain,
@@ -171,6 +172,7 @@ impl KeystoreMeta {
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_secs())
                 .unwrap_or(0),
+            file_id,
         });
     }
 
@@ -286,14 +288,16 @@ impl FileKeystore {
         // Encrypt the key using KeystoreFile
         let keystore = KeystoreFile::encrypt(secret_key, passphrase, KdfType::Scrypt)?;
 
+        // Get the file ID from the keystore
+        let file_id = keystore.id().to_string();
+
         // Save to file
-        let file_id = Uuid::new_v4().to_string();
         let file_path = self.keystore_dir.join(format!("keystore-{}.json", file_id));
         keystore.save_to(&file_path)?;
 
         // Update metadata
         self.meta
-            .add_key(id.to_string(), chain.to_string(), label.map(String::from));
+            .add_key(id.to_string(), chain.to_string(), label.map(String::from), file_id);
 
         // Save metadata
         let meta_path = self.keystore_dir.join(Self::META_FILE);
@@ -355,27 +359,12 @@ impl FileKeystore {
 
     /// Find the keystore file path for a given key ID.
     fn find_keystore_file_for_id(&self, id: &str) -> Result<std::path::PathBuf, FileKeystoreError> {
-        // Search all keystore files for one matching the ID
-        for entry in std::fs::read_dir(&self.keystore_dir)? {
-            let entry = entry?;
-            let file_name = entry.file_name();
-            let file_name_str = file_name.to_string_lossy();
+        // Find the entry in metadata
+        let entry = self.meta.find(id).ok_or_else(|| FileKeystoreError::KeyNotFound(id.to_string()))?;
 
-            if file_name_str.starts_with("keystore-") && file_name_str.ends_with(".json") {
-                let file_path = entry.path();
-                if let Ok(keystore) = KeystoreFile::load_from(&file_path) {
-                    // We use the key ID as the keystore UUID
-                    if keystore.id().to_string() == id || keystore.id().to_string() == id {
-                        return Ok(file_path);
-                    }
-                }
-            }
-        }
-
-        // Fallback: search by matching the metadata entry
-        // The ID stored in metadata is the key ID, not the keystore UUID
-        // We need to store a mapping. For now, scan all files.
-        Err(FileKeystoreError::KeyNotFound(id.to_string()))
+        // Construct the file path from the file_id
+        let file_path = self.keystore_dir.join(format!("keystore-{}.json", entry.file_id));
+        Ok(file_path)
     }
 
     /// Start a new session (keys will be cached in memory).
@@ -459,7 +448,7 @@ impl FileKeystore {
         keystore.save_to(&file_path)?;
 
         self.meta
-            .add_key(id.clone(), chain.to_string(), label.map(String::from));
+            .add_key(id.clone(), chain.to_string(), label.map(String::from), id.clone());
 
         let meta_path = self.keystore_dir.join(Self::META_FILE);
         let meta_json = serde_json::to_string_pretty(&self.meta)?;

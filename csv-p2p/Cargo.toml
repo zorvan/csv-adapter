@@ -20,6 +20,7 @@ hex = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 chrono = { version = "0.4", optional = true }
+futures = "0.3"
 
 [features]
 default = ["nostr"]

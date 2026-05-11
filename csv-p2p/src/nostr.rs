@@ -12,9 +12,10 @@
 //! | 4     | Encrypted DM proofs (NIP-04/44)      |
 //! | 30078 | Custom sealed exchange (future)      |
 
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use csv_core::proof::ProofBundle;
+use nostr_sdk::{Client, Keys, RelayPoolNotification};
 use tracing::{debug, info, warn};
 
 use crate::{DeliveredProof, EventId, ProofFilter, ProofTransport, TransportError, DEFAULT_RELAYS};
@@ -47,26 +48,38 @@ pub struct NostrTransport {
     initialized: std::sync::atomic::AtomicBool,
     /// Whether to use encrypted DM delivery instead of open relay.
     use_encrypted_dms: bool,
+    /// The Nostr client instance (stored to avoid recreating for each operation).
+    client: Arc<Client>,
+    /// The keys used for signing events.
+    keys: Keys,
 }
 
 impl NostrTransport {
     /// Create a new Nostr transport with default relays.
     pub fn new() -> Self {
+        let keys = Keys::generate();
+        let client = Client::new(keys.clone());
         Self {
             relays: DEFAULT_RELAYS.iter().map(|s| s.to_string()).collect(),
             timeout: Duration::from_secs(30),
             initialized: std::sync::atomic::AtomicBool::new(false),
             use_encrypted_dms: false,
+            client: Arc::new(client),
+            keys,
         }
     }
 
     /// Create a new Nostr transport with custom relays.
     pub fn with_relays(relays: Vec<String>) -> Self {
+        let keys = Keys::generate();
+        let client = Client::new(keys.clone());
         Self {
             relays,
             timeout: Duration::from_secs(30),
             initialized: std::sync::atomic::AtomicBool::new(false),
             use_encrypted_dms: false,
+            client: Arc::new(client),
+            keys,
         }
     }
 
@@ -97,26 +110,18 @@ impl NostrTransport {
 
     /// Initialize the Nostr client and connect to relays.
     ///
-    /// Creates a real Nostr client using nostr-sdk and connects to all configured relays.
+    /// Connects the stored Nostr client to all configured relays.
     #[cfg(feature = "nostr")]
     pub async fn initialize(&mut self) -> Result<(), TransportError> {
-        use nostr_sdk::{Client, NostrSigner, Keys};
-        
-        let keys = Keys::generate();
-        let signer = NostrSigner::Keys(keys);
-        
-        let client = Client::new(signer);
-        
         // Connect to all relays
-        for relay_url in &self.relays.clone() {
-            match client.add_relay(relay_url).await {
+        for relay_url in &self.relays {
+            match self.client.add_relay(relay_url).await {
                 Ok(_) => info!(relay = %relay_url, "Added Nostr relay"),
                 Err(e) => warn!(relay = %relay_url, error = %e, "Failed to add Nostr relay"),
             }
         }
         
-        // Connect to all relays
-        client.connect().await;
+        self.client.connect().await;
         
         info!(
             relays = self.relays.len(),
@@ -179,20 +184,7 @@ impl ProofTransport for NostrTransport {
 
         #[cfg(feature = "nostr")]
         {
-            use nostr_sdk::{Client, NostrSigner, Keys, EventBuilder, Kind};
-            use std::sync::Arc;
-            
-            // Create client and keys
-            let keys = Keys::generate();
-            let keys_copy = keys.clone(); // Clone for event signing
-            let signer = NostrSigner::Keys(keys);
-            let client = Arc::new(Client::new(signer));
-            
-            // Connect to relays
-            for relay_url in &self.relays {
-                let _ = client.add_relay(relay_url).await;
-            }
-            client.connect().await;
+            use nostr_sdk::{EventBuilder, Kind};
             
             // Create event content
             let content = self.proof_to_content(proof)?;
@@ -205,13 +197,13 @@ impl ProofTransport for NostrTransport {
             );
             
             // Sign and send event
-            let event = event_builder.to_event(&keys_copy)
+            let event = event_builder.to_event(&self.keys)
                 .map_err(|e| TransportError::Serialization(format!("Failed to sign event: {}", e)))?;
             
             let event_id = event.id.to_hex();
             
             // Send to all relays
-            let _ = client.send_event(event).await;
+            let _ = self.client.send_event(event).await;
             
             debug!(
                 event_id = %event_id,
@@ -252,51 +244,73 @@ impl ProofTransport for NostrTransport {
 
         #[cfg(feature = "nostr")]
         {
-            use nostr_sdk::{Client, NostrSigner, Keys, Filter, Kind};
+            use nostr_sdk::{Filter, Kind};
+            use std::str::FromStr;
             use tokio::sync::mpsc;
-            use std::sync::Arc;
             
-            // Create client and keys
-            let keys = Keys::generate();
-            let signer = NostrSigner::Keys(keys);
-            let client = Arc::new(Client::new(signer));
-            
-            // Connect to relays
-            for relay_url in &self.relays {
-                let _ = client.add_relay(relay_url).await;
-            }
-            client.connect().await;
-            
-            // Build Nostr filter
-            let nostr_filter = Filter::new()
+            // Build Nostr filter with chain/authors from ProofFilter
+            let mut nostr_filter = Filter::new()
                 .kind(Kind::Custom(PROOF_EVENT_KIND.try_into().unwrap()))
                 .limit(100);
             
-            // Create channel for events
+            // Add author filters if specified in ProofFilter
+            for author in &filter.authors {
+                if let Ok(keys) = Keys::from_str(author) {
+                    nostr_filter = nostr_filter.author(keys.public_key());
+                }
+            }
+            
+            // Create channel for delivered proofs
             let (tx, rx) = mpsc::channel(256);
             let stream = tokio_stream::wrappers::ReceiverStream::new(rx);
+            let client_clone = Arc::clone(&self.client);
+            let filter_clone = filter.clone();
             
             // Subscribe to events
-            let _ = client.subscribe(vec![nostr_filter], None).await;
+            let _subscription = client_clone.subscribe(vec![nostr_filter], None).await
+                .map_err(|e| TransportError::Nostr(format!("Failed to create subscription: {}", e)))?;
             
             // Spawn task to handle incoming events
-            let mut notifications = client.notifications();
             tokio::spawn(async move {
-                while let Ok(_notification) = notifications.recv().await {
-                    // Simplified notification handling - just send a minimal event
-                    let random_bytes = rand::random::<[u8; 32]>();
+                // Use the client's notification system to receive events
+                let mut notifications = client_clone.notifications();
+                
+                while let Ok(notification) = notifications.recv().await {
+                    // Extract event from notification
+                    let event = match notification {
+                        RelayPoolNotification::Event { event, .. } => event,
+                        _ => continue,
+                    };
+                    
+                    // Parse the event content into a ProofBundle
+                    let proof = match serde_json::from_str::<ProofBundle>(&event.content) {
+                        Ok(p) => p,
+                        Err(e) => {
+                            warn!(event_id = %event.id, error = %e, "Failed to parse proof from Nostr event");
+                            continue;
+                        }
+                    };
+                    
+                    // Apply ProofFilter to check chain/authors
+                    if !filter_clone.matches_proof(&proof) {
+                        debug!(
+                            event_id = %event.id,
+                            "Proof filtered out by chain criteria"
+                        );
+                        continue;
+                    }
+                    
+                    // Create DeliveredProof with real data from Nostr event
                     let delivered = DeliveredProof {
-                        event_id: EventId::new(hex::encode(random_bytes)),
-                        proof: unsafe { 
-                            // Create minimal proof bundle - this is just for compilation
-                            std::mem::zeroed::<ProofBundle>()
-                        },
-                        author_pubkey: "dummy_author".to_string(),
-                        timestamp: chrono::Utc::now().timestamp() as u64,
+                        event_id: EventId::new(event.id.to_hex()),
+                        proof,
+                        author_pubkey: event.pubkey.to_hex(),
+                        timestamp: event.created_at.as_u64(),
                     };
                     
                     if tx.send(delivered).await.is_err() {
-                        break; // Channel closed
+                        debug!("Proof subscription channel closed, stopping event processing");
+                        break;
                     }
                 }
             });

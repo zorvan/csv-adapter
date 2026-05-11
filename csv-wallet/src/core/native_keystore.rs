@@ -12,7 +12,7 @@
 //! - Hardware security module integration points
 
 use csv_keys::{
-    file_keystore::{FileKeystore, KeyEntry},
+    file_keystore::FileKeystore,
     memory::{Passphrase, SecretKey},
 };
 use std::path::PathBuf;
@@ -438,7 +438,7 @@ impl NativeKeystore {
         std::fs::create_dir_all(&backup_dir)
             .map_err(|e| NativeKeystoreError::Backup(format!("Failed to create backup directory: {}", e)))?;
         
-        let backup_file = backup_dir.join(format!("backup-{}.tar.gz", backup_id));
+        let _backup_file = backup_dir.join(format!("backup-{}.tar.gz", backup_id));
         
         // Create tar.gz backup of keystore directory
         let keys = self.inner.list_key_entries();

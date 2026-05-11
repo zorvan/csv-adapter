@@ -3021,6 +3021,7 @@ dependencies = [
  "async-trait",
  "chrono",
  "csv-core",
+ "futures",
  "hex",
  "nostr-sdk",
  "parking_lot",

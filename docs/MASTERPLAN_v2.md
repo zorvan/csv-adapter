@@ -1,4 +1,5 @@
 # CSV Protocol — Product & Marketing Masterplan
+
 **Version**: 2.0  
 **Revised**: May 2026  
 **Audience**: Product, Marketing, Engineering, Business Development
@@ -54,6 +55,7 @@ The wallet is a developer wallet and a proof verification tool. It is not compet
 **The pain**: Autonomous AI agents executing cross-chain transactions have no way to verify each other's operations without a trusted intermediary. "I transferred your asset to Ethereum" is an assertion. With CSV, it becomes a verifiable proof bundle the receiving agent can check locally, with no API call.
 
 **The product**:
+
 - MCP server with 5 implemented tools: `create_seal`, `consume_seal`, `build_proof_bundle`, `verify_proof_bundle`, `initiate_cross_chain_transfer`
 - TypeScript SDK published to npm as `@csv-protocol/sdk`
 - 5 ready-to-run agent templates on GitHub:
@@ -76,6 +78,7 @@ The wallet is a developer wallet and a proof verification tool. It is not compet
 **The pain**: Players buy items on one chain, cannot use them on another. Every studio that tries to solve this builds a custom bridge that eventually gets hacked. The Ronin incident is the case study every studio knows.
 
 **The product**:
+
 - Game Asset Passport SDK: a thin TypeScript/Unity wrapper around `csv-sdk`
 - One function: `transfer_item(item_id, destination_chain, player_wallet)`
 - Transfer state widget: shows the 7-step journey as a progress animation
@@ -203,6 +206,7 @@ Link from wallet on every transfer status update.
 ## Part VI: Messaging Rules
 
 **Say this:**
+
 - "Client-verifiable" instead of "trustless" (overused, doubted)
 - "No bridge, no operator required" instead of "decentralized" (empty)
 - "Proof delivery" instead of "bridge transfer"
@@ -210,12 +214,14 @@ Link from wallet on every transfer status update.
 - "CSV (Client-Side Validation) Protocol" on first reference, then "CSV"
 
 **Never say:**
+
 - "Trustless" — every bridge says this
 - "ZK" — until Pedersen commitments are implemented and demonstrable
 - "Post-quantum by default" — until it is, in fact, the default signing scheme
 - "Atomic swap" — in any external material until the Bitcoin Tapscript hash-lock is testnet-verified
 
 **Lead with the user benefit**, not the architecture:
+
 - "Verify ownership offline" comes before "hash-committed state transition"
 - "No bridge fee" comes before "client-side validated proof bundle"
 - "Your assets, your proof, your device" comes before explaining what a Sanad is
@@ -229,6 +235,7 @@ Link from wallet on every transfer status update.
 **Goal**: 50 developers running real proof operations on testnet. One integration partner in conversation.
 
 **Ships**:
+
 - Wallet app with working Bitcoin ↔ Solana cross-chain transfer on testnet (real RPC, real proofs, real mint)
 - Offline verification flow: WiFi off, QR scan, result displayed
 - TypeScript SDK on npm: `@csv-protocol/sdk`
@@ -238,6 +245,7 @@ Link from wallet on every transfer status update.
 - Docs: 3 sub-5-minute tutorials
 
 **Marketing actions**:
+
 - **Film the offline verification demo** (this is the launch asset)
 - Hacker News "Show HN": offline verification + no bridge story + link to demo
 - Post to AI engineering communities: "trust primitive for cross-chain agents"
@@ -245,6 +253,7 @@ Link from wallet on every transfer status update.
 - GitHub README leads with the offline verification demo video, not protocol architecture
 
 **Do not launch until**:
+
 - Ethereum deployment works on Sepolia
 - P2P proof delivery (Nostr) completes a real cross-chain transfer
 - Offline verification UX is wired end-to-end
@@ -257,12 +266,14 @@ Link from wallet on every transfer status update.
 **Goal**: 3 live integrations generating real proof bundles. VC conversations begin.
 
 **Ships**:
+
 - Game Asset Passport SDK (Unity/TypeScript wrapper)
 - Atomic Seal Swap — first testnet demo (Bitcoin ↔ Ethereum, hash-lock, no escrow)
 - W3C VC adapter (maps VC schema to Sanad fields)
 - ZK Pedersen commitment implementation (unlocks privacy-preserving identity use case)
 
 **Marketing actions**:
+
 - Conference demo: atomic swap on two laptops, live, no bridge
 - Co-authored blog posts with game studio partner: "How we eliminated bridge risk for [game]"
 - AI agent gallery on docs site
@@ -274,6 +285,7 @@ Link from wallet on every transfer status update.
 **Goal**: 1 paid enterprise pilot. Protocol fee revenue beginning.
 
 **Ships**:
+
 - Supply chain provenance schema + GS1 EPCIS adapter
 - Enterprise explorer dashboard (whitelabeled)
 - Full ZK privacy layer (stealth addresses + Pedersen)
@@ -287,6 +299,7 @@ Link from wallet on every transfer status update.
 **Goal**: Third parties building on CSV without hand-holding. Self-sustaining developer ecosystem.
 
 **Ships**:
+
 - STARK IoT proof stream + live dashboard
 - Integration into 2 new chains via grant programs
 - AI agent gallery: 10+ maintained examples across 5 frameworks
@@ -303,6 +316,7 @@ Every developer considering integration will ask: "Who pays for the destination 
 When a transfer is initiated, the sender escrows a small amount of the source chain's native asset (e.g., a few basis points of gas equivalent). This amount is released to the proof-delivery operator upon cryptographic confirmation of successful destination mint. No new token is issued. Operators run Nostr relay nodes and are economically incentivized by the escrow release. The protocol enforces this at the smart contract level.
 
 This model:
+
 - Requires no new token (correct — no token before Series A)
 - Aligns proof-delivery node operator incentives
 - Is verifiable on-chain
