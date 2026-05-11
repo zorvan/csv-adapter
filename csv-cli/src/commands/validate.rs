@@ -32,6 +32,12 @@ pub enum ValidateAction {
         /// Commitment chain file (JSON array of commitment hashes)
         file: String,
     },
+    /// Validate proof bundle offline (without network access)
+    Offline {
+        /// Proof bundle file (JSON)
+        #[arg(short, long)]
+        file: String,
+    },
 }
 
 pub fn execute(action: ValidateAction, config: &Config, state: &UnifiedStateManager) -> Result<()> {
@@ -40,6 +46,7 @@ pub fn execute(action: ValidateAction, config: &Config, state: &UnifiedStateMana
         ValidateAction::Proof { proof, chain } => cmd_proof(proof, chain, config, state),
         ValidateAction::Seal { seal_ref } => cmd_seal(seal_ref, config, state),
         ValidateAction::CommitmentChain { file } => cmd_commitment_chain(file, config, state),
+        ValidateAction::Offline { file } => cmd_offline(file, config, state),
     }
 }
 
@@ -157,5 +164,49 @@ fn cmd_commitment_chain(
     output::progress(3, 3, "Checking for gaps or duplicates...");
 
     output::success("Commitment chain is valid");
+    Ok(())
+}
+
+fn cmd_offline(file: String, _config: &Config, _state: &UnifiedStateManager) -> Result<()> {
+    output::header("Offline Proof Verification");
+    
+    // Read and parse proof bundle from file
+    let content = std::fs::read_to_string(&file)
+        .map_err(|e| anyhow::anyhow!("Failed to read proof file: {}", e))?;
+    
+    let proof_bundle: csv_core::proof::ProofBundle = serde_json::from_str(&content)
+        .map_err(|e| anyhow::anyhow!("Invalid proof bundle JSON: {}", e))?;
+    
+    output::progress(1, 3, "Parsing proof bundle...");
+    output::kv("Seal Ref", &format!("0x{}", hex::encode(&proof_bundle.seal_ref.id)));
+    output::kv("Source Chain", std::str::from_utf8(&proof_bundle.anchor_ref.metadata).unwrap_or("unknown"));
+    output::kv("Destination Chain", proof_bundle.transition_dag.nodes.first()
+        .and_then(|n| std::str::from_utf8(&n.bytecode).ok())
+        .unwrap_or("unknown"));
+    
+    output::progress(2, 3, "Verifying proof structure...");
+    
+    // Basic structural validation
+    if proof_bundle.seal_ref.id == [0u8; 32] {
+        output::error("✗ Invalid seal reference (all zeros)");
+        return Err(anyhow::anyhow!("Invalid seal reference"));
+    }
+    
+    if proof_bundle.anchor_ref.anchor_id == [0u8; 32] {
+        output::error("✗ Invalid anchor ID (all zeros)");
+        return Err(anyhow::anyhow!("Invalid anchor ID"));
+    }
+    
+    if proof_bundle.transition_dag.nodes.is_empty() {
+        output::error("✗ Empty transition DAG");
+        return Err(anyhow::anyhow!("Empty transition DAG"));
+    }
+    
+    output::progress(3, 3, "Final validation...");
+    
+    output::success("✓ Proof bundle structure is valid");
+    output::info("Note: Full cryptographic verification requires network access");
+    output::info("Use 'csv validate proof' for on-chain verification");
+    
     Ok(())
 }

@@ -465,6 +465,8 @@ impl CsvClient {
                     use_checkpoint_finality: !_is_testnet,
                     rpc_url: rpc_url.clone(),
                     private_key: None,
+                    lock_contract_address: None,
+                    mint_contract_address: None,
                 };
                 let csv_seal_address = [0u8; 20]; // Default, should be configured
                 let rpc = csv_ethereum::node::EthereumNode::new(&rpc_url, csv_seal_address)

@@ -11,6 +11,7 @@ use aes_gcm::{
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
+use std::fs;
 
 /// Error type for keystore operations.
 #[derive(Debug, Error)]
@@ -268,7 +269,15 @@ impl KeystoreFile {
     /// Save the keystore to a file.
     pub fn save_to(&self, path: impl AsRef<std::path::Path>) -> Result<(), KeystoreError> {
         let json = serde_json::to_string_pretty(self)?;
-        std::fs::write(path, json)?;
+        std::fs::write(&path, json)?;
+        
+        // Set restrictive permissions (0o600) for keystore files
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
+        }
+        
         Ok(())
     }
 

@@ -168,8 +168,8 @@ jobs:
 
       - name: Build Ethereum contracts
          run: |
-           if [ -d "csv-ethereum/contracts" ]; then
-             cd csv-ethereum/contracts
+           if [ -d "csv-contracts/ethereum/contracts" ]; then
+             cd csv-contracts/ethereum/contracts
              forge build
            else
              echo "Ethereum contracts directory not found"
@@ -188,8 +188,8 @@ jobs:
 
      - name: Build Sui contracts
          run: |
-           if [ -d "csv-sui/contracts" ]; then
-             cd csv-sui/contracts
+           if [ -d "csv-contracts/sui/contracts" ]; then
+             cd csv-contracts/sui/contracts
              sui move build
            else
              echo "Sui contracts directory not found"
@@ -208,8 +208,8 @@ jobs:
 
     - name: Build Aptos contracts
          run: |
-           if [ -d "csv-aptos/contracts" ]; then
-             cd csv-aptos/contracts
+           if [ -d "csv-contracts/aptos/contracts" ]; then
+             cd csv-contracts/aptos/contracts
              aptos move compile
            else
              echo "Aptos contracts directory not found"
@@ -229,8 +229,8 @@ jobs:
 
     - name: Build Solana contracts
          run: |
-           if [ -d "csv-solana/contracts" ]; then
-             cd csv-solana/contracts
+           if [ -d "csv-contracts/solana/contracts" ]; then
+             cd csv-contracts/solana/contracts
              NO_DNA=1 anchor build
            else
              echo "Solana contracts directory not found"

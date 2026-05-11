@@ -277,6 +277,10 @@ pub struct TransferRecord {
     pub completed_at: Option<DateTime<Utc>>,
     /// Duration of the transfer in milliseconds, if completed.
     pub duration_ms: Option<u64>,
+    /// Block explorer URL for lock transaction.
+    pub lock_tx_explorer_url: Option<String>,
+    /// Block explorer URL for mint transaction (if completed).
+    pub mint_tx_explorer_url: Option<String>,
 }
 
 /// A seal record -- the mechanism that binds a sanad to a chain.

@@ -24,6 +24,21 @@ confirmation_blocks = 12
 max_batch_size = 100
 supported_networks = ["mainnet", "sepolia", "goerli"]
 
+# Testnet configuration
+[testnet]
+network = "sepolia"
+chain_id = 11155111
+rpc_url = "$SEPOLIA_RPC_URL"
+lock_contract_address = ""  # To be filled after deployment
+mint_contract_address = ""   # To be filled after deployment
+finality_depth = 12
+use_checkpoint_finality = false
+gas_limit = 800000
+max_gas_price = 100000000000  # 100 Gwei
+default_gas_price = 20000000000  # 20 Gwei
+eip1559_enabled = true
+base_fee_multiplier = 1.2
+
 # Ethereum-specific settings
 [custom_settings.ethereum]
 gas_limit = 21000
