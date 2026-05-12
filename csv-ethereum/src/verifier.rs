@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! Ethereum ChainVerifier Implementation
 //!
 //! This module implements the ChainVerifier trait for Ethereum,

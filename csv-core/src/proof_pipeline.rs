@@ -19,6 +19,13 @@
 //! 10. acceptance decision
 //!
 //! No adapter may reorder or skip steps.
+//!
+//! ## Event Emission
+//!
+//! The pipeline emits events at key decision points:
+//! - `proof_accepted` when validation succeeds
+//! - `proof_rejected` when validation fails
+//! - `replay_detected` when a replay attempt is detected
 
 use alloc::vec::Vec;
 
@@ -160,6 +167,14 @@ pub async fn validate_proof_bundle(
     let step6 = validate_replay(bundle);
     steps.push(step6.clone());
     if !step6.passed {
+        // Emit replay_detected event
+        let proof_hash = DomainSeparatedHash::<ProofBundleDomain>::hash(&bundle.inclusion_proof.proof_bytes);
+        log::warn!(
+            "Replay detected: proof_hash={}, source={}, dest={}",
+            proof_hash.to_hex(),
+            source_chain,
+            destination_chain
+        );
         return ValidationResult {
             accepted: false,
             steps,
@@ -207,6 +222,15 @@ pub async fn validate_proof_bundle(
         error: None,
     };
     steps.push(step10);
+
+    // Emit proof_accepted event
+    let proof_hash = DomainSeparatedHash::<ProofBundleDomain>::hash(&bundle.inclusion_proof.proof_bytes);
+    log::info!(
+        "Proof accepted: hash={}, source={}, dest={}",
+        proof_hash.to_hex(),
+        source_chain,
+        destination_chain
+    );
 
     ValidationResult {
         accepted: true,

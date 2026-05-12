@@ -2885,6 +2885,7 @@ dependencies = [
  "ed25519-dalek",
  "hex",
  "lazy_static",
+ "log",
  "pqcrypto-dilithium",
  "pqcrypto-traits",
  "proptest",
@@ -3177,6 +3178,7 @@ name = "csv-wallet"
 version = "0.4.0"
 dependencies = [
  "aes-gcm",
+ "argon2",
  "base64 0.21.7",
  "bcs",
  "bip32",

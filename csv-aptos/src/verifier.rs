@@ -8,7 +8,6 @@ use csv_core::proof::{FinalityProof, InclusionProof};
 use csv_core::proof_pipeline::ChainVerifier;
 use csv_core::Hash;
 
-use crate::merkle::MerkleAccumulator;
 use crate::rpc::AptosRpc;
 
 /// Aptos verifier implementing ChainVerifier trait

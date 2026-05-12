@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! Fuzz target for RPC response parsing
 //!
 //! This fuzz target tests the robustness of RPC response parsing

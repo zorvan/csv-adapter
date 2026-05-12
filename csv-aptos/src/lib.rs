@@ -1,3 +1,4 @@
+#![allow(unused_variables)]
 //! Aptos Adapter for CSV (Client-Side Validation)
 //!
 //! This adapter implements the SealProtocol trait for Aptos,

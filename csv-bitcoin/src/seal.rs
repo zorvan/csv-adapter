@@ -4,7 +4,6 @@ use crate::error::{BitcoinError, BitcoinResult};
 use crate::types::BitcoinSealPoint;
 use crate::wallet::Bip86Path;
 use csv_core::hardening::{BoundedQueue, MAX_SEAL_NULLIFIER_SIZE};
-use csv_core::store::SealStore;
 
 #[cfg(feature = "rpc")]
 use csv_store::SqliteSealStore;
@@ -87,7 +86,6 @@ impl SealRegistry {
         seal: &BitcoinSealPoint,
         height: u64,
     ) -> BitcoinResult<()> {
-        use csv_core::store::SealStore;
         
         
         // First mark in memory

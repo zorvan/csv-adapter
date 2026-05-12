@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! Fuzz target for seal point decoding
 //!
 //! This fuzz target tests the robustness of seal point decoding

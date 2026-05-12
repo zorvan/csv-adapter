@@ -3,7 +3,7 @@
 //! Defines the different levels of finality that a transaction can have.
 
 /// Finality status of a transaction
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum FinalityStatus {
     /// Transaction is pending (not yet confirmed)
     Pending,
@@ -16,7 +16,7 @@ pub enum FinalityStatus {
 }
 
 /// Finality state for a transaction
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct FinalityState {
     /// Current status
     pub status: FinalityStatus,

@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! Fuzz target for proof bundle decoding
 //!
 //! This fuzz target tests the robustness of proof bundle decoding

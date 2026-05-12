@@ -10,7 +10,6 @@
 //! Both implementations are cryptographically equivalent and produce identical results.
 
 use bitcoin_hashes::Hash as _;
-use sha2::Sha256;
 
 use csv_core::domain_hash::DomainSeparatedHash;
 use csv_core::domains::BitcoinSealDomain;

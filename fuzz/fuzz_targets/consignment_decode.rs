@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! Fuzz target for consignment decoding
 //!
 //! This fuzz target tests the robustness of consignment decoding

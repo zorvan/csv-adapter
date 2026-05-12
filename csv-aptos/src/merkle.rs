@@ -5,7 +5,6 @@
 
 use csv_core::domain_hash::DomainSeparatedHash;
 use csv_core::domains::AptosAnchorDomain;
-use sha2::Sha256;
 
 /// Merkle accumulator errors
 #[derive(Debug, thiserror::Error)]

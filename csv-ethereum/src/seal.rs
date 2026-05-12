@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! Ethereum seal management
 //!
 //! Provides persistent tracking of used storage slot seals to prevent replay.

@@ -348,6 +348,70 @@ impl std::str::FromStr for TransferStatus {
     }
 }
 
+/// Conversion from a simplified transfer status (used by stores/UI) to the full protocol status
+///
+/// Maps simplified states to their closest protocol equivalent:
+/// - `Initiated` → `Initiated`
+/// - `Locked` → `ProofReady` (lock confirmed, proof ready)
+/// - `Verifying` → `Verifying`
+/// - `Minting` → `Minting`
+/// - `Completed` → `Completed`
+/// - `Failed` → `Failed { retryable: true }`
+pub fn simplified_to_full(status: SimplifiedTransferStatus) -> TransferStatus {
+    match status {
+        SimplifiedTransferStatus::Initiated => TransferStatus::Initiated,
+        SimplifiedTransferStatus::Locked => TransferStatus::ProofReady { proof_block: 0 },
+        SimplifiedTransferStatus::Verifying => TransferStatus::Verifying,
+        SimplifiedTransferStatus::Minting => TransferStatus::Minting,
+        SimplifiedTransferStatus::Completed => TransferStatus::Completed,
+        SimplifiedTransferStatus::Failed => TransferStatus::Failed {
+            error_code: "unknown".to_string(),
+            retryable: true,
+        },
+    }
+}
+
+/// Simplified transfer status for stores and UI
+///
+/// This is a reduced set of states used by storage layers and UI components.
+/// Convert to/from the full protocol status using [`simplified_to_full`] and [`Self::to_full`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SimplifiedTransferStatus {
+    /// Transfer initiated (lock transaction created).
+    Initiated,
+    /// Assets locked on source chain.
+    Locked,
+    /// Proof being verified.
+    Verifying,
+    /// Assets being minted on destination chain.
+    Minting,
+    /// Transfer completed successfully.
+    Completed,
+    /// Transfer failed.
+    Failed,
+}
+
+impl SimplifiedTransferStatus {
+    /// Convert to the full protocol status
+    pub fn to_full(self) -> TransferStatus {
+        simplified_to_full(self)
+    }
+}
+
+impl std::fmt::Display for SimplifiedTransferStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Initiated => write!(f, "initiated"),
+            Self::Locked => write!(f, "locked"),
+            Self::Verifying => write!(f, "verifying"),
+            Self::Minting => write!(f, "minting"),
+            Self::Completed => write!(f, "completed"),
+            Self::Failed => write!(f, "failed"),
+        }
+    }
+}
+
 // ===========================================================================
 // Error Code Registry [🟡 BETA]
 // ===========================================================================

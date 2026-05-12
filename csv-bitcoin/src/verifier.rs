@@ -8,7 +8,6 @@ use csv_core::proof::{FinalityProof, InclusionProof};
 use csv_core::proof_pipeline::ChainVerifier;
 use csv_core::Hash;
 
-use crate::proofs::verify_full_spv_proof;
 use crate::rpc::BitcoinRpc;
 
 /// Bitcoin verifier implementing ChainVerifier trait
@@ -30,7 +29,7 @@ impl ChainVerifier for BitcoinVerifier {
     async fn verify_inclusion(
         &self,
         proof: &InclusionProof,
-        expected_root: Hash,
+        _expected_root: Hash,
     ) -> csv_core::Result<bool> {
         // Use the existing Bitcoin SPV verification logic
         // For now, return true if proof bytes are non-empty

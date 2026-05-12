@@ -29,7 +29,9 @@ use csv_core::SealProtocol;
 use crate::checkpoint::CheckpointVerifier;
 use crate::config::{AptosConfig, AptosNetwork};
 use crate::error::{AptosError, AptosResult};
-use crate::proofs::{CommitmentEventBuilder, EventProofVerifier, StateProofVerifier};
+use crate::proofs::{CommitmentEventBuilder, EventProofVerifier};
+#[cfg(feature = "rpc")]
+use crate::proofs::StateProofVerifier;
 #[cfg(not(feature = "rpc"))]
 use crate::rpc::{AptosLedgerInfo, AptosTransaction};
 use crate::rpc::AptosRpc;

@@ -15,6 +15,15 @@
 //! 7. Check for reorgs since last shutdown
 //! 8. Apply necessary rollbacks
 //! 9. Resume normal operation
+//!
+//! ## Backend Abstraction
+//!
+//! The recovery engine uses a [`RecoveryStorageBackend`] trait to abstract
+//! the persistence layer. This allows csv-store (SQLite) or any other
+//! storage implementation to be used.
+//!
+//! See [`csv_store::RecoveryStorageBackend`](https://docs.rs/csv-store/latest/csv_store/trait.RecoveryStorageBackend.html)
+//! for the SQLite implementation.
 
 use alloc::vec::Vec;
 
@@ -22,8 +31,11 @@ use crate::error::Result;
 use crate::hash::Hash;
 
 /// Recovery engine for crash-safe startup
-#[derive(Default)]
-pub struct RecoveryEngine {
+///
+/// Uses a [`RecoveryStorageBackend`] to persist and recover state across restarts.
+pub struct RecoveryEngine<B: RecoveryStorageBackend> {
+    /// Storage backend
+    backend: B,
     /// Whether recovery has been completed
     recovered: bool,
     /// Last known block heights per chain
@@ -36,10 +48,17 @@ pub struct RecoveryEngine {
     detected_reorgs: Vec<(String, u64, u64)>, // (chain, old_height, new_height)
 }
 
-impl RecoveryEngine {
-    /// Create a new recovery engine
-    pub fn new() -> Self {
-        Self::default()
+impl<B: RecoveryStorageBackend> RecoveryEngine<B> {
+    /// Create a new recovery engine with the given backend
+    pub fn new(backend: B) -> Self {
+        Self {
+            backend,
+            recovered: false,
+            last_known_heights: Vec::new(),
+            in_flight_transfers: Vec::new(),
+            state_checksum: None,
+            detected_reorgs: Vec::new(),
+        }
     }
 
     /// Execute the recovery startup sequence
@@ -152,21 +171,30 @@ impl RecoveryEngine {
 
     /// Step 1: Load persistent state from storage
     async fn load_persistent_state(&mut self) -> RecoveryStep {
-        // In production, this would:
-        // 1. Connect to SQLite database
-        // 2. Load transfer store state
-        // 3. Load replay registry state
-        // 4. Load operation log
-        // 5. Load last known block heights
-        // 6. Compute state checksum
-        
-        // For now, simulate successful load
-        self.state_checksum = Some(Hash::new([1u8; 32])); // Simulated checksum
-        
-        RecoveryStep {
-            name: "load_persistent_state",
-            success: true,
-            error: None,
+        match self.backend.load_last_known_heights().await {
+            Ok(heights) => {
+                self.last_known_heights = heights;
+                // Generate a simple checksum from loaded state
+                let mut checksum_data = Vec::new();
+                for (chain, height) in &self.last_known_heights {
+                    checksum_data.extend_from_slice(chain.as_bytes());
+                    checksum_data.extend_from_slice(&height.to_le_bytes());
+                }
+                let domain_hash = crate::domain_hash::DomainSeparatedHash::<
+                    crate::domains::GenesisDomain,
+                >::hash(&checksum_data);
+                self.state_checksum = Some(Hash::new(*domain_hash.as_bytes()));
+                RecoveryStep {
+                    name: "load_persistent_state",
+                    success: true,
+                    error: None,
+                }
+            }
+            Err(e) => RecoveryStep {
+                name: "load_persistent_state",
+                success: false,
+                error: Some(e.to_string()),
+            },
         }
     }
 
@@ -198,23 +226,20 @@ impl RecoveryEngine {
 
     /// Step 3: Detect in-flight operations
     async fn detect_in_flight_operations(&mut self) -> RecoveryStep {
-        // Scan for:
-        // 1. Transfers in non-terminal states (not Completed, RolledBack, Compromised)
-        // 2. Operations with attempt_counter > 0 but no result
-        // 3. Mint operations without confirmation
-        // 4. Proof operations without validation result
-        
-        // In production, would query operation_log for incomplete operations
-        // For now, simulate detection
-        self.in_flight_transfers = vec![
-            Hash::new([1u8; 32]),
-            Hash::new([2u8; 32]),
-        ];
-        
-        RecoveryStep {
-            name: "detect_in_flight_operations",
-            success: true,
-            error: None,
+        match self.backend.find_in_flight_transfers().await {
+            Ok(transfers) => {
+                self.in_flight_transfers = transfers;
+                RecoveryStep {
+                    name: "detect_in_flight_operations",
+                    success: true,
+                    error: None,
+                }
+            }
+            Err(e) => RecoveryStep {
+                name: "detect_in_flight_operations",
+                success: false,
+                error: Some(e.to_string()),
+            },
         }
     }
 
@@ -302,21 +327,35 @@ impl RecoveryEngine {
 
     /// Step 8: Apply necessary rollbacks
     async fn apply_rollbacks(&mut self) -> RecoveryStep {
-        // For each detected reorg:
-        // 1. Identify affected transfers (those dependent on reorged blocks)
-        // 2. For each affected transfer:
-        //    a. If source lock invalidated: mark as Compromised
-        //    b. If proof invalidated: rollback to Locked state
-        //    c. If mint invalidated: rollback to ProofValidated state
-        // 3. Persist rollback intent
-        // 4. Execute rollback
-        // 5. Persist rollback result
-        
-        // In production, would iterate through detected_reorgs
-        // and handle affected transfers
-        
-        if !self.detected_reorgs.is_empty() {
-            // Would apply rollbacks here
+        for (chain, old_height, _new_height) in &self.detected_reorgs {
+            // Find transfers affected by this reorg
+            match self.backend.get_transfers_at_height(&chain, *old_height).await {
+                Ok(affected) => {
+                    for transfer_id in &affected {
+                        // In production, would check the transfer state and apply
+                        // appropriate rollback (Compromised, RolledBack, etc.)
+                        let _ = self.backend.update_transfer_state(
+                            transfer_id,
+                            &TransferRecoveryState {
+                                transfer_id: *transfer_id,
+                                state: "rolled_back".to_string(),
+                                source_chain: chain.clone(),
+                                destination_chain: String::new(),
+                                source_tx_hash: None,
+                                attempt_counter: 0,
+                                last_updated: 0,
+                            },
+                        ).await;
+                    }
+                }
+                Err(e) => {
+                    return RecoveryStep {
+                        name: "apply_rollbacks",
+                        success: false,
+                        error: Some(format!("Failed to get affected transfers: {}", e)),
+                    };
+                }
+            }
         }
         
         RecoveryStep {
@@ -387,13 +426,132 @@ pub struct RecoveryResult {
     pub errors: Vec<String>,
 }
 
+/// Storage backend trait for recovery engine
+///
+/// This trait abstracts the persistence layer, allowing the recovery engine
+/// to work with SQLite (via csv-store) or any other storage backend.
+///
+/// Implementations should provide persistent storage for:
+/// - Transfer state (to detect in-flight operations)
+/// - Replay registry (to avoid duplicate recovery)
+/// - Operation log (for audit trail)
+/// - Last known block heights (for chain finality verification)
+/// - Reorg events (for rollback detection)
+pub trait RecoveryStorageBackend: Clone + Send + Sync + 'static {
+    /// Load last known block heights for all tracked chains
+    fn load_last_known_heights(&self) -> impl core::future::Future<Output = Result<Vec<(String, u64)>>> + Send;
+
+    /// Find transfers in non-terminal states (in-flight)
+    fn find_in_flight_transfers(&self) -> impl core::future::Future<Output = Result<Vec<Hash>>> + Send;
+
+    /// Get transfer state for recovery
+    fn get_transfer_state(&self, transfer_id: &Hash) -> impl core::future::Future<Output = Result<Option<TransferRecoveryState>>> + Send;
+
+    /// Update transfer state after recovery
+    fn update_transfer_state(&self, transfer_id: &Hash, state: &TransferRecoveryState) -> impl core::future::Future<Output = Result<()>> + Send;
+
+    /// Record a reorg event
+    fn record_reorg(&self, chain: &str, old_height: u64, new_height: u64) -> impl core::future::Future<Output = Result<()>> + Send;
+
+    /// Get recent reorg events
+    fn get_recent_reorgs(&self, limit: usize) -> impl core::future::Future<Output = Result<Vec<(String, u64, u64)>>> + Send;
+
+    /// Get transfers affected by a reorg at a given height
+    fn get_transfers_at_height(&self, chain: &str, height: u64) -> impl core::future::Future<Output = Result<Vec<Hash>>> + Send;
+
+    /// Persist a recovery checkpoint
+    fn persist_checkpoint(&self, checkpoint: &RecoveryCheckpoint) -> impl core::future::Future<Output = Result<()>> + Send;
+
+    /// Load the last recovery checkpoint
+    fn load_checkpoint(&self) -> impl core::future::Future<Output = Result<Option<RecoveryCheckpoint>>> + Send;
+}
+
+/// Transfer state for recovery purposes
+#[derive(Clone, Debug)]
+pub struct TransferRecoveryState {
+    /// Transfer ID
+    pub transfer_id: Hash,
+    /// Current state (non-terminal)
+    pub state: String,
+    /// Source chain
+    pub source_chain: String,
+    /// Destination chain
+    pub destination_chain: String,
+    /// Source transaction hash
+    pub source_tx_hash: Option<Hash>,
+    /// Attempt counter
+    pub attempt_counter: u32,
+    /// Last updated timestamp
+    pub last_updated: u64,
+}
+
+/// Recovery checkpoint for crash recovery
+#[derive(Clone, Debug)]
+pub struct RecoveryCheckpoint {
+    /// Checkpoint timestamp
+    pub timestamp: u64,
+    /// Last known heights per chain
+    pub last_known_heights: Vec<(String, u64)>,
+    /// State checksum
+    pub state_checksum: Hash,
+    /// In-flight transfer IDs at checkpoint time
+    pub in_flight_transfers: Vec<Hash>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    /// Mock backend for testing
+    #[derive(Clone, Default)]
+    struct MockBackend {
+        last_known_heights: alloc::sync::Arc<std::sync::Mutex<Vec<(String, u64)>>>,
+        in_flight: alloc::sync::Arc<std::sync::Mutex<Vec<Hash>>>,
+    }
+
+    #[async_trait::async_trait]
+    impl RecoveryStorageBackend for MockBackend {
+        async fn load_last_known_heights(&self) -> Result<Vec<(String, u64)>> {
+            Ok(self.last_known_heights.lock().unwrap().clone())
+        }
+
+        async fn find_in_flight_transfers(&self) -> Result<Vec<Hash>> {
+            Ok(self.in_flight.lock().unwrap().clone())
+        }
+
+        async fn get_transfer_state(&self, _transfer_id: &Hash) -> Result<Option<TransferRecoveryState>> {
+            Ok(None)
+        }
+
+        async fn update_transfer_state(&self, _transfer_id: &Hash, _state: &TransferRecoveryState) -> Result<()> {
+            Ok(())
+        }
+
+        async fn record_reorg(&self, _chain: &str, _old_height: u64, _new_height: u64) -> Result<()> {
+            Ok(())
+        }
+
+        async fn get_recent_reorgs(&self, _limit: usize) -> Result<Vec<(String, u64, u64)>> {
+            Ok(Vec::new())
+        }
+
+        async fn get_transfers_at_height(&self, _chain: &str, _height: u64) -> Result<Vec<Hash>> {
+            Ok(Vec::new())
+        }
+
+        async fn persist_checkpoint(&self, _checkpoint: &RecoveryCheckpoint) -> Result<()> {
+            Ok(())
+        }
+
+        async fn load_checkpoint(&self) -> Result<Option<RecoveryCheckpoint>> {
+            Ok(None)
+        }
+    }
+
     #[tokio::test]
     async fn test_recovery_engine_startup() {
-        let mut engine = RecoveryEngine::new();
+        let backend = MockBackend::default();
+        let mut engine = RecoveryEngine::new(backend);
         let result = engine.startup_sequence().await.unwrap();
         
         assert!(result.success);
@@ -403,14 +561,20 @@ mod tests {
 
     #[test]
     fn test_recovery_engine_not_recovered_initially() {
-        let engine = RecoveryEngine::new();
+        let backend = MockBackend::default();
+        let engine = RecoveryEngine::new(backend);
         assert!(!engine.is_recovered());
     }
 
     #[test]
     fn test_last_known_height() {
-        let mut engine = RecoveryEngine::new();
-        engine.set_last_known_height("bitcoin".to_string(), 100);
+        let backend = MockBackend {
+            last_known_heights: alloc::sync::Arc::new(std::sync::Mutex::new(vec![
+                ("bitcoin".to_string(), 100),
+            ])),
+            in_flight: alloc::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
+        };
+        let mut engine = RecoveryEngine::new(backend);
         
         assert_eq!(engine.get_last_known_height("bitcoin"), Some(100));
         assert_eq!(engine.get_last_known_height("ethereum"), None);

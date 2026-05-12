@@ -3,6 +3,7 @@
 //! These types represent the core CSV (Client-Side Validation) domain model.
 
 use super::core::ChainId;
+use csv_core::SimplifiedTransferStatus;
 use serde::{Deserialize, Serialize};
 
 /// Status of a Sanad.
@@ -55,35 +56,10 @@ pub struct SanadRecord {
 }
 
 /// Status of a cross-chain transfer.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum TransferStatus {
-    /// Transfer initiated (lock transaction created).
-    Initiated,
-    /// Assets locked on source chain.
-    Locked,
-    /// Proof being verified.
-    Verifying,
-    /// Assets being minted on destination chain.
-    Minting,
-    /// Transfer completed successfully.
-    Completed,
-    /// Transfer failed.
-    Failed,
-}
-
-impl std::fmt::Display for TransferStatus {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            TransferStatus::Initiated => write!(f, "initiated"),
-            TransferStatus::Locked => write!(f, "locked"),
-            TransferStatus::Verifying => write!(f, "verifying"),
-            TransferStatus::Minting => write!(f, "minting"),
-            TransferStatus::Completed => write!(f, "completed"),
-            TransferStatus::Failed => write!(f, "failed"),
-        }
-    }
-}
+///
+/// Re-exported from csv_core for compatibility.
+/// Use [`csv_core::SimplifiedTransferStatus`] for the canonical definition.
+pub type TransferStatus = SimplifiedTransferStatus;
 
 /// A cross-chain transfer record.
 #[derive(Debug, Clone, Serialize, Deserialize)]

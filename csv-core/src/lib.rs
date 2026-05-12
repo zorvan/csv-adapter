@@ -163,7 +163,7 @@ pub mod stealth;
 // Protocol version, chain IDs, transfer status, error codes, capabilities
 pub use protocol_version::{
     builtin, Capabilities, ChainId, ErrorCode, ProtocolVersion, SyncStatus, TransferStatus,
-    PROTOCOL_VERSION,
+    SimplifiedTransferStatus, simplified_to_full, PROTOCOL_VERSION,
 };
 
 // ===========================================================================

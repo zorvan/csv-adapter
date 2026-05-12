@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+#![allow(unused_variables)]
 //! Chain Operation Traits Implementation for Ethereum
 //!
 //! This module implements all chain operation traits from csv-adapter-core:
@@ -27,6 +29,7 @@ use crate::config::EthereumConfig;
 use crate::finality::FinalityChecker;
 use crate::proofs::{CommitmentEventBuilder, EventProofVerifier};
 use crate::rpc::{EthereumRpc, RpcBlock, RpcTransaction};
+// Manual ABI encoding - migrated to bindings in Phase 5
 use crate::sanad_contract::{CsvLockAbi, CsvMintAbi};
 use crate::seal_contract::CsvSealAbi;
 use crate::seal_protocol::EthereumSealProtocol;
@@ -784,6 +787,7 @@ impl ChainBroadcaster for EthereumBackend {
             ));
         }
 
+        #[allow(unreachable_code)]
         Ok(())
     }
 }

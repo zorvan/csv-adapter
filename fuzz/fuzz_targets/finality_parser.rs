@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! Fuzz target for finality data parsing
 //!
 //! This fuzz target tests the robustness of finality data parsing

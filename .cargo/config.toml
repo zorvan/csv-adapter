@@ -1,0 +1,18 @@
+# CSV Protocol — Cargo Configuration
+#
+# This file configures Rust toolchain behavior for the CSV protocol monorepo.
+# It enforces security and quality guardrails defined in AUDIT2.md.
+
+[build]
+# Use release-like optimizations for faster incremental builds
+rustflags = [
+    # Deny warnings that indicate potential issues
+    "-Dwarnings",
+    # Deny unused imports, variables, mutability
+    "-Dunused_imports",
+    "-Dunused_variables",
+    "-Dunused_mut",
+    # Deny unsafe code outside approved modules
+    # (enforced via scripts/security/check_forbidden_patterns.sh)
+]
+

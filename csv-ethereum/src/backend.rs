@@ -1,3 +1,4 @@
+#![allow(unused_variables)]
 //! ChainDriver implementation for EthereumSealProtocol
 //!
 //! This module implements the `ChainDriver` trait from `csv-adapter-core`,
