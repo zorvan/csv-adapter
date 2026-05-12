@@ -120,3 +120,32 @@ impl ChainFinalityPolicy for AptosFinalityPolicy {
         true
     }
 }
+
+/// Solana finality policy
+#[derive(Clone, Debug)]
+pub struct SolanaFinalityPolicy {
+    threshold: FinalityThreshold,
+}
+
+impl SolanaFinalityPolicy {
+    /// Create a new Solana finality policy (32 confirmations for probabilistic finality)
+    pub fn new() -> Self {
+        Self {
+            threshold: FinalityThreshold::new(32, 0.67), // ~2/3 of stake
+        }
+    }
+}
+
+impl ChainFinalityPolicy for SolanaFinalityPolicy {
+    fn required_confirmations(&self) -> u32 {
+        self.threshold.min_confirmations
+    }
+
+    fn finality_threshold(&self) -> f64 {
+        self.threshold.validator_percentage
+    }
+
+    fn is_block_finalized(&self, block_height: u64, current_height: u64) -> bool {
+        current_height >= block_height + self.threshold.min_confirmations as u64
+    }
+}

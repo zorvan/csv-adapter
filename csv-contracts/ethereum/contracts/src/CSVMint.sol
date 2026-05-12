@@ -14,10 +14,12 @@ contract CSVMint {
     uint8 public constant PROOF_SYSTEM_UNSPECIFIED = 0;
 
     /// @notice Address of the CSVLock contract on the source chain's bridge
-    address public lockContract;
+    /// @dev Immutable - set at deployment and cannot be changed
+    address public immutable lockContract;
 
     /// @notice Trusted verifier address that validates proofs before minting
-    address public verifier;
+    /// @dev Immutable - set at deployment and cannot be changed
+    address public immutable verifier;
 
     /// @notice Tracks minted Sanads (prevents double-mint)
     mapping(bytes32 => bool) public mintedSanads;
@@ -34,9 +36,6 @@ contract CSVMint {
     }
 
     mapping(bytes32 => SanadMetadata) public sanadMetadata;
-
-    /// @notice Contract owner — controls verifier address and batch minting
-    address public owner;
 
     /// @notice Emitted when a Sanad is minted from cross-chain transfer
     event SanadMinted(
@@ -55,11 +54,6 @@ contract CSVMint {
     /// @notice Emitted when a nullifier is registered
     event NullifierRegistered(bytes32 indexed nullifier, bytes32 indexed sanadId);
 
-    /// @notice Emitted when owner is changed
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
-
-    /// @notice Emitted when verifier is changed
-    event VerifierUpdated(address indexed oldVerifier, address indexed newVerifier);
     event SanadMetadataRecorded(
         bytes32 indexed sanadId,
         uint8 assetClass,
@@ -77,38 +71,15 @@ contract CSVMint {
 
     error SanadAlreadyMinted();
     error InvalidProof();
-    error NotAuthorized();
     error NullifierAlreadyRegistered();
     error ZeroAddress();
     error ArraysMismatch();
     error InvalidSanadMetadata();
 
-    modifier onlyOwner() {
-        if (msg.sender != owner) revert NotAuthorized();
-        _;
-    }
-
     constructor(address _lockContract, address _verifier) {
         if (_lockContract == address(0) || _verifier == address(0)) revert ZeroAddress();
         lockContract = _lockContract;
         verifier = _verifier;
-        owner = msg.sender;
-        emit OwnershipTransferred(address(0), msg.sender);
-    }
-
-    /// @notice Set the verifier address (owner only)
-    function setVerifier(address _newVerifier) external onlyOwner {
-        if (_newVerifier == address(0)) revert ZeroAddress();
-        address oldVerifier = verifier;
-        verifier = _newVerifier;
-        emit VerifierUpdated(oldVerifier, _newVerifier);
-    }
-
-    /// @notice Transfer ownership to a new address (owner only)
-    function transferOwnership(address newOwner) external onlyOwner {
-        if (newOwner == address(0)) revert ZeroAddress();
-        emit OwnershipTransferred(owner, newOwner);
-        owner = newOwner;
     }
 
     /// @notice Register a nullifier for a Sanad (prevents double-spend)
@@ -320,7 +291,7 @@ contract CSVMint {
         return nullifiers[nullifier];
     }
 
-    /// @notice Batch mint multiple Sanads (for efficiency) — owner only
+    /// @notice Batch mint multiple Sanads (for efficiency)
     /// @param sanadIds Array of Sanad identifiers
     /// @param commitments Array of commitment hashes
     /// @param stateRoots Array of state roots
@@ -338,7 +309,7 @@ contract CSVMint {
         bytes[] calldata proofs,
         bytes32 proofRoot,
         uint256[] calldata leafPositions
-    ) external onlyOwner {
+    ) external {
         if (
             sanadIds.length != commitments.length ||
             sanadIds.length != stateRoots.length ||

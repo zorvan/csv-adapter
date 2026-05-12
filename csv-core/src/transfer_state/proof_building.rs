@@ -2,7 +2,9 @@
 //!
 //! Building zero-knowledge proof for the transfer.
 
-use super::TransferData;
+use super::{ProofValidated, TransferData};
+use crate::error::Result;
+use crate::hash::Hash;
 
 /// Transfer is in proof building phase
 #[derive(Clone, Debug)]
@@ -33,5 +35,27 @@ impl ProofBuilding {
     /// Get the transfer data
     pub fn data(&self) -> &TransferData {
         &self.data
+    }
+
+    /// Transition to ProofValidated state after proof is complete
+    ///
+    /// This is the only valid transition from ProofBuilding state.
+    /// The proof must be successfully generated and validated.
+    ///
+    /// # Arguments
+    ///
+    /// * `proof_hash` - Hash of the generated proof
+    ///
+    /// # Returns
+    ///
+    /// ProofValidated state if proof is complete
+    pub fn complete_proof(self, proof_hash: Hash) -> Result<ProofValidated> {
+        if self.progress < 100 {
+            return Err(crate::error::ProtocolError::InvalidStateTransition(
+                "Cannot complete proof before progress reaches 100%".to_string(),
+            ));
+        }
+
+        Ok(ProofValidated::new(self.data, proof_hash))
     }
 }

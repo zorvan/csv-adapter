@@ -2,7 +2,8 @@
 //!
 //! Minting on destination chain.
 
-use super::TransferData;
+use super::{Completed, TransferData};
+use crate::error::Result;
 
 /// Transfer is being minted on destination chain
 #[derive(Clone, Debug)]
@@ -33,5 +34,27 @@ impl Minting {
     /// Get the transfer data
     pub fn data(&self) -> &TransferData {
         &self.data
+    }
+
+    /// Transition to Completed state after minting is confirmed
+    ///
+    /// This is the only valid transition from Minting state.
+    /// The mint transaction must be confirmed before completion.
+    ///
+    /// # Arguments
+    ///
+    /// * `mint_tx_hash` - Transaction hash of the mint transaction
+    ///
+    /// # Returns
+    ///
+    /// Completed state if minting is confirmed
+    pub fn complete_minting(self, mint_tx_hash: Vec<u8>) -> Result<Completed> {
+        if mint_tx_hash.is_empty() {
+            return Err(crate::error::ProtocolError::InvalidStateTransition(
+                "Cannot complete minting with empty transaction hash".to_string(),
+            ));
+        }
+
+        Ok(Completed::new(self.data, mint_tx_hash))
     }
 }

@@ -6,8 +6,9 @@
 
 use alloc::vec::Vec;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 
+use crate::domain_hash::DomainSeparatedHash;
+use crate::domains::GenesisDomain;
 use crate::hash::Hash;
 use crate::state::{GlobalState, Metadata, OwnedState};
 
@@ -51,41 +52,36 @@ impl Genesis {
     ///
     /// This hash serves as the root commitment for all subsequent transitions.
     pub fn hash(&self) -> Hash {
-        let mut hasher = Sha256::new();
-
-        // Domain separator for genesis
-        hasher.update(b"CSV-GENESIS-v1");
+        // Build the payload for domain-separated hashing
+        let mut payload = Vec::new();
 
         // Contract and schema IDs
-        hasher.update(self.contract_id.as_bytes());
-        hasher.update(self.schema_id.as_bytes());
+        payload.extend_from_slice(self.contract_id.as_bytes());
+        payload.extend_from_slice(self.schema_id.as_bytes());
 
         // Global state: count + each (type_id || data)
-        hasher.update((self.global_state.len() as u64).to_le_bytes());
+        payload.extend_from_slice((self.global_state.len() as u64).to_le_bytes());
         for state in &self.global_state {
-            hasher.update(state.type_id.to_le_bytes());
-            hasher.update(&state.data);
+            payload.extend_from_slice(state.type_id.to_le_bytes());
+            payload.extend_from_slice(&state.data);
         }
 
         // Owned state: count + each (type_id || seal || data)
-        hasher.update((self.owned_state.len() as u64).to_le_bytes());
+        payload.extend_from_slice((self.owned_state.len() as u64).to_le_bytes());
         for state in &self.owned_state {
-            hasher.update(state.type_id.to_le_bytes());
-            hasher.update(state.seal.to_vec());
-            hasher.update(&state.data);
+            payload.extend_from_slice(state.type_id.to_le_bytes());
+            payload.extend_from_slice(state.seal.to_vec());
+            payload.extend_from_slice(&state.data);
         }
 
         // Metadata: count + each (key || value)
-        hasher.update((self.metadata.len() as u64).to_le_bytes());
-        for meta in &self.metadata {
-            hasher.update(meta.key.as_bytes());
-            hasher.update(&meta.value);
+        payload.extend_from_slice((self.metadata.len() as u64).to_le_bytes());
+        for (key, value) in &self.metadata {
+            payload.extend_from_slice(key.as_bytes());
+            payload.extend_from_slice(value.as_bytes());
         }
 
-        let result = hasher.finalize();
-        let mut array = [0u8; 32];
-        array.copy_from_slice(&result);
-        Hash::new(array)
+        DomainSeparatedHash::<GenesisDomain>::hash(&payload)
     }
 
     /// Get the total count of all state items

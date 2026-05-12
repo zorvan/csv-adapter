@@ -49,6 +49,8 @@
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::vec::Vec;
 
+use crate::domain_hash::DomainSeparatedHash;
+use crate::domains::ReplayRegistryDomain;
 use crate::hash::Hash;
 use crate::sanad::SanadId;
 use crate::seal::SealPoint;
@@ -381,12 +383,7 @@ impl OptimizedSealNullifier {
         consumption: SealConsumption,
     ) -> Result<(), Box<DoubleSpendError>> {
         let seal_key = consumption.seal_ref.to_vec();
-        let seal_hash = Hash::new(seal_key.as_slice().try_into().unwrap_or_else(|_| {
-            let mut arr = [0u8; 32];
-            let len = seal_key.len().min(32);
-            arr[..len].copy_from_slice(&seal_key[..len]);
-            arr
-        }));
+        let seal_hash = DomainSeparatedHash::<ReplayRegistryDomain>::hash(&seal_key);
 
         // Fast bloom filter check first (O(1))
         let might_exist = self.bloom_filter.might_contain(&seal_hash);
@@ -463,12 +460,7 @@ impl OptimizedSealNullifier {
             return cached.clone();
         }
 
-        let seal_hash = Hash::new(key.as_slice().try_into().unwrap_or_else(|_| {
-            let mut arr = [0u8; 32];
-            let len = key.len().min(32);
-            arr[..len].copy_from_slice(&key[..len]);
-            arr
-        }));
+        let seal_hash = DomainSeparatedHash::<ReplayRegistryDomain>::hash(&key);
 
         // Fast bloom filter check (O(1)) - if negative, seal is definitely not consumed
         if !self.bloom_filter.might_contain(&seal_hash) {
@@ -499,12 +491,7 @@ impl OptimizedSealNullifier {
     /// Immutable version of check_seal_status (no caching).
     pub fn check_seal_status_immutable(&self, seal_ref: &SealPoint) -> SealStatus {
         let key = seal_ref.to_vec();
-        let seal_hash = Hash::new(key.as_slice().try_into().unwrap_or_else(|_| {
-            let mut arr = [0u8; 32];
-            let len = key.len().min(32);
-            arr[..len].copy_from_slice(&key[..len]);
-            arr
-        }));
+        let seal_hash = DomainSeparatedHash::<ReplayRegistryDomain>::hash(&key);
 
         // Fast bloom filter check (O(1))
         if !self.bloom_filter.might_contain(&seal_hash) {
@@ -547,12 +534,7 @@ impl OptimizedSealNullifier {
     /// Check if a seal has been consumed (anywhere) with O(1) bloom filter check.
     pub fn is_seal_consumed(&self, seal_ref: &SealPoint) -> bool {
         let seal_key = seal_ref.to_vec();
-        let seal_hash = Hash::new(seal_key.as_slice().try_into().unwrap_or_else(|_| {
-            let mut arr = [0u8; 32];
-            let len = seal_key.len().min(32);
-            arr[..len].copy_from_slice(&seal_key[..len]);
-            arr
-        }));
+        let seal_hash = DomainSeparatedHash::<ReplayRegistryDomain>::hash(&seal_key);
 
         // Fast bloom filter check first (O(1))
         if !self.bloom_filter.might_contain(&seal_hash) {
@@ -611,12 +593,7 @@ impl OptimizedSealNullifier {
         let mut new_filter = crate::performance::BloomFilter::new(capacity, 0.01);
 
         for key in self.consumed_seals.keys() {
-            let seal_hash = Hash::new(key.as_slice().try_into().unwrap_or_else(|_| {
-                let mut arr = [0u8; 32];
-                let len = key.len().min(32);
-                arr[..len].copy_from_slice(&key[..len]);
-                arr
-            }));
+            let seal_hash = DomainSeparatedHash::<ReplayRegistryDomain>::hash(key);
             new_filter.insert(&seal_hash);
         }
 

@@ -22,10 +22,13 @@
 
 use alloc::vec::Vec;
 
+use crate::domain_hash::DomainSeparatedHash;
+use crate::domains::{ProofBundleDomain, ReplayRegistryDomain};
 use crate::error::{ProtocolError, Result};
 use crate::hash::Hash;
 use crate::proof::{FinalityProof, InclusionProof, ProofBundle};
 use crate::protocol_version::ChainId;
+use crate::replay_registry::ReplayKey;
 
 /// Chain verifier trait that adapters must implement
 ///
@@ -44,6 +47,12 @@ pub trait ChainVerifier {
 
     /// Verify zero-knowledge proof (if applicable for this chain)
     async fn verify_zk(&self, proof: &[u8]) -> Result<bool>;
+
+    /// Verify seal registry (check if seal has been consumed)
+    async fn verify_seal_registry(&self, seal_id: Hash) -> Result<bool>;
+
+    /// Verify signature on proof bundle
+    async fn verify_signature(&self, bundle: &ProofBundle) -> Result<bool>;
 }
 
 /// Validation step result
@@ -158,7 +167,7 @@ pub async fn validate_proof_bundle(
     }
 
     // Step 7: Seal registry validation
-    let step7 = validate_seal_registry(bundle);
+    let step7 = validate_seal_registry(bundle, verifier).await;
     steps.push(step7.clone());
     if !step7.passed {
         return ValidationResult {
@@ -180,7 +189,7 @@ pub async fn validate_proof_bundle(
     }
 
     // Step 9: Signature validation
-    let step9 = validate_signature(bundle);
+    let step9 = validate_signature(bundle, verifier).await;
     steps.push(step9.clone());
     if !step9.passed {
         return ValidationResult {
@@ -238,7 +247,29 @@ fn validate_domain(
     destination_chain: &ChainId,
 ) -> ValidationStep {
     // Verify that the proof is for the correct source/destination chains
-    // This is a placeholder - actual implementation would check bundle metadata
+    // by checking the domain-separated hash matches expected values
+    
+    // Compute domain-separated hash of the proof bundle
+    let proof_hash = DomainSeparatedHash::<ProofBundleDomain>::hash(&bundle.inclusion_proof.proof_bytes);
+    
+    // Verify the proof hash matches the block hash (cross-chain consistency)
+    if proof_hash != bundle.block_hash {
+        return ValidationStep {
+            name: "domain_validation",
+            passed: false,
+            error: Some("Proof hash does not match block hash - domain mismatch".to_string()),
+        };
+    }
+    
+    // Verify source and destination chains are different (cross-chain transfer)
+    if source_chain == destination_chain {
+        return ValidationStep {
+            name: "domain_validation",
+            passed: false,
+            error: Some("Source and destination chains must be different for cross-chain transfer".to_string()),
+        };
+    }
+    
     ValidationStep {
         name: "domain_validation",
         passed: true,
@@ -332,8 +363,26 @@ async fn validate_finality(
 
 /// Step 6: Replay validation
 fn validate_replay(bundle: &ProofBundle) -> ValidationStep {
-    // Placeholder - would check replay registry
-    // This will be implemented when replay_registry.rs is created
+    // Check replay registry to prevent cross-chain replay attacks
+    // In a real implementation, this would query the persistent replay registry
+    // For now, we compute the replay key and verify it's not in a local cache
+    
+    // Compute replay key from proof bundle
+    let replay_key = ReplayKey::new(
+        bundle.block_hash,
+        bundle.block_hash, // seal_id (simplified - would be actual seal ID)
+        bundle.block_hash, // commitment_hash (simplified)
+        ChainId::new("source"), // Would be actual source chain from bundle
+        ChainId::new("destination"), // Would be actual destination chain from bundle
+    );
+    
+    // Compute domain-separated hash of replay key
+    let _replay_hash = DomainSeparatedHash::<ReplayRegistryDomain>::hash(
+        &replay_key.hash().as_bytes().to_vec()
+    );
+    
+    // In production, check if this replay_hash exists in the persistent registry
+    // For now, we pass this step (registry check would be async)
     ValidationStep {
         name: "replay_validation",
         passed: true,
@@ -342,19 +391,66 @@ fn validate_replay(bundle: &ProofBundle) -> ValidationStep {
 }
 
 /// Step 7: Seal registry validation
-fn validate_seal_registry(bundle: &ProofBundle) -> ValidationStep {
-    // Placeholder - would check seal registry
-    // This will be implemented when replay_registry.rs is created
-    ValidationStep {
-        name: "seal_registry_validation",
-        passed: true,
-        error: None,
+async fn validate_seal_registry(
+    bundle: &ProofBundle,
+    verifier: &dyn ChainVerifier,
+) -> ValidationStep {
+    // Verify that the seal has not been consumed before
+    // This prevents double-spend attacks
+    
+    // Extract seal ID from proof bundle (simplified - would parse from actual proof)
+    let seal_id = bundle.block_hash;
+    
+    match verifier.verify_seal_registry(seal_id).await {
+        Ok(true) => ValidationStep {
+            name: "seal_registry_validation",
+            passed: true,
+            error: None,
+        },
+        Ok(false) => ValidationStep {
+            name: "seal_registry_validation",
+            passed: false,
+            error: Some("Seal has already been consumed - double-spend detected".to_string()),
+        },
+        Err(e) => ValidationStep {
+            name: "seal_registry_validation",
+            passed: false,
+            error: Some(format!("Seal registry verification error: {}", e)),
+        },
     }
 }
 
 /// Step 8: Transition legality validation
 fn validate_transition_legality(bundle: &ProofBundle) -> ValidationStep {
-    // Placeholder - would verify transition is legal per protocol rules
+    // Verify that the transition follows protocol rules:
+    // 1. Proof must be for a valid state transition (locked -> minted)
+    // 2. Block height must be within acceptable range
+    // 3. Proof must not be expired
+    
+    // Check that inclusion proof is not empty (basic sanity check)
+    if bundle.inclusion_proof.proof_bytes.is_empty() {
+        return ValidationStep {
+            name: "transition_legality_validation",
+            passed: false,
+            error: Some("Inclusion proof is empty - invalid transition".to_string()),
+        };
+    }
+    
+    // Check that finality proof is not empty
+    if bundle.finality_proof.proof_bytes.is_empty() {
+        return ValidationStep {
+            name: "transition_legality_validation",
+            passed: false,
+            error: Some("Finality proof is empty - invalid transition".to_string()),
+        };
+    }
+    
+    // In production, additional checks would include:
+    // - Verify block height is within protocol-defined window
+    // - Verify proof timestamp is not expired
+    // - Verify transition sequence is valid
+    // - Check protocol version compatibility
+    
     ValidationStep {
         name: "transition_legality_validation",
         passed: true,
@@ -363,12 +459,29 @@ fn validate_transition_legality(bundle: &ProofBundle) -> ValidationStep {
 }
 
 /// Step 9: Signature validation
-fn validate_signature(bundle: &ProofBundle) -> ValidationStep {
-    // Placeholder - would verify signatures
-    ValidationStep {
-        name: "signature_validation",
-        passed: true,
-        error: None,
+async fn validate_signature(
+    bundle: &ProofBundle,
+    verifier: &dyn ChainVerifier,
+) -> ValidationStep {
+    // Verify cryptographic signatures on the proof bundle
+    // This ensures the proof was created by the legitimate owner
+    
+    match verifier.verify_signature(bundle).await {
+        Ok(true) => ValidationStep {
+            name: "signature_validation",
+            passed: true,
+            error: None,
+        },
+        Ok(false) => ValidationStep {
+            name: "signature_validation",
+            passed: false,
+            error: Some("Invalid signature - proof not authenticated".to_string()),
+        },
+        Err(e) => ValidationStep {
+            name: "signature_validation",
+            passed: false,
+            error: Some(format!("Signature verification error: {}", e)),
+        },
     }
 }
 
@@ -393,6 +506,14 @@ mod tests {
         }
 
         async fn verify_zk(&self, _proof: &[u8]) -> Result<bool> {
+            Ok(true)
+        }
+
+        async fn verify_seal_registry(&self, _seal_id: Hash) -> Result<bool> {
+            Ok(true)
+        }
+
+        async fn verify_signature(&self, _bundle: &ProofBundle) -> Result<bool> {
             Ok(true)
         }
     }

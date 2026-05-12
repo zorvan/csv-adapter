@@ -7,8 +7,9 @@
 use alloc::string::String;
 use alloc::vec::Vec;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 
+use crate::domain_hash::DomainSeparatedHash;
+use crate::domains::SchemaDomain;
 use crate::hash::Hash;
 use crate::state::StateTypeId;
 use crate::transition::Transition;
@@ -290,44 +291,49 @@ impl Schema {
 
     /// Compute the schema hash
     pub fn hash(&self) -> Hash {
-        let mut hasher = Sha256::new();
+        // Build the payload for domain-separated hashing
+        let mut payload = Vec::new();
 
-        hasher.update(b"CSV-SCHEMA-v1");
-        hasher.update(self.version.to_le_bytes());
-        hasher.update(self.name.as_bytes());
+        payload.extend_from_slice(self.version.to_le_bytes());
+        payload.extend_from_slice(self.name.as_bytes());
 
         // Global types
-        hasher.update((self.global_types.len() as u64).to_le_bytes());
+        payload.extend_from_slice((self.global_types.len() as u64).to_le_bytes());
         for gt in &self.global_types {
-            hasher.update(gt.type_id.to_le_bytes());
-            hasher.update(gt.name.as_bytes());
-            hasher.update((gt.data_type.fixed_size().unwrap_or(0)).to_le_bytes());
-            hasher.update([gt.is_homomorphic as u8]);
+            payload.extend_from_slice(gt.type_id.to_le_bytes());
+            payload.extend_from_slice(gt.name.as_bytes());
+            payload.extend_from_slice((gt.data_type.fixed_size().unwrap_or(0)).to_le_bytes());
+            payload.extend_from_slice([gt.is_homomorphic as u8]);
         }
 
         // Owned types
-        hasher.update((self.owned_types.len() as u64).to_le_bytes());
+        payload.extend_from_slice((self.owned_types.len() as u64).to_le_bytes());
         for ot in &self.owned_types {
-            hasher.update(ot.type_id.to_le_bytes());
-            hasher.update(ot.name.as_bytes());
-            hasher.update((ot.data_type.fixed_size().unwrap_or(0)).to_le_bytes());
-            hasher.update([ot.is_fungible as u8]);
+            payload.extend_from_slice(ot.type_id.to_le_bytes());
+            payload.extend_from_slice(ot.name.as_bytes());
+            payload.extend_from_slice((ot.data_type.fixed_size().unwrap_or(0)).to_le_bytes());
+            payload.extend_from_slice([ot.is_fungible as u8]);
         }
 
         // Transitions
-        hasher.update((self.transitions.len() as u64).to_le_bytes());
+        payload.extend_from_slice((self.transitions.len() as u64).to_le_bytes());
         for t in &self.transitions {
-            hasher.update(t.transition_id.to_le_bytes());
-            hasher.update(t.name.as_bytes());
-            hasher.update((t.owned_inputs.len() as u64).to_le_bytes());
+            payload.extend_from_slice(t.transition_id.to_le_bytes());
+            payload.extend_from_slice(t.name.as_bytes());
+            payload.extend_from_slice((t.owned_inputs.len() as u64).to_le_bytes());
             for id in &t.owned_inputs {
-                hasher.update(id.to_le_bytes());
+                payload.extend_from_slice(id.to_le_bytes());
             }
-            hasher.update((t.owned_outputs.len() as u64).to_le_bytes());
+            payload.extend_from_slice((t.owned_outputs.len() as u64).to_le_bytes());
             for id in &t.owned_outputs {
-                hasher.update(id.to_le_bytes());
+                payload.extend_from_slice(id.to_le_bytes());
             }
-            hasher.update((t.validation_script.len() as u64).to_le_bytes());
+            payload.extend_from_slice((t.global_updates.len() as u64).to_le_bytes());
+            for id in &t.global_updates {
+                payload.extend_from_slice(id.to_le_bytes());
+            }
+            payload.extend_from_slice((t.validation_script.len() as u64).to_le_bytes());
+            payload.extend_from_slice(&t.validation_script);
             hasher.update(&t.validation_script);
         }
 

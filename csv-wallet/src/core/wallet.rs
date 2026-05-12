@@ -3,6 +3,7 @@
 //! Extends csv_core with additional functionality for the UI application.
 //! For non-WASM builds, provides encrypted persistent storage using AES-256-GCM
 //! with scrypt KDF, session management, and security policy enforcement.
+//! All sensitive data is zeroized on drop to prevent memory leaks.
 
 use csv_core::ChainId;
 use bip32::Mnemonic;
@@ -10,6 +11,7 @@ use serde::{Serialize, Deserialize};
 use rand::Rng;
 use rand::RngCore;
 use rand::rngs::OsRng;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::core::native_keystore::{NativeKeystore, NativeKeystoreError, SecurityPolicy};
@@ -43,13 +45,13 @@ pub enum BitcoinNetwork {
 
 
 /// Extended wallet with metadata.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ZeroizeOnDrop)]
 pub struct ExtendedWallet {
     /// Wallet metadata
     pub metadata: WalletMetadata,
     /// Mnemonic phrase
     pub mnemonic: String,
-    /// Seed bytes
+    /// Seed bytes - zeroized on drop
     #[serde(
         serialize_with = "serialize_seed",
         deserialize_with = "deserialize_seed"
@@ -146,9 +148,9 @@ impl ExtendedWallet {
         self
     }
 
-    /// Lock the wallet, clearing the seed from memory.
+    /// Lock the wallet, securely clearing the seed from memory.
     pub fn lock(&mut self) {
-        self.seed = [0u8; 64];
+        self.seed.zeroize();
         self.is_locked = true;
     }
 

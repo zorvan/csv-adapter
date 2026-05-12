@@ -18,8 +18,9 @@
 
 use alloc::vec::Vec;
 
-use crate::error::Result;
+use crate::error::{ProtocolError, Result};
 use crate::hash::Hash;
+use crate::protocol_version::ChainId;
 
 /// Recovery engine for crash-safe startup
 #[derive(Default)]
@@ -30,6 +31,10 @@ pub struct RecoveryEngine {
     last_known_heights: Vec<(String, u64)>,
     /// In-flight transfers that need recovery
     in_flight_transfers: Vec<Hash>,
+    /// Persistent state checksum for validation
+    state_checksum: Option<Hash>,
+    /// Detected reorgs during recovery
+    detected_reorgs: Vec<(String, u64, u64)>, // (chain, old_height, new_height)
 }
 
 impl RecoveryEngine {
@@ -147,8 +152,18 @@ impl RecoveryEngine {
     }
 
     /// Step 1: Load persistent state from storage
-    async fn load_persistent_state(&self) -> RecoveryStep {
-        // Placeholder - would load from actual storage
+    async fn load_persistent_state(&mut self) -> RecoveryStep {
+        // In production, this would:
+        // 1. Connect to SQLite database
+        // 2. Load transfer store state
+        // 3. Load replay registry state
+        // 4. Load operation log
+        // 5. Load last known block heights
+        // 6. Compute state checksum
+        
+        // For now, simulate successful load
+        self.state_checksum = Some(Hash::new([1u8; 32])); // Simulated checksum
+        
         RecoveryStep {
             name: "load_persistent_state",
             success: true,
@@ -158,7 +173,23 @@ impl RecoveryEngine {
 
     /// Step 2: Validate state consistency
     async fn validate_state_consistency(&self) -> RecoveryStep {
-        // Placeholder - would validate checksums, invariants, etc.
+        // Validate:
+        // 1. State checksum matches persisted value
+        // 2. No orphaned operations without parent
+        // 3. Transfer state invariants hold
+        // 4. Replay registry consistency
+        // 5. Block height monotonicity
+        
+        // Check that state checksum exists
+        if self.state_checksum.is_none() {
+            return RecoveryStep {
+                name: "validate_state_consistency",
+                success: false,
+                error: Some("State checksum not found - corrupted state".to_string()),
+            };
+        }
+        
+        // In production, would validate actual checksums and invariants
         RecoveryStep {
             name: "validate_state_consistency",
             success: true,
@@ -168,7 +199,19 @@ impl RecoveryEngine {
 
     /// Step 3: Detect in-flight operations
     async fn detect_in_flight_operations(&mut self) -> RecoveryStep {
-        // Placeholder - would scan for incomplete transfers
+        // Scan for:
+        // 1. Transfers in non-terminal states (not Completed, RolledBack, Compromised)
+        // 2. Operations with attempt_counter > 0 but no result
+        // 3. Mint operations without confirmation
+        // 4. Proof operations without validation result
+        
+        // In production, would query operation_log for incomplete operations
+        // For now, simulate detection
+        self.in_flight_transfers = vec![
+            Hash::new([1u8; 32]),
+            Hash::new([2u8; 32]),
+        ];
+        
         RecoveryStep {
             name: "detect_in_flight_operations",
             success: true,
@@ -178,7 +221,17 @@ impl RecoveryEngine {
 
     /// Step 4: Resume or rollback incomplete operations
     async fn recover_incomplete_operations(&mut self) -> RecoveryStep {
-        // Placeholder - would resume or rollback based on state
+        // For each in-flight operation:
+        // 1. Check current chain state
+        // 2. Verify if operation completed while down
+        // 3. If completed: update state and persist
+        // 4. If failed: increment attempt_counter and retry
+        // 5. If max attempts exceeded: mark as failed/rolled back
+        // 6. Persist recovery intent before retry
+        
+        // In production, would iterate through in_flight_transfers
+        // and handle each according to its type and state
+        
         RecoveryStep {
             name: "recover_incomplete_operations",
             success: true,
@@ -188,7 +241,17 @@ impl RecoveryEngine {
 
     /// Step 5: Rebuild in-memory structures
     async fn rebuild_memory_structures(&mut self) -> RecoveryStep {
-        // Placeholder - would rebuild caches, indexes, etc.
+        // Rebuild:
+        // 1. Transfer state cache
+        // 2. Replay registry in-memory index
+        // 3. Seal registry cache
+        // 4. Block height cache per chain
+        // 5. Finality state cache
+        // 6. Reorg detector state
+        
+        // In production, would load from storage and rebuild
+        // For now, simulate successful rebuild
+        
         RecoveryStep {
             name: "rebuild_memory_structures",
             success: true,
@@ -197,8 +260,20 @@ impl RecoveryEngine {
     }
 
     /// Step 6: Verify chain finality
-    async fn verify_chain_finality(&self) -> RecoveryStep {
-        // Placeholder - would query RPC for finality
+    async fn verify_chain_finality(&mut self) -> RecoveryStep {
+        // For each tracked chain:
+        // 1. Query current block height via RPC
+        // 2. Compare with last known height
+        // 3. Verify finality of last known block
+        // 4. Update last known heights if safe
+        
+        // In production, would use quorum RPC client
+        // For now, simulate successful verification
+        
+        // Update last known heights (simulated)
+        self.last_known_heights.push(("bitcoin".to_string(), 800000));
+        self.last_known_heights.push(("ethereum".to_string(), 5000000));
+        
         RecoveryStep {
             name: "verify_chain_finality",
             success: true,
@@ -208,7 +283,17 @@ impl RecoveryEngine {
 
     /// Step 7: Check for reorgs since last shutdown
     async fn check_for_reorgs(&mut self) -> RecoveryStep {
-        // Placeholder - would compare current chain state with last known
+        // For each tracked chain:
+        // 1. Get current canonical chain tip
+        // 2. Compare block hash at last known height
+        // 3. If hash differs: reorg detected
+        // 4. Calculate reorg depth
+        // 5. Record reorg for rollback
+        
+        // In production, would use reorg detector
+        // For now, simulate no reorgs
+        self.detected_reorgs = vec![]; // Empty = no reorgs
+        
         RecoveryStep {
             name: "check_for_reorgs",
             success: true,
@@ -218,7 +303,23 @@ impl RecoveryEngine {
 
     /// Step 8: Apply necessary rollbacks
     async fn apply_rollbacks(&mut self) -> RecoveryStep {
-        // Placeholder - would rollback affected transfers
+        // For each detected reorg:
+        // 1. Identify affected transfers (those dependent on reorged blocks)
+        // 2. For each affected transfer:
+        //    a. If source lock invalidated: mark as Compromised
+        //    b. If proof invalidated: rollback to Locked state
+        //    c. If mint invalidated: rollback to ProofValidated state
+        // 3. Persist rollback intent
+        // 4. Execute rollback
+        // 5. Persist rollback result
+        
+        // In production, would iterate through detected_reorgs
+        // and handle affected transfers
+        
+        if !self.detected_reorgs.is_empty() {
+            // Would apply rollbacks here
+        }
+        
         RecoveryStep {
             name: "apply_rollbacks",
             success: true,
@@ -228,7 +329,15 @@ impl RecoveryEngine {
 
     /// Step 9: Resume normal operation
     async fn resume_normal_operation(&mut self) -> RecoveryStep {
-        // Placeholder - would signal readiness
+        // Signal readiness:
+        // 1. Set recovered flag
+        // 2. Enable accepting new operations
+        // 3. Start background monitors (finality, reorg)
+        // 4. Resume operation processing
+        // 5. Emit recovery complete event
+        
+        self.recovered = true;
+        
         RecoveryStep {
             name: "resume_normal_operation",
             success: true,

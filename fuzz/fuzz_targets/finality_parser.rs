@@ -10,6 +10,6 @@ fuzz_target!(|data: &[u8]| {
     // Attempt to parse finality data from fuzzed input
     // This tests that the parser handles malformed data gracefully
     if let Ok(s) = std::str::from_utf8(data) {
-        let _ = serde_json::from_str::<csv_core::finality::FinalityState>(s);
+        let _: Result<csv_core::finality::FinalityState, _> = serde_json::from_str(s);
     }
 });

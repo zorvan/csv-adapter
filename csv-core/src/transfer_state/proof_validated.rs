@@ -2,7 +2,8 @@
 //!
 //! Proof has been validated, ready for minting on destination chain.
 
-use super::TransferData;
+use super::{Minting, TransferData};
+use crate::error::Result;
 
 /// Transfer proof has been validated
 #[derive(Clone, Debug)]
@@ -33,5 +34,23 @@ impl ProofValidated {
     /// Get the proof
     pub fn proof(&self) -> &[u8] {
         &self.proof
+    }
+
+    /// Transition to Minting state to begin minting on destination chain
+    ///
+    /// This is the only valid transition from ProofValidated state.
+    /// The proof must be validated before minting can begin.
+    ///
+    /// # Returns
+    ///
+    /// Minting state if transition is valid
+    pub fn begin_minting(self) -> Result<Minting> {
+        if self.proof.is_empty() {
+            return Err(crate::error::ProtocolError::InvalidStateTransition(
+                "Cannot begin minting with empty proof".to_string(),
+            ));
+        }
+
+        Ok(Minting::new(self.data))
     }
 }

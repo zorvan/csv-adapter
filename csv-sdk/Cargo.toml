@@ -37,6 +37,9 @@ csv-store = { version = "0.4.0", path = "../csv-store", optional = true }
 csv-explorer-storage = { version = "0.4.0", path = "../csv-explorer/storage", optional = true }
 csv-explorer-shared = { version = "0.4.0", path = "../csv-explorer/shared", optional = true }
 
+# Key management
+csv-keys = { version = "0.4.0", path = "../csv-keys", optional = true }
+
 # Async runtime
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "sync", "time"], optional = true }
 async-std = { version = "1", optional = true }
@@ -99,7 +102,7 @@ in-memory = []
 cross-chain-persist = ["dep:csv-explorer-storage", "dep:csv-explorer-shared", "dep:sqlx", "dep:chrono"]
 
 # Wallet / crypto
-wallet = ["dep:ed25519-dalek", "dep:bip32"]
+wallet = ["dep:csv-keys", "dep:ed25519-dalek", "dep:bip32"]
 
 # Experimental features
 experimental = ["csv-core/experimental"]

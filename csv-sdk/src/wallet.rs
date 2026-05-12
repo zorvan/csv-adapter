@@ -14,6 +14,9 @@
 
 use csv_core::ChainId;
 
+#[cfg(feature = "wallet")]
+use csv_keys::{Mnemonic, MnemonicType, restore_from_mnemonic as csv_restore_from_mnemonic};
+
 /// A unified wallet supporting multi-chain HD derivation (BIP-44).
 ///
 /// The wallet manages cryptographic keys for all supported chains
@@ -58,21 +61,15 @@ impl Wallet {
     ///
     /// # Panics
     ///
-    /// This method requires the `wallet` feature and the `bip32` crate.
+    /// This method requires the `wallet` feature and the `csv-keys` crate.
     /// If compiled without wallet support, returns a basic wallet.
     pub fn generate() -> Self {
         #[cfg(feature = "wallet")]
         {
-            use bip32::Mnemonic;
-            use rand::rngs::OsRng;
-            use rand::RngCore;
-
-            // Generate 32 random bytes for a 24-word mnemonic
-            let mut entropy = [0u8; 32];
-            OsRng.fill_bytes(&mut entropy);
-            let mnemonic = Mnemonic::from_entropy(entropy, bip32::Language::English);
-            let phrase = mnemonic.phrase().to_string();
-            let seed = mnemonic.to_seed("");
+            // Use csv-keys for secure mnemonic generation
+            let mnemonic = Mnemonic::generate(MnemonicType::Words24);
+            let phrase = mnemonic.as_str().to_string();
+            let seed = mnemonic.to_seed(None);
 
             let mut seed_bytes = [0u8; 64];
             seed_bytes.copy_from_slice(seed.as_bytes());
@@ -105,11 +102,9 @@ impl Wallet {
     pub fn from_mnemonic(mnemonic: &str, passphrase: &str) -> Result<Self, crate::CsvError> {
         #[cfg(feature = "wallet")]
         {
-            use bip32::Mnemonic;
-
-            let parsed = Mnemonic::new(mnemonic, bip32::Language::English)
+            // Use csv-keys for secure mnemonic restoration
+            let seed = csv_restore_from_mnemonic(mnemonic, Some(passphrase))
                 .map_err(|e| crate::CsvError::WalletError(format!("Invalid mnemonic: {}", e)))?;
-            let seed = parsed.to_seed(passphrase);
 
             let mut seed_bytes = [0u8; 64];
             seed_bytes.copy_from_slice(seed.as_bytes());

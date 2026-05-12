@@ -18,6 +18,7 @@ pub mod rpc;
 pub mod seal;
 pub mod seal_protocol;
 pub mod types;
+pub mod verifier;
 pub mod wallet;
 
 pub use backend::{create_solana_adapter, SolanaRpcClient, SolanaWallet};

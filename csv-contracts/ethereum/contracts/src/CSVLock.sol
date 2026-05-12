@@ -39,7 +39,8 @@ contract CSVLock {
     uint256 public constant REFUND_TIMEOUT = 24 hours;
 
     /// @notice Address of the CSVMint contract (to verify no mint happened)
-    address public mintContract;
+    /// @dev Immutable - set at deployment and cannot be changed
+    address public immutable mintContract;
 
     /// @notice Emitted when a Sanad is locked for cross-chain transfer
     event CrossChainLock(
@@ -67,8 +68,6 @@ contract CSVLock {
         uint256 refundTimestamp
     );
 
-    /// @notice Emitted when mint contract address is set
-    event MintContractSet(address indexed mintContract);
     event SanadMetadataRecorded(
         bytes32 indexed sanadId,
         uint8 assetClass,
@@ -86,12 +85,11 @@ contract CSVLock {
     error InvalidMintContract();
     error InvalidSanadMetadata();
 
-    /// @notice Set the mint contract address (for refund verification)
+    /// @notice Constructor to set immutable mint contract address
     /// @param _mintContract Address of the CSVMint contract
-    function setMintContract(address _mintContract) external {
+    constructor(address _mintContract) {
         require(_mintContract != address(0), "Invalid mint contract address");
         mintContract = _mintContract;
-        emit MintContractSet(_mintContract);
     }
 
     /// @notice Lock a Sanad for cross-chain transfer
@@ -240,6 +238,11 @@ contract CSVLock {
         // Verify timeout has elapsed
         if (block.timestamp < lock.timestamp + REFUND_TIMEOUT) {
             revert TimeoutNotExpired();
+        }
+
+        // Verify the caller is the legitimate owner by checking the destination owner hash
+        if (lock.destinationOwnerRoot != destinationOwnerHash) {
+            revert InvalidMintContract();
         }
 
         // Verify not already refunded

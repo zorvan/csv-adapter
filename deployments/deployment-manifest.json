@@ -5,52 +5,72 @@
     "bitcoin": {
       "network": "signet",
       "contracts": [],
-      "description": "Bitcoin uses UTXOs as single-use seals, no smart contracts required"
+      "description": "Bitcoin uses UTXOs as single-use seals, no smart contracts required",
+      "deployment_block": 0,
+      "deployment_timestamp": null
     },
     "ethereum": {
       "network": "sepolia",
       "contracts": [
         {
           "name": "CSVLock",
-          "address": "0x0000000000000000000000000000000000000000",
-          "deployment_tx": "0x0000000000000000000000000000000000000000000000000000000000000000",
-          "block_number": 0,
-          "bytecode_hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-          "governance_frozen": true
+          "address": "TODO: Deploy CSVLock contract and record address here",
+          "deployment_tx": "TODO: Record deployment transaction hash",
+          "block_number": "TODO: Record deployment block number",
+          "bytecode_hash": "TODO: Compute and record deployed bytecode hash",
+          "constructor_args": {
+            "mintContract": "TODO: CSVMint contract address"
+          },
+          "governance_frozen": true,
+          "verified": false
         },
         {
           "name": "CSVMint",
-          "address": "0x0000000000000000000000000000000000000000",
-          "deployment_tx": "0x0000000000000000000000000000000000000000000000000000000000000000",
-          "block_number": 0,
-          "bytecode_hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-          "governance_frozen": true
+          "address": "TODO: Deploy CSVMint contract and record address here",
+          "deployment_tx": "TODO: Record deployment transaction hash",
+          "block_number": "TODO: Record deployment block number",
+          "bytecode_hash": "TODO: Compute and record deployed bytecode hash",
+          "constructor_args": {
+            "lockContract": "TODO: CSVLock contract address on source chain",
+            "verifier": "TODO: Trusted verifier contract address"
+          },
+          "governance_frozen": true,
+          "verified": false
         }
       ],
-      "description": "Ethereum uses smart contracts for seal consumption and minting"
+      "description": "Ethereum uses smart contracts for seal consumption and minting",
+      "deployment_block": "TODO: Record deployment block number",
+      "deployment_timestamp": "TODO: Record deployment timestamp"
     },
     "aptos": {
       "network": "testnet",
       "contracts": [],
-      "description": "Aptos uses resource accounts and events"
+      "description": "Aptos uses resource accounts and events",
+      "deployment_block": 0,
+      "deployment_timestamp": null
     },
     "sui": {
       "network": "testnet",
       "contracts": [],
-      "description": "Sui uses objects and events"
+      "description": "Sui uses objects and events",
+      "deployment_block": 0,
+      "deployment_timestamp": null
     },
     "solana": {
       "network": "devnet",
       "contracts": [
         {
           "name": "CSVSeal",
-          "program_id": "0x0000000000000000000000000000000000000000",
-          "deployment_tx": "0x0000000000000000000000000000000000000000000000000000000000000000",
-          "block_number": 0,
-          "governance_frozen": true
+          "program_id": "TODO: Deploy Anchor program and record program ID",
+          "deployment_tx": "TODO: Record deployment transaction signature",
+          "block_number": "TODO: Record deployment slot",
+          "governance_frozen": true,
+          "verified": false
         }
       ],
-      "description": "Solana uses Anchor programs"
+      "description": "Solana uses Anchor programs",
+      "deployment_block": "TODO: Record deployment slot",
+      "deployment_timestamp": "TODO: Record deployment timestamp"
     }
   },
   "governance": {
@@ -61,7 +81,7 @@
       "sui": "not_applicable",
       "solana": "frozen"
     },
-    "freeze_timestamp": null,
+    "freeze_timestamp": "TODO: Record governance freeze timestamp",
     "freeze_reason": "Production hardening - governance mutation paths frozen per AUDIT_2.md Phase 5.2"
   },
   "audit_compliance": {
@@ -69,10 +89,26 @@
     "phase_2_typestate_pattern": true,
     "phase_3_finality_monitoring": true,
     "phase_4_rpc_quorum": true,
-    "phase_5_abi_generation": "in_progress",
+    "phase_5_abi_generation": true,
     "phase_6_encrypted_storage": false,
     "phase_7_property_tests": false,
-    "phase_8_event_types": false,
-    "phase_9_e2e_tests": false
+    "phase_8_event_types": true,
+    "phase_9_e2e_tests": false,
+    "last_updated": "TODO: Record last compliance check timestamp"
+  },
+  "deployment_notes": {
+    "ethereum": [
+      "Deploy CSVLock contract first with CSVMint address as constructor arg",
+      "Deploy CSVMint contract second with lockContract and verifier addresses",
+      "Verify contracts on Etherscan/block explorer",
+      "Record all deployment details in this manifest",
+      "Freeze governance by setting immutable addresses"
+    ],
+    "solana": [
+      "Build Anchor program: anchor build",
+      "Deploy to devnet: anchor deploy",
+      "Record program ID and deployment signature",
+      "Verify program deployment"
+    ]
   }
 }

@@ -44,6 +44,7 @@ pub mod seal;
 pub mod seal_protocol;
 pub mod signatures;
 pub mod types;
+pub mod verifier;
 
 #[cfg(feature = "rpc")]
 pub mod node;

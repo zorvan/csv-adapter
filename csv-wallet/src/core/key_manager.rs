@@ -2,6 +2,7 @@
 //!
 //! Handles key derivation and signing operations for all supported chains.
 //! Supports both in-memory seed-based keys and persistent native keystore storage.
+//! All sensitive data is zeroized on drop to prevent memory leaks.
 
 use csv_core::ChainId;
 use csv_core::mcp::{HasErrorSuggestion, FixAction, error_codes};
@@ -10,6 +11,7 @@ use ed25519_dalek::{SigningKey, VerifyingKey, Signer};
 use sha2::Digest;
 use sha3::Keccak256;
 use blake2::Blake2b;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::core::native_keystore::{NativeKeystore, NativeKeystoreError};
@@ -95,8 +97,9 @@ impl HasErrorSuggestion for KeyError {
 }
 
 /// Key manager handling multi-chain key operations.
+#[derive(ZeroizeOnDrop)]
 pub struct KeyManager {
-    /// Wallet seed (64 bytes from BIP-39)
+    /// Wallet seed (64 bytes from BIP-39) - zeroized on drop
     seed: [u8; 64],
     /// Optional native keystore for persistent key storage
     #[cfg(not(target_arch = "wasm32"))]

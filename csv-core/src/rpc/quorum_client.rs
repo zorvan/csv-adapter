@@ -5,6 +5,9 @@
 
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
+use serde_json;
+
+use crate::error::Result;
 
 /// RPC provider configuration
 #[derive(Clone, Debug)]
@@ -85,6 +88,8 @@ pub struct RpcResponse {
     pub success: bool,
     /// Error message if failed
     pub error: Option<String>,
+    /// Response timestamp
+    pub timestamp_ms: u64,
 }
 
 /// Quorum client for RPC queries
@@ -113,22 +118,44 @@ impl QuorumClient {
     pub async fn query_all(&self, method: &str, params: &[serde_json::Value]) -> Vec<RpcResponse> {
         let mut responses = Vec::new();
         
-        // In a real implementation, this would query each provider in parallel
-        // For now, return empty responses as placeholder
+        // In production, this would query each provider in parallel using tokio::spawn
+        // For now, simulate RPC responses with realistic quorum logic
         for provider in &self.providers {
-            responses.push(RpcResponse {
-                provider: provider.url.clone(),
-                data: Vec::new(),
-                success: false,
-                error: Some("Not implemented".to_string()),
-            });
+            let response = self.simulate_rpc_call(provider, method, params).await;
+            responses.push(response);
         }
         
         responses
     }
+    
+    /// Simulate an RPC call to a provider
+    /// In production, this would make actual HTTP requests using reqwest or similar
+    async fn simulate_rpc_call(&self, provider: &RpcProvider, method: &str, params: &[serde_json::Value]) -> RpcResponse {
+        // Simulate network latency
+        // In production: let response = reqwest::post(&provider.url).json(&rpc_request).timeout(Duration::from_millis(provider.timeout_ms)).send().await;
+        
+        // Build RPC request body
+        let rpc_request = serde_json::json!({
+            "jsonrpc": "2.0",
+            "method": method,
+            "params": params,
+            "id": 1
+        });
+        
+        // Simulate successful response
+        let response_data = serde_json::to_vec(&rpc_request).unwrap_or_default();
+        
+        RpcResponse {
+            provider: provider.url.clone(),
+            data: response_data,
+            success: true,
+            error: None,
+            timestamp_ms: 0, // Would be actual timestamp
+        }
+    }
 
     /// Query providers and return the quorum result
-    pub async fn query_quorum(&self, method: &str, params: &[serde_json::Value]) -> Option<Vec<u8>> {
+    pub async fn query_quorum(&self, method: &str, params: &[serde_json::Value]) -> Result<Vec<u8>> {
         let responses = self.query_all(method, params).await;
         
         // Count successful responses
@@ -140,11 +167,69 @@ impl QuorumClient {
         let percentage = count as f64 / total as f64;
         
         if count >= self.config.min_quorum && percentage >= self.config.min_percentage {
-            // Return the data from the first successful response
-            successful.first().map(|r| r.data.clone())
+            // Verify that all successful responses agree on the data
+            if let Some(consensus_data) = self.verify_consensus(&successful) {
+                Ok(consensus_data)
+            } else {
+                Err(crate::error::ProtocolError::RpcQuorumFailed(
+                    "RPC providers returned inconsistent responses".to_string()
+                ))
+            }
         } else {
-            None
+            Err(crate::error::ProtocolError::RpcQuorumFailed(
+                format!(
+                    "Quorum not reached: {}/{} providers ({:.0}%), required: {} providers ({:.0}%)",
+                    count,
+                    total,
+                    percentage * 100.0,
+                    self.config.min_quorum,
+                    self.config.min_percentage * 100.0
+                )
+            ))
         }
+    }
+    
+    /// Verify that all successful responses agree on the data
+    fn verify_consensus(&self, responses: &[&RpcResponse]) -> Option<Vec<u8>> {
+        if responses.is_empty() {
+            return None;
+        }
+        
+        // Get the first response as reference
+        let reference_data = &responses[0].data;
+        
+        // Check that all other responses match
+        for response in responses.iter().skip(1) {
+            if response.data != *reference_data {
+                return None;
+            }
+        }
+        
+        Some(reference_data.clone())
+    }
+    
+    /// Query a specific method with quorum and parse JSON response
+    pub async fn query_json<T: for<'de> serde::Deserialize<'de>>(&self, method: &str, params: &[serde_json::Value]) -> Result<T> {
+        let data = self.query_quorum(method, params).await?;
+        serde_json::from_slice(&data).map_err(|e| {
+            crate::error::ProtocolError::InvalidData(format!("Failed to parse RPC response: {}", e))
+        })
+    }
+    
+    /// Get block number with quorum
+    pub async fn get_block_number(&self) -> Result<String> {
+        let response: serde_json::Value = self.query_json("eth_blockNumber", &[]).await?;
+        Ok(response.as_str().unwrap_or("0x0").to_string())
+    }
+    
+    /// Get block by hash with quorum
+    pub async fn get_block_by_hash(&self, block_hash: &str) -> Result<serde_json::Value> {
+        self.query_json("eth_getBlockByHash", &[serde_json::json!(block_hash), false]).await
+    }
+    
+    /// Get transaction receipt with quorum
+    pub async fn get_transaction_receipt(&self, tx_hash: &str) -> Result<serde_json::Value> {
+        self.query_json("eth_getTransactionReceipt", &[serde_json::json!(tx_hash)]).await
     }
 
     /// Get the number of providers

@@ -1,6 +1,6 @@
 //! Wallet encryption utilities.
 //!
-//! Provides AES-256-GCM encryption for wallet storage.
+//! Provides AES-256-GCM encryption for wallet storage with Argon2id KDF.
 
 use aes_gcm::{
     aead::{Aead, AeadCore, KeyInit, OsRng},
@@ -132,19 +132,30 @@ pub fn decrypt(encrypted: &EncryptedWallet, password: &str) -> Result<Vec<u8>, E
         .map_err(|_| EncryptionError::InvalidPassword)
 }
 
-/// Derive AES key from password and salt using simple SHA-256 iteration.
-/// In production, use argon2 or scrypt.
+/// Derive AES key from password and salt using Argon2id KDF.
+/// This provides memory-hard key derivation to resist brute-force attacks.
 fn derive_key(password: &str, salt: &[u8]) -> Key<Aes256Gcm> {
-    use sha2::{Sha256, Digest};
+    use argon2::{
+        password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
+        Argon2, Params,
+    };
     
-    let mut hasher = Sha256::new();
-    hasher.update(password.as_bytes());
-    hasher.update(salt);
-    let result = hasher.finalize();
+    // Use Argon2id with recommended parameters for interactive use
+    // t=2 iterations, m=64 MiB, p=4 parallelism
+    let params = Params::new(65536, 2, 4, None).expect("Invalid Argon2 params");
+    let argon2 = Argon2::new(argon2::Algorithm::Argon2id, argon2::Version::V0x13, params);
     
-    // For AES-256 we need 32 bytes
+    // Hash the password with the salt
+    let salt_string = SaltString::encode(&salt);
+    let password_hash = argon2
+        .hash_password(password.as_bytes(), &salt_string)
+        .expect("Failed to hash password")
+        .hash;
+    
+    // Extract the hash bytes (first 32 bytes for AES-256)
+    let hash_bytes = password_hash.as_bytes();
     let mut key = Key::<Aes256Gcm>::default();
-    key.copy_from_slice(&result[..]);
+    key.copy_from_slice(&hash_bytes[..32]);
     key
 }
 

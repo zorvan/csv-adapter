@@ -2,7 +2,8 @@
 //!
 //! Proof submitted, awaiting finality confirmation on source chain.
 
-use super::TransferData;
+use super::{ProofBuilding, TransferData};
+use crate::error::Result;
 
 /// Transfer is awaiting finality confirmation
 #[derive(Clone, Debug)]
@@ -45,5 +46,23 @@ impl AwaitingFinality {
     /// Get the transfer data
     pub fn data(&self) -> &TransferData {
         &self.data
+    }
+
+    /// Transition to ProofBuilding state after finality is achieved
+    ///
+    /// This is the only valid transition from AwaitingFinality state.
+    /// The transfer must have achieved finality before building the proof.
+    ///
+    /// # Returns
+    ///
+    /// ProofBuilding state if finality is achieved, error otherwise
+    pub fn build_proof(self) -> Result<ProofBuilding> {
+        if !self.is_finalized() {
+            return Err(crate::error::ProtocolError::InvalidStateTransition(
+                "Cannot build proof before finality is achieved".to_string(),
+            ));
+        }
+
+        Ok(ProofBuilding::new(self.data))
     }
 }
