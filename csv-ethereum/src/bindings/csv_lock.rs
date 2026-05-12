@@ -125,12 +125,12 @@ sol! {
 }
 
 /// CSV Lock contract interface
-pub struct CsvLock {
+pub struct CsvLockClient {
     /// Contract address
     pub address: Address,
 }
 
-impl CsvLock {
+impl CsvLockClient {
     /// Create a new CSV Lock contract reference
     pub fn new(address: Address) -> Self {
         Self { address }
@@ -219,14 +219,14 @@ mod tests {
     #[test]
     fn test_csv_lock_creation() {
         let addr = address!("0000000000000000000000000000000000000001");
-        let lock = CsvLock::new(addr);
+        let lock = CsvLockClient::new(addr);
         assert_eq!(lock.address(), addr);
     }
 
     #[test]
     fn test_lock_sanad_call() {
         let addr = address!("0000000000000000000000000000000000000001");
-        let lock = CsvLock::new(addr);
+        let lock = CsvLockClient::new(addr);
         
         let sanad_id = FixedBytes::<32>::ZERO;
         let commitment = FixedBytes::<32>::ZERO;

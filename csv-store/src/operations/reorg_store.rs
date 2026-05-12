@@ -5,13 +5,13 @@
 use csv_core::hash::Hash;
 
 /// Persistent reorg store
-#[cfg(feature = "std")]
+#[cfg(feature = "sqlite")]
 pub struct ReorgStore {
     /// SQLite database connection
     db: sqlx::SqlitePool,
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "sqlite")]
 impl ReorgStore {
     /// Create a new reorg store with the given database path
     pub async fn new(database_path: &str) -> Result<Self, sqlx::Error> {

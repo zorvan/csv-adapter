@@ -5,13 +5,13 @@
 use csv_core::hash::Hash;
 
 /// Persistent replay store
-#[cfg(feature = "std")]
+#[cfg(feature = "sqlite")]
 pub struct ReplayStore {
     /// SQLite database connection
     db: sqlx::SqlitePool,
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "sqlite")]
 impl ReplayStore {
     /// Create a new replay store with the given database path
     pub async fn new(database_path: &str) -> Result<Self, sqlx::Error> {

@@ -2,14 +2,12 @@
 //!
 //! This module contains type-safe bindings for Ethereum smart contracts
 //! generated using Alloy for ABI encoding/decoding.
+//!
+//! NOTE: These bindings are work-in-progress. The main Ethereum adapter
+//! currently uses manual ABI encoding in sanad_contract.rs and seal_contract.rs.
+//! Migration to generated bindings is tracked in PRODUCTION_READINESS_PLAN.md Phase 5.
 
-// Placeholder for Alloy-generated bindings
-// In production, this would contain generated types from:
-// alloy-sol-types and alloy-contract
-
+#[cfg(feature = "rpc")]
 pub mod csv_lock;
+#[cfg(feature = "rpc")]
 pub mod csv_mint;
-
-// Re-exports
-pub use csv_lock::CsvLock;
-pub use csv_mint::CsvMint;

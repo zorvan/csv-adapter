@@ -15,6 +15,7 @@ members = [
     "csv-p2p",
     "csv-stark",
     "csv-observability",
+    "fuzz",
 ]
 resolver = "2"
 

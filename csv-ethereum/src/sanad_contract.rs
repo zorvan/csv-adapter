@@ -3,14 +3,19 @@
 //! This module provides ABI encoding/decoding for the CSVLock.sol and CSVMint.sol
 //! contracts that manage cross-chain sanad operations on Ethereum.
 
-use csv_core::domain_hash::DomainSeparatedHash;
-use csv_core::domains::EthereumMintDomain;
 use tiny_keccak::{Hasher, Keccak};
 
-/// Compute keccak256 hash with domain separation
+/// Compute keccak256 hash for Ethereum ABI selectors and event signatures.
+///
+/// Solidity uses raw keccak256 for function/event signatures. Domain separation
+/// is achieved through the function/event signature strings themselves (e.g.,
+/// "lockSanad(bytes32,bytes32,uint8,bytes)" is distinct from "mintSanad(...)").
 fn keccak256(input: &[u8]) -> [u8; 32] {
-    let domain_hash = DomainSeparatedHash::<EthereumMintDomain>::hash(input);
-    domain_hash.as_bytes().to_vec().try_into().unwrap_or([0u8; 32])
+    let mut hasher = Keccak::v256();
+    hasher.update(input);
+    let mut output = [0u8; 32];
+    hasher.finalize(&mut output);
+    output
 }
 
 /// CSVLock contract ABI

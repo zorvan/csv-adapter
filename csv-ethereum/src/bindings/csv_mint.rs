@@ -113,12 +113,12 @@ sol! {
 }
 
 /// CSV Mint contract interface
-pub struct CsvMint {
+pub struct CsvMintClient {
     /// Contract address
     pub address: Address,
 }
 
-impl CsvMint {
+impl CsvMintClient {
     /// Create a new CSV Mint contract reference
     pub fn new(address: Address) -> Self {
         Self { address }
@@ -134,8 +134,8 @@ impl CsvMint {
         &self,
         nullifier: FixedBytes<32>,
         sanad_id: FixedBytes<32>,
-    ) -> CSVMint::registerNullifierCall {
-        CSVMint::registerNullifierCall {
+    ) -> CsvMint::registerNullifierCall {
+        CsvMint::registerNullifierCall {
             nullifier,
             sanadId: sanad_id,
         }
@@ -152,8 +152,8 @@ impl CsvMint {
         proof: Bytes,
         proof_root: FixedBytes<32>,
         leafPosition: U256,
-    ) -> CSVMint::mintSanadCall {
-        CSVMint::mintSanadCall {
+    ) -> CsvMint::mintSanadCall {
+        CsvMint::mintSanadCall {
             sanadId: sanad_id,
             commitment,
             stateRoot: state_root,
@@ -180,8 +180,8 @@ impl CsvMint {
         metadata_hash: FixedBytes<32>,
         proof_system: u8,
         leafPosition: U256,
-    ) -> CSVMint::mintSanadWithMetadataCall {
-        CSVMint::mintSanadWithMetadataCall {
+    ) -> CsvMint::mintSanadWithMetadataCall {
+        CsvMint::mintSanadWithMetadataCall {
             sanadId: sanad_id,
             commitment,
             stateRoot: state_root,
@@ -198,13 +198,13 @@ impl CsvMint {
     }
 
     /// Create an isSanadMinted call
-    pub fn is_sanad_minted_call(&self, sanad_id: FixedBytes<32>) -> CSVMint::isSanadMintedCall {
-        CSVMint::isSanadMintedCall { sanadId: sanad_id }
+    pub fn is_sanad_minted_call(&self, sanad_id: FixedBytes<32>) -> CsvMint::isSanadMintedCall {
+        CsvMint::isSanadMintedCall { sanadId: sanad_id }
     }
 
     /// Create an isNullifierRegistered call
-    pub fn is_nullifier_registered_call(&self, nullifier: FixedBytes<32>) -> CSVMint::isNullifierRegisteredCall {
-        CSVMint::isNullifierRegisteredCall { nullifier }
+    pub fn is_nullifier_registered_call(&self, nullifier: FixedBytes<32>) -> CsvMint::isNullifierRegisteredCall {
+        CsvMint::isNullifierRegisteredCall { nullifier }
     }
 
     /// Create a batchMintSanads call
@@ -218,8 +218,8 @@ impl CsvMint {
         proofs: Vec<Bytes>,
         proof_root: FixedBytes<32>,
         leaf_positions: Vec<U256>,
-    ) -> CSVMint::batchMintSanadsCall {
-        CSVMint::batchMintSanadsCall {
+    ) -> CsvMint::batchMintSanadsCall {
+        CsvMint::batchMintSanadsCall {
             sanadIds: sanad_ids,
             commitments,
             stateRoots: state_roots,

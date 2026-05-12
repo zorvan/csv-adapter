@@ -18,6 +18,11 @@
 //! - node migration
 //!
 //! This is achieved through the persistent backend in csv-store.
+//!
+//! ## Usage
+//!
+//! Use [`ReplayRegistry`] for in-memory replay protection (tests, development).
+//! Use [`PersistentReplayRegistry`] for production deployments with SQLite persistence.
 
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
@@ -172,6 +177,28 @@ impl ReplayRegistry {
     pub fn total_replay_attempts(&self) -> u64 {
         self.entries.values().map(|e| e.replay_attempts).sum()
     }
+}
+
+/// Persistent replay registry backend trait
+///
+/// This trait abstracts the persistence layer, allowing consumers to
+/// implement their own storage backend for replay protection.
+///
+/// The csv-store crate provides a SQLite implementation:
+/// [`csv_store::ReplayRegistryStore`](https://docs.rs/csv-store/latest/csv_store/struct.ReplayRegistryStore.html)
+pub trait ReplayRegistryBackend: Clone + Send + Sync + 'static {
+    /// Record a proof, returning true if first time, false if replay
+    fn record_proof(&self, key: ReplayKey, timestamp: u64) -> impl core::future::Future<Output = crate::error::Result<bool>> + Send;
+    /// Check if a proof has been seen before
+    fn has_been_seen(&self, key: &ReplayKey) -> impl core::future::Future<Output = crate::error::Result<bool>> + Send;
+    /// Mark a proof as accepted
+    fn mark_accepted(&self, key: &ReplayKey) -> impl core::future::Future<Output = crate::error::Result<()>> + Send;
+    /// Get replay attempt count for a key
+    fn replay_attempts(&self, key: &ReplayKey) -> impl core::future::Future<Output = crate::error::Result<u64>> + Send;
+    /// Get total tracked proofs
+    fn total_proofs(&self) -> impl core::future::Future<Output = crate::error::Result<usize>> + Send;
+    /// Get total replay attempts detected
+    fn total_replay_attempts(&self) -> impl core::future::Future<Output = crate::error::Result<u64>> + Send;
 }
 
 #[cfg(test)]

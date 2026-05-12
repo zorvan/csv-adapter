@@ -15,13 +15,13 @@ pub struct OperationLogEntry {
 }
 
 /// Persistent operation log
-#[cfg(feature = "std")]
+#[cfg(feature = "sqlite")]
 pub struct OperationLog {
     /// SQLite database connection
     db: sqlx::SqlitePool,
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "sqlite")]
 impl OperationLog {
     /// Create a new operation log with the given database path
     pub async fn new(database_path: &str) -> Result<Self, sqlx::Error> {

@@ -5,13 +5,13 @@
 use csv_core::hash::Hash;
 
 /// Persistent transfer store
-#[cfg(feature = "std")]
+#[cfg(feature = "sqlite")]
 pub struct TransferStore {
     /// SQLite database connection
     db: sqlx::SqlitePool,
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "sqlite")]
 impl TransferStore {
     /// Create a new transfer store with the given database path
     pub async fn new(database_path: &str) -> Result<Self, sqlx::Error> {

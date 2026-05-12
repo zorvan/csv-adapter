@@ -7,7 +7,9 @@
 #![allow(missing_docs)]
 
 pub mod backend;
-pub mod bindings;
+// TODO Phase 5: Enable bindings after fixing sol! macro type generation
+// #[cfg(feature = "rpc")]
+// pub mod bindings;
 pub mod config;
 pub mod contract_bytecode;
 pub mod error;

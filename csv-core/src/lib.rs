@@ -206,6 +206,9 @@ pub use nullifier::{
     DoubleSpendError, OptimizedSealNullifier, SealConsumption, SealNullifier, SealStatus,
 };
 
+// Replay registry (use csv_store::ReplayRegistryStore for persistence)
+pub use replay_registry::{ReplayEntry, ReplayKey, ReplayRegistry, ReplayRegistryBackend};
+
 // ===========================================================================
 // Re-exports: Beta API (may receive additive changes)
 // ===========================================================================

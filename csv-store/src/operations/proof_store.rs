@@ -5,13 +5,13 @@
 use csv_core::hash::Hash;
 
 /// Persistent proof store
-#[cfg(feature = "std")]
+#[cfg(feature = "sqlite")]
 pub struct ProofStore {
     /// SQLite database connection
     db: sqlx::SqlitePool,
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "sqlite")]
 impl ProofStore {
     /// Create a new proof store with the given database path
     pub async fn new(database_path: &str) -> Result<Self, sqlx::Error> {
