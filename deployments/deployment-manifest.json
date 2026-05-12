@@ -1,0 +1,78 @@
+{
+  "version": "1.0.0",
+  "protocol_version": "0.4.0",
+  "deployments": {
+    "bitcoin": {
+      "network": "signet",
+      "contracts": [],
+      "description": "Bitcoin uses UTXOs as single-use seals, no smart contracts required"
+    },
+    "ethereum": {
+      "network": "sepolia",
+      "contracts": [
+        {
+          "name": "CSVLock",
+          "address": "0x0000000000000000000000000000000000000000",
+          "deployment_tx": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "block_number": 0,
+          "bytecode_hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "governance_frozen": true
+        },
+        {
+          "name": "CSVMint",
+          "address": "0x0000000000000000000000000000000000000000",
+          "deployment_tx": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "block_number": 0,
+          "bytecode_hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "governance_frozen": true
+        }
+      ],
+      "description": "Ethereum uses smart contracts for seal consumption and minting"
+    },
+    "aptos": {
+      "network": "testnet",
+      "contracts": [],
+      "description": "Aptos uses resource accounts and events"
+    },
+    "sui": {
+      "network": "testnet",
+      "contracts": [],
+      "description": "Sui uses objects and events"
+    },
+    "solana": {
+      "network": "devnet",
+      "contracts": [
+        {
+          "name": "CSVSeal",
+          "program_id": "0x0000000000000000000000000000000000000000",
+          "deployment_tx": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "block_number": 0,
+          "governance_frozen": true
+        }
+      ],
+      "description": "Solana uses Anchor programs"
+    }
+  },
+  "governance": {
+    "freeze_status": {
+      "bitcoin": "not_applicable",
+      "ethereum": "frozen",
+      "aptos": "not_applicable",
+      "sui": "not_applicable",
+      "solana": "frozen"
+    },
+    "freeze_timestamp": null,
+    "freeze_reason": "Production hardening - governance mutation paths frozen per AUDIT_2.md Phase 5.2"
+  },
+  "audit_compliance": {
+    "phase_1_cryptographic_foundation": true,
+    "phase_2_typestate_pattern": true,
+    "phase_3_finality_monitoring": true,
+    "phase_4_rpc_quorum": true,
+    "phase_5_abi_generation": "in_progress",
+    "phase_6_encrypted_storage": false,
+    "phase_7_property_tests": false,
+    "phase_8_event_types": false,
+    "phase_9_e2e_tests": false
+  }
+}

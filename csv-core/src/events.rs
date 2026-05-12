@@ -32,6 +32,20 @@ pub mod event_names {
     pub const NULLIFIER_REGISTERED: &str = "NullifierRegistered";
     /// Sanad metadata recorded
     pub const SANAD_METADATA_RECORDED: &str = "SanadMetadataRecorded";
+    /// Proof accepted by validation pipeline
+    pub const PROOF_ACCEPTED: &str = "ProofAccepted";
+    /// Proof rejected by validation pipeline
+    pub const PROOF_REJECTED: &str = "ProofRejected";
+    /// Replay attack detected
+    pub const REPLAY_DETECTED: &str = "ReplayDetected";
+    /// RPC provider disagreement detected
+    pub const RPC_DISAGREEMENT: &str = "RpcDisagreement";
+    /// Chain reorg detected
+    pub const REORG_DETECTED: &str = "ReorgDetected";
+    /// Rollback executed due to reorg
+    pub const ROLLBACK_EXECUTED: &str = "RollbackExecuted";
+    /// Mint operation compromised
+    pub const MINT_COMPROMISED: &str = "MintCompromised";
 }
 
 /// Standard metadata field names
@@ -139,6 +153,53 @@ pub enum EventData {
     SanadMetadataRecorded {
         sanad_id: SanadId,
         metadata: serde_json::Value,
+    },
+    /// Proof accepted event
+    ProofAccepted {
+        proof_hash: Hash,
+        chain: String,
+        validator: String,
+    },
+    /// Proof rejected event
+    ProofRejected {
+        proof_hash: Hash,
+        chain: String,
+        reason: String,
+    },
+    /// Replay detected event
+    ReplayDetected {
+        proof_hash: Hash,
+        chain: String,
+        original_timestamp: u64,
+        replay_timestamp: u64,
+    },
+    /// RPC disagreement event
+    RpcDisagreement {
+        chain: String,
+        method: String,
+        providers: Vec<String>,
+        disagreement_type: String,
+    },
+    /// Reorg detected event
+    ReorgDetected {
+        chain: String,
+        old_height: u64,
+        new_height: u64,
+        depth: u64,
+    },
+    /// Rollback executed event
+    RollbackExecuted {
+        chain: String,
+        from_height: u64,
+        to_height: u64,
+        transfers_affected: u32,
+    },
+    /// Mint compromised event
+    MintCompromised {
+        sanad_id: SanadId,
+        chain: String,
+        compromise_type: String,
+        details: String,
     },
 }
 
@@ -359,6 +420,184 @@ impl CsvEvent {
             metadata: None,
         }
     }
+
+    /// Create a new ProofAccepted event
+    pub fn proof_accepted(
+        chain: &str,
+        block_height: u64,
+        tx_hash: &str,
+        timestamp: u64,
+        proof_hash: Hash,
+        validator: &str,
+    ) -> Self {
+        Self {
+            event_type: event_names::PROOF_ACCEPTED.to_string(),
+            chain: chain.to_string(),
+            block_height,
+            tx_hash: tx_hash.to_string(),
+            timestamp,
+            data: EventData::ProofAccepted {
+                proof_hash,
+                chain: chain.to_string(),
+                validator: validator.to_string(),
+            },
+            metadata: None,
+        }
+    }
+
+    /// Create a new ProofRejected event
+    pub fn proof_rejected(
+        chain: &str,
+        block_height: u64,
+        tx_hash: &str,
+        timestamp: u64,
+        proof_hash: Hash,
+        reason: &str,
+    ) -> Self {
+        Self {
+            event_type: event_names::PROOF_REJECTED.to_string(),
+            chain: chain.to_string(),
+            block_height,
+            tx_hash: tx_hash.to_string(),
+            timestamp,
+            data: EventData::ProofRejected {
+                proof_hash,
+                chain: chain.to_string(),
+                reason: reason.to_string(),
+            },
+            metadata: None,
+        }
+    }
+
+    /// Create a new ReplayDetected event
+    pub fn replay_detected(
+        chain: &str,
+        block_height: u64,
+        tx_hash: &str,
+        timestamp: u64,
+        proof_hash: Hash,
+        original_timestamp: u64,
+        replay_timestamp: u64,
+    ) -> Self {
+        Self {
+            event_type: event_names::REPLAY_DETECTED.to_string(),
+            chain: chain.to_string(),
+            block_height,
+            tx_hash: tx_hash.to_string(),
+            timestamp,
+            data: EventData::ReplayDetected {
+                proof_hash,
+                chain: chain.to_string(),
+                original_timestamp,
+                replay_timestamp,
+            },
+            metadata: None,
+        }
+    }
+
+    /// Create a new RpcDisagreement event
+    pub fn rpc_disagreement(
+        chain: &str,
+        block_height: u64,
+        tx_hash: &str,
+        timestamp: u64,
+        method: &str,
+        providers: Vec<String>,
+        disagreement_type: &str,
+    ) -> Self {
+        Self {
+            event_type: event_names::RPC_DISAGREEMENT.to_string(),
+            chain: chain.to_string(),
+            block_height,
+            tx_hash: tx_hash.to_string(),
+            timestamp,
+            data: EventData::RpcDisagreement {
+                chain: chain.to_string(),
+                method: method.to_string(),
+                providers,
+                disagreement_type: disagreement_type.to_string(),
+            },
+            metadata: None,
+        }
+    }
+
+    /// Create a new ReorgDetected event
+    pub fn reorg_detected(
+        chain: &str,
+        block_height: u64,
+        tx_hash: &str,
+        timestamp: u64,
+        old_height: u64,
+        new_height: u64,
+        depth: u64,
+    ) -> Self {
+        Self {
+            event_type: event_names::REORG_DETECTED.to_string(),
+            chain: chain.to_string(),
+            block_height,
+            tx_hash: tx_hash.to_string(),
+            timestamp,
+            data: EventData::ReorgDetected {
+                chain: chain.to_string(),
+                old_height,
+                new_height,
+                depth,
+            },
+            metadata: None,
+        }
+    }
+
+    /// Create a new RollbackExecuted event
+    pub fn rollback_executed(
+        chain: &str,
+        block_height: u64,
+        tx_hash: &str,
+        timestamp: u64,
+        from_height: u64,
+        to_height: u64,
+        transfers_affected: u32,
+    ) -> Self {
+        Self {
+            event_type: event_names::ROLLBACK_EXECUTED.to_string(),
+            chain: chain.to_string(),
+            block_height,
+            tx_hash: tx_hash.to_string(),
+            timestamp,
+            data: EventData::RollbackExecuted {
+                chain: chain.to_string(),
+                from_height,
+                to_height,
+                transfers_affected,
+            },
+            metadata: None,
+        }
+    }
+
+    /// Create a new MintCompromised event
+    pub fn mint_compromised(
+        chain: &str,
+        block_height: u64,
+        tx_hash: &str,
+        timestamp: u64,
+        sanad_id: SanadId,
+        compromise_type: &str,
+        details: &str,
+    ) -> Self {
+        Self {
+            event_type: event_names::MINT_COMPROMISED.to_string(),
+            chain: chain.to_string(),
+            block_height,
+            tx_hash: tx_hash.to_string(),
+            timestamp,
+            data: EventData::MintCompromised {
+                sanad_id,
+                chain: chain.to_string(),
+                compromise_type: compromise_type.to_string(),
+                details: details.to_string(),
+            },
+            metadata: None,
+        }
+    }
 }
 
 /// Event filter for querying events
@@ -507,6 +746,13 @@ mod tests {
             event_names::SANAD_METADATA_RECORDED,
             "SanadMetadataRecorded"
         );
+        assert_eq!(event_names::PROOF_ACCEPTED, "ProofAccepted");
+        assert_eq!(event_names::PROOF_REJECTED, "ProofRejected");
+        assert_eq!(event_names::REPLAY_DETECTED, "ReplayDetected");
+        assert_eq!(event_names::RPC_DISAGREEMENT, "RpcDisagreement");
+        assert_eq!(event_names::REORG_DETECTED, "ReorgDetected");
+        assert_eq!(event_names::ROLLBACK_EXECUTED, "RollbackExecuted");
+        assert_eq!(event_names::MINT_COMPROMISED, "MintCompromised");
     }
 
     #[test]
