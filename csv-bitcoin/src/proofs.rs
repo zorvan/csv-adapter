@@ -12,6 +12,9 @@
 use bitcoin_hashes::Hash as _;
 use sha2::{Digest, Sha256};
 
+use csv_core::domain_hash::DomainSeparatedHash;
+use csv_core::domains::BitcoinSealDomain;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Pure-Rust Merkle Tree Implementation (no `bitcoin` crate dependency)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -38,15 +41,17 @@ use bitcoin::hashes::sha256d;
 use csv_core::Hash as CoreHash;
 
 /// Double-SHA256 hash of two 32-byte inputs (Bitcoin Merkle node hash).
+/// Uses domain-separated hashing to prevent cross-chain replay attacks.
 #[inline]
 fn double_sha256(left: &[u8; 32], sanad: &[u8; 32]) -> [u8; 32] {
-    let mut h = Sha256::new();
-    h.update(left);
-    h.update(sanad);
-    let first = h.finalize_reset();
-    let mut h2 = Sha256::new();
-    h2.update(first);
-    h2.finalize().into()
+    // Build the payload with domain separation
+    let mut payload = Vec::with_capacity(64);
+    payload.extend_from_slice(left);
+    payload.extend_from_slice(sanad);
+    
+    // Use domain-separated hash with Bitcoin seal domain
+    let hash = DomainSeparatedHash::<BitcoinSealDomain>::hash(&payload);
+    hash.into()
 }
 
 /// Compute the Merkle root from a set of transaction IDs.

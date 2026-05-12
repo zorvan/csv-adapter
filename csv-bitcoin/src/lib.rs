@@ -11,7 +11,9 @@ pub mod backend;
 pub mod bip341;
 pub mod config;
 pub mod error;
+pub mod mempool_rpc;
 pub mod mpc_batch;
+pub mod node;
 pub mod ops;
 pub mod proofs;
 pub mod rpc;
@@ -23,6 +25,7 @@ pub mod spv;
 pub mod tapret;
 pub mod tx_builder;
 pub mod types;
+pub mod verifier;
 pub mod wallet;
 pub mod zk_prover;
 

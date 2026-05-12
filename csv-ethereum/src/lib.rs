@@ -7,6 +7,7 @@
 #![allow(missing_docs)]
 
 pub mod backend;
+pub mod bindings;
 pub mod config;
 pub mod contract_bytecode;
 pub mod error;
@@ -21,6 +22,7 @@ pub mod seal_contract;
 pub mod seal_protocol;
 pub mod signatures;
 pub mod types;
+pub mod verifier;
 pub mod zk_verifier;
 
 #[cfg(feature = "rpc")]

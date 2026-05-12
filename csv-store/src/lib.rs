@@ -17,6 +17,12 @@ pub mod browser_storage;
 #[cfg(feature = "encrypted-storage")]
 pub mod encrypted_storage;
 
+#[cfg(feature = "std")]
+pub mod replay_registry_store;
+
+#[cfg(feature = "std")]
+pub mod operations;
+
 // Re-exports from state module
 pub use state::{
     ChainConfig, ChainId, ContractRecord, FaucetConfig, GasAccount, Network, ProofRecord,

@@ -55,13 +55,31 @@ pub mod collections;
 
 // Core types
 pub mod commitment;
+pub mod domain_hash;
+pub mod domains;
 pub mod hash;
+pub mod replay_registry;
 pub mod sanad;
 pub mod seal;
 pub mod tagged_hash; // Sanad/Title types (re-exported from title)
 
 // Advanced commitment types
 pub mod commitments_ext;
+
+// Transfer state machine (Phase 2)
+pub mod transfer_state;
+
+// Recovery engine (Phase 2)
+pub mod recovery_engine;
+
+// Finality state model (Phase 3)
+pub mod finality;
+
+// Reorg detection and handling (Phase 3)
+pub mod reorg;
+
+// RPC quorum client (Phase 4)
+pub mod rpc;
 
 // Protocol version and canonical contract (🔒 STABLE + 🟡 BETA)
 pub mod protocol_version;
@@ -89,6 +107,7 @@ pub mod vm;
 // DAG and proof types - 🔒 STABLE
 pub mod dag;
 pub mod proof;
+pub mod proof_pipeline;
 pub mod signature;
 pub mod verifier;
 

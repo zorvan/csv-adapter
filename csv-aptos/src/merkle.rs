@@ -3,6 +3,8 @@
 //! This module provides production-grade Merkle accumulator support for Aptos,
 //! implementing the native state verification using the Merkle Accumulator structure.
 
+use csv_core::domain_hash::DomainSeparatedHash;
+use csv_core::domains::AptosAnchorDomain;
 use sha2::{Digest, Sha256};
 
 /// Merkle accumulator errors
@@ -57,19 +59,21 @@ impl MerkleNode {
 
     /// Compute the hash of an empty subtree at a given depth
     pub fn empty_hash() -> [u8; 32] {
-        // Empty hash is the SHA256 of an empty string
-        let digest = Sha256::digest(b"");
-        digest.into()
+        // Empty hash uses domain-separated hashing
+        DomainSeparatedHash::<AptosAnchorDomain>::hash(b"")
     }
 
     /// Compute the hash of an internal node from its children
-    /// Uses domain separation prefix 0x01 per RFC 6962 to prevent second-preimage attacks
+    /// Uses domain separation to prevent second-preimage attacks
     pub fn compute_internal_hash(left_hash: [u8; 32], sanad_hash: [u8; 32]) -> [u8; 32] {
-        let mut hasher = Sha256::new();
-        hasher.update([0x01u8]); // Domain separator for internal nodes
-        hasher.update(left_hash);
-        hasher.update(sanad_hash);
-        hasher.finalize().into()
+        // Build payload with domain separator 0x01 per RFC 6962
+        let mut payload = Vec::with_capacity(65);
+        payload.push(0x01u8);
+        payload.extend_from_slice(&left_hash);
+        payload.extend_from_slice(&sanad_hash);
+        
+        let hash = DomainSeparatedHash::<AptosAnchorDomain>::hash(&payload);
+        hash
     }
 }
 
@@ -295,19 +299,21 @@ impl StateProof {
 
     /// Compute the leaf hash for this state proof
     pub fn compute_leaf_hash(&self) -> [u8; 32] {
-        let mut hasher = Sha256::new();
-        hasher.update(b"APTOS::STATE::LEAF");
-        hasher.update(self.address);
-        hasher.update(self.resource_type.as_bytes());
+        // Build payload with domain separation
+        let mut payload = Vec::new();
+        payload.extend_from_slice(b"APTOS::STATE::LEAF");
+        payload.extend_from_slice(&self.address);
+        payload.extend_from_slice(self.resource_type.as_bytes());
         if self.exists {
-            hasher.update(b"EXISTS");
+            payload.extend_from_slice(b"EXISTS");
             if let Some(data) = &self.data {
-                hasher.update(data);
+                payload.extend_from_slice(data);
             }
         } else {
-            hasher.update(b"NOT_EXISTS");
+            payload.extend_from_slice(b"NOT_EXISTS");
         }
-        hasher.finalize().into()
+        
+        DomainSeparatedHash::<AptosAnchorDomain>::hash(&payload)
     }
 
     /// Verify this state proof against an expected root

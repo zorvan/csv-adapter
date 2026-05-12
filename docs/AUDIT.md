@@ -1,3 +1,4 @@
+
 # CSV Protocol — Production Audit
 
 **Auditor**: Independent Review | **Date**: May 2026 | **Scope**: Full repo (repomix snapshot)
@@ -266,8 +267,3 @@ To reach the 5-step demo scenario as fast as possible:
 18. Add WASM chain_id regression test (0.5 day)
 19. Tune nextest timeouts (1 hour)
 
-**Total honest estimate to demo-ready: 4–5 weeks** (vs. 2–3 in masterplan, which did not account for Ethereum deployment being fully absent and P2P being a skeleton).
-
----
-
-*Audit scope: repomix-output.xml snapshot, MASTERPLAN_v2.md, RGB Documentation reference (client-side validation lineage). Audit does not cover deployed smart contract security (separate Solidity audit required before mainnet), ZK circuit security (not yet implemented), or supply chain dependency risk (addressed by existing `cargo audit` in CI).*

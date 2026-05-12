@@ -12,9 +12,10 @@
 
 use alloc::vec::Vec;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 
 use crate::commit_mux::CommitMux;
+use crate::domain_hash::DomainSeparatedHash;
+use crate::domains::TransferCommitmentDomain;
 use crate::hash::Hash;
 use crate::seal::SealPoint;
 use crate::tagged_hash::csv_tagged_hash;
@@ -127,14 +128,7 @@ impl Commitment {
         seal_ref: &SealPoint,
         domain_separator: [u8; 32],
     ) -> Self {
-        let seal_hash = {
-            let mut hasher = Sha256::new();
-            hasher.update(seal_ref.to_vec());
-            let result = hasher.finalize();
-            let mut array = [0u8; 32];
-            array.copy_from_slice(&result);
-            Hash::new(array)
-        };
+        let seal_hash = DomainSeparatedHash::<TransferCommitmentDomain>::hash(&seal_ref.to_vec());
 
         let mpc_root = mpc_tree.root();
 
@@ -161,28 +155,14 @@ impl Commitment {
         seal_ref: &SealPoint,
         domain_separator: [u8; 32],
     ) -> Self {
-        let seal_hash = {
-            let mut hasher = Sha256::new();
-            hasher.update(seal_ref.to_vec());
-            let result = hasher.finalize();
-            let mut array = [0u8; 32];
-            array.copy_from_slice(&result);
-            Hash::new(array)
-        };
+        let seal_hash = DomainSeparatedHash::<TransferCommitmentDomain>::hash(&seal_ref.to_vec());
 
         // Extract protocol_id from domain separator (first 4 bytes)
         let mut protocol_id = [0u8; 32];
         protocol_id[..4].copy_from_slice(&domain_separator[..4]);
 
         // Use empty MPC root for single-protocol mode
-        let mpc_root = {
-            let mut hasher = Sha256::new();
-            hasher.update(b"csv-empty-mpc-root");
-            let result = hasher.finalize();
-            let mut array = [0u8; 32];
-            array.copy_from_slice(&result);
-            Hash::new(array)
-        };
+        let mpc_root = DomainSeparatedHash::<TransferCommitmentDomain>::hash(b"csv-empty-mpc-root");
 
         Self {
             version: COMMITMENT_VERSION,
@@ -219,36 +199,30 @@ impl Commitment {
 
     /// Compute the commitment hash
     pub fn hash(&self) -> Hash {
-        let mut hasher = Sha256::new();
-        self.hash_into(&mut hasher);
-        let result = hasher.finalize();
-        let mut array = [0u8; 32];
-        array.copy_from_slice(&result);
-        Hash::new(array)
-    }
-
-    fn hash_into(&self, hasher: &mut Sha256) {
-        // Use tagged hashing for each field to prevent cross-protocol collisions
-        hasher.update(csv_tagged_hash("commitment-version", &[self.version]));
-        hasher.update(csv_tagged_hash("commitment-protocol-id", &self.protocol_id));
-        hasher.update(csv_tagged_hash(
+        // Build the full payload for domain-separated hashing
+        let mut payload = Vec::new();
+        payload.extend_from_slice(&csv_tagged_hash("commitment-version", &[self.version]));
+        payload.extend_from_slice(&csv_tagged_hash("commitment-protocol-id", &self.protocol_id));
+        payload.extend_from_slice(&csv_tagged_hash(
             "commitment-mpc-root",
             self.mpc_root.as_bytes(),
         ));
-        hasher.update(csv_tagged_hash(
+        payload.extend_from_slice(&csv_tagged_hash(
             "commitment-contract-id",
             self.contract_id.as_bytes(),
         ));
-        hasher.update(csv_tagged_hash(
+        payload.extend_from_slice(&csv_tagged_hash(
             "commitment-prev",
             self.previous_commitment.as_bytes(),
         ));
-        hasher.update(csv_tagged_hash(
+        payload.extend_from_slice(&csv_tagged_hash(
             "commitment-payload",
             self.transition_payload_hash.as_bytes(),
         ));
-        hasher.update(csv_tagged_hash("commitment-seal", self.seal_id.as_bytes()));
-        hasher.update(csv_tagged_hash("commitment-domain", &self.domain_separator));
+        payload.extend_from_slice(&csv_tagged_hash("commitment-seal", self.seal_id.as_bytes()));
+        payload.extend_from_slice(&csv_tagged_hash("commitment-domain", &self.domain_separator));
+        
+        DomainSeparatedHash::<TransferCommitmentDomain>::hash(&payload)
     }
 
     /// Get the version
