@@ -98,7 +98,7 @@ pub fn Proofs() -> Element {
             // Proof Detail Modal
             {
                 let proof_opt = selected_proof.read().clone();
-                let mut close_modal = selected_proof.clone();
+                let mut close_modal = selected_proof;
                 match proof_opt {
                     Some(proof) => rsx! {
                         div { class: "fixed inset-0 bg-black/50 flex items-center justify-center z-50",
@@ -165,7 +165,7 @@ pub fn Proofs() -> Element {
             // Delete Confirmation Modal
             {
                 let proof_opt = show_delete_confirm.read().clone();
-                let mut close_modal = show_delete_confirm.clone();
+                let mut close_modal = show_delete_confirm;
                 let mut ctx = wallet_ctx.clone();
                 match proof_opt {
                     Some(proof) => rsx! {

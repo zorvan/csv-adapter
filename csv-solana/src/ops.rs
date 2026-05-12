@@ -866,13 +866,11 @@ impl ChainSanadOps for SolanaBackend {
     ) -> ChainOpResult<bool> {
         // Derive the seal account address from the sanad_id
         // The seal account is a PDA derived from the sanad_id hash
-        use solana_sdk::pubkey::Pubkey;
         use solana_system_interface::program;
 
         // Convert sanad_id bytes to a Pubkey (32 bytes)
         let sanad_bytes = sanad_id.as_bytes();
-        let seal_address = Pubkey::try_from(*sanad_bytes)
-            .map_err(|_| ChainOpError::InvalidInput("Invalid sanad_id length".to_string()))?;
+        let seal_address = From::from(*sanad_bytes);
 
         // Query the account state via RPC
         let account_info = self
@@ -964,7 +962,7 @@ impl ChainBackend for SolanaBackend {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    
 
     #[test]
     fn test_solana_address_validation() {

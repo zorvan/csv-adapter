@@ -83,7 +83,9 @@ impl ProofFilter {
 pub struct ProofCache {
     seen_event_ids: HashSet<String>,
     max_size: usize,
+    #[allow(dead_code)]
     ttl: Duration,
+    #[allow(dead_code)]
     last_cleanup: Instant,
 }
 

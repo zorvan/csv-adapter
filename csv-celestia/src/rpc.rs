@@ -99,7 +99,7 @@ impl CelestiaRpc for CelestiaNode {
                 "namespace": namespace_hex,
                 "data": base64_data,
                 "share_version": 0,
-                "commitment": hex::encode(&commitment),
+                "commitment": hex::encode(commitment),
             }],
             "gas_price": 0.01,
         });
@@ -140,7 +140,7 @@ impl CelestiaRpc for CelestiaNode {
         let params = serde_json::json!({
             "height": height,
             "namespace": hex::encode(namespace.as_bytes()),
-            "commitment": hex::encode(&commitment),
+            "commitment": hex::encode(commitment),
         });
 
         let request = self.build_request("blob.Get", params);

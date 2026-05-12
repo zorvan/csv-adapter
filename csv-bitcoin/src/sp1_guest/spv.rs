@@ -33,6 +33,7 @@ pub struct Sp1BtcSpvInput {
 
 impl Sp1BtcSpvInput {
     /// Create a new SP1 input
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         tx_data: Vec<u8>,
         merkle_branch: Vec<[u8; 32]>,

@@ -536,6 +536,7 @@ mod tests {
 // ============================================================================
 
 #[cfg(feature = "zk")]
+#[allow(missing_docs)]
 pub mod pedersen {
     use curve25519_dalek::constants;
     use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
@@ -570,7 +571,7 @@ pub mod pedersen {
         pub fn hash(&self) -> Hash {
             let mut hasher = Sha256::new();
             hasher.update(b"CSV-COMMITMENT-HASH::");
-            hasher.update(&self.commitment);
+            hasher.update(self.commitment);
             Hash::new(hasher.finalize().into())
         }
     }
@@ -600,13 +601,12 @@ pub mod pedersen {
     }
 
     /// A Pedersen commitment scheme instance.
+    #[derive(Default)]
     pub struct PedersenScheme {
         generators: PedersenGenerators,
     }
 
-    impl Default for PedersenScheme {
-        fn default() -> Self { Self { generators: PedersenGenerators::default() } }
-    }
+    
 
     impl PedersenScheme {
         pub fn new() -> Self { Self::default() }

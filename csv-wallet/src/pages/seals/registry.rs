@@ -163,7 +163,7 @@ fn seal_row(seal: &SealRecord) -> Element {
                 }
             }
             td { class: "px-4 py-3",
-                if seal.sanad_id.as_deref().map_or(true, |s| s.is_empty()) {
+                if seal.sanad_id.as_deref().is_none_or(|s| s.is_empty()) {
                     span { class: "text-gray-500", "-" }
                 } else {
                     Link { to: Route::SanadJourney { id: seal.sanad_id.clone().unwrap_or_default() },

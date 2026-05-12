@@ -291,7 +291,7 @@ mod tests {
     fn test_blob_creation() {
         let ns = Namespace::bitcoin_stark();
         let data = vec![1, 2, 3, 4, 5];
-        let blob = Blob::new(ns.clone(), data.clone()).unwrap();
+        let blob = Blob::new(ns, data.clone()).unwrap();
 
         assert_eq!(blob.size(), 5);
         assert!(blob.is_in_namespace(&ns));
@@ -321,7 +321,7 @@ mod tests {
     fn test_commitment_determinism() {
         let ns = Namespace::bitcoin_stark();
         let data = vec![1, 2, 3, 4, 5];
-        let blob1 = Blob::new(ns.clone(), data.clone()).unwrap();
+        let blob1 = Blob::new(ns, data.clone()).unwrap();
         let blob2 = Blob::new(ns, data).unwrap();
 
         assert_eq!(blob1.commitment(), blob2.commitment());
@@ -397,8 +397,8 @@ mod tests {
     fn test_blob_bundle() {
         let ns = Namespace::bitcoin_stark();
         let blobs = vec![
-            Blob::new(ns.clone(), vec![1, 2, 3]).unwrap(),
-            Blob::new(ns.clone(), vec![4, 5, 6]).unwrap(),
+            Blob::new(ns, vec![1, 2, 3]).unwrap(),
+            Blob::new(ns, vec![4, 5, 6]).unwrap(),
             Blob::new(ns, vec![7, 8, 9]).unwrap(),
         ];
 
@@ -416,7 +416,7 @@ mod tests {
         let ns2 = Namespace::sui_stark();
 
         let blobs = vec![
-            Blob::new(ns1.clone(), vec![1, 2, 3]).unwrap(),
+            Blob::new(ns1, vec![1, 2, 3]).unwrap(),
             Blob::new(ns1, vec![4, 5, 6]).unwrap(),
         ];
         let bundle = BlobBundle::new(blobs).unwrap();

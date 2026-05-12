@@ -22,7 +22,7 @@ pub fn Transactions() -> Element {
                 || tx
                     .to_address
                     .as_ref()
-                    .map_or(false, |addr| account_addresses.contains(addr))
+                    .is_some_and(|addr| account_addresses.contains(addr))
         })
         .collect();
 

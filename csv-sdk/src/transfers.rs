@@ -292,7 +292,7 @@ impl TransferBuilder {
                 self.from_chain.clone(),
                 &self.sanad_id,
                 self.to_chain.to_string().as_str(),
-                &self.from_chain.to_string(),
+                self.from_chain.as_ref(),
             )
             .await?;
 
@@ -399,7 +399,7 @@ impl TransferBuilder {
                 self.from_chain.to_string().as_str(),
                 &self.sanad_id,
                 &inclusion_proof,
-                &to_address,
+                to_address,
             )
             .await?;
 

@@ -209,7 +209,7 @@ fn cmd_set_rpc(chain: Chain, url: String, config: &Config) -> Result<()> {
 fn cmd_set_network(chain: Chain, network: Network, config: &Config) -> Result<()> {
     let mut config_clone = config.clone();
     if let Some(chain_config) = config_clone.chains.get_mut(&chain) {
-        chain_config.network = network.clone();
+        chain_config.network = network;
     }
 
     let path = expand_path("~/.csv/config.toml");

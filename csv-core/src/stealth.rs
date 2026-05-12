@@ -69,8 +69,11 @@ impl core::fmt::Display for ScanPublicKey {
 pub struct SpendPublicKey(pub [u8; 32]);
 
 impl SpendPublicKey {
+    #[allow(missing_docs)]
     pub fn from_bytes(bytes: [u8; 32]) -> Self { Self(bytes) }
+    #[allow(missing_docs)]
     pub fn as_bytes(&self) -> &[u8; 32] { &self.0 }
+    #[allow(missing_docs)]
     pub fn to_hex(&self) -> String { hex::encode(self.0) }
 }
 
@@ -85,8 +88,11 @@ impl core::fmt::Display for SpendPublicKey {
 pub struct StealthAddress(pub [u8; 32]);
 
 impl StealthAddress {
+    #[allow(missing_docs)]
     pub fn from_bytes(bytes: [u8; 32]) -> Self { Self(bytes) }
+    #[allow(missing_docs)]
     pub fn as_bytes(&self) -> &[u8; 32] { &self.0 }
+    #[allow(missing_docs)]
     pub fn to_hex(&self) -> String { hex::encode(self.0) }
 }
 
@@ -101,7 +107,9 @@ impl core::fmt::Display for StealthAddress {
 pub struct EphemeralPoint(pub [u8; 32]);
 
 impl EphemeralPoint {
+    #[allow(missing_docs)]
     pub fn from_bytes(bytes: [u8; 32]) -> Self { Self(bytes) }
+    #[allow(missing_docs)]
     pub fn as_bytes(&self) -> &[u8; 32] { &self.0 }
 }
 

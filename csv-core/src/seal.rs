@@ -59,6 +59,7 @@ impl SealPoint {
     /// - `id` is non-empty and ≤ 1024 bytes (MAX_SEAL_ID_SIZE)
     /// - This is only used for deserialized data already verified by `from_bytes()`
     ///   or internal protocol conversions where size is guaranteed by construction.
+    ///
     /// Violating these requirements causes undefined behavior in downstream code
     /// that assumes valid seal IDs (e.g., hash map lookups, size assertions).
     pub unsafe fn new_unchecked(id: Vec<u8>, nonce: Option<u64>) -> Self {
@@ -193,6 +194,7 @@ impl CommitAnchor {
     /// - `metadata` is ≤ 4096 bytes (MAX_ANCHOR_METADATA_SIZE)
     /// - This is only used for deserialized data already verified by `from_bytes()`
     ///   or internal protocol conversions where size is guaranteed by construction.
+    ///
     /// Violating these requirements causes undefined behavior in downstream code
     /// that assumes valid anchor IDs (e.g., hash map lookups, size assertions).
     pub unsafe fn new_unchecked(anchor_id: Vec<u8>, block_height: u64, metadata: Vec<u8>) -> Self {

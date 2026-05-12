@@ -4,7 +4,6 @@
 
 use bitcoin::{
     bip32::{DerivationPath as BitcoinDerivationPath, Xpriv, Xpub},
-    hashes::Hash as BitcoinHash,
     key::TapTweak,
     secp256k1::{self, Secp256k1, SecretKey, XOnlyPublicKey},
     Address, Network, OutPoint,
@@ -14,6 +13,9 @@ use bitcoin::Txid;
 use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 use std::sync::Mutex;
+
+#[allow(unused_imports)]
+use bitcoin_hashes::Hash;
 
 use bitcoin::secp256k1::rand::{rngs::OsRng, RngCore};
 
@@ -485,6 +487,7 @@ impl Default for MockSealWallet {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bitcoin_hashes::Hash;
     #[test]
     fn test_wallet_creation_from_random() {
         let w = SealWallet::generate_random(Network::Signet);

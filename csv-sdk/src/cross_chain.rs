@@ -56,7 +56,6 @@ impl From<CrossChainError> for CsvError {
 // ===========================================================================
 // Persistent Transfer Registry (SC-02)
 // ===========================================================================
-
 /// In-memory transfer registry backed by SQLite for persistence.
 ///
 /// Tracks completed cross-chain transfers to prevent double-spend while
@@ -86,6 +85,7 @@ impl PersistentTransferRegistry {
     }
 
     /// Record a completed cross-chain transfer.
+    #[allow(clippy::too_many_arguments)]
     pub async fn record_transfer(
         &self,
         sanad_id: &str,
@@ -220,8 +220,8 @@ impl PersistentTransferRegistry {
         let parse_hash = |hex: &str| -> Result<Hash, CrossChainError> {
             let bytes = hex::decode(hex.trim_start_matches("0x"))
                 .map_err(|e| CrossChainError::Database(format!("invalid hash hex: {}", e)))?;
-            Ok(Hash::try_from(bytes.as_slice())
-                .map_err(|_| CrossChainError::Database("hash must be 32 bytes".to_string()))?)
+            Hash::try_from(bytes.as_slice())
+                .map_err(|_| CrossChainError::Database("hash must be 32 bytes".to_string()))
         };
 
         let parse_seal = |hex: &str| -> Result<SealPoint, CrossChainError> {
@@ -271,7 +271,7 @@ impl PersistentTransferRegistry {
             lock_tx: hex::encode(&entry.source_seal.id),
             mint_tx: Some(hex::encode(&entry.destination_seal.id)),
             created_at: chrono::DateTime::from_timestamp(entry.timestamp as i64, 0)
-                .unwrap_or_else(|| chrono::DateTime::UNIX_EPOCH),
+                .unwrap_or(chrono::DateTime::UNIX_EPOCH),
             completed_at: None,
         }
     }
@@ -280,6 +280,7 @@ impl PersistentTransferRegistry {
 #[cfg(feature = "cross-chain-persist")]
 /// Minimal transfer info returned by query methods.
 #[derive(Debug, sqlx::FromRow)]
+#[allow(missing_docs)]
 pub struct TransferInfo {
     pub id: String,
     pub sanad_id: String,
@@ -298,6 +299,7 @@ pub struct TransferInfo {
 /// 1. Check if sanad already transferred (double-spend guard)
 /// 2. Mint on destination chain
 /// 3. Record in SQLite registry
+#[allow(clippy::too_many_arguments)]
 pub async fn mint_sanad_on_chain(
     chain: ChainId,
     rpc_url: &str,

@@ -73,7 +73,7 @@ impl WalletContext {
             let passphrase = Passphrase::new(password);
 
             keystore
-                .store_key(&keystore_ref, &chain.to_string(), &secret_key, &passphrase)
+                .store_key(&keystore_ref, chain.as_ref(), &secret_key, &passphrase)
                 .map_err(|e| format!("Failed to store key for {:?}: {}", chain, e))?;
 
             // Derive address from the key

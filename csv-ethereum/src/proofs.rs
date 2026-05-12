@@ -121,6 +121,7 @@ pub fn verify_receipt_proof(
 }
 
 /// Convert a receipt index to the nibble path key used in the MPT
+#[allow(dead_code)]
 fn receipt_index_to_path_key(index: u64) -> [u8; 32] {
     let mut key = [0u8; 32];
     let index_bytes = index.to_be_bytes();

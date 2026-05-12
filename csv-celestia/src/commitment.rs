@@ -407,7 +407,7 @@ mod tests {
     fn test_blob_commitment() {
         let ns = Namespace::bitcoin_stark();
         let data = vec![1, 2, 3, 4, 5];
-        let blob = Blob::new(ns.clone(), data.clone()).unwrap();
+        let blob = Blob::new(ns, data.clone()).unwrap();
 
         let commitment1 = BlobCommitment::from_blob(&blob);
         let commitment2 = BlobCommitment::compute(&ns, &data);
@@ -524,7 +524,7 @@ mod tests {
 
         let proof = CommitmentProof::new(
             12345,
-            ns.clone(),
+            ns,
             commitment,
             [1u8; 32],
             [2u8; 32],

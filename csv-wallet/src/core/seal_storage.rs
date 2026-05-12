@@ -32,7 +32,7 @@ pub fn derive_seal_encryption_key(password: &str, salt: &[u8]) -> [u8; 32] {
         let mut hasher = Sha256::new();
         hasher.update(password.as_bytes());
         hasher.update(salt);
-        hasher.update(&block_number.to_be_bytes());
+        hasher.update(block_number.to_be_bytes());
         
         let mut u = hasher.finalize();
         

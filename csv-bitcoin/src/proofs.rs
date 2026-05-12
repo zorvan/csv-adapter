@@ -468,7 +468,7 @@ pub fn to_rust_bitcoin_merkle_proof(
 ) -> Option<PartialMerkleTree> {
     let txids: Vec<Txid> = all_txids
         .iter()
-        .filter_map(|t| Some(bytes_to_txid(*t)))
+        .map(|t| bytes_to_txid(*t))
         .collect();
     if txids.is_empty() {
         return None;

@@ -491,7 +491,7 @@ mod tests {
         let protocol = create_test_protocol().await;
         let data = vec![0u8; 1024 * 1024 + 1]; // Large data
 
-        let (proof_id, seal) = protocol.create_ipfs_seal(data).await.unwrap();
+        let (_proof_id, seal) = protocol.create_ipfs_seal(data).await.unwrap();
 
         assert!(seal.ipfs_cid.is_some());
         assert!(seal.is_valid());

@@ -19,15 +19,12 @@ pub struct WalletMetadata {
 
 /// Bitcoin network type
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum BitcoinNetwork {
     Mainnet,
+    #[default]
     Testnet,
     Signet,
     Regtest,
 }
 
-impl Default for BitcoinNetwork {
-    fn default() -> Self {
-        BitcoinNetwork::Testnet
-    }
-}

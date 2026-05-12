@@ -15,7 +15,7 @@
 //! }
 //! ```
 
-use aead::{Aead, AeadCore, KeyInit, OsRng};
+use aead::{Aead, AeadCore, KeyInit};
 use aes_gcm::Aes256Gcm;
 use aes_gcm::aes::cipher::generic_array::GenericArray;
 use argon2::{
@@ -49,7 +49,7 @@ pub fn encrypt(plaintext: &[u8], passphrase: &str) -> anyhow::Result<EncryptedSt
 
     Ok(EncryptedState {
         v: 1,
-        s: B64.encode(&salt),
+        s: B64.encode(salt),
         n: B64.encode(nonce.as_slice()),
         d: B64.encode(&ciphertext),
     })
@@ -70,7 +70,7 @@ pub fn decrypt(encrypted: &EncryptedState, passphrase: &str) -> anyhow::Result<V
     if nonce_bytes.len() != 12 {
         return Err(anyhow::anyhow!("Invalid nonce length"));
     }
-    let nonce: GenericArray<u8, <Aes256Gcm as AeadCore>::NonceSize> = GenericArray::from_slice(&nonce_bytes).clone();
+    let nonce: GenericArray<u8, <Aes256Gcm as AeadCore>::NonceSize> = *GenericArray::from_slice(&nonce_bytes);
     let ciphertext = B64
         .decode(&encrypted.d)
         .map_err(|e| anyhow::anyhow!("Invalid ciphertext encoding: {}", e))?;
@@ -95,7 +95,7 @@ fn generate_salt() -> [u8; 16] {
 fn generate_nonce() -> GenericArray<u8, <Aes256Gcm as AeadCore>::NonceSize> {
     let mut nonce = [0u8; 12];
     rand::thread_rng().fill(&mut nonce);
-    GenericArray::from_slice(&nonce).clone()
+    *GenericArray::from_slice(&nonce)
 }
 
 /// Derive a 32-byte encryption key from passphrase using Argon2id.

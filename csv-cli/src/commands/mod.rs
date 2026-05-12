@@ -1,5 +1,8 @@
 //! CLI command implementations
 
+#![allow(dead_code)]
+#![allow(deprecated)]
+
 pub mod chain;
 pub mod contracts;
 pub mod cross_chain;

@@ -15,6 +15,7 @@ use std::str::FromStr;
 /// This function constructs chain-specific transaction data for basic transfers.
 /// For contract calls and advanced operations, use `ChainRuntime::build_contract_call`
 /// which provides proper encoding via chain adapters.
+#[allow(clippy::too_many_arguments)]
 pub fn build_transaction(
     chain: ChainId,
     from: &str,
@@ -33,7 +34,7 @@ pub fn build_transaction(
         "sui" => build_sui_transaction_data_simple(from, to, data),
         "aptos" => build_aptos_transaction_data_simple(from, to, data, nonce),
         "solana" => {
-            return Err(BlockchainError {
+            Err(BlockchainError {
                 message: "Solana transactions require a recent blockhash. Use build_solana_transaction_with_blockhash() with a blockhash from Solana RPC.".to_string(),
                 chain: Some(ChainId::new("solana")),
                 code: Some(400),
@@ -290,13 +291,13 @@ fn select_utxos(
     let mut sorted_utxos: Vec<_> = utxos.iter().filter(|u| u.confirmed).cloned().collect();
     match strategy {
         UtxoSelectionStrategy::LargestFirst => {
-            sorted_utxos.sort_by(|a, b| b.value.cmp(&a.value));
+            sorted_utxos.sort_by_key(|b| std::cmp::Reverse(b.value));
         }
         UtxoSelectionStrategy::SmallestFirst => {
-            sorted_utxos.sort_by(|a, b| a.value.cmp(&b.value));
+            sorted_utxos.sort_by_key(|a| a.value);
         }
         UtxoSelectionStrategy::ExactMatch => {
-            sorted_utxos.sort_by(|a, b| a.value.cmp(&b.value));
+            sorted_utxos.sort_by_key(|a| a.value);
         }
     }
 
@@ -778,12 +779,12 @@ struct CompiledInstruction {
 
 impl SolanaMessage {
     fn serialize(&self) -> Result<Vec<u8>, BlockchainError> {
-        let mut result = Vec::new();
-
         // Header
-        result.push(self.header.num_required_signatures);
-        result.push(self.header.num_readonly_signed_accounts);
-        result.push(self.header.num_readonly_unsigned_accounts);
+        let mut result = vec![
+            self.header.num_required_signatures,
+            self.header.num_readonly_signed_accounts,
+            self.header.num_readonly_unsigned_accounts,
+        ];
 
         // Account keys count
         result.push(self.account_keys.len() as u8);
@@ -1037,7 +1038,7 @@ async fn discover_ethereum_contracts(
                                 if let Some(contract_addr) = tx["contractAddress"].as_str() {
                                     // Use filter type or default to Registry
                                     let contract_type = default_filter_type
-                                        .unwrap_or_else(|| ContractType::Registry);
+                                        .unwrap_or(ContractType::Registry);
 
                                     deployments.push(ContractDeployment {
                                         address: contract_addr.to_string(),

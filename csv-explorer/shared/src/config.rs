@@ -224,6 +224,7 @@ impl ExplorerConfig {
     }
 }
 
+#[allow(dead_code)]
 fn parse_network(network: &str) -> Network {
     match network.to_ascii_lowercase().as_str() {
         "test" | "testnet" | "sepolia" => Network::Testnet,

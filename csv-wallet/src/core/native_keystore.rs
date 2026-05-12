@@ -490,7 +490,7 @@ impl NativeKeystore {
         }
         
         // Sort by creation time (newest first)
-        backups.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        backups.sort_by_key(|b| std::cmp::Reverse(b.created_at));
         Ok(backups)
     }
 
@@ -666,8 +666,10 @@ mod tests {
         let passphrase = test_passphrase();
 
         // Create keystore with short rotation interval
-        let mut policy = SecurityPolicy::default();
-        policy.key_rotation_interval_days = 1; // 1 day
+        let policy = crate::core::native_keystore::SecurityPolicy {
+            key_rotation_interval_days: 1,
+            ..Default::default()
+        };
         keystore.update_security_policy(policy).unwrap();
         
         keystore.store_key("old-key", "bitcoin", None, &secret_key, &passphrase).unwrap();

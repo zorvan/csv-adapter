@@ -40,14 +40,17 @@ pub struct EthereumBackend {
     /// Domain separator for proof generation
     domain_separator: [u8; 32],
     /// Finality checker
+    #[allow(dead_code)]
     finality_checker: FinalityChecker,
     /// Seal contract ABI for sanad operations
+    #[allow(dead_code)]
     seal_contract: CsvSealAbi,
     /// Lock contract address (for sanad operations)
     lock_contract_address: Option<[u8; 20]>,
     /// Mint contract address (for sanad operations)
     mint_contract_address: Option<[u8; 20]>,
     /// Event proof verifier
+    #[allow(dead_code)]
     proof_verifier: EventProofVerifier,
     /// Commitment event builder
     event_builder: CommitmentEventBuilder,
@@ -175,7 +178,8 @@ impl EthereumBackend {
         Ok(addr)
     }
 
-    /// Format Ethereum address for display
+    /// Format an address to hex string
+    #[allow(dead_code)]
     fn format_address(&self, addr: [u8; 20]) -> String {
         format!("0x{}", hex::encode(addr))
     }
@@ -242,7 +246,7 @@ impl EthereumBackend {
         calldata: &[u8],
         signer_key: &str,
     ) -> ChainOpResult<[u8; 32]> {
-        use crate::node::EthereumNode;
+        
         use alloy::consensus::{SignableTransaction, TxEip1559, TxEnvelope};
         use alloy::eips::eip2718::Encodable2718;
         use alloy::primitives::{Address, Bytes, TxKind, U256};
@@ -339,6 +343,7 @@ impl EthereumBackend {
 
     /// Recover sender address from transaction signature
     #[cfg(feature = "rpc")]
+    #[allow(dead_code)]
     async fn recover_sender(
         &self,
         signature: &secp256k1::ecdsa::RecoverableSignature,
@@ -1121,13 +1126,13 @@ impl ChainSanadOps for EthereumBackend {
             Ok(SanadOperationResult {
                 sanad_id: sanad_id.clone(),
                 operation: SanadOperation::Lock,
-                transaction_hash: hex::encode(&tx_hash),
+                transaction_hash: hex::encode(tx_hash),
                 block_height: receipt.block_number,
                 chain_id: self.config.network.chain_id().to_string(),
                 metadata: serde_json::json!({
                     "operation": "lock",
                     "destination_chain": destination_chain,
-                    "contract": hex::encode(&lock_contract),
+                    "contract": hex::encode(lock_contract),
                 }),
             })
         }
@@ -1184,14 +1189,14 @@ impl ChainSanadOps for EthereumBackend {
             Ok(SanadOperationResult {
                 sanad_id: source_sanad_id.clone(),
                 operation: SanadOperation::Mint,
-                transaction_hash: hex::encode(&tx_hash),
+                transaction_hash: hex::encode(tx_hash),
                 block_height: receipt.block_number,
                 chain_id: self.config.network.chain_id().to_string(),
                 metadata: serde_json::json!({
                     "operation": "mint",
                     "source_chain": source_chain,
                     "new_owner": new_owner,
-                    "contract": hex::encode(&mint_contract),
+                    "contract": hex::encode(mint_contract),
                 }),
             })
         }
@@ -1237,12 +1242,12 @@ impl ChainSanadOps for EthereumBackend {
             Ok(SanadOperationResult {
                 sanad_id: sanad_id.clone(),
                 operation: SanadOperation::Refund,
-                transaction_hash: hex::encode(&tx_hash),
+                transaction_hash: hex::encode(tx_hash),
                 block_height: receipt.block_number,
                 chain_id: self.config.network.chain_id().to_string(),
                 metadata: serde_json::json!({
                     "operation": "refund",
-                    "contract": hex::encode(&lock_contract),
+                    "contract": hex::encode(lock_contract),
                 }),
             })
         }
@@ -1290,7 +1295,7 @@ impl ChainSanadOps for EthereumBackend {
                 metadata: serde_json::json!({
                     "operation": "record_metadata",
                     "note": "On Ethereum, metadata is recorded during lockSanad operation",
-                    "contract": hex::encode(&lock_contract),
+                    "contract": hex::encode(lock_contract),
                 }),
             })
         }
@@ -1451,6 +1456,8 @@ mod tests {
              use_checkpoint_finality: true,
              rpc_url: "http://127.0.0.1:8545".to_string(),
              private_key: None,
+             lock_contract_address: None,
+             mint_contract_address: None,
          };
          let ops = EthereumBackend::new(rpc, config);
          assert_eq!(ops.config.network.chain_id(), 1);
@@ -1465,6 +1472,8 @@ mod tests {
              use_checkpoint_finality: true,
              rpc_url: "http://127.0.0.1:8545".to_string(),
              private_key: None,
+             lock_contract_address: None,
+             mint_contract_address: None,
          };
         let ops = EthereumBackend::new(rpc, config);
 

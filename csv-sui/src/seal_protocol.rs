@@ -292,7 +292,7 @@ impl SuiSealProtocol {
             },
             ..Default::default()
         };
-        let mut rpc = crate::rpc::MockSuiRpc::new(1000);
+        let rpc = crate::rpc::MockSuiRpc::new(1000);
         rpc.add_checkpoint(crate::rpc::SuiCheckpoint {
             sequence_number: 500,
             digest: [1u8; 32],
@@ -573,7 +573,6 @@ impl SealProtocol for SuiSealProtocol {
             let valid = self
                 .run_with_rpc(|rpc| {
                     let event_data = event_data.clone();
-                    let tx_digest = tx_digest;
                     async move {
                         EventProofVerifier::verify_event_in_tx(tx_digest, &event_data, rpc.as_ref())
                             .await

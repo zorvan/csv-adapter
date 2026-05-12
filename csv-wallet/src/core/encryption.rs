@@ -160,7 +160,7 @@ fn base64_encode(data: &[u8]) -> String {
 
 /// Base64 decode.
 fn base64_decode(s: &str) -> Result<Vec<u8>, String> {
-    if s.len() % 2 != 0 {
+    if !s.len().is_multiple_of(2) {
         return Err("Invalid hex string".to_string());
     }
     (0..s.len())

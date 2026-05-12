@@ -80,7 +80,7 @@ fn cmd_generate(
     hash_bytes.copy_from_slice(&bytes[..32]);
     let sanad_id_obj = SanadId::new(hash_bytes);
 
-    output::kv("Chain", &chain.to_string());
+    output::kv("Chain", chain.as_ref());
     output::kv_hash("Sanad ID", &hash_bytes);
 
     // Get chain configuration
@@ -320,12 +320,12 @@ fn cmd_verify_cross_chain(
     let proof_content = std::fs::read_to_string(&proof_file)?;
     let proof: serde_json::Value = serde_json::from_str(&proof_content)?;
 
-    output::kv("Source Chain", &source.to_string());
-    output::kv("Destination Chain", &dest.to_string());
+    output::kv("Source Chain", source.as_ref());
+    output::kv("Destination Chain", dest.as_ref());
 
     // Verify the proof is from the claimed source chain
     if let Some(proof_chain) = proof.get("chain").and_then(|v| v.as_str()) {
-        if proof_chain != source.to_string() {
+        if proof_chain != source {
             return Err(anyhow::anyhow!(
                 "Proof claims to be from {} but file says {}",
                 source,

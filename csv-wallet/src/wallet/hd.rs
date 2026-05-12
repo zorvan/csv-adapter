@@ -41,10 +41,10 @@ fn serialize_seed<S: serde::Serializer>(seed: &[u8; 64], s: S) -> Result<S::Ok, 
 fn deserialize_seed<'de, D: serde::Deserializer<'de>>(d: D) -> Result<[u8; 64], D::Error> {
     use serde::de::Error;
     let hex = String::deserialize(d)?;
-    hex::decode(&hex).map_err(D::Error::custom).and_then(|v| {
+    hex::decode(&hex).map_err(D::Error::custom).map(|v| {
         let mut arr = [0u8; 64];
         arr.copy_from_slice(&v);
-        Ok(arr)
+        arr
     })
 }
 
@@ -210,11 +210,11 @@ impl ExtendedWallet {
         let sui_verifying: ed25519_dalek::VerifyingKey = sui_signing.verifying_key();
         let hash: [u8; 32] = {
             let mut hasher = Blake2b::new();
-            hasher.update(&[0x00]);
+            hasher.update([0x00]);
             hasher.update(sui_verifying.as_bytes());
             hasher.finalize().into()
         };
-        addresses.push((ChainId::new("sui"), format!("0x{}", hex::encode(&hash))));
+        addresses.push((ChainId::new("sui"), format!("0x{}", hex::encode(hash))));
 
         // Aptos
         let mut aptos_key = [0u8; 32];
@@ -223,7 +223,7 @@ impl ExtendedWallet {
         let aptos_verifying: ed25519_dalek::VerifyingKey = aptos_signing.verifying_key();
         let mut hasher = sha3::Sha3_256::new();
         hasher.update(aptos_verifying.as_bytes());
-        hasher.update(&[0x00]);
+        hasher.update([0x00]);
         let hash = hasher.finalize();
         addresses.push((
             ChainId::new("aptos"),

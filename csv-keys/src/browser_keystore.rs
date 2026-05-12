@@ -289,8 +289,8 @@ impl BrowserKeystore {
         let mut keys = Vec::new();
         for i in 0..length {
             if let Ok(Some(key)) = self.storage.key(i) {
-                if key.starts_with(Self::KEY_PREFIX) {
-                    keys.push(key[Self::KEY_PREFIX.len()..].to_string());
+                if let Some(stripped) = key.strip_prefix(Self::KEY_PREFIX) {
+                    keys.push(stripped.to_string());
                 }
             }
         }

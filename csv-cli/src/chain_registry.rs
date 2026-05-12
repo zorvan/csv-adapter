@@ -4,6 +4,7 @@
 //! and the scalable ChainDriver registry from csv-adapter-core.
 
 #![allow(dead_code)]
+#![allow(deprecated)]
 
 use crate::config::Chain;
 use csv_core::{ChainCapabilities, ChainDriver, DriverRegistry};
@@ -159,7 +160,7 @@ mod tests {
 
     #[test]
     fn test_supported_chains_static() {
-        let chains = vec!["bitcoin", "ethereum", "solana", "sui", "aptos"];
+        let chains = ["bitcoin", "ethereum", "solana", "sui", "aptos"];
         assert!(chains.contains(&"bitcoin"));
         assert!(chains.contains(&"ethereum"));
         assert!(chains.contains(&"solana"));

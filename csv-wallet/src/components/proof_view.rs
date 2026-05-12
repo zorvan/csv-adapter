@@ -112,7 +112,7 @@ pub struct ProofInspectorProps {
 #[allow(non_snake_case)]
 pub fn ProofInspector(props: ProofInspectorProps) -> Element {
     let mut active_tab = use_signal(|| Tab::Overview);
-    let expanded_nodes = use_signal(|| std::collections::HashSet::<usize>::new());
+    let expanded_nodes = use_signal(std::collections::HashSet::<usize>::new);
 
     rsx! {
         div { class: "proof-inspector {props.class}",
@@ -163,7 +163,7 @@ pub fn ProofInspector(props: ProofInspectorProps) -> Element {
                     Tab::Overview => rsx! {
                         ProofOverview {
                             proof: props.proof.clone(),
-                            on_verify: props.on_verify.clone(),
+                            on_verify: props.on_verify,
                             allow_verify: props.allow_verify,
                         }
                     },

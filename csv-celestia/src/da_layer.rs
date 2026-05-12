@@ -197,6 +197,7 @@ pub trait CelestiaRpc: Send + Sync {
 
 /// Mock Celestia RPC for testing
 #[derive(Clone, Debug, Default)]
+#[allow(clippy::type_complexity)]
 pub struct MockCelestiaRpc {
     storage: std::sync::Arc<
         tokio::sync::RwLock<std::collections::HashMap<(u64, String, [u8; 32]), Vec<u8>>>,

@@ -2,7 +2,6 @@
 
 use anyhow::Result;
 use clap::Subcommand;
-use colored::Colorize;
 
 use crate::config::Chain;
 use crate::output;
@@ -117,7 +116,7 @@ fn cmd_set(chain: &Chain, address: String, config: &crate::config::Config, state
 
     // Store contract record
     let contract = csv_store::ContractRecord {
-        chain: chain.clone().into(),
+        chain: chain.clone(),
         address: address.clone(),
         tx_hash: "manual".to_string(),
         deployed_at: std::time::SystemTime::now()

@@ -12,6 +12,10 @@ pub use csv_store::state::{
     WalletAccount,
 };
 
+// Unified state manager for CLI
+
+#[allow(dead_code)]
+#[allow(deprecated)]
 /// Unified state manager for CLI
 pub struct UnifiedStateManager {
     pub storage: UnifiedStorage,

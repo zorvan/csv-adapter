@@ -144,7 +144,7 @@ fn sanad_filter_buttons(filter_chain: Signal<Option<ChainId>>) -> Element {
     ];
     let mut buttons = Vec::new();
     for chain in chains {
-        let mut fc = filter_chain.clone();
+        let mut fc = filter_chain;
         let c = chain.clone();
         buttons.push(rsx! {
             button {

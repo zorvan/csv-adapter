@@ -48,6 +48,7 @@ pub struct SlotProof {
 
 impl SlotProof {
     /// Create a new slot proof
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         slot: u64,
         signature: Signature,
@@ -241,6 +242,7 @@ impl MultiAccountProof {
 /// 1. The transaction was included in a specific slot
 /// 2. The relevant accounts had the expected state at that slot
 /// 3. The slot has sufficient confirmations for the desired security level
+#[allow(clippy::too_many_arguments)]
 pub fn build_inclusion_proof(
     slot: u64,
     signature: Signature,

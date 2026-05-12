@@ -200,14 +200,14 @@ impl WalletContext {
             s.seals = persisted
                 .seals
                 .into_iter()
-                .filter_map(|s_rec| {
+                .map(|s_rec| {
                     // Check if consumed field exists (old format) or use default
                     let status = if s_rec.consumed {
                         SealStatus::Consumed
                     } else {
                         SealStatus::Active
                     };
-                    Some(SealRecord {
+                    SealRecord {
                         seal_ref: s_rec.seal_ref,
                         chain: s_rec.chain,
                         value: s_rec.value,
@@ -217,7 +217,7 @@ impl WalletContext {
                         created_at: s_rec.created_at,
                         content: None,
                         proof_ref: None,
-                    })
+                    }
                 })
                 .collect();
             // Proofs are now the same type - just clone
@@ -262,11 +262,11 @@ impl WalletContext {
                 Network::Main => csv_store::state::Network::Main,
             }),
             // Types are now the same - just clone
-            sanads: s.sanads.iter().cloned().collect(),
-            transfers: s.transfers.iter().cloned().collect(),
-            seals: s.seals.iter().cloned().collect(),
-            proofs: s.proofs.iter().cloned().collect(),
-            contracts: s.contracts.iter().cloned().collect(),
+            sanads: s.sanads.to_vec(),
+            transfers: s.transfers.to_vec(),
+            seals: s.seals.to_vec(),
+            proofs: s.proofs.to_vec(),
+            contracts: s.contracts.to_vec(),
             // Default/empty fields
             chains: std::collections::HashMap::new(),
             wallet: csv_store::state::WalletConfig::default(),
@@ -736,7 +736,7 @@ impl WalletContext {
             .seals
             .iter()
             .find(|s| s.seal_ref == seal_ref)
-            .map(|s| s.status.clone())
+            .map(|s| s.status)
     }
 
     /// Save a seal to the encrypted IndexedDB store (wasm32 only).

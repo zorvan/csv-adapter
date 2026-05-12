@@ -11,7 +11,6 @@ use aes_gcm::{
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
-use std::fs;
 
 /// Error type for keystore operations.
 #[derive(Debug, Error)]

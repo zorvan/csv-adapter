@@ -153,7 +153,7 @@ mod tests {
         assert_eq!(keystores.len(), 5); // 5 chains
 
         // Verify we can decrypt each keystore
-        for (chain, keystore) in keystores {
+        for (_chain, keystore) in keystores {
             let decrypted = keystore.decrypt(&passphrase).unwrap();
             assert_eq!(decrypted.as_bytes().len(), 32);
         }

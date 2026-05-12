@@ -43,10 +43,10 @@ async fn handle_file_upload(
     }
     
     // Validate file extension
-    let valid_extensions = vec!["json", "proof", "csv"];
+    let valid_extensions = ["json", "proof", "csv"];
     let extension = file_name
         .split('.')
-        .last()
+        .next_back()
         .unwrap_or("")
         .to_lowercase();
     
@@ -116,7 +116,7 @@ fn format_file_size(bytes: f64) -> String {
 /// Offline verification page - pure cryptographic verification
 #[component]
 pub fn OfflineVerify() -> Element {
-    let mut proof_input = use_signal(|| String::new());
+    let mut proof_input = use_signal(String::new);
     let mut verification_result = use_signal(|| None::<VerificationResult>);
     let mut is_verifying = use_signal(|| false);
     let mut is_dragging = use_signal(|| false);
@@ -165,10 +165,10 @@ pub fn OfflineVerify() -> Element {
                         is_dragging.set(false);
                         
                         let files = e.data_transfer().files();
-                        if let Some(file_data) = files.get(0) {
+                        if let Some(file_data) = files.first() {
                             let file_data = file_data.clone();
-                            let proof_input_clone = proof_input.clone();
-                            let file_error_clone = file_error.clone();
+                            let proof_input_clone = proof_input;
+                            let file_error_clone = file_error;
                             use_future(move || {
                                 let file_data_clone = file_data.clone();
                                 async move {
@@ -191,10 +191,10 @@ pub fn OfflineVerify() -> Element {
                             class: "hidden",
                             id: "file-input",
                             onchange: move |e: dioxus::html::events::FormEvent| {
-                      if let Some(file_data) = e.files().get(0) {
+                      if let Some(file_data) = e.files().first() {
                                     let file_data = file_data.clone();
-                                    let proof_input_clone = proof_input.clone();
-                                    let file_error_clone = file_error.clone();
+                                    let proof_input_clone = proof_input;
+                                    let file_error_clone = file_error;
                                     use_future(move || {
                                         let file_data_clone = file_data.clone();
                                         async move {

@@ -1,6 +1,10 @@
-//! Configuration management — chains, wallets, RPC endpoints
-//!
-//! Uses unified storage types from csv-adapter-store for compatibility with csv-wallet.
+//! CLI configuration management
+
+#![allow(dead_code)]
+#![allow(deprecated)]
+
+// Configuration management — chains, wallets, RPC endpoints
+// Uses unified storage types from csv-adapter-store for compatibility with csv-wallet.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -263,7 +267,7 @@ impl Config {
         // Fall back to csv-wallet exported JSON (legacy format)
         let csv_wallet_path = expand_path("~/.csv/wallet/csv-wallet.json");
         if let Ok(csv_wallet) = CsvWalletData::load_from_file(&csv_wallet_path) {
-            if let Some(account) = csv_wallet.find_account(&chain.to_string()) {
+            if let Some(account) = csv_wallet.find_account(chain.as_ref()) {
                 // Create a LegacyWalletConfig from the CSV account
                 return get_cached_wallet_config(chain, account);
             }

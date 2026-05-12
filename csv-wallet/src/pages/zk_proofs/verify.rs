@@ -13,7 +13,7 @@ use dioxus::prelude::*;
 #[component]
 pub fn ZkVerifyProof() -> Element {
     let mut wallet_ctx = use_wallet_context();
-    let mut proof_input = use_signal(|| String::new());
+    let mut proof_input = use_signal(String::new);
     let mut result = use_signal(|| None::<ZkVerifyResult>);
     let mut is_verifying = use_signal(|| false);
 
@@ -85,7 +85,7 @@ pub fn ZkVerifyProof() -> Element {
                                // If valid, save to wallet
                                 if valid {
                                     let proof_record = ProofRecord {
-                                        chain: chain.into(),
+                                        chain,
                                         sanad_id: hex::encode(&seal_id[..8.min(seal_id.len())]),
                                         seal_ref: Some(hex::encode(&seal_id)),
                                         proof_type: "zk_verified".to_string(),

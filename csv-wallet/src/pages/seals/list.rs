@@ -131,7 +131,7 @@ pub fn Seals() -> Element {
             // Seal Detail Modal
             {
                 let seal_opt = selected_seal.read().clone();
-                let mut close_modal = selected_seal.clone();
+                let mut close_modal = selected_seal;
                 match seal_opt {
                     Some(seal) => rsx! {
                         div { class: "fixed inset-0 bg-black/50 flex items-center justify-center z-50",
@@ -187,7 +187,7 @@ pub fn Seals() -> Element {
             // Delete Confirmation Modal
             {
                 let seal_opt = show_delete_confirm.read().clone();
-                let mut close_modal = show_delete_confirm.clone();
+                let mut close_modal = show_delete_confirm;
                 let mut ctx = wallet_ctx.clone();
                 match seal_opt {
                     Some(seal) => rsx! {
@@ -251,7 +251,7 @@ fn seal_filter_buttons(filter_chain: Signal<Option<ChainId>>) -> Element {
     ];
     let mut buttons = Vec::new();
     for chain in chains {
-        let mut fc = filter_chain.clone();
+        let mut fc = filter_chain;
         let c = chain.clone();
         buttons.push(rsx! {
             button {

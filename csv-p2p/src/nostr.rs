@@ -12,7 +12,9 @@
 //! | 4     | Encrypted DM proofs (NIP-04/44)      |
 //! | 30078 | Custom sealed exchange (future)      |
 
-use std::{fs, path::Path, sync::Arc, time::Duration};
+#![allow(unexpected_cfgs)]
+
+use std::{fs, sync::Arc, time::Duration};
 
 #[cfg(all(unix, feature = "nostr"))]
 use std::os::unix::fs::PermissionsExt;
@@ -135,6 +137,7 @@ pub const PROOF_EVENT_KIND: u64 = 30_345;
 pub const ENCRYPTED_DM_KIND: u64 = 4;
 
 /// Default relay subscription timeout.
+#[allow(dead_code)]
 const SUBSCRIBE_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Maximum proof size before compression is recommended (in bytes).
@@ -145,6 +148,7 @@ pub const MAX_PROOF_SIZE: usize = 100_000;
 /// Manages connections to Nostr relays and handles broadcasting proof
 /// bundles as type-30345 events and subscribing to incoming proofs.
 /// Includes relay health monitoring and automatic failover.
+#[allow(unexpected_cfgs)]
 pub struct NostrTransport {
     relays: Vec<String>,
     timeout: Duration,
@@ -161,6 +165,7 @@ pub struct NostrTransport {
     health_check_interval: Duration,
 }
 
+#[allow(unexpected_cfgs)]
 impl NostrTransport {
     /// Create a new Nostr transport with default relays.
     ///
@@ -385,15 +390,16 @@ impl NostrTransport {
             return Err(TransportError::NotInitialized);
         }
 
-        let content = self.proof_to_content(proof)?;
+        let _content = self.proof_to_content(proof)?;
         
         // Parse recipient public key
         use std::str::FromStr;
-        let recipient_keys = nostr_sdk::Keys::from_str(recipient_pubkey)
+        let _recipient_keys = nostr_sdk::Keys::from_str(recipient_pubkey)
             .map_err(|e| TransportError::Nostr(format!("Invalid recipient pubkey: {}", e)))?;
         
         // Encrypt and send via NIP-04
         #[cfg(feature = "nip04")]
+        #[allow(unexpected_cfgs)]
         {
             let event_id = self.client
                 .send_direct_msg(recipient_keys.public_key(), content, None)
@@ -410,6 +416,7 @@ impl NostrTransport {
         }
         
         #[cfg(not(feature = "nip04"))]
+        #[allow(unexpected_cfgs)]
         {
             // Fallback to open relay if NIP-04 not available
             warn!("NIP-04 feature not enabled, falling back to open relay");
@@ -434,6 +441,7 @@ impl NostrTransport {
         
         // Decrypt the message
         #[cfg(feature = "nip04")]
+        #[allow(unexpected_cfgs)]
         {
             let sender_pubkey = event.pubkey;
             let decrypted = nostr_sdk::nip04::decrypt(
@@ -453,6 +461,7 @@ impl NostrTransport {
         }
         
         #[cfg(not(feature = "nip04"))]
+        #[allow(unexpected_cfgs)]
         {
             Err(TransportError::Nostr(
                 "NIP-04 feature not enabled for decryption".to_string(),
@@ -812,11 +821,11 @@ mod tests {
         let hash: csv_core::hash::Hash = [0u8; 32].into();
         
         let proof = ProofBundle {
-            transition_dag: csv_core::dag::DAGSegment::new(vec![], hash.clone()),
+            transition_dag: csv_core::dag::DAGSegment::new(vec![], hash),
             signatures: vec![],
             seal_ref: csv_core::seal::SealPoint::new(vec![1u8; 32], None).unwrap(),
             anchor_ref: anchor,
-            inclusion_proof: csv_core::proof::InclusionProof::new(vec![1u8; 32], hash.clone(), 1000).unwrap(),
+            inclusion_proof: csv_core::proof::InclusionProof::new(vec![1u8; 32], hash, 1000).unwrap(),
             finality_proof: csv_core::proof::FinalityProof::new(vec![1u8; 32], 1, true).unwrap(),
         };
         
@@ -836,11 +845,11 @@ mod tests {
         let hash: csv_core::hash::Hash = [0u8; 32].into();
         
         let proof = ProofBundle {
-            transition_dag: csv_core::dag::DAGSegment::new(vec![], hash.clone()),
+            transition_dag: csv_core::dag::DAGSegment::new(vec![], hash),
             signatures: vec![],
             seal_ref: csv_core::seal::SealPoint::new(vec![1u8; 32], None).unwrap(),
             anchor_ref: anchor,
-            inclusion_proof: csv_core::proof::InclusionProof::new(vec![1u8; 32], hash.clone(), 1000).unwrap(),
+            inclusion_proof: csv_core::proof::InclusionProof::new(vec![1u8; 32], hash, 1000).unwrap(),
             finality_proof: csv_core::proof::FinalityProof::new(vec![1u8; 32], 1, true).unwrap(),
         };
         
@@ -860,11 +869,11 @@ mod tests {
         let hash: csv_core::hash::Hash = [0u8; 32].into();
         
         let proof = ProofBundle {
-            transition_dag: csv_core::dag::DAGSegment::new(vec![], hash.clone()),
+            transition_dag: csv_core::dag::DAGSegment::new(vec![], hash),
             signatures: vec![vec![1u8; 64]],
             seal_ref: csv_core::seal::SealPoint::new(vec![1u8; 32], None).unwrap(),
             anchor_ref: anchor,
-            inclusion_proof: csv_core::proof::InclusionProof::new(vec![1u8; 32], hash.clone(), 1000).unwrap(),
+            inclusion_proof: csv_core::proof::InclusionProof::new(vec![1u8; 32], hash, 1000).unwrap(),
             finality_proof: csv_core::proof::FinalityProof::new(vec![1u8; 32], 1, true).unwrap(),
         };
         
@@ -888,11 +897,11 @@ mod tests {
         let hash: csv_core::hash::Hash = [0u8; 32].into();
         
         let proof = ProofBundle {
-            transition_dag: csv_core::dag::DAGSegment::new(vec![], hash.clone()),
+            transition_dag: csv_core::dag::DAGSegment::new(vec![], hash),
             signatures: vec![],
             seal_ref: csv_core::seal::SealPoint::new(vec![1u8; 32], None).unwrap(),
             anchor_ref: anchor,
-            inclusion_proof: csv_core::proof::InclusionProof::new(vec![1u8; 32], hash.clone(), 1000).unwrap(),
+            inclusion_proof: csv_core::proof::InclusionProof::new(vec![1u8; 32], hash, 1000).unwrap(),
             finality_proof: csv_core::proof::FinalityProof::new(vec![1u8; 32], 1, true).unwrap(),
         };
         

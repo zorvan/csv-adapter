@@ -167,7 +167,7 @@ fn cmd_commitment_chain(
     Ok(())
 }
 
-fn cmd_offline(file: String, _config: &Config, _state: &UnifiedStateManager) -> Result<()> {
+fn cmd_offline(file: String, _config: &Config, state: &UnifiedStateManager) -> Result<()> {
     output::header("Offline Proof Verification");
     
     // Read and parse proof bundle from file
@@ -177,14 +177,16 @@ fn cmd_offline(file: String, _config: &Config, _state: &UnifiedStateManager) -> 
     let proof_bundle: csv_core::proof::ProofBundle = serde_json::from_str(&content)
         .map_err(|e| anyhow::anyhow!("Invalid proof bundle JSON: {}", e))?;
     
-    output::progress(1, 3, "Parsing proof bundle...");
+    output::progress(1, 5, "Parsing proof bundle...");
     output::kv("Seal Ref", &format!("0x{}", hex::encode(&proof_bundle.seal_ref.id)));
-    output::kv("Source Chain", std::str::from_utf8(&proof_bundle.anchor_ref.metadata).unwrap_or("unknown"));
-    output::kv("Destination Chain", proof_bundle.transition_dag.nodes.first()
+    let source_chain = std::str::from_utf8(&proof_bundle.anchor_ref.metadata).unwrap_or("unknown");
+    output::kv("Source Chain", source_chain);
+    let dest_chain = proof_bundle.transition_dag.nodes.first()
         .and_then(|n| std::str::from_utf8(&n.bytecode).ok())
-        .unwrap_or("unknown"));
+        .unwrap_or("unknown");
+    output::kv("Destination Chain", dest_chain);
     
-    output::progress(2, 3, "Verifying proof structure...");
+    output::progress(2, 5, "Verifying proof structure...");
     
     // Basic structural validation
     if proof_bundle.seal_ref.id == [0u8; 32] {
@@ -202,11 +204,92 @@ fn cmd_offline(file: String, _config: &Config, _state: &UnifiedStateManager) -> 
         return Err(anyhow::anyhow!("Empty transition DAG"));
     }
     
-    output::progress(3, 3, "Final validation...");
+    output::progress(3, 5, "Performing cryptographic verification...");
     
-    output::success("✓ Proof bundle structure is valid");
-    output::info("Note: Full cryptographic verification requires network access");
-    output::info("Use 'csv validate proof' for on-chain verification");
+    // Full cryptographic verification using csv_core verifier
+    // Use state to check if seal has been consumed
+    let _seal_ref_hex = hex::encode(&proof_bundle.seal_ref.id);
+    let seal_registry = |seal_id: &[u8]| -> bool {
+        state.is_seal_consumed(&hex::encode(seal_id))
+    };
+    
+    // Determine signature scheme based on source chain
+    let signature_scheme = match source_chain {
+        "bitcoin" => csv_core::signature::SignatureScheme::Secp256k1,
+        "ethereum" => csv_core::signature::SignatureScheme::Secp256k1,
+        "sui" => csv_core::signature::SignatureScheme::Ed25519,
+        "aptos" => csv_core::signature::SignatureScheme::Ed25519,
+        "solana" => csv_core::signature::SignatureScheme::Ed25519,
+        _ => csv_core::signature::SignatureScheme::Secp256k1,
+    };
+    
+    match csv_core::verifier::verify_proof(&proof_bundle, seal_registry, signature_scheme) {
+        Ok(_) => {
+            output::success("✓ Proof bundle is cryptographically valid");
+        }
+        Err(e) => {
+            output::error(&format!("✗ Verification failed: {}", e));
+            return Err(anyhow::anyhow!("Proof verification failed: {}", e));
+        }
+    }
+    
+    output::progress(4, 5, "Generating explorer links...");
+    
+    // Generate explorer links based on chain
+    let explorer_links = generate_explorer_links(&proof_bundle, source_chain, dest_chain);
+    output::info("Explorer Links:");
+    for (label, url) in &explorer_links {
+        output::kv(label, url);
+    }
+    
+    output::progress(5, 5, "Verification complete");
+    output::success("✓ Offline verification successful");
     
     Ok(())
+}
+
+/// Generate explorer URLs for the proof bundle components
+fn generate_explorer_links(
+    proof_bundle: &csv_core::proof::ProofBundle,
+    source_chain: &str,
+    dest_chain: &str,
+) -> Vec<(&'static str, String)> {
+    let mut links = Vec::new();
+    
+    // Source chain explorer
+    let source_explorer = match source_chain {
+        "bitcoin" => "https://blockstream.info/testnet",
+        "ethereum" => "https://sepolia.etherscan.io",
+        "sui" => "https://suiscan.xyz/testnet",
+        "aptos" => "https://explorer.aptoslabs.com",
+        "solana" => "https://explorer.solana.com",
+        _ => "https://example.com",
+    };
+    
+    // Destination chain explorer
+    let dest_explorer = match dest_chain {
+        "bitcoin" => "https://blockstream.info/testnet",
+        "ethereum" => "https://sepolia.etherscan.io",
+        "sui" => "https://suiscan.xyz/testnet",
+        "aptos" => "https://explorer.aptoslabs.com",
+        "solana" => "https://explorer.solana.com",
+        _ => "https://example.com",
+    };
+    
+    // Seal reference link
+    let seal_id = hex::encode(&proof_bundle.seal_ref.id);
+    links.push(("Seal ID", format!("{}/tx/{}", source_explorer, &seal_id[..16])));
+    
+    // Anchor block link
+    let block_height = proof_bundle.anchor_ref.block_height;
+    links.push(("Anchor Block", format!("{}/block/{}", source_explorer, block_height)));
+    
+    // Inclusion proof link
+    let block_hash = hex::encode(proof_bundle.inclusion_proof.block_hash.as_bytes());
+    links.push(("Inclusion Proof", format!("{}/block/{}", source_explorer, &block_hash[..16])));
+    
+    // Destination chain link
+    links.push(("Destination Chain", dest_explorer.to_string()));
+    
+    links
 }

@@ -311,7 +311,7 @@ impl KeyManager {
             "sui" => {
                 let (_, verifying_key) = self.derive_sui_keys()?;
                 let mut hasher = Blake2b::new();
-                hasher.update(&[0x00]);
+                hasher.update([0x00]);
                 hasher.update(verifying_key.as_bytes());
                 let hash: [u8; 32] = hasher.finalize().into();
                 Ok(format!("0x{}", hex::encode(&hash[..])))
@@ -320,7 +320,7 @@ impl KeyManager {
                 let (_, verifying_key) = self.derive_aptos_keys()?;
                 let mut hasher = sha3::Sha3_256::new();
                 hasher.update(verifying_key.as_bytes());
-                hasher.update(&[0x00]);
+                hasher.update([0x00]);
                 let hash: [u8; 32] = hasher.finalize().into();
                 Ok(format!("0x{}", hex::encode(&hash[..])))
             }

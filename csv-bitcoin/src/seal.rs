@@ -88,7 +88,7 @@ impl SealRegistry {
         height: u64,
     ) -> BitcoinResult<()> {
         use csv_core::store::SealStore;
-        use csv_core::{SealRecord, Hash};
+        
         
         // First mark in memory
         self.mark_seal_used_at_height(seal, height)?;

@@ -880,25 +880,25 @@ mod tests {
     #[test]
     #[ignore = "Requires ScalableBitcoinAdapter which is not yet available"]
     fn test_plugin_registry() {
-        assert!(true);
+        // TODO: Implement test when ScalableBitcoinAdapter is available
     }
 
     #[test]
     #[ignore = "Requires ScalableBitcoinAdapter which is not yet available"]
     fn test_plugin_features() {
-        assert!(true);
+        // TODO: Implement test when ScalableBitcoinAdapter is available
     }
 
     #[test]
     #[ignore = "Requires ScalableBitcoinAdapter which is not yet available"]
     fn test_plugin_builder() {
-        assert!(true);
+        // TODO: Implement test when ScalableBitcoinAdapter is available
     }
 
     #[test]
     #[ignore = "Requires ScalableBitcoinAdapter which is not yet available"]
     fn test_plugin_builder_missing_factories() {
-        assert!(true);
+        // TODO: Implement test when ScalableBitcoinAdapter is available
     }
 
     #[test]

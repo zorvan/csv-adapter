@@ -530,13 +530,15 @@ impl CsvClient {
                             "https://fullnode.mainnet.aptoslabs.com/v1".to_string()
                         }
                     });
-                let mut aptos_config = csv_aptos::config::AptosConfig::default();
-                aptos_config.network = if _is_testnet {
-                    csv_aptos::config::AptosNetwork::Testnet
-                } else {
-                    csv_aptos::config::AptosNetwork::Mainnet
+                let aptos_config = csv_aptos::AptosConfig {
+                    network: if _is_testnet {
+                        csv_aptos::config::AptosNetwork::Testnet
+                    } else {
+                        csv_aptos::config::AptosNetwork::Mainnet
+                    },
+                    rpc_url: rpc_url.clone(),
+                    ..Default::default()
                 };
-                aptos_config.rpc_url = rpc_url.clone();
                 let rpc = csv_aptos::node::AptosNode::new(&rpc_url);
                 _builder
                     .aptos_from_config(

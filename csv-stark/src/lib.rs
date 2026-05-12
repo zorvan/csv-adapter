@@ -502,6 +502,11 @@ impl BatchBuilder {
         self.current.len()
     }
 
+    /// Check if the current batch is empty.
+    pub fn is_empty(&self) -> bool {
+        self.current.is_empty()
+    }
+
     /// Check if the current batch is full.
     pub fn is_full(&self) -> bool {
         self.current.len() >= self.max_size
@@ -670,10 +675,10 @@ mod tests {
         let readings = vec![make_reading(1, 10, 100), make_reading(2, 20, 200)];
         let batch = IoTReadingsBatch::new(readings).unwrap();
 
-        let prover = MockStarkProver::default();
+        let prover = MockStarkProver;
         let proof = prover.prove(&batch).unwrap();
 
-        let verifier = MockStarkVerifier::default();
+        let verifier = MockStarkVerifier;
         let valid = verifier.verify(&proof, proof.batch_commitment).unwrap();
         assert!(valid);
     }
@@ -682,7 +687,7 @@ mod tests {
     fn test_proof_bundle_serialization() {
         let readings = vec![make_reading(1, 10, 100)];
         let batch = IoTReadingsBatch::new(readings).unwrap();
-        let prover = MockStarkProver::default();
+        let prover = MockStarkProver;
         let proof = prover.prove(&batch).unwrap();
 
         // Test batch_commitment serialization
@@ -696,7 +701,7 @@ mod tests {
         let mut builder = BatchBuilder::new(4);
 
         for i in 0..3 {
-            assert!(builder.add(make_reading(1, i as u64, (i + 1) * 100)).is_ok());
+            assert!(builder.add(make_reading(1, i, (i + 1) * 100)).is_ok());
         }
         assert_eq!(builder.len(), 3);
         assert!(!builder.is_full());
@@ -763,7 +768,7 @@ mod tests {
     fn test_proof_hash() {
         let readings = vec![make_reading(1, 10, 100)];
         let batch = IoTReadingsBatch::new(readings).unwrap();
-        let prover = MockStarkProver::default();
+        let prover = MockStarkProver;
         let proof = prover.prove(&batch).unwrap();
         assert_ne!(proof.hash(), Hash::zero());
     }
@@ -772,10 +777,10 @@ mod tests {
     fn test_verifier_wrong_commitment() {
         let readings = vec![make_reading(1, 10, 100)];
         let batch = IoTReadingsBatch::new(readings).unwrap();
-        let prover = MockStarkProver::default();
+        let prover = MockStarkProver;
         let proof = prover.prove(&batch).unwrap();
 
-        let verifier = MockStarkVerifier::default();
+        let verifier = MockStarkVerifier;
         let wrong_commitment = Hash::new([0xFF; 32]);
         let valid = verifier.verify(&proof, wrong_commitment).unwrap();
         assert!(!valid);

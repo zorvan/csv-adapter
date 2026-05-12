@@ -59,7 +59,7 @@ pub fn cmd_list(_config: &Config, state: &mut UnifiedStateManager) -> Result<()>
     let mut found_any = false;
     for chain in chains {
         if let Some(address) = state.get_address(&chain) {
-            output::kv(&format!("{}", chain), &address);
+            output::kv(&format!("{}", chain), address);
             found_any = true;
         }
     }

@@ -40,7 +40,7 @@ pub fn cmd_status(transfer_id: String, state: &UnifiedStateManager) -> Result<()
         }
 
         output::header("🔹 Source Chain");
-        output::kv("Chain", &transfer.source_chain.to_string());
+        output::kv("Chain", transfer.source_chain.as_ref());
         if let Some(sender) = &transfer.sender_address {
             output::kv("Sender Address", sender);
         }
@@ -52,7 +52,7 @@ pub fn cmd_status(transfer_id: String, state: &UnifiedStateManager) -> Result<()
         }
 
         output::header("🔸 Destination Chain");
-        output::kv("Chain", &transfer.dest_chain.to_string());
+        output::kv("Chain", transfer.dest_chain.as_ref());
         if let Some(dest_addr) = &transfer.destination_address {
             output::kv("Destination Address", dest_addr);
         }
@@ -133,8 +133,8 @@ pub fn cmd_retry(
     let transfer = state.get_transfer(&transfer_id_hash.to_string());
     match transfer {
         Some(t) => {
-            output::kv("Source", &t.source_chain.to_string());
-            output::kv("Destination", &t.dest_chain.to_string());
+            output::kv("Source", t.source_chain.as_ref());
+            output::kv("Destination", t.dest_chain.as_ref());
             output::kv("Status", &format!("{:?}", t.status));
 
             match &t.status {

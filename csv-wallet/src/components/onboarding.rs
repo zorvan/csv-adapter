@@ -103,14 +103,14 @@ pub struct OnboardingFlowProps {
 #[allow(non_snake_case)]
 pub fn OnboardingFlow(props: OnboardingFlowProps) -> Element {
     let mut current_step = use_signal(|| OnboardingStep::Welcome);
-    let completed_steps = use_signal(|| std::collections::HashSet::<OnboardingStep>::new());
+    let completed_steps = use_signal(std::collections::HashSet::<OnboardingStep>::new);
 
     let (progress, total) = current_step().progress();
     let progress_percent = (progress * 100) / total;
 
     let mut go_next = {
-        let mut current = current_step.clone();
-        let mut completed = completed_steps.clone();
+        let mut current = current_step;
+        let mut completed = completed_steps;
         move || {
             completed.write().insert(current());
             if let Some(next) = current().next() {
@@ -120,7 +120,7 @@ pub fn OnboardingFlow(props: OnboardingFlowProps) -> Element {
     };
 
     let mut go_prev = {
-        let mut current = current_step.clone();
+        let mut current = current_step;
         move || {
             if let Some(prev) = current().prev() {
                 current.set(prev);
@@ -129,7 +129,7 @@ pub fn OnboardingFlow(props: OnboardingFlowProps) -> Element {
     };
 
     let complete = {
-        let on_complete = props.on_complete.clone();
+        let on_complete = props.on_complete;
         move || {
             on_complete.call(());
         }
@@ -165,26 +165,26 @@ pub fn OnboardingFlow(props: OnboardingFlowProps) -> Element {
             div { class: "onboarding-content",
                 match current_step() {
                     OnboardingStep::Welcome => rsx! {
-                        WelcomeStep { on_next: go_next.clone() }
+                        WelcomeStep { on_next: go_next }
                     },
                     OnboardingStep::WhatIsSeal => rsx! {
-                        WhatIsSealStep { on_next: go_next.clone() }
+                        WhatIsSealStep { on_next: go_next }
                     },
                     OnboardingStep::WalletSetup => rsx! {
                         WalletSetupStep {
-                            on_next: go_next.clone(),
-                            on_create_wallet: props.on_create_wallet.clone(),
-                            on_import_wallet: props.on_import_wallet.clone(),
+                            on_next: go_next,
+                            on_create_wallet: props.on_create_wallet,
+                            on_import_wallet: props.on_import_wallet,
                         }
                     },
                     OnboardingStep::CreateFirstSanad => rsx! {
-                        CreateSanadStep { on_next: go_next.clone() }
+                        CreateSanadStep { on_next: go_next }
                     },
                     OnboardingStep::SecurityTips => rsx! {
-                        SecurityTipsStep { on_next: go_next.clone() }
+                        SecurityTipsStep { on_next: go_next }
                     },
                     OnboardingStep::Complete => rsx! {
-                        CompleteStep { on_finish: complete.clone() }
+                        CompleteStep { on_finish: complete }
                     },
                 }
             }
@@ -664,8 +664,8 @@ pub fn OnboardingChecklist(props: OnboardingChecklistProps) -> Element {
     let completed_count = completed.len();
     let total = items.len();
     let progress = (completed_count * 100) / total;
-    let on_action = props.on_action.clone();
-    let on_dismiss = props.on_dismiss.clone();
+    let on_action = props.on_action;
+    let on_dismiss = props.on_dismiss;
 
     rsx! {
         div { class: "onboarding-checklist",
@@ -693,7 +693,6 @@ pub fn OnboardingChecklist(props: OnboardingChecklistProps) -> Element {
                         class: if completed.contains(&id.to_string()) { "completed" },
                         onclick: {
                             let completed = completed.clone();
-                            let on_action = on_action.clone();
                             let id = id.to_string();
                             move |_| {
                                 if !completed.contains(&id) {

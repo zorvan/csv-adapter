@@ -98,6 +98,7 @@ impl MpcBatcher {
     }
 
     /// Create with default settings (batch up to 10, min 2, 5 min timeout)
+    #[allow(clippy::should_implement_trait)]
     pub fn default() -> Self {
         Self::new(10, 2, 300)
     }

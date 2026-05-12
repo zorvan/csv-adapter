@@ -32,18 +32,15 @@ pub struct WalletMetadata {
 
 /// Bitcoin network type
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum BitcoinNetwork {
     Mainnet,
+    #[default]
     Testnet,
     Signet,
     Regtest,
 }
 
-impl Default for BitcoinNetwork {
-    fn default() -> Self {
-        BitcoinNetwork::Testnet
-    }
-}
 
 /// Extended wallet with metadata.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -425,7 +422,7 @@ impl ExtendedWallet {
         let sui_signing = SigningKey::from_bytes(&sui_key);
         let sui_verifying: ed25519_dalek::VerifyingKey = sui_signing.verifying_key();
         let mut hasher = Blake2b::new();
-        hasher.update(&[0x00]);
+        hasher.update([0x00]);
         hasher.update(sui_verifying.as_bytes());
         let hash: [u8; 32] = hasher.finalize().into();
         addresses.push((ChainId::new("sui"), format!("0x{}", hex::encode(&hash[..]))));
@@ -437,7 +434,7 @@ impl ExtendedWallet {
         let aptos_verifying: ed25519_dalek::VerifyingKey = aptos_signing.verifying_key();
         let mut hasher = sha3::Sha3_256::new();
         hasher.update(aptos_verifying.as_bytes());
-        hasher.update(&[0x00]);
+        hasher.update([0x00]);
         let hash: [u8; 32] = hasher.finalize().into();
         addresses.push((ChainId::new("aptos"), format!("0x{}", hex::encode(&hash[..]))));
 

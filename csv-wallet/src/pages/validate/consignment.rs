@@ -26,7 +26,7 @@ enum ValidationStatus {
 }
 
 pub fn ValidateConsignment() -> Element {
-    let mut consignment_json = use_signal(|| String::new());
+    let mut consignment_json = use_signal(String::new);
     let mut status = use_signal(|| ValidationStatus::Idle);
 
     rsx! {

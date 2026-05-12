@@ -159,6 +159,7 @@ impl AtomicSwapOffer {
     /// - `timeout_a` or `timeout_b` is less than `MIN_TIMEOUT_BLOCKS`
     /// - `initiator` is empty
     /// - `seal_a` or `seal_b` IDs are empty
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         chain_a: ChainId,
         seal_a: SealPoint,

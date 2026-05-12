@@ -284,15 +284,15 @@ pub mod error_codes {
     /// CSV sanad not found.
     pub const CSV_SANAD_NOT_FOUND: &str = "CSV_004";
     /// CSV transfer not found.
-  pub const CSV_TRANSFER_NOT_FOUND: &str = "CSV_005";
-
-    pub const CSV_TRANSFER_FAILED: &str = "CSV_020";
-
-    pub const CSV_SANAD_ALREADY_CONSUMED: &str = "CSV_006";
+    pub const CSV_TRANSFER_NOT_FOUND: &str = "CSV_005";
+    /// CSV transfer failed.
+    pub const CSV_TRANSFER_FAILED: &str = "CSV_006";
+    /// CSV sanad already consumed.
+    pub const CSV_SANAD_ALREADY_CONSUMED: &str = "CSV_007";
     /// CSV invalid commitment.
-    pub const CSV_INVALID_COMMITMENT: &str = "CSV_007";
+    pub const CSV_INVALID_COMMITMENT: &str = "CSV_008";
     /// CSV proof verification failed.
-    pub const CSV_PROOF_VERIFICATION_FAILED: &str = "CSV_008";
+    pub const CSV_PROOF_VERIFICATION_FAILED: &str = "CSV_009";
     /// CSV wallet error.
     pub const CSV_WALLET_ERROR: &str = "CSV_009";
     /// CSV network error.

@@ -13,6 +13,9 @@
 //!
 //! # Sanad operations
 //! csv sanad create --chain bitcoin --value 100000
+
+#![allow(dead_code)]
+#![allow(deprecated)]
 //! csv sanad transfer --chain bitcoin --sanad-id 0x... --to bcrt1...
 //! csv sanad consume --chain bitcoin --sanad-id 0x...
 //! csv sanad list --chain bitcoin

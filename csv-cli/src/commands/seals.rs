@@ -83,7 +83,7 @@ fn cmd_create(chain: Chain, value: Option<u64>, state: &mut UnifiedStateManager)
             let seal_id = hex::encode(sanad.id.as_bytes());
             let value_sat = value.unwrap_or(100_000);
 
-            output::kv("Chain", &chain.to_string());
+            output::kv("Chain", chain.as_ref());
             output::kv("Seal ID", &seal_id[..16.min(seal_id.len())]);
             output::kv("Value", &format!("{} satoshis", value_sat));
             output::kv("Sanad ID", &hex::encode(sanad.id.as_bytes())[..16]);
@@ -152,7 +152,7 @@ fn cmd_consume(chain: Chain, seal_ref: String, state: &mut UnifiedStateManager) 
         Ok(()) => {
             state.record_seal_consumption(seal_hex.clone());
 
-            output::kv("Chain", &chain.to_string());
+            output::kv("Chain", chain.as_ref());
             output::kv_hash("Seal", &seal_bytes);
             output::success("Seal consumed via runtime");
         }
@@ -203,7 +203,7 @@ fn cmd_verify(chain: Chain, seal_ref: String, state: &UnifiedStateManager) -> Re
             } else {
                 "Unconsumed"
             };
-            output::kv("Chain", &chain.to_string());
+            output::kv("Chain", chain.as_ref());
             output::kv_hash("Seal", &seal_bytes);
             output::kv("Status", status);
             output::kv("Sanad ID", &hex::encode(sanad.id.as_bytes())[..16]);
@@ -214,7 +214,7 @@ fn cmd_verify(chain: Chain, seal_ref: String, state: &UnifiedStateManager) -> Re
         }
         Ok(None) => {
             // Sanad not found in the system
-            output::kv("Chain", &chain.to_string());
+            output::kv("Chain", chain.as_ref());
             output::kv_hash("Seal", &seal_bytes);
             output::kv(
                 "Status",
@@ -234,7 +234,7 @@ fn cmd_verify(chain: Chain, seal_ref: String, state: &UnifiedStateManager) -> Re
         Err(e) => {
             // Query failed, fall back to local state
             output::warning(&format!("Provider query failed: {}", e));
-            output::kv("Chain", &chain.to_string());
+            output::kv("Chain", chain.as_ref());
             output::kv_hash("Seal", &seal_bytes);
             output::kv(
                 "Status",

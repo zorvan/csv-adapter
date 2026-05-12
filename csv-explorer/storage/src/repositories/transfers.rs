@@ -226,5 +226,7 @@ fn row_to_transfer(row: &SqliteRow) -> Result<TransferRecord> {
         duration_ms: row
             .try_get::<Option<i64>, _>("duration_ms")?
             .map(|v| v as u64),
+        lock_tx_explorer_url: None,
+        mint_tx_explorer_url: None,
     })
 }

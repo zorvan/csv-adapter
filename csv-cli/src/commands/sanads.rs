@@ -135,7 +135,7 @@ async fn cmd_create(
 
             state.storage.sanads.push(tracked);
 
-            output::kv("Chain", &chain.to_string());
+            output::kv("Chain", chain.as_ref());
             output::kv_hash("Sanad ID", sanad.id.as_bytes());
             output::kv_hash("Commitment", commitment.as_bytes());
             output::kv(
@@ -179,7 +179,7 @@ fn cmd_show(sanad_id: String, state: &UnifiedStateManager) -> Result<()> {
     output::header(&format!("Sanad: {}", hex::encode(sanad_id.as_bytes())));
 
     if let Some(tracked) = state.get_sanad(&sanad_id.to_hex()) {
-        output::kv("Chain", &tracked.chain.to_string());
+        output::kv("Chain", tracked.chain.as_ref());
         output::kv_hash("Commitment", tracked.commitment.as_bytes());
         output::kv(
             "Status",

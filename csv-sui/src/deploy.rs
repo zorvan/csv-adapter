@@ -68,7 +68,7 @@ impl PackageDeployer {
 
         let modules: Vec<String> = package_bytes
             .chunks(64)
-            .map(|chunk| hex::encode(chunk))
+            .map(hex::encode)
             .take(10)
             .collect();
 

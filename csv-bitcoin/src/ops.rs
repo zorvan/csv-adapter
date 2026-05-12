@@ -109,7 +109,7 @@ impl ChainQuery for BitcoinChainQuery {
         } else {
             TransactionStatus::Confirmed {
                 block_height: 0,
-                confirmations: confirmations,
+                confirmations,
             }
         };
 
@@ -429,7 +429,7 @@ impl ChainBroadcaster for BitcoinChainBroadcaster {
                 use csv_core::backend::TransactionStatus;
                 return Ok(TransactionStatus::Confirmed {
                     block_height: 0,
-                    confirmations: confirmations,
+                    confirmations,
                 });
             }
 

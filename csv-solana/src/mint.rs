@@ -9,6 +9,7 @@ use csv_core::hash::Hash as CsvHash;
 /// Mint a sanad on Solana using JSON-RPC
 ///
 /// This uses solana-sdk for keypair/transaction construction and direct JSON-RPC for sending.
+#[allow(clippy::too_many_arguments)]
 pub fn mint_sanad_from_hex_key(
     rpc_url: &str,
     program_id: &str,

@@ -11,10 +11,13 @@ use std::time::Instant;
 fn main() -> Result<()> {
     println!("=== CSV Adapter: Performance Benchmarks ===\n");
 
-    let client = CsvClient::builder()
-        .with_all_chains()
-        .with_store_backend(StoreBackend::InMemory)
-        .build()?;
+    let rt = tokio::runtime::Runtime::new()?;
+    let client = rt.block_on(async {
+        CsvClient::builder()
+            .with_all_chains()
+            .with_store_backend(StoreBackend::InMemory)
+            .build()
+    })?;
 
     // Benchmark 1: Sanad creation throughput
     println!("Benchmark 1: Sanad Creation Throughput");
@@ -25,7 +28,9 @@ fn main() -> Result<()> {
 
     for i in 0..iterations {
         let commitment = Hash::from([i as u8; 32]);
-        let _ = client.sanads().create(commitment, ChainId::new("bitcoin"));
+        let _ = rt.block_on(async {
+            client.sanads().create(commitment, ChainId::new("bitcoin"))
+        });
     }
 
     let duration = start.elapsed();
@@ -41,15 +46,19 @@ fn main() -> Result<()> {
 
     // Create a sanad to query
     let test_commitment = Hash::from([255u8; 32]);
-    let test_sanad = client
-        .sanads()
-        .create(test_commitment, ChainId::new("bitcoin"))?;
+    let test_sanad = rt.block_on(async {
+        client
+            .sanads()
+            .create(test_commitment, ChainId::new("bitcoin"))
+    })?;
 
     let iterations = 1000;
     let start = Instant::now();
 
     for _ in 0..iterations {
-        let _ = client.sanads().get(&test_sanad.id);
+        let _ = rt.block_on(async {
+            client.sanads().get(&test_sanad.id)
+        });
     }
 
     let duration = start.elapsed();
@@ -65,15 +74,20 @@ fn main() -> Result<()> {
     let start = Instant::now();
 
     // Create and transfer a sanad
-    let sanad = client
-        .sanads()
-        .create(Hash::from([42u8; 32]), ChainId::new("bitcoin"))?;
+    let sanad = rt.block_on(async {
+        client
+            .sanads()
+            .create(Hash::from([42u8; 32]), ChainId::new("bitcoin"))
+    })?;
 
-    let transfer_id = client
-        .transfers()
-        .cross_chain(sanad.id.clone(), ChainId::new("ethereum"))
-        .to_address("0x1234567890abcdef".to_string())
-        .execute()?;
+    let transfer_id = rt.block_on(async {
+        client
+            .transfers()
+            .cross_chain(sanad.id.clone(), ChainId::new("ethereum"))
+            .to_address("0x1234567890abcdef".to_string())
+            .execute()
+            .await
+    })?;
 
     let duration = start.elapsed();
 
@@ -85,7 +99,9 @@ fn main() -> Result<()> {
     println!("--------------------------");
 
     let start = Instant::now();
-    let sanads = client.sanads().list(SanadFilters::default())?;
+    let sanads = rt.block_on(async {
+        client.sanads().list(SanadFilters::default())
+    })?;
     let list_duration = start.elapsed();
 
     println!(

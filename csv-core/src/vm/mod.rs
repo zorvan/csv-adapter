@@ -109,6 +109,7 @@ impl core::fmt::Display for VMError {
 /// Contains all state that must be consumed as input to a transition,
 /// including owned states, global state, metadata, and seal data.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct VMInputs {
     /// Owned states being consumed (resolved from StateRef)
     pub owned_inputs: Vec<OwnedState>,
@@ -120,16 +121,6 @@ pub struct VMInputs {
     pub seal_data: Vec<u8>,
 }
 
-impl Default for VMInputs {
-    fn default() -> Self {
-        Self {
-            owned_inputs: Vec::new(),
-            global_state: Vec::new(),
-            metadata: Vec::new(),
-            seal_data: Vec::new(),
-        }
-    }
-}
 
 impl VMInputs {
     /// Create new VM inputs.
@@ -166,6 +157,7 @@ impl VMInputs {
 
 /// Output state from VM execution.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct VMOutputs {
     /// New owned state assignments (who gets what)
     pub owned_outputs: Vec<StateAssignment>,
@@ -177,16 +169,6 @@ pub struct VMOutputs {
     pub next_seal: Option<SealPoint>,
 }
 
-impl Default for VMOutputs {
-    fn default() -> Self {
-        Self {
-            owned_outputs: Vec::new(),
-            global_updates: Vec::new(),
-            metadata_updates: Vec::new(),
-            next_seal: None,
-        }
-    }
-}
 
 impl VMOutputs {
     /// Create new VM outputs.

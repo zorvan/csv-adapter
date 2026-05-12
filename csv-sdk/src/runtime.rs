@@ -299,7 +299,7 @@ impl ChainRuntime {
         let adapter = self.get_adapter(chain.clone()).await?;
 
         adapter
-            .consume_sanad(&sanad_id, owner_key_id)
+            .consume_sanad(sanad_id, owner_key_id)
             .await
             .map_err(|e| CsvError::ProtocolError {
                 chain: chain.clone(),
@@ -320,7 +320,7 @@ impl ChainRuntime {
         let adapter = self.get_adapter(chain.clone()).await?;
 
         adapter
-            .lock_sanad(&sanad_id, destination_chain, owner_key_id)
+            .lock_sanad(sanad_id, destination_chain, owner_key_id)
             .await
             .map_err(|e| CsvError::ProtocolError {
                 chain: chain.clone(),
@@ -395,7 +395,7 @@ impl ChainRuntime {
         let adapter = self.get_adapter(chain.clone()).await?;
 
         adapter
-            .mint_sanad(source_chain, &source_sanad_id, lock_proof, new_owner)
+            .mint_sanad(source_chain, source_sanad_id, lock_proof, new_owner)
             .await
             .map_err(|e| CsvError::ProtocolError {
                 chain: chain.clone(),
@@ -761,7 +761,7 @@ impl ChainRuntime {
         })
         .await
         .map_err(|e| CsvError::StoreError(format!("Task join error: {}", e)))?
-        .map_err(|e| CsvError::StoreError(e))?;
+        .map_err(CsvError::StoreError)?;
 
         Ok(SealCheckData {
             sanad_id: sanad_id.clone(),
@@ -772,6 +772,7 @@ impl ChainRuntime {
 
 /// Adapter configuration for the runtime.
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct RuntimeConfig {
     /// RPC endpoints for each chain
     pub rpc_endpoints: HashMap<ChainId, String>,
@@ -779,14 +780,6 @@ pub struct RuntimeConfig {
     pub chain_config: HashMap<ChainId, HashMap<String, String>>,
 }
 
-impl Default for RuntimeConfig {
-    fn default() -> Self {
-        Self {
-            rpc_endpoints: HashMap::new(),
-            chain_config: HashMap::new(),
-        }
-    }
-}
 
 /// Builder for constructing chain-specific ChainBackend instances.
 ///
