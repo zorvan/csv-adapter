@@ -86,6 +86,26 @@ pub enum ProtocolError {
     /// Generic error with message
     #[error("Adapter error: {0}")]
     Generic(String),
+
+    /// Invalid state transition
+    #[error("Invalid state transition: {0}")]
+    InvalidStateTransition(String),
+
+    /// RPC quorum failed
+    #[error("RPC quorum failed: {0}")]
+    RpcQuorumFailed(String),
+
+    /// Invalid data
+    #[error("Invalid data: {0}")]
+    InvalidData(String),
+
+    /// Verification error
+    #[error("Verification error: {0}")]
+    VerificationError(String),
+
+    /// RPC error
+    #[error("RPC error: {0}")]
+    RpcError(String),
 }
 
 impl ProtocolError {
@@ -144,6 +164,11 @@ impl HasErrorSuggestion for ProtocolError {
             ProtocolError::InvalidInput(_) => error_codes::CORE_INVALID_CONFIG,
             ProtocolError::StorageError(_) => error_codes::CORE_STORAGE_ERROR,
             ProtocolError::Generic(_) => error_codes::CORE_GENERIC,
+            ProtocolError::InvalidStateTransition(_) => error_codes::CORE_INVALID_CONFIG,
+            ProtocolError::RpcQuorumFailed(_) => error_codes::CORE_NETWORK_ERROR,
+            ProtocolError::InvalidData(_) => error_codes::CORE_INVALID_CONFIG,
+            ProtocolError::VerificationError(_) => error_codes::CORE_INCLUSION_PROOF_FAILED,
+            ProtocolError::RpcError(_) => error_codes::CORE_NETWORK_ERROR,
         }
     }
 
@@ -244,6 +269,21 @@ impl HasErrorSuggestion for ProtocolError {
                 "An unexpected error occurred. Check the logs for details \
                  or contact support with the error context."
                     .to_string()
+            }
+            ProtocolError::InvalidStateTransition(msg) => {
+                format!("Invalid state transition: {}. Check the state machine and ensure transitions are valid.", msg)
+            }
+            ProtocolError::RpcQuorumFailed(msg) => {
+                format!("RPC quorum failed: {}. Check RPC endpoints and network connectivity.", msg)
+            }
+            ProtocolError::InvalidData(msg) => {
+                format!("Invalid data: {}. Check the data format and ensure it matches expected schema.", msg)
+            }
+            ProtocolError::VerificationError(msg) => {
+                format!("Verification error: {}. Check the proof data and verification logic.", msg)
+            }
+            ProtocolError::RpcError(msg) => {
+                format!("RPC error: {}. Check RPC endpoints and network connectivity.", msg)
             }
         }
     }

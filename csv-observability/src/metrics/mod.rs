@@ -3,6 +3,8 @@
 //! This module provides metrics collection for RPC operations,
 //! tracking latency, success rates, and provider health.
 
+extern crate alloc;
+
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 
@@ -58,6 +60,8 @@ impl RpcMetrics {
         self.successful_requests += 1;
         self.total_latency_ms += latency_ms;
 
+        let timestamp = self.current_timestamp();
+
         let metrics = self.provider_metrics.entry(provider.to_string()).or_insert_with(|| {
             ProviderMetrics {
                 url: provider.to_string(),
@@ -72,7 +76,7 @@ impl RpcMetrics {
 
         metrics.requests += 1;
         metrics.successful += 1;
-        metrics.last_success = Some(self.current_timestamp());
+        metrics.last_success = Some(timestamp);
         
         // Update average latency
         let total_latency = metrics.avg_latency_ms * (metrics.requests - 1) as f64;
@@ -83,6 +87,8 @@ impl RpcMetrics {
     pub fn record_failure(&mut self, provider: &str) {
         self.total_requests += 1;
         self.failed_requests += 1;
+
+        let timestamp = self.current_timestamp();
 
         let metrics = self.provider_metrics.entry(provider.to_string()).or_insert_with(|| {
             ProviderMetrics {
@@ -98,7 +104,7 @@ impl RpcMetrics {
 
         metrics.requests += 1;
         metrics.failed += 1;
-        metrics.last_failure = Some(self.current_timestamp());
+        metrics.last_failure = Some(timestamp);
     }
 
     /// Get the success rate

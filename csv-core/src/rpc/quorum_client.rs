@@ -3,7 +3,6 @@
 //! Provides RPC client functionality with quorum-based consensus to prevent
 //! single-point-of-failure or malicious provider attacks.
 
-use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 use serde_json;
 
@@ -224,7 +223,7 @@ impl QuorumClient {
     
     /// Get block by hash with quorum
     pub async fn get_block_by_hash(&self, block_hash: &str) -> Result<serde_json::Value> {
-        self.query_json("eth_getBlockByHash", &[serde_json::json!(block_hash), false]).await
+        self.query_json("eth_getBlockByHash", &[serde_json::json!(block_hash), serde_json::json!(false)]).await
     }
     
     /// Get transaction receipt with quorum

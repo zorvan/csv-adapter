@@ -35,7 +35,7 @@ impl ChainVerifier for BitcoinVerifier {
         // Use the existing Bitcoin SPV verification logic
         verify_inclusion_proof(
             &proof.proof_bytes,
-            proof.block_height,
+            proof.block_hash.as_bytes(),
             expected_root.as_bytes(),
         )
         .map_err(|e| csv_core::error::ProtocolError::VerificationError(e.to_string()))
@@ -44,17 +44,15 @@ impl ChainVerifier for BitcoinVerifier {
     /// Verify finality proof for a Bitcoin block
     async fn verify_finality(&self, proof: &FinalityProof) -> csv_core::Result<bool> {
         // Bitcoin finality is probabilistic - check confirmations
-        let confirmations = self
-            .rpc
-            .get_block_confirmations(proof.block_height)
-            .map_err(|e| csv_core::error::ProtocolError::RpcError(e.to_string()))?;
+        // FinalityProof has confirmations field directly
+        let confirmations = proof.confirmations;
 
         // Require at least 6 confirmations for Bitcoin finality
         Ok(confirmations >= 6)
     }
 
     /// Verify zero-knowledge proof (if applicable)
-    async fn verify_zk(&self, proof: &[u8]) -> csv_core::Result<bool> {
+    async fn verify_zk(&self, _proof: &[u8]) -> csv_core::Result<bool> {
         // Bitcoin SPV doesn't use ZK proofs
         Ok(true)
     }

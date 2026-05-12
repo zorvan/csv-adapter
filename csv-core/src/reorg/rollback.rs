@@ -2,7 +2,6 @@
 //!
 //! Handles rollback of operations affected by a reorg.
 
-use crate::hash::Hash;
 use crate::protocol_version::ChainId;
 use super::detector::ReorgEvent;
 
@@ -36,7 +35,7 @@ impl RollbackHandler {
     }
 
     /// Roll back transfers affected by a reorg
-    pub fn rollback_transfers(&self, chain: ChainId, from_height: u64, to_height: u64) {
+    pub fn rollback_transfers(&self, _chain: ChainId, _from_height: u64, _to_height: u64) {
         // Placeholder - would query storage for affected transfers
         // and mark them as rolled back
     }

@@ -10,7 +10,7 @@ use tiny_keccak::{Hasher, Keccak};
 /// Compute keccak256 hash with domain separation
 fn keccak256(input: &[u8]) -> [u8; 32] {
     let domain_hash = DomainSeparatedHash::<EthereumMintDomain>::hash(input);
-    domain_hash
+    domain_hash.as_bytes().to_vec().try_into().unwrap_or([0u8; 32])
 }
 
 /// CSVLock contract ABI

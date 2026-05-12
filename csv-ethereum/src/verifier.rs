@@ -35,7 +35,7 @@ impl ChainVerifier for EthereumVerifier {
         // Use the existing Ethereum MPT verification logic
         verify_merkle_proof(
             &proof.proof_bytes,
-            proof.block_height,
+            proof.block_hash.as_bytes(),
             expected_root.as_bytes(),
         )
         .map_err(|e| csv_core::error::ProtocolError::VerificationError(e.to_string()))
@@ -43,12 +43,10 @@ impl ChainVerifier for EthereumVerifier {
 
     /// Verify finality proof for an Ethereum block
     async fn verify_finality(&self, proof: &FinalityProof) -> csv_core::Result<bool> {
-        // Ethereum has probabilistic finality - check if block is finalized
-        let is_finalized = self
-            .rpc
-            .is_block_finalized(proof.block_height)
-            .await
-            .map_err(|e| csv_core::error::ProtocolError::RpcError(format!("{:?}", e)))?;
+        // Ethereum has probabilistic finality - check confirmations
+        // For now, we check if the required confirmations are met
+        let required_confirmations = 12; // Ethereum typically requires 12 confirmations for finality
+        let is_finalized = proof.confirmations >= required_confirmations;
 
         Ok(is_finalized)
     }

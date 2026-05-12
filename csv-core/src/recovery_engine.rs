@@ -18,9 +18,8 @@
 
 use alloc::vec::Vec;
 
-use crate::error::{ProtocolError, Result};
+use crate::error::Result;
 use crate::hash::Hash;
-use crate::protocol_version::ChainId;
 
 /// Recovery engine for crash-safe startup
 #[derive(Default)]

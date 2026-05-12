@@ -294,57 +294,53 @@ impl Schema {
         // Build the payload for domain-separated hashing
         let mut payload = Vec::new();
 
-        payload.extend_from_slice(self.version.to_le_bytes());
+        payload.extend_from_slice(&self.version.to_le_bytes());
         payload.extend_from_slice(self.name.as_bytes());
 
         // Global types
-        payload.extend_from_slice((self.global_types.len() as u64).to_le_bytes());
+        payload.extend_from_slice(&(self.global_types.len() as u64).to_le_bytes());
         for gt in &self.global_types {
-            payload.extend_from_slice(gt.type_id.to_le_bytes());
+            payload.extend_from_slice(&gt.type_id.to_le_bytes());
             payload.extend_from_slice(gt.name.as_bytes());
-            payload.extend_from_slice((gt.data_type.fixed_size().unwrap_or(0)).to_le_bytes());
-            payload.extend_from_slice([gt.is_homomorphic as u8]);
+            payload.extend_from_slice(&(gt.data_type.fixed_size().unwrap_or(0)).to_le_bytes());
+            payload.extend_from_slice(&[gt.is_homomorphic as u8]);
         }
 
         // Owned types
-        payload.extend_from_slice((self.owned_types.len() as u64).to_le_bytes());
+        payload.extend_from_slice(&(self.owned_types.len() as u64).to_le_bytes());
         for ot in &self.owned_types {
-            payload.extend_from_slice(ot.type_id.to_le_bytes());
+            payload.extend_from_slice(&ot.type_id.to_le_bytes());
             payload.extend_from_slice(ot.name.as_bytes());
-            payload.extend_from_slice((ot.data_type.fixed_size().unwrap_or(0)).to_le_bytes());
-            payload.extend_from_slice([ot.is_fungible as u8]);
+            payload.extend_from_slice(&(ot.data_type.fixed_size().unwrap_or(0)).to_le_bytes());
+            payload.extend_from_slice(&[ot.is_fungible as u8]);
         }
 
         // Transitions
-        payload.extend_from_slice((self.transitions.len() as u64).to_le_bytes());
+        payload.extend_from_slice(&(self.transitions.len() as u64).to_le_bytes());
         for t in &self.transitions {
-            payload.extend_from_slice(t.transition_id.to_le_bytes());
+            payload.extend_from_slice(&t.transition_id.to_le_bytes());
             payload.extend_from_slice(t.name.as_bytes());
-            payload.extend_from_slice((t.owned_inputs.len() as u64).to_le_bytes());
+            payload.extend_from_slice(&(t.owned_inputs.len() as u64).to_le_bytes());
             for id in &t.owned_inputs {
-                payload.extend_from_slice(id.to_le_bytes());
+                payload.extend_from_slice(&id.to_le_bytes());
             }
-            payload.extend_from_slice((t.owned_outputs.len() as u64).to_le_bytes());
+            payload.extend_from_slice(&(t.owned_outputs.len() as u64).to_le_bytes());
             for id in &t.owned_outputs {
-                payload.extend_from_slice(id.to_le_bytes());
+                payload.extend_from_slice(&id.to_le_bytes());
             }
-            payload.extend_from_slice((t.global_updates.len() as u64).to_le_bytes());
+            payload.extend_from_slice(&(t.global_updates.len() as u64).to_le_bytes());
             for id in &t.global_updates {
-                payload.extend_from_slice(id.to_le_bytes());
+                payload.extend_from_slice(&id.to_le_bytes());
             }
-            payload.extend_from_slice((t.validation_script.len() as u64).to_le_bytes());
+            payload.extend_from_slice(&(t.validation_script.len() as u64).to_le_bytes());
             payload.extend_from_slice(&t.validation_script);
-            hasher.update(&t.validation_script);
         }
 
         // Root script
-        hasher.update((self.root_script.len() as u64).to_le_bytes());
-        hasher.update(&self.root_script);
+        payload.extend_from_slice(&(self.root_script.len() as u64).to_le_bytes());
+        payload.extend_from_slice(&self.root_script);
 
-        let result = hasher.finalize();
-        let mut array = [0u8; 32];
-        array.copy_from_slice(&result);
-        Hash::new(array)
+        DomainSeparatedHash::<SchemaDomain>::hash(&payload)
     }
 
     /// Get a global state type by ID

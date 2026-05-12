@@ -115,7 +115,7 @@ impl ChainFinalityPolicy for AptosFinalityPolicy {
         self.threshold.validator_percentage
     }
 
-    fn is_block_finalized(&self, block_height: u64, current_height: u64) -> bool {
+    fn is_block_finalized(&self, _block_height: u64, _current_height: u64) -> bool {
         // Aptos has instant finality - any block is considered finalized
         true
     }

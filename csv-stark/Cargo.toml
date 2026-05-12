@@ -1,10 +1,10 @@
 [package]
 name = "csv-stark"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 description = "STARK batch verification for IoT sensor streams in the CSV protocol"
 license = "MIT OR Apache-2.0"
-rust-version = "1.75"
+rust-version = "1.95"
 
 [dependencies]
 csv-core = { path = "../csv-core" }

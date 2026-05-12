@@ -24,7 +24,7 @@ use alloc::vec::Vec;
 
 use crate::domain_hash::DomainSeparatedHash;
 use crate::domains::{ProofBundleDomain, ReplayRegistryDomain};
-use crate::error::{ProtocolError, Result};
+use crate::error::Result;
 use crate::hash::Hash;
 use crate::proof::{FinalityProof, InclusionProof, ProofBundle};
 use crate::protocol_version::ChainId;
@@ -34,6 +34,7 @@ use crate::replay_registry::ReplayKey;
 ///
 /// Adapters provide chain-specific verification logic through this trait,
 /// but the orchestration is handled by the canonical pipeline.
+#[async_trait::async_trait]
 pub trait ChainVerifier {
     /// Verify inclusion proof for a transaction on this chain
     async fn verify_inclusion(
@@ -225,11 +226,11 @@ fn validate_structural(bundle: &ProofBundle) -> ValidationStep {
         };
     }
 
-    if bundle.finality_proof.proof_bytes.is_empty() {
+    if bundle.finality_proof.finality_data.is_empty() {
         return ValidationStep {
             name: "structural_validation",
             passed: false,
-            error: Some("Finality proof bytes are empty".to_string()),
+            error: Some("Finality data is empty".to_string()),
         };
     }
 
@@ -253,7 +254,7 @@ fn validate_domain(
     let proof_hash = DomainSeparatedHash::<ProofBundleDomain>::hash(&bundle.inclusion_proof.proof_bytes);
     
     // Verify the proof hash matches the block hash (cross-chain consistency)
-    if proof_hash != bundle.block_hash {
+    if proof_hash != bundle.inclusion_proof.block_hash {
         return ValidationStep {
             name: "domain_validation",
             passed: false,
@@ -283,7 +284,7 @@ async fn validate_inclusion_proof(
     verifier: &dyn ChainVerifier,
 ) -> ValidationStep {
     match verifier
-        .verify_inclusion(&bundle.inclusion_proof, bundle.block_hash)
+        .verify_inclusion(&bundle.inclusion_proof, bundle.inclusion_proof.block_hash)
         .await
     {
         Ok(true) => ValidationStep {
@@ -306,19 +307,12 @@ async fn validate_inclusion_proof(
 
 /// Step 4: ZK proof validation
 async fn validate_zk_proof(
-    bundle: &ProofBundle,
+    _bundle: &ProofBundle,
     verifier: &dyn ChainVerifier,
 ) -> ValidationStep {
-    if bundle.zk_proof.is_empty() {
-        // ZK proof may be optional for some chains
-        return ValidationStep {
-            name: "zk_proof_validation",
-            passed: true,
-            error: None,
-        };
-    }
-
-    match verifier.verify_zk(&bundle.zk_proof).await {
+    // ZK proof may be optional for some chains
+    // For now, we skip ZK proof validation as ProofBundle doesn't have a zk_proof field
+    match verifier.verify_zk(&[]).await {
         Ok(true) => ValidationStep {
             name: "zk_proof_validation",
             passed: true,
@@ -369,9 +363,9 @@ fn validate_replay(bundle: &ProofBundle) -> ValidationStep {
     
     // Compute replay key from proof bundle
     let replay_key = ReplayKey::new(
-        bundle.block_hash,
-        bundle.block_hash, // seal_id (simplified - would be actual seal ID)
-        bundle.block_hash, // commitment_hash (simplified)
+        bundle.inclusion_proof.block_hash,
+        bundle.inclusion_proof.block_hash, // seal_id (simplified - would be actual seal ID)
+        bundle.inclusion_proof.block_hash, // commitment_hash (simplified)
         ChainId::new("source"), // Would be actual source chain from bundle
         ChainId::new("destination"), // Would be actual destination chain from bundle
     );
@@ -399,7 +393,7 @@ async fn validate_seal_registry(
     // This prevents double-spend attacks
     
     // Extract seal ID from proof bundle (simplified - would parse from actual proof)
-    let seal_id = bundle.block_hash;
+    let seal_id = bundle.inclusion_proof.block_hash;
     
     match verifier.verify_seal_registry(seal_id).await {
         Ok(true) => ValidationStep {
@@ -437,11 +431,11 @@ fn validate_transition_legality(bundle: &ProofBundle) -> ValidationStep {
     }
     
     // Check that finality proof is not empty
-    if bundle.finality_proof.proof_bytes.is_empty() {
+    if bundle.finality_proof.finality_data.is_empty() {
         return ValidationStep {
             name: "transition_legality_validation",
             passed: false,
-            error: Some("Finality proof is empty - invalid transition".to_string()),
+            error: Some("Finality data is empty - invalid transition".to_string()),
         };
     }
     

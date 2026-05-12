@@ -63,43 +63,43 @@ impl Transition {
         // Build the payload for domain-separated hashing
         let mut payload = Vec::new();
 
-        payload.extend_from_slice(self.transition_id.to_le_bytes());
+        payload.extend_from_slice(&self.transition_id.to_le_bytes());
 
         // Owned inputs
-        payload.extend_from_slice((self.owned_inputs.len() as u64).to_le_bytes());
+        payload.extend_from_slice(&(self.owned_inputs.len() as u64).to_le_bytes());
         for input in &self.owned_inputs {
-            payload.extend_from_slice(input.type_id.to_le_bytes());
+            payload.extend_from_slice(&input.type_id.to_le_bytes());
             payload.extend_from_slice(input.commitment.as_bytes());
-            payload.extend_from_slice(input.output_index.to_le_bytes());
+            payload.extend_from_slice(&input.output_index.to_le_bytes());
         }
 
         // Owned outputs
-        payload.extend_from_slice((self.owned_outputs.len() as u64).to_le_bytes());
+        payload.extend_from_slice(&(self.owned_outputs.len() as u64).to_le_bytes());
         for output in &self.owned_outputs {
-            payload.extend_from_slice(output.type_id.to_le_bytes());
-            payload.extend_from_slice(output.seal.to_vec());
+            payload.extend_from_slice(&output.type_id.to_le_bytes());
+            payload.extend_from_slice(&output.seal.to_vec());
             payload.extend_from_slice(&output.data);
         }
 
         // Global updates
-        payload.extend_from_slice((self.global_updates.len() as u64).to_le_bytes());
+        payload.extend_from_slice(&(self.global_updates.len() as u64).to_le_bytes());
         for update in &self.global_updates {
-            payload.extend_from_slice(update.type_id.to_le_bytes());
+            payload.extend_from_slice(&update.type_id.to_le_bytes());
             payload.extend_from_slice(&update.data);
         }
 
         // Metadata
-        payload.extend_from_slice((self.metadata.len() as u64).to_le_bytes());
-        for (key, value) in &self.metadata {
-            payload.extend_from_slice(key.as_bytes());
-            payload.extend_from_slice(value.as_bytes());
+        payload.extend_from_slice(&(self.metadata.len() as u64).to_le_bytes());
+        for meta in &self.metadata {
+            payload.extend_from_slice(meta.key.as_bytes());
+            payload.extend_from_slice(&meta.value);
         }
 
         // Validation script
-        payload.extend_from_slice(self.validation_script.as_bytes());
+        payload.extend_from_slice(&self.validation_script);
 
         // Signatures
-        payload.extend_from_slice((self.signatures.len() as u64).to_le_bytes());
+        payload.extend_from_slice(&(self.signatures.len() as u64).to_le_bytes());
         for sig in &self.signatures {
             payload.extend_from_slice(sig);
         }

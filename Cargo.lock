@@ -3019,6 +3019,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "csv-observability"
+version = "0.4.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "csv-p2p"
 version = "0.4.0"
 dependencies = [
@@ -3054,6 +3062,7 @@ dependencies = [
  "csv-ethereum",
  "csv-explorer-shared",
  "csv-explorer-storage",
+ "csv-keys",
  "csv-solana",
  "csv-store",
  "csv-sui",

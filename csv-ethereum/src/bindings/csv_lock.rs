@@ -6,7 +6,7 @@
 use alloy_primitives::{
     Address, Bytes, FixedBytes, FixedBytes32, Uint256, U256, B256,
 };
-use alloy_sol_types::{sol, SolCall, SolError, SolEvent};
+use alloy_sol_types::sol;
 
 // Solidity contract ABI
 sol! {

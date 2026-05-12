@@ -2,7 +2,7 @@
 //!
 //! Monitors the finality state of transactions across chains.
 
-use crate::finality::{ChainFinalityPolicy, FinalityState, FinalityStatus};
+use crate::finality::{ChainFinalityPolicy, FinalityState};
 use crate::protocol_version::ChainId;
 
 /// Finality monitor for tracking transaction finality

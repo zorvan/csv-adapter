@@ -2,8 +2,6 @@
 //!
 //! Reconciles state after a reorg by re-validating affected operations.
 
-use crate::hash::Hash;
-use crate::protocol_version::ChainId;
 use super::detector::ReorgEvent;
 
 /// Reconciliation result
@@ -32,7 +30,7 @@ impl ReconciliationEngine {
     }
 
     /// Reconcile state after a reorg
-    pub fn reconcile(&mut self, event: &ReorgEvent) -> ReconciliationResult {
+    pub fn reconcile(&mut self, _event: &ReorgEvent) -> ReconciliationResult {
         // Placeholder - would:
         // 1. Query for affected transfers in the reorg range
         // 2. Re-validate proofs for those transfers

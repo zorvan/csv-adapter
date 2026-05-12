@@ -60,25 +60,25 @@ impl Genesis {
         payload.extend_from_slice(self.schema_id.as_bytes());
 
         // Global state: count + each (type_id || data)
-        payload.extend_from_slice((self.global_state.len() as u64).to_le_bytes());
+        payload.extend_from_slice(&(self.global_state.len() as u64).to_le_bytes());
         for state in &self.global_state {
-            payload.extend_from_slice(state.type_id.to_le_bytes());
+            payload.extend_from_slice(&state.type_id.to_le_bytes());
             payload.extend_from_slice(&state.data);
         }
 
         // Owned state: count + each (type_id || seal || data)
-        payload.extend_from_slice((self.owned_state.len() as u64).to_le_bytes());
+        payload.extend_from_slice(&(self.owned_state.len() as u64).to_le_bytes());
         for state in &self.owned_state {
-            payload.extend_from_slice(state.type_id.to_le_bytes());
-            payload.extend_from_slice(state.seal.to_vec());
+            payload.extend_from_slice(&state.type_id.to_le_bytes());
+            payload.extend_from_slice(&state.seal.to_vec());
             payload.extend_from_slice(&state.data);
         }
 
         // Metadata: count + each (key || value)
-        payload.extend_from_slice((self.metadata.len() as u64).to_le_bytes());
-        for (key, value) in &self.metadata {
-            payload.extend_from_slice(key.as_bytes());
-            payload.extend_from_slice(value.as_bytes());
+        payload.extend_from_slice(&(self.metadata.len() as u64).to_le_bytes());
+        for meta in &self.metadata {
+            payload.extend_from_slice(meta.key.as_bytes());
+            payload.extend_from_slice(&meta.value);
         }
 
         DomainSeparatedHash::<GenesisDomain>::hash(&payload)
