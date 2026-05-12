@@ -51,7 +51,7 @@ fn double_sha256(left: &[u8; 32], sanad: &[u8; 32]) -> [u8; 32] {
     
     // Use domain-separated hash with Bitcoin seal domain
     let hash = DomainSeparatedHash::<BitcoinSealDomain>::hash(&payload);
-    hash.into()
+    hash.as_bytes().to_vec().try_into().unwrap_or([0u8; 32])
 }
 
 /// Compute the Merkle root from a set of transaction IDs.

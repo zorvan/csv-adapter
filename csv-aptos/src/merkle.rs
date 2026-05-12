@@ -5,7 +5,7 @@
 
 use csv_core::domain_hash::DomainSeparatedHash;
 use csv_core::domains::AptosAnchorDomain;
-use sha2::{Digest, Sha256};
+use sha2::Sha256;
 
 /// Merkle accumulator errors
 #[derive(Debug, thiserror::Error)]
@@ -60,7 +60,8 @@ impl MerkleNode {
     /// Compute the hash of an empty subtree at a given depth
     pub fn empty_hash() -> [u8; 32] {
         // Empty hash uses domain-separated hashing
-        DomainSeparatedHash::<AptosAnchorDomain>::hash(b"")
+        let hash = DomainSeparatedHash::<AptosAnchorDomain>::hash(b"");
+        hash.as_bytes().to_vec().try_into().unwrap_or([0u8; 32])
     }
 
     /// Compute the hash of an internal node from its children
@@ -73,7 +74,7 @@ impl MerkleNode {
         payload.extend_from_slice(&sanad_hash);
         
         let hash = DomainSeparatedHash::<AptosAnchorDomain>::hash(&payload);
-        hash
+        hash.as_bytes().to_vec().try_into().unwrap_or([0u8; 32])
     }
 }
 
@@ -313,7 +314,8 @@ impl StateProof {
             payload.extend_from_slice(b"NOT_EXISTS");
         }
         
-        DomainSeparatedHash::<AptosAnchorDomain>::hash(&payload)
+        let hash = DomainSeparatedHash::<AptosAnchorDomain>::hash(&payload);
+        hash.as_bytes().to_vec().try_into().unwrap_or([0u8; 32])
     }
 
     /// Verify this state proof against an expected root

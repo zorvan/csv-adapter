@@ -65,7 +65,7 @@ pub struct SuiSealProtocol {
     /// Registry of used seals for replay prevention
     seal_registry: Mutex<SealRegistry>,
     domain_separator: [u8; 32],
-    rpc: Box<dyn SuiRpc>,
+    pub rpc: Box<dyn SuiRpc>,
     checkpoint_verifier: CheckpointVerifier,
     /// Event builder for creating and parsing anchor events
     event_builder: CommitmentEventBuilder,

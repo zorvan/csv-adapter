@@ -1,6 +1,6 @@
-//! Aptos ChainVerifier Implementation
+//! Sui ChainVerifier Implementation
 //!
-//! This module implements the ChainVerifier trait for Aptos,
+//! This module implements the ChainVerifier trait for Sui,
 //! providing chain-specific verification logic for the canonical proof pipeline.
 
 use async_trait::async_trait;
@@ -8,58 +8,56 @@ use csv_core::proof::{FinalityProof, InclusionProof};
 use csv_core::proof_pipeline::ChainVerifier;
 use csv_core::Hash;
 
-use crate::merkle::MerkleAccumulator;
-use crate::rpc::AptosRpc;
+use crate::rpc::SuiRpc;
 
-/// Aptos verifier implementing ChainVerifier trait
-pub struct AptosVerifier {
-    /// RPC client for Aptos
-    rpc: Box<dyn AptosRpc>,
+/// Sui verifier implementing ChainVerifier trait
+pub struct SuiVerifier {
+    /// RPC client for Sui
+    rpc: Box<dyn SuiRpc>,
 }
 
-impl AptosVerifier {
-    /// Create a new Aptos verifier
-    pub fn new(rpc: Box<dyn AptosRpc>) -> Self {
+impl SuiVerifier {
+    /// Create a new Sui verifier
+    pub fn new(rpc: Box<dyn SuiRpc>) -> Self {
         Self { rpc }
     }
 }
 
 #[async_trait]
-impl ChainVerifier for AptosVerifier {
-    /// Verify inclusion proof for an Aptos transaction
+impl ChainVerifier for SuiVerifier {
+    /// Verify inclusion proof for a Sui transaction
     async fn verify_inclusion(
         &self,
         proof: &InclusionProof,
         _expected_root: Hash,
     ) -> csv_core::Result<bool> {
-        // Use the existing Aptos accumulator verification logic
-        // For now, use a simple verification - in production this would
-        // parse the actual accumulator proof structure
+        // Use the existing Sui transaction proof verification logic
+        // For now, check if proof bytes are non-empty
         Ok(!proof.proof_bytes.is_empty())
     }
 
-    /// Verify finality proof for an Aptos block
+    /// Verify finality proof for a Sui block
     async fn verify_finality(&self, proof: &FinalityProof) -> csv_core::Result<bool> {
-        // Aptos has instant finality via HotStuff consensus
-        // Aptos has instant finality, so any block with confirmations is considered finalized
+        // Sui has instant finality via Narwhal/Bullshark consensus
+        // Check if block has confirmations
         Ok(proof.confirmations > 0)
     }
 
     /// Verify zero-knowledge proof (if applicable)
     async fn verify_zk(&self, proof: &[u8]) -> csv_core::Result<bool> {
-        // Aptos doesn't use ZK proofs for basic operations
+        // Sui doesn't use ZK proofs for basic operations
         // Return true if proof is empty, otherwise verify if needed
         if proof.is_empty() {
             Ok(true)
         } else {
-            // Placeholder - would verify actual ZK proof if Aptos adds ZK support
+            // Placeholder - would verify actual ZK proof if Sui adds ZK support
             Ok(true)
         }
     }
 
     /// Verify seal registry (check if seal has been consumed)
     async fn verify_seal_registry(&self, _seal_id: Hash) -> csv_core::Result<bool> {
-        // Placeholder - would query Aptos blockchain to check if resource is consumed
+        // Placeholder - would query Sui blockchain to check if object is consumed
         Ok(true)
     }
 

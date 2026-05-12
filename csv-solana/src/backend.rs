@@ -21,13 +21,18 @@ use crate::wallet::ProgramWallet;
 /// Solana RPC client wrapper implementing the core RpcClient trait
 pub struct SolanaRpcClient {
     /// Inner RPC implementation
-    inner: Box<dyn SolanaRpc>,
+    inner: std::sync::Arc<dyn SolanaRpc>,
 }
 
 impl SolanaRpcClient {
     /// Create new RPC client from a SolanaRpc implementation
     pub fn new(rpc: Box<dyn SolanaRpc>) -> Self {
-        Self { inner: rpc }
+        Self { inner: std::sync::Arc::from(rpc) }
+    }
+
+    /// Create new RPC client from an Arc
+    pub fn new_inner(inner: std::sync::Arc<dyn SolanaRpc>) -> Self {
+        Self { inner }
     }
 }
 
@@ -244,13 +249,7 @@ impl ChainDriver for SolanaSealProtocol {
     }
 
     async fn create_client(&self, config: &ChainConfig) -> ChainResult<Box<dyn RpcClient>> {
-        // If RPC is already configured, return it wrapped
-        if let Some(rpc) = self.rpc_client.as_ref() {
-            // Create a new wrapper for the existing RPC client
-            return Ok(Box::new(SolanaRpcClient::new(rpc.clone())));
-        }
-
-        // Otherwise, create a new RPC client from config
+        // Create a new RPC client from config
         let rpc_url = config
             .rpc_endpoints
             .first()

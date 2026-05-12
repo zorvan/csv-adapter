@@ -11,7 +11,6 @@ pub mod backend;
 pub mod bip341;
 pub mod config;
 pub mod error;
-pub mod mempool_rpc;
 pub mod mpc_batch;
 pub mod node;
 pub mod ops;

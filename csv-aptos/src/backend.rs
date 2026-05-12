@@ -345,12 +345,7 @@ impl ChainDriver for AptosSealProtocol {
     }
 
     async fn create_client(&self, config: &ChainConfig) -> ChainResult<Box<dyn RpcClient>> {
-        // If RPC is already configured, return it wrapped
-        if let Some(rpc) = self.rpc_client.as_ref() {
-            return Ok(Box::new(AptosRpcClient::new(rpc.clone())));
-        }
-
-        // Otherwise, create a new RPC client from config
+        // Create a new RPC client from config
         let rpc_url = config
             .rpc_endpoints
             .first()

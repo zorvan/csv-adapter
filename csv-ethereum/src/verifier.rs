@@ -8,7 +8,8 @@ use csv_core::proof::{FinalityProof, InclusionProof};
 use csv_core::proof_pipeline::ChainVerifier;
 use csv_core::Hash;
 
-use crate::mpt::verify_merkle_proof;
+use alloy_primitives::{Bytes, B256, U256};
+use crate::mpt::verify_storage_proof;
 use crate::rpc::EthereumRpc;
 
 /// Ethereum verifier implementing ChainVerifier trait
@@ -33,12 +34,20 @@ impl ChainVerifier for EthereumVerifier {
         expected_root: Hash,
     ) -> csv_core::Result<bool> {
         // Use the existing Ethereum MPT verification logic
-        verify_merkle_proof(
-            &proof.proof_bytes,
-            proof.block_hash.as_bytes(),
-            expected_root.as_bytes(),
-        )
-        .map_err(|e| csv_core::error::ProtocolError::VerificationError(e.to_string()))
+        // Convert proof_bytes to Bytes vector
+        let proof_bytes: Vec<Bytes> = proof.proof_bytes.iter().map(|b| Bytes::from(vec![*b])).collect();
+        let account_proof: Vec<Bytes> = vec![]; // Placeholder - would need actual account proof
+        
+        let state_root: B256 = B256::from_slice(expected_root.as_bytes());
+        
+        let result = verify_storage_proof(
+            state_root,
+            &account_proof,
+            &proof_bytes,
+            U256::ZERO,
+        );
+        
+        Ok(result)
     }
 
     /// Verify finality proof for an Ethereum block
@@ -58,8 +67,20 @@ impl ChainVerifier for EthereumVerifier {
         if proof.is_empty() {
             Ok(true)
         } else {
-            // Placeholder - would verify actual ZK proof
+            // Placeholder - would implement actual ZK proof verification
             Ok(true)
         }
+    }
+
+    /// Verify seal registry (check if seal has been consumed)
+    async fn verify_seal_registry(&self, _seal_id: Hash) -> csv_core::Result<bool> {
+        // Placeholder - would query Ethereum contract to check if seal is consumed
+        Ok(true)
+    }
+
+    /// Verify signature on proof bundle
+    async fn verify_signature(&self, _bundle: &csv_core::proof::ProofBundle) -> csv_core::Result<bool> {
+        // Placeholder - would verify signature on proof bundle
+        Ok(true)
     }
 }

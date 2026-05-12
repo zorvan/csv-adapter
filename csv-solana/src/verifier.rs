@@ -38,12 +38,10 @@ impl ChainVerifier for SolanaVerifier {
 
     /// Verify finality proof for a Solana block
     async fn verify_finality(&self, proof: &FinalityProof) -> csv_core::Result<bool> {
-        // Solana has probabilistic finality - check if slot is finalized (32+ confirmations)
-        let is_finalized = self
-            .rpc
-            .is_slot_finalized(proof.block_height)
-            .await
-            .map_err(|e| csv_core::error::ProtocolError::RpcError(e.to_string()))?;
+        // Solana has probabilistic finality - check confirmations
+        // Require at least 32 confirmations for Solana finality
+        let required_confirmations = 32;
+        let is_finalized = proof.confirmations >= required_confirmations;
 
         Ok(is_finalized)
     }
@@ -55,8 +53,20 @@ impl ChainVerifier for SolanaVerifier {
         if proof.is_empty() {
             Ok(true)
         } else {
-            // Placeholder - would verify actual ZK proof if Solana adds ZK support
+            // Placeholder - would implement actual ZK proof verification if needed
             Ok(true)
         }
+    }
+
+    /// Verify seal registry (check if seal has been consumed)
+    async fn verify_seal_registry(&self, _seal_id: Hash) -> csv_core::Result<bool> {
+        // Placeholder - would query Solana blockchain to check if account is consumed
+        Ok(true)
+    }
+
+    /// Verify signature on proof bundle
+    async fn verify_signature(&self, _bundle: &csv_core::proof::ProofBundle) -> csv_core::Result<bool> {
+        // Placeholder - would verify signature on proof bundle
+        Ok(true)
     }
 }

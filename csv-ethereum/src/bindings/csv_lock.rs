@@ -4,7 +4,7 @@
 //! Generated from CSVLock.sol
 
 use alloy_primitives::{
-    Address, Bytes, FixedBytes, FixedBytes32, Uint256, U256, B256,
+    Address, Bytes, FixedBytes, U256, B256,
 };
 use alloy_sol_types::sol;
 

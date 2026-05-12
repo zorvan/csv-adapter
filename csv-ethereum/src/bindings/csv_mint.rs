@@ -4,7 +4,7 @@
 //! Generated from CSVMint.sol
 
 use alloy_primitives::{
-    Address, Bytes, FixedBytes, FixedBytes32, Uint256, U256, B256,
+    Address, Bytes, FixedBytes, U256, B256,
 };
 use alloy_sol_types::sol;
 
@@ -151,7 +151,7 @@ impl CsvMint {
         source_seal_point: Bytes,
         proof: Bytes,
         proof_root: FixedBytes<32>,
-        leaf_position: Uint256,
+        leafPosition: U256,
     ) -> CSVMint::mintSanadCall {
         CSVMint::mintSanadCall {
             sanadId: sanad_id,
@@ -179,7 +179,7 @@ impl CsvMint {
         asset_id: FixedBytes<32>,
         metadata_hash: FixedBytes<32>,
         proof_system: u8,
-        leaf_position: Uint256,
+        leafPosition: U256,
     ) -> CSVMint::mintSanadWithMetadataCall {
         CSVMint::mintSanadWithMetadataCall {
             sanadId: sanad_id,
@@ -217,7 +217,7 @@ impl CsvMint {
         source_seal_point: Bytes,
         proofs: Vec<Bytes>,
         proof_root: FixedBytes<32>,
-        leaf_positions: Vec<Uint256>,
+        leaf_positions: Vec<U256>,
     ) -> CSVMint::batchMintSanadsCall {
         CSVMint::batchMintSanadsCall {
             sanadIds: sanad_ids,
@@ -266,7 +266,7 @@ mod tests {
             source_seal_point,
             proof,
             proof_root,
-            leaf_position,
+            leafPosition,
         );
         assert_eq!(call.sanadId, sanad_id);
     }
