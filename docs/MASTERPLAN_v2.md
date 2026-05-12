@@ -123,55 +123,32 @@ These items must be complete before any public marketing. They are ordered by pr
 
 ### Must-Ship Before Demo
 
-**1. Fix SV-01b — Ethereum finality proof unconditional acceptance**  
-File: `csv-ethereum/src/ops.rs` → `verify_finality_proof`  
-The `#[cfg(not(feature = "rpc"))]` block returns `Ok(true)`. Change to `Err(ChainOpError::FeatureNotEnabled(...))`.  
-Estimated: 30 minutes. No reason to ship without it.
-
-**2. Implement Ethereum contract deployment**  
+**1. Implement Ethereum contract deployment**  
 File: `csv-ethereum/src/backend.rs` → `deploy_lock_contract`  
 Currently returns `CapabilityUnavailable`. Deploy CSVLock.sol to Sepolia testnet.  
 Estimated: 3–5 days.  
 This is existential. Without Ethereum, CSV is a 4-chain protocol, and 70% of the developer market is unreachable.
 
-**3. Implement P2P proof delivery (Nostr)**  
-Files: `csv-p2p/src/nostr.rs`, `csv-p2p/src/proof_delivery.rs`  
-The `nostr-sdk` dependency is declared. Implement `publish(proof, recipient_pubkey)` and `subscribe(my_sk, handler)`.  
+**2. Complete transfer pipeline**  
+Wire steps 2-5 of the transfer flow: poll finality, build inclusion proof, P2P proof delivery, destination chain mint.  
 Estimated: 1 week.  
-Without this, cross-chain proof delivery cannot complete. The entire protocol story requires this component to be real.
-
-**4. Wire offline verification UX**  
-Wallet pages: `csv-wallet/src/pages/validate/offline.rs`  
-File import → `verify_proof()` → display result (chain of origin, timestamp, valid/invalid).  
-QR code import path must work on both web and mobile.  
-Estimated: 1 week.  
-This is the moat. Ship it before anything else is marketed.
-
-**5. Desktop filesystem keystore**  
-File: `csv-wallet/src/core/key_manager.rs` → `#[cfg(not(target_arch = "wasm32"))]` block  
-Use `~/.csv/keys/{chain}/{keystore_id}.enc`, AES-256-GCM, Argon2id key derivation.  
-Estimated: 2–3 days.  
-Blocks CLI power users on native builds.
+Currently only step 1 (lock_sanad) is implemented.
 
 ### Must-Ship for Stage 1 Marketing
 
-**6. MCP server — 7 implemented tools with input validation**  
-File: `csv-mcp-server/src/index.ts`  
-Implement: `create_seal`, `transfer_sanad`, `verify_proof`, `get_sanads`, `monitor_transfer`, `export_proof_bundle`, `accept_consignment`.  
-All tools validated against shell injection, format constraints, and enum values.  
-Estimated: 1–2 weeks.
-
-**7. TypeScript SDK npm publish**  
+**3. TypeScript SDK npm publish**  
 Package: `@csv-protocol/sdk`  
 Fix WASM chain_id bug first (SV-04, already in progress). Publish to npm with readme and code examples.
 
-**8. 3 agent examples**  
+**4. 3 agent examples**  
 GitHub repo: `csv-protocol/agent-examples`  
 LangChain, Claude tool-use, Python REST. Each must run with `npm install && node example.js` or `pip install && python example.py`.
 
-**9. Explorer live at public URL**  
+**5. Explorer live at public URL**  
 Deploy to testnet. Wire WebSocket transfer status notifications.  
 Link from wallet on every transfer status update.
+
+*Note: The following items have been completed: SV-01b fix, P2P proof delivery (Nostr), offline verification UX, desktop filesystem keystore, MCP server with 7 tools and input validation.*
 
 ---
 

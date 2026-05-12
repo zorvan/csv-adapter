@@ -243,17 +243,32 @@ impl ChainDriver for SolanaSealProtocol {
         solana_capabilities()
     }
 
-    async fn create_client(&self, _config: &ChainConfig) -> ChainResult<Box<dyn RpcClient>> {
-        // If RPC is configured, wrap it
+    async fn create_client(&self, config: &ChainConfig) -> ChainResult<Box<dyn RpcClient>> {
+        // If RPC is already configured, return it wrapped
         if let Some(rpc) = self.rpc_client.as_ref() {
-            // Clone the RPC client reference - we can't easily clone Box<dyn SolanaRpc>
-            // so this is a basic implementation
-            let _ = rpc;
+            // Create a new wrapper for the existing RPC client
+            return Ok(Box::new(SolanaRpcClient::new(rpc.clone())));
         }
 
-        Err(ChainError::FeatureNotEnabled(
-            "Solana RPC client creation from config requires 'rpc' feature".to_string(),
-        ))
+        // Otherwise, create a new RPC client from config
+        let rpc_url = config
+            .rpc_endpoints
+            .first()
+            .ok_or_else(|| ChainError::InvalidInput("RPC endpoint required".to_string()))?;
+
+        #[cfg(feature = "rpc")]
+        {
+            use crate::node::SolanaNode as RealSolanaRpcClient;
+            let rpc = RealSolanaRpcClient::new(rpc_url);
+            Ok(Box::new(SolanaRpcClient::new(Box::new(rpc))))
+        }
+
+        #[cfg(not(feature = "rpc"))]
+        {
+            Err(ChainError::FeatureNotEnabled(
+                "Solana RPC client creation requires 'rpc' feature".to_string(),
+            ))
+        }
     }
 
     async fn create_wallet(&self, _config: &ChainConfig) -> ChainResult<Box<dyn Wallet>> {

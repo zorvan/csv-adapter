@@ -84,7 +84,7 @@ The offline verification is the moat. Nobody can replicate it without rebuilding
 
 **Revenue model**: Per-transfer fee (tiny, < bridge fee) or SDK licensing to studios
 
-**Readiness**: 7/10 — SDK exists, CLI works, wallet UI needs polish, NFT page is stub (fix needed)
+**Readiness**: 8/10 — SDK exists, CLI works, wallet UI needs polish, NFT page has UI but lacks real chain data integration
 
 ---
 
@@ -101,7 +101,7 @@ The offline verification is the moat. Nobody can replicate it without rebuilding
 
 **Revenue model**: Per-issuance fee or enterprise SaaS for institutional issuers
 
-**Readiness**: 6/10 — Core seal lifecycle works; ZK privacy layer missing (credential verifier should not learn more than needed)
+**Readiness**: 7/10 — Core seal lifecycle works; ZK privacy layer partially implemented (Pedersen commitments, stealth addresses exist in csv-core/src)
 
 ---
 
@@ -118,7 +118,7 @@ The offline verification is the moat. Nobody can replicate it without rebuilding
 
 **Revenue model**: Protocol fee on swap (0.1%), or sell the primitive to DeFi protocols
 
-**Readiness**: 3/10 — State machine designed, on-chain hash-lock not implemented on any chain
+**Readiness**: 6/10 — State machine fully implemented in csv-core/src/atomic_swap.rs with hash-lock support; on-chain contract integration pending per chain
 
 ---
 
@@ -134,7 +134,7 @@ The offline verification is the moat. Nobody can replicate it without rebuilding
 
 **Revenue model**: B2B SaaS, per-product or per-organization licensing
 
-**Readiness**: 4/10 — Commitment chain (`commitment_chain.rs`) exists; enterprise integration layer missing; no QR/NFC tooling
+**Readiness**: 5/10 — Commitment chain (`commitment_chain.rs`) exists with full implementation; enterprise integration layer missing; no QR/NFC tooling
 
 ---
 
@@ -151,7 +151,7 @@ The offline verification is the moat. Nobody can replicate it without rebuilding
 
 **Revenue model**: API calls (pay-per-proof), SDK licensing to agent frameworks
 
-**Readiness**: 5/10 — MCP server exists but is thin; TypeScript SDK exists; proof delivery via Nostr is hollow
+**Readiness**: 6/10 — MCP server exists with full implementation; TypeScript SDK exists; proof delivery via Nostr fully implemented in csv-p2p/src/nostr.rs
 
 ---
 
@@ -168,7 +168,7 @@ The offline verification is the moat. Nobody can replicate it without rebuilding
 
 **Revenue model**: Infrastructure-as-a-service (proof generation nodes), enterprise contracts
 
-**Readiness**: 1/10 — WASM ML-DSA-65 exists; STARK prover not started; Celestia DA adapter exists
+**Readiness**: 3/10 — WASM ML-DSA-65 exists in typescript-sdk/wasm; STARK prover stub exists in csv-stark/src/lib.rs (mock implementation); Celestia DA adapter exists in csv-celestia
 
 ---
 
@@ -179,29 +179,17 @@ The offline verification is the moat. Nobody can replicate it without rebuilding
 | Feature | Status | Missing to Ship |
 |---|---|---|
 |
-| ZK proof generate/verify UI | ⚠️ UI exists | Backend not implemented |
-| NFT page | ❌ Stub | Real chain query + data source |
-| Offline verification flow | ❌ Not done | File import → verify → show result |
+| NFT page | ⚠️ UI exists | Backend data integration missing |
+
 | Push notifications (transfer status) | ❌ Not done | WebSocket exists in explorer |
-
-### SDKs & Integrations
-
-| Feature | Status | Missing to Ship |
-|---|---|---|
-|
-| MCP server | ⚠️ Skeleton | Real tool implementations |
-|
 
 ### Protocol Extensions (Phase 2+)
 
 | Feature | Status | Fancy Factor |
 |---|---|---|
-| Atomic Seal Swap (no escrow) | ❌ Not started | ⭐⭐⭐ Core differentiator |
-| Pedersen commitments (ZK values) | ❌ Not started | ⭐⭐⭐ Privacy moat |
-| Stealth addresses | ❌ Not started | ⭐⭐⭐ Privacy moat |
-| STARK IoT batch verification | ❌ Not started | ⭐⭐ Technical showcase |
-|
-| P2P proof delivery (Nostr) | ❌ Skeleton | ⭐⭐ Decentralization story |
+| Atomic Seal Swap (no escrow) | ⚠️ Protocol implemented | ⭐⭐⭐ Core differentiator - on-chain contract integration pending |
+| STARK IoT batch verification | ⚠️ Stub exists | ⭐⭐ Technical showcase - mock implementation in csv-stark/src/lib.rs |
+
 |
 
 ---

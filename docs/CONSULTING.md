@@ -50,16 +50,17 @@ The PLAN_v1.md calls atomic swaps the "iPhone moment for cross-chain." Stage 2 m
 **5. ZK features are stubs.**  
 Pedersen commitments, stealth addresses, and STARK IoT batch verification are described across multiple market segments and fancy tasks, but are 0% implemented. Do not reference ZK in any external-facing material until an implementation exists.
 
-**6. Desktop keystore is a `// TODO`.**  
-The wallet cannot manage keys in native desktop builds. This blocks CLI power users.
+**6. Desktop keystore is now implemented.**  
+Native keystore is wired into KeyManager under `#[cfg(not(target_arch = "wasm32"))]`.
 
 ### Security Status
 
-Phase 1 and 2 security fixes are applied and the codebase is substantially more defensible than v0.4.0. Three issues remain open and should be addressed before testnet:
+Phase 1 and 2 security fixes are applied and the codebase is substantially more defensible than v0.4.0. Two issues remain open and should be addressed before testnet:
 
-- **SV-01b**: `verify_finality_proof` in `csv-ethereum` still returns `Ok(true)` unconditionally without the rpc feature. Same pattern as SV-01. One-line fix, no reason to leave open.
 - **SV-07**: `CommitAnchor::new_unchecked` / `SealPoint::new_unchecked` use `debug_assert!` only. In release builds, this is invisible — but it is also exploitable by malformed input. The `pub` visibility makes it worse.
 - **SV-09**: Aptos V1 `transfer_seal` takes `address` not `signer`, bypassing recipient consent. V2 has the correct pattern. Mark V1 deprecated and enforce migration.
+
+*Note: SV-01b (Ethereum finality bypass) has been fixed.*
 
 ---
 
@@ -117,11 +118,13 @@ All other segments (identity, DeFi atomic swaps, supply chain, IoT) move to the 
 The single most important outcome before any marketing is: **one complete end-to-end cross-chain transfer, demonstrably working, on two testnets, with no bridge**. The current blockers in order:
 
 1. **Ethereum deployment** — fix `CapabilityUnavailable`, deploy CSVLock.sol to Sepolia
-2. **P2P proof delivery** — implement Nostr proof relay properly (the `nostr-sdk` dependency is declared; implement `publish` and `subscribe`)
-3. **Offline verification UX** — wire file import → cryptographic verify → result display in the wallet
-4. **SV-01b** — one-line fix, no reason to ship without it
+2. **Transfer pipeline completion** — wire steps 2-5 (poll finality, build inclusion proof, P2P delivery, destination mint)
+3. **Explorer deployment** — deploy indexer with testnet config and WebSocket push
+4. **Block explorer links** — populate transfer records with clickable chain explorer URLs
 
-These four items constitute the real MVP blockers. Everything else is polish.
+These items constitute the real MVP blockers. Everything else is polish.
+
+*Note: P2P proof delivery, offline verification UX, and SV-01b have been completed.*
 
 ### Recommendation 3: Reframe the Killer App
 

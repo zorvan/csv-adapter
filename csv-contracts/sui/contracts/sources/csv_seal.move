@@ -304,14 +304,30 @@ module csv_seal::csv_seal {
 
     /// Mint a new Sanad from a cross-chain transfer proof.
     /// This creates a new SanadObject with the same commitment as the source chain's Sanad.
+    /// 
+    /// # Arguments
+    /// * `sanad_id` - Unique Sanad identifier from source chain
+    /// * `commitment` - Commitment hash preserved across chains
+    /// * `state_root` - Off-chain state root
+    /// * `source_chain` - Source chain ID
+    /// * `source_seal_ref` - Reference to source chain seal
+    /// * `proof` - Cross-chain Merkle proof bytes
+    /// * `proof_root` - Trusted proof root for verification
+    /// * `leaf_position` - Position of leaf in Merkle tree for deterministic verification
     public fun mint_sanad(
         sanad_id: vector<u8>,
         commitment: vector<u8>,
         state_root: vector<u8>,
         source_chain: u8,
         source_seal_ref: vector<u8>,
+        proof: vector<u8>,
+        proof_root: vector<u8>,
+        leaf_position: u64,
         ctx: &mut TxContext
     ) {
+        // Verify cross-chain proof before minting
+        verify_cross_chain_proof(&sanad_id, &commitment, source_chain, &proof, &proof_root, leaf_position);
+
         let sanad = SanadObject {
             id: object::new(ctx),
             sanad_id,
@@ -323,7 +339,7 @@ module csv_seal::csv_seal {
             asset_id: vector::empty<u8>(),
             metadata_hash: vector::empty<u8>(),
             proof_system: PROOF_SYSTEM_UNSPECIFIED,
-            proof_root: vector::empty<u8>(),
+            proof_root,
         };
 
         event::emit(CrossChainMint {
@@ -340,6 +356,61 @@ module csv_seal::csv_seal {
         });
 
         transfer::public_transfer(sanad, tx_context::sender(ctx));
+    }
+
+    /// Verify cross-chain Merkle proof for mint operations
+    /// Uses leaf position for deterministic verification
+    fun verify_cross_chain_proof(
+        sanad_id: &vector<u8>,
+        commitment: &vector<u8>,
+        source_chain: u8,
+        proof: &vector<u8>,
+        proof_root: &vector<u8>,
+        leaf_position: u64
+    ) {
+        use sui::hash;
+        
+        // Validate inputs
+        assert!(proof_root.len() == 32, E_INVALID_METADATA);
+        assert!(proof.len() % 32 == 0, E_INVALID_METADATA);
+        
+        // Build leaf hash: hash(sanad_id || commitment || source_chain)
+        let mut hasher = hash::sha2_256();
+        hash::update(&mut hasher, sanad_id);
+        hash::update(&mut hasher, commitment);
+        hash::update(&mut hasher, &source_chain.to_le_bytes());
+        let leaf = hash::finish(hasher);
+        
+        // Verify Merkle proof using leaf position
+        let current = leaf;
+        let num_levels = proof.len() / 32;
+        let mut i = 0;
+        
+        while (i < num_levels) {
+            let start = i * 32;
+            let end = start + 32;
+            let sibling = vector::slice(proof, start, end);
+            
+            // Use leaf_position bit to determine ordering
+            let bit = (leaf_position >> i) & 1;
+            if (bit == 0) {
+                // Current is left child
+                let mut pair_hasher = hash::sha2_256();
+                hash::update(&mut pair_hasher, &current);
+                hash::update(&mut pair_hasher, &sibling);
+                current = hash::finish(pair_hasher);
+            } else {
+                // Current is right child
+                let mut pair_hasher = hash::sha2_256();
+                hash::update(&mut pair_hasher, &sibling);
+                hash::update(&mut pair_hasher, &current);
+                current = hash::finish(pair_hasher);
+            };
+            i = i + 1;
+        }
+        
+        // Verify computed root matches expected root
+        assert!(current == *proof_root, E_INVALID_METADATA);
     }
 
     /// Refund a Sanad after the lock timeout has elapsed.
@@ -370,22 +441,31 @@ module csv_seal::csv_seal {
         // Verify not already refunded
         assert!(!lock.refunded, 1005); // Already refunded
 
-        // Mark as refunded
-        lock.refunded = true;
+        // Copy lock data before removing
+        let lock_sanad_id = lock.sanad_id;
+        let lock_commitment = lock.commitment;
+        let lock_asset_class = lock.asset_class;
+        let lock_asset_id = lock.asset_id;
+        let lock_metadata_hash = lock.metadata_hash;
+        let lock_proof_system = lock.proof_system;
+        let lock_proof_root = lock.proof_root;
+
+        // Remove lock record from registry to prevent storage bloat
+        table::remove(&mut registry.locks, sanad_id);
 
         // Re-create the SanadObject
         let sanad = SanadObject {
             id: object::new(ctx),
-            sanad_id: lock.sanad_id,
-            commitment: lock.commitment,
+            sanad_id: lock_sanad_id,
+            commitment: lock_commitment,
             owner: tx_context::sender(ctx),
             nullifier: vector::empty<u8>(),
             state_root,
-            asset_class: lock.asset_class,
-            asset_id: lock.asset_id,
-            metadata_hash: lock.metadata_hash,
-            proof_system: lock.proof_system,
-            proof_root: lock.proof_root,
+            asset_class: lock_asset_class,
+            asset_id: lock_asset_id,
+            metadata_hash: lock_metadata_hash,
+            proof_system: lock_proof_system,
+            proof_root: lock_proof_root,
         };
 
         event::emit(CrossChainRefund {

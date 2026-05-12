@@ -595,21 +595,20 @@ module csv_seal::CSVSealV2 {
         let registry = borrow_global_mut<LockRegistry>(registry_addr);
 
         assert!(smart_table::contains(&registry.locks, sanad_id), ESealNotFound);
-        let lock = smart_table::borrow_mut(&mut registry.locks, sanad_id);
 
-        // Verify not already refunded
+        // Verify not already refunded and timeout has elapsed
+        let lock = smart_table::borrow_mut(&mut registry.locks, sanad_id);
         assert!(!lock.refunded, ESealAlreadyConsumed);
 
-        // Verify timeout has elapsed
         let now = aptos_framework::timestamp::now_seconds();
         assert!(now >= lock.locked_at + registry.refund_timeout, ESealNotConsumed);
 
-        // Mark as refunded
-        lock.refunded = true;
-
-        // Copy values for event emission
+        // Copy values for event emission before removing lock
         let commitment_copy = lock.commitment;
         let sanad_id_copy = sanad_id;
+
+        // Remove lock record from registry to prevent bloat
+        smart_table::remove(&mut registry.locks, sanad_id);
 
         // Emit CrossChainRefund event
         event::emit(CrossChainRefund {
@@ -649,13 +648,15 @@ module csv_seal::CSVSealV2 {
         !lock.refunded && now >= lock.locked_at + registry.refund_timeout
     }
 
-    /// Helper to generate commitment from sanad_id and nonce.
+    /// Helper to generate commitment from sanad_id and nonce using SHA3-256.
     fun get_commitment_bytes(sanad_id: vector<u8>, nonce: u64): vector<u8> {
-        // Simple concatenation - in production use proper hash
-        let result = sanad_id;
+        // Use SHA3-256 for proper cryptographic commitment
+        use std::hash;
+        let mut hasher = hash::sha3_256();
+        hash::update(&mut hasher, &sanad_id);
         let nonce_bytes = bcs::to_bytes(&nonce);
-        vector::append(&mut result, nonce_bytes);
-        result
+        hash::update(&mut hasher, &nonce_bytes);
+        hash::finish(hasher)
     }
 
     // =========================================================================

@@ -128,6 +128,7 @@ contract CSVMint {
     /// @param sourceSealPoint Encoded source chain seal reference
     /// @param proof Merkle proof bytes verifying the source chain lock event
     /// @param proofRoot The trusted proof root (e.g., bridge commitment root)
+    /// @param leafPosition Position of the leaf in the Merkle tree (for deterministic verification)
     function mintSanad(
         bytes32 sanadId,
         bytes32 commitment,
@@ -135,7 +136,8 @@ contract CSVMint {
         uint8 sourceChain,
         bytes calldata sourceSealPoint,
         bytes calldata proof,
-        bytes32 proofRoot
+        bytes32 proofRoot,
+        uint256 leafPosition
     ) external returns (bool) {
         return _mintSanad(
             sanadId,
@@ -145,6 +147,7 @@ contract CSVMint {
             sourceSealPoint,
             proof,
             proofRoot,
+            leafPosition,
             SanadMetadata({
                 assetClass: ASSET_CLASS_UNSPECIFIED,
                 assetId: bytes32(0),
@@ -167,7 +170,8 @@ contract CSVMint {
         uint8 assetClass,
         bytes32 assetId,
         bytes32 metadataHash,
-        uint8 proofSystem
+        uint8 proofSystem,
+        uint256 leafPosition
     ) external returns (bool) {
         SanadMetadata memory metadata = SanadMetadata({
             assetClass: assetClass,
@@ -177,7 +181,7 @@ contract CSVMint {
             proofRoot: proofRoot
         });
         _validateMetadata(metadata);
-        return _mintSanad(sanadId, commitment, stateRoot, sourceChain, sourceSealPoint, proof, proofRoot, metadata);
+        return _mintSanad(sanadId, commitment, stateRoot, sourceChain, sourceSealPoint, proof, proofRoot, leafPosition, metadata);
     }
 
     function _mintSanad(
@@ -188,13 +192,14 @@ contract CSVMint {
         bytes calldata sourceSealPoint,
         bytes calldata proof,
         bytes32 proofRoot,
+        uint256 leafPosition,
         SanadMetadata memory metadata
     ) internal returns (bool) {
         if (mintedSanads[sanadId]) revert SanadAlreadyMinted();
         if (stateRoot == bytes32(0)) revert InvalidProof();
 
-        // Verify the cross-chain proof on-chain
-        _verifyCrossChainProof(sanadId, commitment, sourceChain, proof, proofRoot);
+        // Verify the cross-chain proof on-chain with leaf position
+        _verifyCrossChainProof(sanadId, commitment, sourceChain, proof, proofRoot, leafPosition);
 
         mintedSanads[sanadId] = true;
         sanadMetadata[sanadId] = metadata;
@@ -241,7 +246,8 @@ contract CSVMint {
         bytes32 commitment,
         uint8 sourceChain,
         bytes calldata proof,
-        bytes32 proofRoot
+        bytes32 proofRoot,
+        uint256 leafPosition
     ) internal pure {
         // Validate non-empty inputs
         if (proof.length == 0) revert InvalidProof();
@@ -252,8 +258,8 @@ contract CSVMint {
         // Build the leaf hash: keccak256(sanadId || commitment || sourceChain)
         bytes32 leaf = keccak256(abi.encodePacked(sanadId, commitment, sourceChain));
 
-        // Verify the Merkle proof against the trusted root
-        if (!_verifyMerkleProof(proof, proofRoot, leaf)) revert InvalidProof();
+        // Verify the Merkle proof against the trusted root with leaf position
+        if (!_verifyMerkleProof(proof, proofRoot, leaf, leafPosition)) revert InvalidProof();
     }
 
     /// @notice Verify a Merkle proof for leaf inclusion
@@ -262,44 +268,35 @@ contract CSVMint {
     /// At each level, the current hash is paired with the sibling based on
     /// the current bit of the leaf position index.
     ///
-    /// This implementation uses a simplified approach: since we don't have
-    /// the exact leaf position from the source chain, we verify that applying
-    /// the proof branch to the leaf produces the proofRoot in at least one
-    /// valid path ordering. For production, the leaf position should be passed
-    /// as an additional parameter to ensure deterministic verification.
-    ///
-    /// For now, we verify by walking the branch in both orderings (leaf-left
-    /// and leaf-sanad) at each level — if any valid path produces the root,
-    /// the proof is valid.
+    /// This implementation uses the leaf position to deterministically verify
+    /// the Merkle proof. At each level, if the corresponding bit in leafPosition
+    /// is 0, the current hash is the left child; if 1, it's the right child.
     function _verifyMerkleProof(
         bytes calldata proof,
         bytes32 root,
-        bytes32 leaf
+        bytes32 leaf,
+        uint256 leafPosition
     ) internal pure returns (bool) {
         if (proof.length % 32 != 0) return false;
 
         uint256 numLevels = proof.length / 32;
-
-        // Single-branch verification: try leaf as left child at every level
         bytes32 current = leaf;
-        for (uint256 i = 0; i < numLevels; i++) {
-            bytes32 sibling;
-            assembly {
-                sibling := calldataload(add(proof.offset, mul(i, 32)))
-            }
-            current = _hashPair(current, sibling);
-        }
-        if (current == root) return true;
 
-        // If that didn't match, try leaf as sanad child at every level
-        current = leaf;
         for (uint256 i = 0; i < numLevels; i++) {
             bytes32 sibling;
             assembly {
                 sibling := calldataload(add(proof.offset, mul(i, 32)))
             }
-            current = _hashPair(sibling, current);
+
+            // Use leafPosition bit to determine ordering
+            // If bit is 0, current is left child; if 1, current is right child
+            if ((leafPosition >> i) & 1 == 0) {
+                current = _hashPair(current, sibling);
+            } else {
+                current = _hashPair(sibling, current);
+            }
         }
+
         return current == root;
     }
 
@@ -331,6 +328,7 @@ contract CSVMint {
     /// @param sourceSealPoint Source seal reference
     /// @param proofs Array of proof bytes for each mint
     /// @param proofRoot The trusted proof root
+    /// @param leafPositions Array of leaf positions for each mint
     function batchMintSanads(
         bytes32[] calldata sanadIds,
         bytes32[] calldata commitments,
@@ -338,12 +336,14 @@ contract CSVMint {
         uint8 sourceChain,
         bytes calldata sourceSealPoint,
         bytes[] calldata proofs,
-        bytes32 proofRoot
+        bytes32 proofRoot,
+        uint256[] calldata leafPositions
     ) external onlyOwner {
         if (
             sanadIds.length != commitments.length ||
             sanadIds.length != stateRoots.length ||
-            sanadIds.length != proofs.length
+            sanadIds.length != proofs.length ||
+            sanadIds.length != leafPositions.length
         ) revert ArraysMismatch();
 
         for (uint256 i = 0; i < sanadIds.length; i++) {
@@ -354,7 +354,8 @@ contract CSVMint {
                 sourceChain,
                 sourceSealPoint,
                 proofs[i],
-                proofRoot
+                proofRoot,
+                leafPositions[i]
             );
         }
     }

@@ -180,6 +180,18 @@
         {
           "name": "sourceSealPoint",
           "type": "bytes"
+        },
+        {
+          "name": "proof",
+          "type": "bytes"
+        },
+        {
+          "name": "proofRoot",
+          "type": "bytes"
+        },
+        {
+          "name": "leafPosition",
+          "type": "u64"
         }
       ]
     },
@@ -257,6 +269,43 @@
       "args": [
         {
           "name": "nullifier",
+          "type": "bytes"
+        }
+      ]
+    },
+    {
+      "name": "recordSanadMetadata",
+      "accounts": [
+        {
+          "name": "sanadAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "assetClass",
+          "type": "u8"
+        },
+        {
+          "name": "assetId",
+          "type": "bytes"
+        },
+        {
+          "name": "metadataHash",
+          "type": "bytes"
+        },
+        {
+          "name": "proofSystem",
+          "type": "u8"
+        },
+        {
+          "name": "proofRoot",
           "type": "bytes"
         }
       ]

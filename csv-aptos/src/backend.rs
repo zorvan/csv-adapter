@@ -345,7 +345,12 @@ impl ChainDriver for AptosSealProtocol {
     }
 
     async fn create_client(&self, config: &ChainConfig) -> ChainResult<Box<dyn RpcClient>> {
-        // Create Aptos RPC client from chain configuration
+        // If RPC is already configured, return it wrapped
+        if let Some(rpc) = self.rpc_client.as_ref() {
+            return Ok(Box::new(AptosRpcClient::new(rpc.clone())));
+        }
+
+        // Otherwise, create a new RPC client from config
         let rpc_url = config
             .rpc_endpoints
             .first()
@@ -360,15 +365,13 @@ impl ChainDriver for AptosSealProtocol {
 
         #[cfg(not(feature = "rpc"))]
         {
-            let _ = rpc_url;
             Err(ChainError::FeatureNotEnabled(
-                "Real Aptos RPC requires the 'rpc' feature to be enabled".to_string(),
+                "Aptos RPC client creation requires 'rpc' feature".to_string(),
             ))
         }
     }
 
     async fn create_wallet(&self, _config: &ChainConfig) -> ChainResult<Box<dyn Wallet>> {
-        // Get sender address from RPC
         let sender = self
             .rpc
             .sender_address()

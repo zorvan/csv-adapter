@@ -150,21 +150,27 @@ contract CSVLock {
         bytes calldata destinationOwner,
         SanadMetadata memory metadata
     ) internal {
-        if (usedSeals[sanadId]) {
+        // Gas optimization: combine checks to reduce SLOADs
+        bool isConsumed = usedSeals[sanadId];
+        (uint256 lockTimestamp, bool lockRefunded) = (locks[sanadId].timestamp, locks[sanadId].refunded);
+        
+        if (isConsumed) {
             revert SanadAlreadyConsumed();
         }
-        if (locks[sanadId].timestamp != 0 && !locks[sanadId].refunded) {
+        if (lockTimestamp != 0 && !lockRefunded) {
             revert SanadAlreadyLocked();
         }
 
-        usedSeals[sanadId] = true;
+        // Gas optimization: compute hash once before storage writes
+        bytes32 destinationOwnerRoot = keccak256(destinationOwner);
 
-        // Record lock for refund support
+        // Batch storage writes
+        usedSeals[sanadId] = true;
         locks[sanadId] = LockRecord({
             commitment: commitment,
             timestamp: block.timestamp,
             destinationChain: destinationChain,
-            destinationOwnerRoot: keccak256(destinationOwner),
+            destinationOwnerRoot: destinationOwnerRoot,
             metadata: metadata,
             refunded: false
         });

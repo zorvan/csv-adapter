@@ -374,14 +374,18 @@ impl ChainDriver for SuiSealProtocol {
     }
 
     async fn create_client(&self, config: &ChainConfig) -> ChainResult<Box<dyn RpcClient>> {
-        // Create Sui RPC client from chain configuration
+        // If RPC is already configured, return it wrapped
+        if let Some(rpc) = self.rpc_client.as_ref() {
+            return Ok(Box::new(SuiRpcClient::new(rpc.clone())));
+        }
+
+        // Otherwise, create a new RPC client from config
         let rpc_endpoint = config
             .rpc_endpoints
             .first()
             .ok_or_else(|| ChainError::InvalidInput("RPC endpoint required".to_string()))?
             .clone();
 
-        // Create the RPC client based on configuration
         #[cfg(feature = "rpc")]
         {
             use crate::node::SuiNode as RealSuiRpcClient;
@@ -391,10 +395,8 @@ impl ChainDriver for SuiSealProtocol {
 
         #[cfg(not(feature = "rpc"))]
         {
-            let _ = rpc_endpoint;
-            // Without rpc feature, return an error indicating the feature is required
             Err(ChainError::FeatureNotEnabled(
-                "Real Sui RPC requires the 'rpc' feature to be enabled".to_string(),
+                "Sui RPC client creation requires 'rpc' feature".to_string(),
             ))
         }
     }

@@ -795,8 +795,22 @@ impl ChainDeployer for EthereumBackend {
         _admin_address: &str,
         _config: serde_json::Value,
     ) -> ChainOpResult<DeploymentStatus> {
+        // Contract deployment is intentionally delegated to Foundry/forge for better security and tooling.
+        // This approach ensures:
+        // 1. Proper contract verification on block explorers
+        // 2. Access to Foundry's comprehensive testing framework
+        // 3. Standard deployment patterns used in production
+        // 4. Ability to use deployment scripts with proper configuration
+        //
+        // To deploy the CSVLock contract:
+        // 1. Navigate to csv-contracts/ethereum/contracts
+        // 2. Run: forge script script/DeployLock.s.sol --rpc-url <RPC_URL> --private-key <PRIVATE_KEY> --broadcast
+        // 3. Copy the deployed address
+        // 4. Configure the backend with the deployed address via EthereumConfig.lock_contract_address
         Err(ChainOpError::FeatureNotEnabled(
-            "Contract deployment is not supported. Deploy contracts manually using Foundry/forge and provide the address.".to_string()
+            "Contract deployment is delegated to Foundry/forge for security and tooling benefits. \
+             Deploy contracts manually using: forge script script/DeployLock.s.sol --rpc-url <RPC_URL> --private-key <PRIVATE_KEY> --broadcast \
+             Then configure the deployed address in EthereumConfig.lock_contract_address".to_string()
         ))
     }
 
