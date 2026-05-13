@@ -23,6 +23,9 @@ pub enum RollbackAction {
     },
 }
 
+/// Rollback callback type
+type RollbackCallback = Box<dyn Fn(&ReorgEvent) + Send + Sync>;
+
 /// Rollback handler for reorg events
 ///
 /// When a reorg is detected, this handler:
@@ -32,7 +35,7 @@ pub enum RollbackAction {
 /// 4. Emits events for observability
 pub struct RollbackHandler {
     /// Callbacks registered per chain
-    on_rollback: alloc::collections::BTreeMap<String, Box<dyn Fn(&ReorgEvent) + Send + Sync>>,
+    on_rollback: alloc::collections::BTreeMap<String, RollbackCallback>,
     /// Whether to auto-execute rollbacks or require manual approval
     auto_execute: bool,
 }

@@ -39,6 +39,12 @@ pub struct BitcoinFinalityPolicy {
     threshold: FinalityThreshold,
 }
 
+impl Default for BitcoinFinalityPolicy {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BitcoinFinalityPolicy {
     /// Create a new Bitcoin finality policy (6 confirmations)
     pub fn new() -> Self {
@@ -66,6 +72,12 @@ impl ChainFinalityPolicy for BitcoinFinalityPolicy {
 #[derive(Clone, Debug)]
 pub struct EthereumFinalityPolicy {
     threshold: FinalityThreshold,
+}
+
+impl Default for EthereumFinalityPolicy {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl EthereumFinalityPolicy {
@@ -97,6 +109,12 @@ pub struct AptosFinalityPolicy {
     threshold: FinalityThreshold,
 }
 
+impl Default for AptosFinalityPolicy {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AptosFinalityPolicy {
     /// Create a new Aptos finality policy (instant finality)
     pub fn new() -> Self {
@@ -125,6 +143,12 @@ impl ChainFinalityPolicy for AptosFinalityPolicy {
 #[derive(Clone, Debug)]
 pub struct SolanaFinalityPolicy {
     threshold: FinalityThreshold,
+}
+
+impl Default for SolanaFinalityPolicy {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SolanaFinalityPolicy {

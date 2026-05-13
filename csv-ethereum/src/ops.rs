@@ -14,7 +14,7 @@ use async_trait::async_trait;
 use csv_core::backend::{
     BalanceInfo, ChainBackend, ChainBroadcaster, ChainCapability, ChainDeployer, ChainOpError,
     ChainOpResult, ChainProofProvider, ChainQuery, ChainSanadOps, ChainSigner, ContractStatus,
-    DeploymentStatus, FinalityStatus, SanadOperation, SanadOperationResult, TransactionInfo,
+    DeploymentStatus, FinalityStatus, SanadOperationResult, TransactionInfo,
     TransactionStatus,
 };
 use csv_core::hash::Hash;
@@ -30,7 +30,8 @@ use crate::finality::FinalityChecker;
 use crate::proofs::{CommitmentEventBuilder, EventProofVerifier};
 use crate::rpc::{EthereumRpc, RpcBlock, RpcTransaction};
 // Manual ABI encoding - migrated to bindings in Phase 5
-use crate::sanad_contract::{CsvLockAbi, CsvMintAbi};
+// TODO Phase 5: Re-enable after bindings migration
+// use crate::sanad_contract::{CsvLockAbi, CsvMintAbi};
 use crate::seal_contract::CsvSealAbi;
 use crate::seal_protocol::EthereumSealProtocol;
 

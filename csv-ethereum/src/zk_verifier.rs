@@ -1,3 +1,4 @@
+#![allow(clippy::collapsible_if)]
 //! Groth16 ZK Verifier for Ethereum
 //!
 //! This module provides Groth16-based zero-knowledge verification for Ethereum.

@@ -1,3 +1,6 @@
+#![allow(clippy::needless_pass_by_value)]
+#![allow(unused_assignments)]
+#![allow(unused_variables)]
 #![allow(dead_code)]
 #![allow(unused_imports)]
 //! CSV Wallet — Standalone Multi-ChainId Wallet with Dioxus UI

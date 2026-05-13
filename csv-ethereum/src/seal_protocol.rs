@@ -20,7 +20,7 @@ use csv_core::SealProtocol;
 
 use crate::config::EthereumConfig;
 use crate::error::{EthereumError, EthereumResult};
-use crate::finality::{FinalityChecker, FinalityCheckerTrait};
+use crate::finality::FinalityChecker;
 use crate::rpc::EthereumRpc;
 use crate::seal::SealRegistry;
 use crate::types::{

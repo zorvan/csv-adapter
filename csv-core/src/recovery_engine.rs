@@ -329,7 +329,7 @@ impl<B: RecoveryStorageBackend> RecoveryEngine<B> {
     async fn apply_rollbacks(&mut self) -> RecoveryStep {
         for (chain, old_height, _new_height) in &self.detected_reorgs {
             // Find transfers affected by this reorg
-            match self.backend.get_transfers_at_height(&chain, *old_height).await {
+            match self.backend.get_transfers_at_height(chain, *old_height).await {
                 Ok(affected) => {
                     for transfer_id in &affected {
                         // In production, would check the transfer state and apply

@@ -1,3 +1,4 @@
+#![allow(clippy::collapsible_if)]
 #![allow(unused_variables)]
 //! Aptos Adapter for CSV (Client-Side Validation)
 //!

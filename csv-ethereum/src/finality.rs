@@ -1,3 +1,4 @@
+#![allow(clippy::collapsible_if)]
 //! Ethereum finality checker
 //!
 //! Checks if a transaction has achieved finality via:

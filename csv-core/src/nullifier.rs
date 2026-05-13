@@ -172,7 +172,7 @@ impl SealNullifier {
             && !self
                 .consumed_seals
                 .get(&seal_key)
-                .map_or(true, |v| v.is_empty());
+                .is_none_or(|v| v.is_empty());
 
         // Track known chains
         self.known_chains.insert(consumption.chain.clone());
@@ -395,7 +395,7 @@ impl OptimizedSealNullifier {
                 && !self
                     .consumed_seals
                     .get(&seal_key)
-                    .map_or(true, |v| v.is_empty())
+                    .is_none_or(|v| v.is_empty())
         } else {
             // Bloom filter says definitely not present - fast path
             false

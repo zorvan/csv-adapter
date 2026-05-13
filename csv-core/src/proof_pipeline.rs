@@ -396,7 +396,7 @@ fn validate_replay(bundle: &ProofBundle) -> ValidationStep {
     
     // Compute domain-separated hash of replay key
     let _replay_hash = DomainSeparatedHash::<ReplayRegistryDomain>::hash(
-        &replay_key.hash().as_bytes().to_vec()
+        &replay_key.hash().as_bytes()[..]
     );
     
     // In production, check if this replay_hash exists in the persistent registry
