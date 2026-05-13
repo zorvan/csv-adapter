@@ -121,6 +121,10 @@ pub enum CsvError {
     /// A generic error with a message.
     #[error("CSV error: {0}")]
     Generic(String),
+
+    /// P2P proof transport error (Nostr relay communication failed).
+    #[error("P2P transport error: {0}")]
+    P2PError(String),
 }
 
 impl CsvError {
@@ -162,6 +166,7 @@ impl HasErrorSuggestion for CsvError {
             Self::ProtocolError { .. } => error_codes::CSV_ADAPTER_ERROR,
             Self::CapabilityUnavailable { .. } => "CSV_CAPABILITY_UNAVAILABLE",
             Self::Generic(_) => error_codes::CSV_GENERIC,
+            Self::P2PError(_) => "CSV_P2P_ERROR",
         }
     }
 
@@ -288,6 +293,12 @@ impl HasErrorSuggestion for CsvError {
             Self::DeploymentError(msg) => {
                 format!(
                     "Deployment error: {}. Check deployment configuration and contract code.",
+                    msg
+                )
+            }
+            Self::P2PError(msg) => {
+                format!(
+                    "P2P transport error: {}. Check Nostr relay connectivity and network access.",
                     msg
                 )
             }

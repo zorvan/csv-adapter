@@ -4,7 +4,7 @@
 //! Generated from CSVMint.sol
 
 use alloy_primitives::{
-    Address, Bytes, FixedBytes, U256, B256,
+    Address, Bytes, FixedBytes, U256,
 };
 use alloy_sol_types::sol;
 
@@ -77,7 +77,7 @@ sol! {
             bytes calldata sourceSealPoint,
             bytes calldata proof,
             bytes32 proofRoot,
-            uint256 leafPosition
+            uint256 leaf_position
         ) external returns (bool);
 
         function mintSanadWithMetadata(
@@ -92,7 +92,7 @@ sol! {
             bytes32 assetId,
             bytes32 metadataHash,
             uint8 proofSystem,
-            uint256 leafPosition
+            uint256 leaf_position
         ) external returns (bool);
 
         function isSanadMinted(bytes32 sanadId) external view returns (bool);
@@ -107,7 +107,7 @@ sol! {
             bytes calldata sourceSealPoint,
             bytes[] calldata proofs,
             bytes32 proofRoot,
-            uint256[] calldata leafPositions
+            uint256[] calldata leaf_positions
         ) external;
     }
 }
@@ -134,8 +134,8 @@ impl CsvMintClient {
         &self,
         nullifier: FixedBytes<32>,
         sanad_id: FixedBytes<32>,
-    ) -> CsvMint::registerNullifierCall {
-        CsvMint::registerNullifierCall {
+    ) -> CSVMint::registerNullifierCall {
+        CSVMint::registerNullifierCall {
             nullifier,
             sanadId: sanad_id,
         }
@@ -151,9 +151,9 @@ impl CsvMintClient {
         source_seal_point: Bytes,
         proof: Bytes,
         proof_root: FixedBytes<32>,
-        leafPosition: U256,
-    ) -> CsvMint::mintSanadCall {
-        CsvMint::mintSanadCall {
+        leaf_position: U256,
+    ) -> CSVMint::mintSanadCall {
+        CSVMint::mintSanadCall {
             sanadId: sanad_id,
             commitment,
             stateRoot: state_root,
@@ -161,7 +161,7 @@ impl CsvMintClient {
             sourceSealPoint: source_seal_point,
             proof,
             proofRoot: proof_root,
-            leafPosition,
+            leaf_position,
         }
     }
 
@@ -179,9 +179,9 @@ impl CsvMintClient {
         asset_id: FixedBytes<32>,
         metadata_hash: FixedBytes<32>,
         proof_system: u8,
-        leafPosition: U256,
-    ) -> CsvMint::mintSanadWithMetadataCall {
-        CsvMint::mintSanadWithMetadataCall {
+        leaf_position: U256,
+    ) -> CSVMint::mintSanadWithMetadataCall {
+        CSVMint::mintSanadWithMetadataCall {
             sanadId: sanad_id,
             commitment,
             stateRoot: state_root,
@@ -193,18 +193,18 @@ impl CsvMintClient {
             assetId: asset_id,
             metadataHash: metadata_hash,
             proofSystem: proof_system,
-            leafPosition,
+            leaf_position,
         }
     }
 
     /// Create an isSanadMinted call
-    pub fn is_sanad_minted_call(&self, sanad_id: FixedBytes<32>) -> CsvMint::isSanadMintedCall {
-        CsvMint::isSanadMintedCall { sanadId: sanad_id }
+    pub fn is_sanad_minted_call(&self, sanad_id: FixedBytes<32>) -> CSVMint::isSanadMintedCall {
+        CSVMint::isSanadMintedCall { sanadId: sanad_id }
     }
 
     /// Create an isNullifierRegistered call
-    pub fn is_nullifier_registered_call(&self, nullifier: FixedBytes<32>) -> CsvMint::isNullifierRegisteredCall {
-        CsvMint::isNullifierRegisteredCall { nullifier }
+    pub fn is_nullifier_registered_call(&self, nullifier: FixedBytes<32>) -> CSVMint::isNullifierRegisteredCall {
+        CSVMint::isNullifierRegisteredCall { nullifier }
     }
 
     /// Create a batchMintSanads call
@@ -218,8 +218,8 @@ impl CsvMintClient {
         proofs: Vec<Bytes>,
         proof_root: FixedBytes<32>,
         leaf_positions: Vec<U256>,
-    ) -> CsvMint::batchMintSanadsCall {
-        CsvMint::batchMintSanadsCall {
+    ) -> CSVMint::batchMintSanadsCall {
+        CSVMint::batchMintSanadsCall {
             sanadIds: sanad_ids,
             commitments,
             stateRoots: state_roots,
@@ -227,7 +227,7 @@ impl CsvMintClient {
             sourceSealPoint: source_seal_point,
             proofs,
             proofRoot: proof_root,
-            leafPositions: leaf_positions,
+            leaf_positions: leaf_positions,
         }
     }
 }
@@ -240,14 +240,14 @@ mod tests {
     #[test]
     fn test_csv_mint_creation() {
         let addr = address!("0000000000000000000000000000000000000001");
-        let mint = CsvMint::new(addr);
+        let mint = CSVMint::new(addr);
         assert_eq!(mint.address(), addr);
     }
 
     #[test]
     fn test_mint_sanad_call() {
         let addr = address!("0000000000000000000000000000000000000001");
-        let mint = CsvMint::new(addr);
+        let mint = CSVMint::new(addr);
         
         let sanad_id = FixedBytes::<32>::ZERO;
         let commitment = FixedBytes::<32>::ZERO;
@@ -256,7 +256,7 @@ mod tests {
         let source_seal_point = Bytes::default();
         let proof = Bytes::default();
         let proof_root = FixedBytes::<32>::ZERO;
-        let leaf_position = Uint256::from(0);
+        let leaf_position = U256::from(0);
         
         let call = mint.mint_sanad_call(
             sanad_id,
@@ -266,7 +266,7 @@ mod tests {
             source_seal_point,
             proof,
             proof_root,
-            leafPosition,
+            leaf_position,
         );
         assert_eq!(call.sanadId, sanad_id);
     }

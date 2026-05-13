@@ -741,6 +741,56 @@ impl ChainRuntime {
         }
     }
 
+    /// Broadcast a proof via P2P transport for destination chain discovery.
+    ///
+    /// This method serializes the proof and broadcasts it to Nostr relays
+    /// tagged with the source and destination chain IDs, allowing destination chain
+    /// nodes to discover and receive the proof for cross-chain validation.
+    #[cfg(feature = "p2p")]
+    pub async fn broadcast_proof(
+        &self,
+        chain: ChainId,
+        proof: &csv_core::InclusionProof,
+    ) -> Result<(), CsvError> {
+        use csv_p2p::{NostrTransport, ProofTransport};
+
+        let mut transport = NostrTransport::new();
+        transport.initialize().await.map_err(|e| CsvError::P2PError(format!(
+            "Failed to initialize Nostr transport: {}", e
+        )))?;
+
+        // Build a minimal ProofBundle from the InclusionProof for broadcast
+        let proof_bundle = csv_core::ProofBundle {
+            transition_dag: csv_core::dag::DAGSegment::new(vec![], proof.block_hash),
+            signatures: vec![],
+            seal_ref: csv_core::SealPoint::new(vec![], None).map_err(|e| CsvError::P2PError(format!(
+                "Failed to create seal ref: {}", e
+            )))?,
+            anchor_ref: csv_core::seal::CommitAnchor::new(
+                vec![],
+                proof.position,
+                chain.to_string().into_bytes(),
+            ).map_err(|e| CsvError::P2PError(format!(
+                "Failed to create anchor ref: {}", e
+            )))?,
+            inclusion_proof: proof.clone(),
+            finality_proof: csv_core::FinalityProof::new(vec![], 1, true).map_err(|e| CsvError::P2PError(format!(
+                "Failed to create finality proof: {}", e
+            )))?,
+        };
+
+        transport.broadcast_proof(&proof_bundle).await.map_err(|e| CsvError::P2PError(format!(
+            "Failed to broadcast proof to Nostr relays: {}", e
+        )))?;
+
+        log::info!(
+            "Proof for chain {:?} broadcast via Nostr P2P",
+            chain
+        );
+
+        Ok(())
+    }
+
     /// Pre-fetch seal consumption data to avoid locking in async closure.
     ///
     /// This fetches the sanad record from the store synchronously BEFORE entering

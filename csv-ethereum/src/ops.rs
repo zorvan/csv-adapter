@@ -25,13 +25,16 @@ use csv_core::signature::SignatureScheme;
 use csv_core::SealProtocol;
 use std::sync::Arc;
 
+#[cfg(feature = "rpc")]
+use crate::bindings::csv_lock::CsvLockClient;
+#[cfg(feature = "rpc")]
+use crate::bindings::csv_mint::CsvMintClient;
+#[cfg(feature = "rpc")]
+use alloy_sol_types::SolCall;
 use crate::config::EthereumConfig;
 use crate::finality::FinalityChecker;
 use crate::proofs::{CommitmentEventBuilder, EventProofVerifier};
 use crate::rpc::{EthereumRpc, RpcBlock, RpcTransaction};
-// Manual ABI encoding - migrated to bindings in Phase 5
-// TODO Phase 5: Re-enable after bindings migration
-// use crate::sanad_contract::{CsvLockAbi, CsvMintAbi};
 use crate::seal_contract::CsvSealAbi;
 use crate::seal_protocol::EthereumSealProtocol;
 
@@ -1115,33 +1118,37 @@ impl ChainSanadOps for EthereumBackend {
         let lock_contract = self.lock_contract()?;
         let sanad_id_bytes = sanad_id.0.as_bytes();
         let commitment = sanad_id_bytes;
-        
+
         // Parse destination chain ID (convert string chain name to u8)
         let dest_chain_id = parse_chain_id(destination_chain)?;
-        
+
         // Parse owner address for destination
         let owner_addr = self.parse_address(owner_key_id)?;
-        
+
         #[cfg(feature = "rpc")]
         {
-            // Build the lock transaction calldata
-            let calldata = CsvLockAbi::encode_lock_sanad(
-                *sanad_id_bytes,
-                *commitment,
+            // Build the lock transaction using generated Alloy bindings
+            let lock_client = CsvLockClient::new(alloy_primitives::Address::from(lock_contract));
+            let call = lock_client.lock_sanad_call(
+                alloy_primitives::FixedBytes::<32>::from_slice(sanad_id_bytes),
+                alloy_primitives::FixedBytes::<32>::from_slice(commitment),
                 dest_chain_id,
-                &owner_addr,
+                alloy_primitives::Bytes::from(owner_addr.to_vec()),
             );
-            
+
+            // Encode the calldata from the generated call struct
+            let calldata = call.abi_encode();
+
             // Build and sign transaction using Alloy
             let tx_hash = self.build_sign_and_send_transaction(
                 lock_contract,
                 &calldata,
                 owner_key_id,
             ).await?;
-            
+
             // Wait for receipt
             let receipt = self.wait_for_receipt(&tx_hash).await?;
-            
+
             Ok(SanadOperationResult {
                 sanad_id: sanad_id.clone(),
                 operation: SanadOperation::Lock,
@@ -1155,7 +1162,7 @@ impl ChainSanadOps for EthereumBackend {
                 }),
             })
         }
-        
+
         #[cfg(not(feature = "rpc"))]
         {
             let _ = (lock_contract, commitment, dest_chain_id, owner_addr);
@@ -1181,30 +1188,35 @@ impl ChainSanadOps for EthereumBackend {
         let source_chain_id = parse_chain_id(source_chain)?;
         let owner_addr = self.parse_address(new_owner)?;
         let proof_root = lock_proof.block_hash.as_bytes();
-        
+
         #[cfg(feature = "rpc")]
         {
-            // Build the mint transaction calldata
-            let calldata = CsvMintAbi::encode_mint_sanad(
-                *sanad_id_bytes,
-                *commitment,
-                *state_root,
+            // Build the mint transaction using generated Alloy bindings
+            let mint_client = CsvMintClient::new(alloy_primitives::Address::from(mint_contract));
+            let call = mint_client.mint_sanad_call(
+                alloy_primitives::FixedBytes::<32>::from_slice(sanad_id_bytes),
+                alloy_primitives::FixedBytes::<32>::from_slice(commitment),
+                alloy_primitives::FixedBytes::<32>::from_slice(state_root),
                 source_chain_id,
-                &owner_addr, // source_seal_point encodes the owner
-                &lock_proof.proof_bytes,
-                *proof_root,
+                alloy_primitives::Bytes::from(owner_addr.to_vec()),
+                alloy_primitives::Bytes::from(lock_proof.proof_bytes.clone()),
+                alloy_primitives::FixedBytes::<32>::from_slice(proof_root),
+                alloy_primitives::U256::from(0), // leafPosition
             );
-            
+
+            // Encode the calldata from the generated call struct
+            let calldata = call.abi_encode();
+
             // Build and sign transaction
             let tx_hash = self.build_sign_and_send_transaction(
                 mint_contract,
                 &calldata,
                 new_owner,
             ).await?;
-            
+
             // Wait for receipt
             let receipt = self.wait_for_receipt(&tx_hash).await?;
-            
+
             Ok(SanadOperationResult {
                 sanad_id: source_sanad_id.clone(),
                 operation: SanadOperation::Mint,
@@ -1219,7 +1231,7 @@ impl ChainSanadOps for EthereumBackend {
                 }),
             })
         }
-        
+
         #[cfg(not(feature = "rpc"))]
         {
             let _ = (mint_contract, owner_addr);
@@ -1238,26 +1250,33 @@ impl ChainSanadOps for EthereumBackend {
     ) -> ChainOpResult<SanadOperationResult> {
         let lock_contract = self.lock_contract()?;
         let sanad_id_bytes = sanad_id.0.as_bytes();
-        
+
         // Compute destination owner hash for verification
         let owner_addr = self.parse_address(owner_key_id)?;
         let owner_hash = self.keccak256(&owner_addr);
-        
+
         #[cfg(feature = "rpc")]
         {
-            // Build the refund transaction calldata
-            let calldata = CsvLockAbi::encode_refund_sanad(*sanad_id_bytes, owner_hash);
-            
+            // Build the refund transaction using generated Alloy bindings
+            let lock_client = CsvLockClient::new(alloy_primitives::Address::from(lock_contract));
+            let call = lock_client.refund_sanad_call(
+                alloy_primitives::FixedBytes::<32>::from_slice(sanad_id_bytes),
+                alloy_primitives::FixedBytes::<32>::from_slice(&owner_hash),
+            );
+
+            // Encode the calldata
+            let calldata = call.abi_encode();
+
             // Build and sign transaction
             let tx_hash = self.build_sign_and_send_transaction(
                 lock_contract,
                 &calldata,
                 owner_key_id,
             ).await?;
-            
+
             // Wait for receipt
             let receipt = self.wait_for_receipt(&tx_hash).await?;
-            
+
             Ok(SanadOperationResult {
                 sanad_id: sanad_id.clone(),
                 operation: SanadOperation::Refund,
@@ -1270,7 +1289,7 @@ impl ChainSanadOps for EthereumBackend {
                 }),
             })
         }
-        
+
         #[cfg(not(feature = "rpc"))]
         {
             let _ = (lock_contract, owner_hash);
@@ -1291,19 +1310,22 @@ impl ChainSanadOps for EthereumBackend {
         // Note: CSVLock.sol on Ethereum records metadata during lockSanad or lockSanadWithMetadata.
         // There is no separate updateMetadata function in the contract.
         // Metadata recording happens atomically with the lock operation.
-        
+
         let _ = metadata;
         let _ = owner_key_id;
-        
+
         // Check if sanad is locked (metadata would have been recorded then)
         let lock_contract = self.lock_contract()?;
         let sanad_id_bytes = *sanad_id.0.as_bytes();
-        
+
         #[cfg(feature = "rpc")]
         {
             // Try to query contract state to verify metadata was recorded
-            let _calldata = CsvLockAbi::encode_get_lock_info(sanad_id_bytes);
-            
+            let lock_client = CsvLockClient::new(alloy_primitives::Address::from(lock_contract));
+            let _call = lock_client.get_lock_info_call(
+                alloy_primitives::FixedBytes::<32>::from_slice(&sanad_id_bytes),
+            );
+
             // For now, return success noting that metadata was recorded at lock time
             Ok(SanadOperationResult {
                 sanad_id: sanad_id.clone(),
@@ -1318,7 +1340,7 @@ impl ChainSanadOps for EthereumBackend {
                 }),
             })
         }
-        
+
         #[cfg(not(feature = "rpc"))]
         {
             let _ = lock_contract;

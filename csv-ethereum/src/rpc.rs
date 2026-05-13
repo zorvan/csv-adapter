@@ -4,6 +4,8 @@
 //! by the CSV adapter: storage proofs, receipts, block queries, finality.
 
 use async_trait::async_trait;
+#[cfg(feature = "quorum")]
+use csv_core::rpc::quorum_client::QuorumClient;
 
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -402,6 +404,542 @@ impl EthereumRpc for MockEthereumRpc {
         tx_hash: [u8; 32],
     ) -> Result<Option<RpcTransaction>, Box<dyn std::error::Error + Send + Sync>> {
         Ok(self.transactions.lock().unwrap().get(&tx_hash).cloned())
+    }
+}
+
+/// Quorum-backed Ethereum RPC implementation.
+///
+/// Wraps a `QuorumClient` to provide quorum-based consensus for all
+/// Ethereum JSON-RPC calls. This is the recommended production RPC
+/// implementation for the Ethereum adapter.
+#[cfg(feature = "quorum")]
+pub struct QuorumEthereumRpc {
+    client: QuorumClient,
+}
+
+#[cfg(feature = "quorum")]
+impl QuorumEthereumRpc {
+    /// Create a new quorum-backed Ethereum RPC from providers.
+    pub fn new(providers: Vec<csv_core::rpc::quorum_client::RpcProvider>) -> Self {
+        Self {
+            client: QuorumClient::with_defaults(providers),
+        }
+    }
+
+    /// Decode a hex string to bytes, with 0x prefix handling.
+    fn decode_hex(value: &str) -> Option<Vec<u8>> {
+        let s = value.trim_start_matches("0x");
+        hex::decode(s).ok()
+    }
+
+    /// Parse a hex value as u64.
+    fn parse_u64(value: &str) -> Option<u64> {
+        let s = value.trim_start_matches("0x");
+        u64::from_str_radix(s, 16).ok()
+    }
+}
+
+#[cfg(feature = "quorum")]
+#[async_trait]
+impl EthereumRpc for QuorumEthereumRpc {
+    async fn block_number(&self) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
+        let result = self.client.get_block_number().await?;
+        Self::parse_u64(&result).ok_or_else(|| "Invalid block number response".into())
+    }
+
+    async fn get_block_hash(
+        &self,
+        block_number: u64,
+    ) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>> {
+        // Query the block at the given number to get its hash
+        let block = self
+            .client
+            .get_block_by_hash(&format!("{:064x}", block_number))
+            .await?;
+
+        if let Some(hash_hex) = block.get("hash").and_then(|h| h.as_str()) {
+            if let Some(bytes) = Self::decode_hex(hash_hex) {
+                let mut hash = [0u8; 32];
+                hash.copy_from_slice(&bytes[..32]);
+                return Ok(hash);
+            }
+        }
+        Err("Invalid block hash response".into())
+    }
+
+    async fn get_proof(
+        &self,
+        address: [u8; 20],
+        keys: Vec<[u8; 32]>,
+        block_number: u64,
+    ) -> Result<StorageProof, Box<dyn std::error::Error + Send + Sync>> {
+        let addr_hex = format!("0x{}", hex::encode(address));
+        let keys_hex: Vec<String> = keys
+            .iter()
+            .map(|k| format!("0x{}", hex::encode(k)))
+            .collect();
+        let block_hex = format!("0x{:x}", block_number);
+
+        let result = self
+            .client
+            .query_json::<serde_json::Value>(
+                "eth_getProof",
+                &[
+                    serde_json::json!(addr_hex),
+                    serde_json::json!(keys_hex),
+                    serde_json::json!(block_hex),
+                ],
+            )
+            .await?;
+
+        // Parse the response into StorageProof
+        let account_proof: Vec<Vec<u8>> = result
+            .get("accountProof")
+            .and_then(|p| p.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().and_then(Self::decode_hex))
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        let balance = result
+            .get("balance")
+            .and_then(|v| v.as_str())
+            .unwrap_or("0");
+
+        let code_hash_hex = result
+            .get("codeHash")
+            .and_then(|v| v.as_str())
+            .unwrap_or("0x0000000000000000000000000000000000000000000000000000000000000000");
+        let mut code_hash = [0u8; 32];
+        if let Some(bytes) = Self::decode_hex(code_hash_hex) {
+            code_hash.copy_from_slice(&bytes[..32]);
+        }
+
+        let nonce = result
+            .get("nonce")
+            .and_then(|v| v.as_str())
+            .unwrap_or("0");
+
+        let storage_hash_hex = result
+            .get("storageHash")
+            .and_then(|v| v.as_str())
+            .unwrap_or("0x0000000000000000000000000000000000000000000000000000000000000000");
+        let mut storage_hash = [0u8; 32];
+        if let Some(bytes) = Self::decode_hex(storage_hash_hex) {
+            storage_hash.copy_from_slice(&bytes[..32]);
+        }
+
+        let storage_proof: Vec<_> = result
+            .get("storageProof")
+            .and_then(|p| p.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|item| {
+                        let key_hex = item.get("key")?.as_str()?;
+                        let value_hex = item.get("value")?.as_str()?;
+                        let proof: Vec<Vec<u8>> = item
+                            .get("proof")
+                            .and_then(|p| p.as_array())
+                            .map(|p| {
+                                p.iter()
+                                    .filter_map(|v| v.as_str().and_then(Self::decode_hex))
+                                    .collect()
+                            })
+                            .unwrap_or_default();
+
+                        let mut key = [0u8; 32];
+                        if let Some(bytes) = Self::decode_hex(key_hex) {
+                            key.copy_from_slice(&bytes[..32]);
+                        }
+
+                        let value = Self::decode_hex(value_hex).unwrap_or_default();
+
+                        Some(SingleStorageProof {
+                            key,
+                            value,
+                            proof,
+                        })
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        Ok(StorageProof {
+            account_proof,
+            balance: balance.to_string(),
+            code_hash,
+            nonce: nonce.to_string(),
+            storage_hash,
+            storage_proof,
+        })
+    }
+
+    async fn get_transaction_receipt(
+        &self,
+        tx_hash: [u8; 32],
+    ) -> Result<Option<TransactionReceipt>, Box<dyn std::error::Error + Send + Sync>> {
+        let hash_hex = format!("0x{}", hex::encode(tx_hash));
+
+        let result = self
+            .client
+            .query_json::<serde_json::Value>(
+                "eth_getTransactionReceipt",
+                &[serde_json::json!(hash_hex)],
+            )
+            .await?;
+
+        // If result is null, the transaction doesn't exist
+        if result.is_null() {
+            return Ok(None);
+        }
+
+        let tx_hash_out: [u8; 32] = result
+            .get("transactionHash")
+            .and_then(|h| h.as_str())
+            .and_then(Self::decode_hex)
+            .and_then(|b| b.try_into().ok())
+            .unwrap_or(tx_hash);
+
+        let block_number = result
+            .get("blockNumber")
+            .and_then(|n| n.as_str())
+            .and_then(Self::parse_u64)
+            .unwrap_or(0);
+
+        let block_hash: [u8; 32] = result
+            .get("blockHash")
+            .and_then(|h| h.as_str())
+            .and_then(Self::decode_hex)
+            .and_then(|b| b.try_into().ok())
+            .unwrap_or([0u8; 32]);
+
+        let contract_address = result
+            .get("contractAddress")
+            .and_then(|a| a.as_str())
+            .and_then(Self::decode_hex)
+            .and_then(|b| b.try_into().ok());
+
+        let status = result
+            .get("status")
+            .and_then(|s| s.as_str())
+            .and_then(Self::parse_u64)
+            .unwrap_or(0);
+
+        let gas_used = result
+            .get("gasUsed")
+            .and_then(|g| g.as_str())
+            .and_then(Self::parse_u64)
+            .unwrap_or(0);
+
+        let logs: Vec<LogEntry> = result
+            .get("logs")
+            .and_then(|l| l.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|log| {
+                        let address_hex = log.get("address")?.as_str()?;
+                        let mut address = [0u8; 20];
+                        if let Some(bytes) = Self::decode_hex(address_hex) {
+                            address.copy_from_slice(&bytes[..20]);
+                        }
+
+                        let topics: Vec<[u8; 32]> = log
+                            .get("topics")
+                            .and_then(|t| t.as_array())
+                            .map(|t| {
+                                t.iter()
+                                    .filter_map(|topic| {
+                                        topic
+                                            .as_str()
+                                            .and_then(Self::decode_hex)
+                                            .and_then(|b| b.try_into().ok())
+                                    })
+                                    .collect()
+                            })
+                            .unwrap_or_default();
+
+                        let data = log
+                            .get("data")
+                            .and_then(|d| d.as_str())
+                            .and_then(Self::decode_hex)
+                            .unwrap_or_default();
+
+                        let log_index = log
+                            .get("logIndex")
+                            .and_then(|l| l.as_str())
+                            .and_then(Self::parse_u64)
+                            .unwrap_or(0);
+
+                        Some(LogEntry {
+                            address,
+                            topics,
+                            data,
+                            log_index,
+                        })
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        Ok(Some(TransactionReceipt {
+            tx_hash: tx_hash_out,
+            block_number,
+            block_hash,
+            contract_address,
+            logs,
+            status,
+            gas_used,
+            success: status == 1,
+        }))
+    }
+
+    async fn get_block_state_root(
+        &self,
+        block_hash: [u8; 32],
+    ) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>> {
+        let hash_hex = format!("0x{}", hex::encode(block_hash));
+
+        let block = self
+            .client
+            .get_block_by_hash(&hash_hex)
+            .await?;
+
+        let state_root_hex = block
+            .get("stateRoot")
+            .and_then(|s| s.as_str())
+            .unwrap_or("0x0000000000000000000000000000000000000000000000000000000000000000");
+
+        let mut state_root = [0u8; 32];
+        if let Some(bytes) = Self::decode_hex(state_root_hex) {
+            state_root.copy_from_slice(&bytes[..32]);
+        }
+
+        Ok(state_root)
+    }
+
+    async fn get_finalized_block_number(
+        &self,
+    ) -> Result<Option<u64>, Box<dyn std::error::Error + Send + Sync>> {
+        // Query the finalized block number using eth_getBlockByNumber with "finalized"
+        let result = self
+            .client
+            .query_json::<Option<serde_json::Value>>(
+                "eth_getBlockByNumber",
+                &[serde_json::json!("finalized"), serde_json::json!(false)],
+            )
+            .await?;
+
+        Ok(result.and_then(|b| {
+            b.get("number")
+                .and_then(|n| n.as_str())
+                .and_then(Self::parse_u64)
+        }))
+    }
+
+    async fn send_raw_transaction(
+        &self,
+        tx_bytes: Vec<u8>,
+    ) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>> {
+        let tx_hex = format!("0x{}", hex::encode(&tx_bytes));
+
+        let tx_hash_hex = self
+            .client
+            .query_json::<String>("eth_sendRawTransaction", &[serde_json::json!(tx_hex)])
+            .await?;
+
+        let mut tx_hash = [0u8; 32];
+        if let Some(bytes) = Self::decode_hex(&tx_hash_hex) {
+            tx_hash.copy_from_slice(&bytes[..32]);
+        }
+
+        Ok(tx_hash)
+    }
+
+    async fn get_balance(
+        &self,
+        address: [u8; 20],
+    ) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
+        let addr_hex = format!("0x{}", hex::encode(address));
+
+        let balance_hex = self
+            .client
+            .query_json::<String>("eth_getBalance", &[serde_json::json!(addr_hex)])
+            .await?;
+
+        Self::parse_u64(&balance_hex).ok_or_else(|| "Invalid balance response".into())
+    }
+
+    async fn get_transaction_count(
+        &self,
+        address: [u8; 20],
+    ) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
+        let addr_hex = format!("0x{}", hex::encode(address));
+
+        let nonce_hex = self
+            .client
+            .query_json::<String>("eth_getTransactionCount", &[serde_json::json!(addr_hex)])
+            .await?;
+
+        Self::parse_u64(&nonce_hex).ok_or_else(|| "Invalid nonce response".into())
+    }
+
+    async fn get_code(
+        &self,
+        address: [u8; 20],
+    ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+        let addr_hex = format!("0x{}", hex::encode(address));
+
+        let code_hex = self
+            .client
+            .query_json::<String>("eth_getCode", &[serde_json::json!(addr_hex)])
+            .await?;
+
+        Ok(Self::decode_hex(&code_hex).unwrap_or_default())
+    }
+
+    fn as_any(&self) -> Option<&dyn std::any::Any> {
+        Some(self)
+    }
+
+    fn clone_boxed(&self) -> Box<dyn EthereumRpc> {
+        // QuorumEthereumRpc doesn't implement Clone directly; create a new instance
+        // In production, providers would be cloned from the original configuration
+        let provider_count = self.client.provider_count();
+        let providers: Vec<_> = (0..provider_count.max(1))
+            .map(|_| csv_core::rpc::quorum_client::RpcProvider::new("http://localhost:8545".to_string()))
+            .collect();
+        Box::new(QuorumEthereumRpc {
+            client: QuorumClient::with_defaults(providers),
+        })
+    }
+
+    async fn get_gas_price(&self) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
+        let gas_hex = self
+            .client
+            .query_json::<String>("eth_gasPrice", &[])
+            .await?;
+
+        Self::parse_u64(&gas_hex).ok_or_else(|| "Invalid gas price response".into())
+    }
+
+    async fn get_block_by_number(
+        &self,
+        block_number: u64,
+    ) -> Result<Option<RpcBlock>, Box<dyn std::error::Error + Send + Sync>> {
+        let block_hex = format!("0x{:x}", block_number);
+
+        let result = self
+            .client
+            .query_json::<Option<serde_json::Value>>(
+                "eth_getBlockByNumber",
+                &[serde_json::json!(block_hex), serde_json::json!(false)],
+            )
+            .await?;
+
+        Ok(result.map(|block| {
+            let number = block
+                .get("number")
+                .and_then(|n| n.as_str())
+                .and_then(Self::parse_u64)
+                .unwrap_or(0);
+
+            let hash: [u8; 32] = block
+                .get("hash")
+                .and_then(|h| h.as_str())
+                .and_then(Self::decode_hex)
+                .and_then(|b| b.try_into().ok())
+                .unwrap_or([0u8; 32]);
+
+            let state_root: [u8; 32] = block
+                .get("stateRoot")
+                .and_then(|s| s.as_str())
+                .and_then(Self::decode_hex)
+                .and_then(|b| b.try_into().ok())
+                .unwrap_or([0u8; 32]);
+
+            let timestamp = block
+                .get("timestamp")
+                .and_then(|t| t.as_str())
+                .and_then(Self::parse_u64)
+                .unwrap_or(0);
+
+            RpcBlock {
+                number,
+                hash,
+                state_root,
+                timestamp,
+            }
+        }))
+    }
+
+    async fn get_transaction(
+        &self,
+        tx_hash: [u8; 32],
+    ) -> Result<Option<RpcTransaction>, Box<dyn std::error::Error + Send + Sync>> {
+        let hash_hex = format!("0x{}", hex::encode(tx_hash));
+
+        let result = self
+            .client
+            .query_json::<Option<serde_json::Value>>(
+                "eth_getTransactionByHash",
+                &[serde_json::json!(hash_hex)],
+            )
+            .await?;
+
+        Ok(result.map(|tx| {
+            let tx_hash_out: [u8; 32] = tx
+                .get("hash")
+                .and_then(|h| h.as_str())
+                .and_then(Self::decode_hex)
+                .and_then(|b| b.try_into().ok())
+                .unwrap_or(tx_hash);
+
+            let from: [u8; 20] = tx
+                .get("from")
+                .and_then(|f| f.as_str())
+                .and_then(Self::decode_hex)
+                .and_then(|b| b.try_into().ok())
+                .unwrap_or([0u8; 20]);
+
+            let to = tx
+                .get("to")
+                .and_then(|t| t.as_str())
+                .and_then(Self::decode_hex)
+                .and_then(|b| b.try_into().ok());
+
+            let value = tx
+                .get("value")
+                .and_then(|v| v.as_str())
+                .and_then(Self::parse_u64);
+
+            let gas_price = tx
+                .get("gasPrice")
+                .and_then(|g| g.as_str())
+                .and_then(Self::parse_u64);
+
+            let gas = tx
+                .get("gas")
+                .and_then(|g| g.as_str())
+                .and_then(Self::parse_u64)
+                .unwrap_or(0);
+
+            let block_number = tx
+                .get("blockNumber")
+                .and_then(|b| b.as_str())
+                .and_then(Self::parse_u64);
+
+            RpcTransaction {
+                hash: tx_hash_out,
+                from,
+                to,
+                value,
+                gas_price,
+                gas,
+                block_number,
+            }
+        }))
     }
 }
 

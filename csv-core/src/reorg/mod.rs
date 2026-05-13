@@ -4,10 +4,10 @@
 //! reorganizations safely.
 
 pub mod detector;
-pub mod rollback;
 pub mod reconciliation;
+pub mod rollback;
 
 // Re-exports
 pub use detector::ReorgDetector;
-pub use rollback::RollbackHandler;
-pub use reconciliation::ReconciliationEngine;
+pub use reconciliation::{ChainBackendForReconciliation, ReconciliationEngine, ReconciliationResult};
+pub use rollback::{RollbackHandler, RollbackStorageBackend, RollbackResult};

@@ -24,6 +24,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 [dependencies]
 # Core — always included
 csv-core = { version = "0.4.0", path = "../csv-core" }
+csv-p2p = { version = "0.4.0", path = "../csv-p2p", optional = true }
 
 # Chain adapters — optional, enabled via feature flags
 csv-bitcoin = { version = "0.4.0", path = "../csv-bitcoin", optional = true }
@@ -103,6 +104,9 @@ cross-chain-persist = ["dep:csv-explorer-storage", "dep:csv-explorer-shared", "d
 
 # Wallet / crypto
 wallet = ["dep:csv-keys", "dep:ed25519-dalek", "dep:bip32"]
+
+# P2P proof delivery
+p2p = ["dep:csv-p2p"]
 
 # Experimental features
 experimental = ["csv-core/experimental"]

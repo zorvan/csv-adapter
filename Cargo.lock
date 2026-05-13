@@ -2891,6 +2891,7 @@ dependencies = [
  "proptest",
  "rand 0.8.6",
  "rand_core 0.6.4",
+ "reqwest 0.11.27",
  "secp256k1 0.28.2",
  "serde",
  "serde_json",
@@ -2898,7 +2899,9 @@ dependencies = [
  "spin",
  "tempfile",
  "thiserror 1.0.69",
+ "tokio",
  "toml",
+ "url",
 ]
 
 [[package]]
@@ -3054,6 +3057,7 @@ dependencies = [
  "csv-explorer-shared",
  "csv-explorer-storage",
  "csv-keys",
+ "csv-p2p",
  "csv-solana",
  "csv-store",
  "csv-sui",

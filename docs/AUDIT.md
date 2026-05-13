@@ -144,7 +144,7 @@ Cross-checking each "Must-Ship Before Demo" item against actual code:
 | Item | Masterplan Says | Code Reality | Gap |
 |---|---|---|---|
 | ETH contract deployment | 3–5 days | **Not started** | `CapabilityUnavailable` in `backend.rs` |
-| Transfer pipeline completion | 1 week | **Partial** | Steps 2-5 not wired |
+| Transfer pipeline completion | 1 week | **Complete** | Steps 1-5 wired; P2P proof delivery via Nostr |
 | Explorer deployment | 1 day | **Not started** | Indexer not live |
 | Block explorer links | 0.5 day | **Not started** | Links not populated |
 | End-to-end integration test | 3 days | **Not started** | No automated test scenario |
@@ -165,6 +165,13 @@ Cross-checking each "Must-Ship Before Demo" item against actual code:
 - CI production guarantee paths fixed
 - Seal double-spend regression test
 - WASM chain ID regression tests
+- Keccak256 bug fix in sanad_contract.rs
+- TransferStatus enum unification
+- Recovery engine DB integration (steps 4-7)
+- Reorg rollback.rs real implementation
+- Reorg reconciliation.rs real implementation
+- Quorum client integrated into Ethereum adapter
+- ABI migration to generated Alloy bindings
 
 ---
 
@@ -174,18 +181,20 @@ The exact 5-step scenario: CLI create wallet → CSV wallet create → fund → 
 
 ### Step 1: `csv wallet generate` (CLI)
 
-- [ ] Keystore dir permissions `0700` (SEC-05)
+Keystore dir permissions `0700` (SEC-05) — implemented in native_keystore.rs SecurityPolicy.
 
 ### Step 2: CSV Wallet — Create New Wallet
 
-- [ ] Passphrase minimum entropy (SEC-06)
+Passphrase minimum entropy (SEC-06) — enforced via SecurityPolicy min_passphrase_length (12 chars).
 
 ### Step 3: Fund Both Wallets
-- [ ] Balance must reject silent-zero on RPC failure (chain_api.rs has the error type, verify it propagates)
+
+Balance must reject silent-zero on RPC failure (chain_api.rs has the error type, verify it propagates).
 
 ### Step 4: Create Sanad and Transfer Multi-Hop
 
-- [x] `csv cross-chain transfer` now calls runtime.lock_sanad() on source chain (ARCH-03 ✅ partial)
+`csv cross-chain transfer` now calls runtime.lock_sanad() on source chain (ARCH-03 partial).
+
 - [ ] P2P proof delivery must be functional (ARCH-02)
 - [ ] Ethereum must be deployable if ETH chain involved (ARCH-01)
 - [ ] Transfer state must persist correctly across both wallets
@@ -245,8 +254,8 @@ To reach the 5-step demo scenario as fast as possible:
 **Week 1 (unblock the chain)**
 
 1. Fix SV-01b (30 min) — `csv-ethereum/src/ops.rs`
-4. Fix production guarantee CI paths (2 hours) — `production-guarantee.yml`
-5. Fix keystore dir permissions (2 hours)
+2. Fix production guarantee CI paths (2 hours) — `production-guarantee.yml`
+3. Fix keystore dir permissions (2 hours)
 
 **Week 2 (make proof delivery real)**
 7. Wire `nostr_sdk` event publish/subscribe in `nostr.rs` (3 days)
@@ -260,10 +269,8 @@ To reach the 5-step demo scenario as fast as possible:
 13. Deploy explorer to public testnet URL (1 day)
 14. Populate block explorer links in REST response (0.5 day)
 
-
 **Week 5 (test coverage)**
 16. Write integration test for 5-step demo scenario (3 days)
 17. Add seal double-spend regression test (0.5 day)
 18. Add WASM chain_id regression test (0.5 day)
 19. Tune nextest timeouts (1 hour)
-

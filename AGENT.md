@@ -19,7 +19,7 @@ CSV (Client-Side Validation) Protocol is a **cross-chain asset portability syste
 
 ### Prerequisites
 
-- Rust 1.75+ (edition 2021)
+- Rust 1.92+ (edition 2024)
 - System dependencies (for SQLite, etc.)
 - For Solidity contracts: Foundry/forge
 - For Move chains: Sui/Aptos CLI tools
@@ -98,7 +98,7 @@ cargo clippy --workspace --all-targets
 
 ### General
 
-- **Rust edition 2021** with `#![warn(missing_docs)]`.
+- **Rust edition 2042** with `#![warn(missing_docs)]`.
 - Use `thiserror` for error types, implement `csv_core::mcp::HasErrorSuggestion` for agent‑friendly suggestions.
 - Serialize with `serde`, BCS for Move chains, RLP for Ethereum.
 - **Async runtime:** Tokio (multi‑thread) for all server‑side; synchronised wrappers for WASM.
@@ -167,7 +167,7 @@ All hashing is tagged with `csv_tagged_hash("urn:lnp-bp:csv:" || name, data)`. T
 
 ## 8. Agent Guidelines
 
-When contributing, AI agents MUST obey these rules (from the Principal Engineer execution plan):
+When contributing, AI agents MUST obey these rules (from the Principal Engineer execution plan): tasks to be done completely, not to be postponed, Implementation should be audit level, not simplified methods and algorithms, not leave stub, not leave placeholders, not partially implementations, full and complete for all related and applicable places in repo, do not evade complex tasks.
 
 - **No partial validation:** if you can't complete a security verification, return an error; never downgrade to a warning.
 - **No silent fallbacks:** never substitute a default RPC provider or fallback crypto without explicit logging and opting in.

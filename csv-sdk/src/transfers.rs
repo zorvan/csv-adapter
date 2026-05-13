@@ -369,6 +369,14 @@ impl TransferBuilder {
             .build_inclusion_proof(self.from_chain.clone(), &commitment, finality_block)
             .await?;
 
+        // Step 3.5: Broadcast proof via P2P for destination chain discovery
+        #[cfg(feature = "p2p")]
+        {
+            self.runtime
+                .broadcast_proof(self.from_chain.clone(), &inclusion_proof)
+                .await?;
+        }
+
         // Update status to ProofReady
         record.status = crate::TransferStatus::ProofReady {
             proof_block: finality_block,

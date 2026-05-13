@@ -38,6 +38,9 @@ pqcrypto-dilithium = { version = "0.5", optional = true }
 pqcrypto-traits = { version = "0.3", optional = true }
 curve25519-dalek = { version = "4", optional = true, default-features = false, features = ["alloc", "rand_core"] }
 rand_core = { version = "0.6", optional = true }
+reqwest = { version = "0.11", features = ["json"], optional = true }
+url = { version = "2.5", optional = true }
+tokio = { version = "1", features = ["rt", "macros", "time"], optional = true }
 
 [features]
 default = ["std", "pq"]
@@ -50,7 +53,8 @@ sui = []
 ethereum = []
 pq = ["dep:pqcrypto-dilithium", "dep:pqcrypto-traits"]
 zk = ["dep:curve25519-dalek", "dep:rand_core"]
-full = ["bitcoin", "solana", "aptos", "sui", "ethereum", "pq", "zk"]
+quorum = ["dep:reqwest", "dep:url", "dep:tokio"]
+full = ["bitcoin", "solana", "aptos", "sui", "ethereum", "pq", "zk", "quorum"]
 experimental = []
 
 [dev-dependencies]

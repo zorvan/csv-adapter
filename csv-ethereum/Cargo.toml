@@ -49,7 +49,8 @@ serde_json = "1.0"
 [features]
 default = []
 rpc = ["alloy", "alloy-sol-types", "alloy-contract", "csv-store", "reqwest", "url"]
-production = ["rpc"]
+quorum = ["csv-core/quorum", "reqwest", "url"]
+production = ["rpc", "quorum"]
 
 [build-dependencies]
 serde_json = "1.0"
