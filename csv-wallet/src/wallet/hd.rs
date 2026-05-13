@@ -4,14 +4,13 @@
 //! for multiple chains from a single seed.
 
 use crate::wallet::metadata::WalletMetadata;
-use bip32::Mnemonic;
+use csv_keys::bip39::{Mnemonic, MnemonicType};
 use csv_store::state::ChainId;
-use rand::RngCore;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 // Re-export for convenience
 pub use crate::wallet::metadata::BitcoinNetwork;
-use rand::rngs::OsRng;
 
 /// Extended wallet with metadata.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -51,11 +50,9 @@ fn deserialize_seed<'de, D: serde::Deserializer<'de>>(d: D) -> Result<[u8; 64], 
 impl ExtendedWallet {
     /// Generate a new wallet.
     pub fn generate() -> Self {
-        let mut entropy = [0u8; 32];
-        OsRng.fill_bytes(&mut entropy);
-        let mnemonic = Mnemonic::from_entropy(entropy, bip32::Language::English);
-        let phrase = mnemonic.phrase().to_string();
-        let seed = mnemonic.to_seed("");
+        let mnemonic = Mnemonic::generate(MnemonicType::Words24);
+        let phrase = mnemonic.as_str().to_string();
+        let seed = mnemonic.to_seed(None);
 
         let mut seed_bytes = [0u8; 64];
         seed_bytes.copy_from_slice(seed.as_bytes());
@@ -77,9 +74,9 @@ impl ExtendedWallet {
 
     /// Create from mnemonic phrase.
     pub fn from_mnemonic(phrase: &str) -> Result<Self, String> {
-        let mnemonic = Mnemonic::new(phrase, bip32::Language::English)
+        let mnemonic = Mnemonic::from_phrase(phrase)
             .map_err(|e| format!("Invalid mnemonic: {}", e))?;
-        let seed = mnemonic.to_seed("");
+        let seed = mnemonic.to_seed(None);
 
         let mut seed_bytes = [0u8; 64];
         seed_bytes.copy_from_slice(seed.as_bytes());
@@ -256,9 +253,8 @@ impl ExtendedWallet {
 
 /// Generate a unique ID.
 fn generate_uuid() -> String {
-    use rand::Rng;
     let mut rng = rand::thread_rng();
-    let bytes: [u8; 16] = rng.gen();
+    let bytes: [u8; 16] = rng.r#gen();
     format!(
         "{:08x}-{:04x}-{:04x}-{:04x}-{:012x}",
         u32::from_ne_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]),

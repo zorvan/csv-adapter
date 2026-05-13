@@ -126,7 +126,7 @@ fn flow_visualization(
                         "\u{1F48E}"
                     }
                     span { class: "text-sm font-medium", "Sanad" }
-                    if let Some(ref r) = sanad {
+                    if let Some(r) = sanad {
                         span { class: "text-xs text-gray-400", "{truncate_address(&r.id, 6)}" }
                     }
                 }
@@ -145,7 +145,7 @@ fn flow_visualization(
                         "\u{1F512}"
                     }
                     span { class: "text-sm font-medium", "Seal" }
-                    if let Some(ref s) = seal {
+                    if let Some(s) = seal {
                         span { class: "text-xs text-gray-400", "{s.status}" }
                     } else {
                         span { class: "text-xs text-gray-500", "Not created" }
@@ -216,7 +216,7 @@ fn flow_status_text(
     proofs: &[ProofRecord],
     dest_sanad: &Option<TrackedSanad>,
 ) -> String {
-    if let Some(ref r) = sanad {
+    if let Some(r) = sanad {
         match r.status {
             SanadStatus::Active => {
                 if seal.is_none() {

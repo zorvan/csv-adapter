@@ -146,14 +146,18 @@ fn derive_key(password: &str, salt: &[u8]) -> Key<Aes256Gcm> {
     let argon2 = Argon2::new(argon2::Algorithm::Argon2id, argon2::Version::V0x13, params);
     
     // Hash the password with the salt
-    let salt_string = SaltString::encode(&salt);
+    let salt_string = SaltString::encode_b64(&salt)
+        .expect("Invalid salt for base64 encoding");
     let password_hash = argon2
         .hash_password(password.as_bytes(), &salt_string)
         .expect("Failed to hash password")
         .hash;
     
     // Extract the hash bytes (first 32 bytes for AES-256)
-    let hash_bytes = password_hash.as_bytes();
+    let hash_bytes = password_hash
+        .as_ref()
+        .expect("Hash should be present")
+        .as_bytes();
     let mut key = Key::<Aes256Gcm>::default();
     key.copy_from_slice(&hash_bytes[..32]);
     key

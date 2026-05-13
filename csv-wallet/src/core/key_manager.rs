@@ -97,13 +97,18 @@ impl HasErrorSuggestion for KeyError {
 }
 
 /// Key manager handling multi-chain key operations.
-#[derive(ZeroizeOnDrop)]
 pub struct KeyManager {
     /// Wallet seed (64 bytes from BIP-39) - zeroized on drop
     seed: [u8; 64],
     /// Optional native keystore for persistent key storage
     #[cfg(not(target_arch = "wasm32"))]
     keystore: Option<NativeKeystore>,
+}
+
+impl Drop for KeyManager {
+    fn drop(&mut self) {
+        self.seed.zeroize();
+    }
 }
 
 impl KeyManager {
