@@ -6,10 +6,15 @@
 //! When the `quorum` feature is enabled, this client makes actual HTTP JSON-RPC
 //! calls to multiple providers and uses consensus to determine the correct response.
 
+use alloc::sync::Arc;
 use alloc::vec::Vec;
 use serde_json;
+use std::sync::Mutex;
 
 use crate::error::Result;
+
+#[cfg(feature = "observability")]
+use csv_observability::metrics::RpcMetrics;
 
 /// RPC provider configuration
 #[derive(Clone, Debug)]
@@ -142,6 +147,8 @@ pub struct QuorumClient {
     providers: Vec<RpcProvider>,
     config: QuorumConfig,
     http_client: reqwest::Client,
+    #[cfg(feature = "observability")]
+    metrics: Arc<Mutex<RpcMetrics>>,
 }
 
 #[cfg(feature = "quorum")]
@@ -157,12 +164,20 @@ impl QuorumClient {
             providers,
             config,
             http_client,
+            #[cfg(feature = "observability")]
+            metrics: Arc::new(Mutex::new(RpcMetrics::new())),
         }
     }
 
     /// Create a quorum client with default configuration.
     pub fn with_defaults(providers: Vec<RpcProvider>) -> Self {
         Self::new(providers, QuorumConfig::default())
+    }
+
+    /// Get a reference to the metrics collector.
+    #[cfg(feature = "observability")]
+    pub fn metrics(&self) -> Arc<Mutex<RpcMetrics>> {
+        self.metrics.clone()
     }
 
     /// Query all providers in parallel and return responses.
@@ -178,6 +193,8 @@ impl QuorumClient {
             let timeout = provider.timeout_ms;
             let method = method.to_string();
             let params = params.to_vec();
+            #[cfg(feature = "observability")]
+            let metrics = self.metrics.clone();
 
             let handle = tokio::spawn(async move {
                 let start = std::time::Instant::now();
@@ -203,6 +220,11 @@ impl QuorumClient {
                     Ok(response) => {
                         let status = response.status();
                         if !status.is_success() {
+                            #[cfg(feature = "observability")]
+                            {
+                                let mut m = metrics.lock().unwrap();
+                                m.record_failure(&url);
+                            }
                             return RpcResponse {
                                 provider: url,
                                 data: Vec::new(),
@@ -219,6 +241,11 @@ impl QuorumClient {
                         let text = match response.text().await {
                             Ok(t) => t,
                             Err(e) => {
+                                #[cfg(feature = "observability")]
+                                {
+                                    let mut m = metrics.lock().unwrap();
+                                    m.record_failure(&url);
+                                }
                                 return RpcResponse {
                                     provider: url.clone(),
                                     data: Vec::new(),
@@ -240,6 +267,11 @@ impl QuorumClient {
                         match rpc_response {
                             Ok(inner) => {
                                 if let Some(ref err) = inner.error {
+                                    #[cfg(feature = "observability")]
+                                    {
+                                        let mut m = metrics.lock().unwrap();
+                                        m.record_failure(&url);
+                                    }
                                     RpcResponse {
                                         provider: url,
                                         data: Vec::new(),
@@ -255,6 +287,11 @@ impl QuorumClient {
                                     let data = match serde_json::to_vec(&result) {
                                         Ok(d) => d,
                                         Err(e) => {
+                                            #[cfg(feature = "observability")]
+                                            {
+                                                let mut m = metrics.lock().unwrap();
+                                                m.record_failure(&url);
+                                            }
                                             return RpcResponse {
                                                 provider: url,
                                                 data: Vec::new(),
@@ -271,6 +308,11 @@ impl QuorumClient {
                                             };
                                         }
                                     };
+                                    #[cfg(feature = "observability")]
+                                    {
+                                        let mut m = metrics.lock().unwrap();
+                                        m.record_success(&url, latency_ms);
+                                    }
                                     RpcResponse {
                                         provider: url,
                                         data,
@@ -283,6 +325,11 @@ impl QuorumClient {
                                         latency_ms,
                                     }
                                 } else {
+                                    #[cfg(feature = "observability")]
+                                    {
+                                        let mut m = metrics.lock().unwrap();
+                                        m.record_failure(&url);
+                                    }
                                     RpcResponse {
                                         provider: url,
                                         data: Vec::new(),
@@ -297,6 +344,11 @@ impl QuorumClient {
                                 }
                             }
                             Err(e) => {
+                                #[cfg(feature = "observability")]
+                                {
+                                    let mut m = metrics.lock().unwrap();
+                                    m.record_failure(&url);
+                                }
                                 RpcResponse {
                                     provider: url,
                                     data: Vec::new(),
@@ -311,16 +363,27 @@ impl QuorumClient {
                             }
                         }
                     }
-                    Err(e) => RpcResponse {
-                        provider: url,
-                        data: Vec::new(),
-                        success: false,
-                        error: Some(format!("Request failed: {}", e)),
-                        timestamp_ms: std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap_or_default()
-                            .as_millis() as u64,
-                        latency_ms,
+                    Err(e) => {
+                        #[cfg(feature = "observability")]
+                        {
+                            let mut m = metrics.lock().unwrap();
+                            if e.is_timeout() {
+                                m.record_timeout(&url);
+                            } else {
+                                m.record_failure(&url);
+                            }
+                        }
+                        RpcResponse {
+                            provider: url,
+                            data: Vec::new(),
+                            success: false,
+                            error: Some(format!("Request failed: {}", e)),
+                            timestamp_ms: std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_millis() as u64,
+                            latency_ms,
+                        }
                     },
                 }
             });
@@ -403,6 +466,11 @@ impl QuorumClient {
                     "Quorum disagreement: provider {} returned different data than reference",
                     response.provider
                 );
+                #[cfg(feature = "observability")]
+                {
+                    let mut m = self.metrics.lock().unwrap();
+                    m.record_disagreement();
+                }
                 return None;
             }
         }
@@ -471,17 +539,30 @@ impl QuorumClient {
 pub struct QuorumClient {
     providers: Vec<RpcProvider>,
     config: QuorumConfig,
+    #[cfg(feature = "observability")]
+    metrics: Arc<Mutex<RpcMetrics>>,
 }
 
 #[cfg(not(feature = "quorum"))]
 #[allow(dead_code, missing_docs)]
 impl QuorumClient {
     pub fn new(providers: Vec<RpcProvider>, config: QuorumConfig) -> Self {
-        Self { providers, config }
+        Self {
+            providers,
+            config,
+            #[cfg(feature = "observability")]
+            metrics: Arc::new(Mutex::new(RpcMetrics::new())),
+        }
     }
 
     pub fn with_defaults(providers: Vec<RpcProvider>) -> Self {
         Self::new(providers, QuorumConfig::default())
+    }
+
+    /// Get a reference to the metrics collector.
+    #[cfg(feature = "observability")]
+    pub fn metrics(&self) -> Arc<Mutex<RpcMetrics>> {
+        self.metrics.clone()
     }
 
     pub async fn query_all(&self, _method: &str, _params: &[serde_json::Value]) -> Vec<RpcResponse> {

@@ -91,6 +91,12 @@ pub struct CsvEvent {
     pub data: EventData,
     /// Optional metadata
     pub metadata: Option<serde_json::Value>,
+    /// Correlation ID for tracking related events across the system
+    pub correlation_id: Option<String>,
+    /// Transfer ID if this event is associated with a cross-chain transfer
+    pub transfer_id: Option<String>,
+    /// Operation ID for the specific operation that generated this event
+    pub operation_id: Option<String>,
 }
 
 /// Event data variants
@@ -233,6 +239,9 @@ impl CsvEvent {
                 metadata,
             },
             metadata: None,
+            correlation_id: None,
+            transfer_id: None,
+            operation_id: None,
         }
     }
 
@@ -258,6 +267,9 @@ impl CsvEvent {
                 consumed_by: consumed_by.to_string(),
             },
             metadata: None,
+            correlation_id: None,
+            transfer_id: None,
+            operation_id: None,
         }
     }
 
@@ -286,6 +298,9 @@ impl CsvEvent {
                 metadata,
             },
             metadata: None,
+            correlation_id: None,
+            transfer_id: None,
+            operation_id: None,
         }
     }
 
@@ -316,6 +331,9 @@ impl CsvEvent {
                 proof_hash,
             },
             metadata: None,
+            correlation_id: None,
+            transfer_id: None,
+            operation_id: None,
         }
     }
 
@@ -346,6 +364,9 @@ impl CsvEvent {
                 proof_hash,
             },
             metadata: None,
+            correlation_id: None,
+            transfer_id: None,
+            operation_id: None,
         }
     }
 
@@ -374,6 +395,9 @@ impl CsvEvent {
                 refunded_to: refunded_to.to_string(),
             },
             metadata: None,
+            correlation_id: None,
+            transfer_id: None,
+            operation_id: None,
         }
     }
 
@@ -398,6 +422,9 @@ impl CsvEvent {
                 chain: chain.to_string(),
             },
             metadata: None,
+            correlation_id: None,
+            transfer_id: None,
+            operation_id: None,
         }
     }
 
@@ -418,6 +445,9 @@ impl CsvEvent {
             timestamp,
             data: EventData::SanadMetadataRecorded { sanad_id, metadata },
             metadata: None,
+            correlation_id: None,
+            transfer_id: None,
+            operation_id: None,
         }
     }
 
@@ -442,6 +472,9 @@ impl CsvEvent {
                 validator: validator.to_string(),
             },
             metadata: None,
+            correlation_id: None,
+            transfer_id: None,
+            operation_id: None,
         }
     }
 
@@ -466,6 +499,9 @@ impl CsvEvent {
                 reason: reason.to_string(),
             },
             metadata: None,
+            correlation_id: None,
+            transfer_id: None,
+            operation_id: None,
         }
     }
 
@@ -492,6 +528,9 @@ impl CsvEvent {
                 replay_timestamp,
             },
             metadata: None,
+            correlation_id: None,
+            transfer_id: None,
+            operation_id: None,
         }
     }
 
@@ -518,6 +557,9 @@ impl CsvEvent {
                 disagreement_type: disagreement_type.to_string(),
             },
             metadata: None,
+            correlation_id: None,
+            transfer_id: None,
+            operation_id: None,
         }
     }
 
@@ -544,6 +586,9 @@ impl CsvEvent {
                 depth,
             },
             metadata: None,
+            correlation_id: None,
+            transfer_id: None,
+            operation_id: None,
         }
     }
 
@@ -570,6 +615,9 @@ impl CsvEvent {
                 transfers_affected,
             },
             metadata: None,
+            correlation_id: None,
+            transfer_id: None,
+            operation_id: None,
         }
     }
 
@@ -596,7 +644,28 @@ impl CsvEvent {
                 details: details.to_string(),
             },
             metadata: None,
+            correlation_id: None,
+            transfer_id: None,
+            operation_id: None,
         }
+    }
+
+    /// Set the correlation ID for this event
+    pub fn with_correlation_id(mut self, correlation_id: String) -> Self {
+        self.correlation_id = Some(correlation_id);
+        self
+    }
+
+    /// Set the transfer ID for this event
+    pub fn with_transfer_id(mut self, transfer_id: String) -> Self {
+        self.transfer_id = Some(transfer_id);
+        self
+    }
+
+    /// Set the operation ID for this event
+    pub fn with_operation_id(mut self, operation_id: String) -> Self {
+        self.operation_id = Some(operation_id);
+        self
     }
 }
 
@@ -676,6 +745,62 @@ impl EventIndexerRegistry {
             events.extend(indexer_events);
         }
         Ok(events)
+    }
+}
+
+/// Structured JSON event formatter
+pub struct JsonEventFormatter {
+    /// Pretty print JSON output
+    pretty: bool,
+}
+
+impl JsonEventFormatter {
+    /// Create a new JSON formatter
+    pub fn new() -> Self {
+        Self { pretty: false }
+    }
+
+    /// Create a new JSON formatter with pretty printing
+    pub fn pretty() -> Self {
+        Self { pretty: true }
+    }
+
+    /// Format a single event as JSON
+    pub fn format_event(&self, event: &CsvEvent) -> Result<String, serde_json::Error> {
+        if self.pretty {
+            serde_json::to_string_pretty(event)
+        } else {
+            serde_json::to_string(event)
+        }
+    }
+
+    /// Format multiple events as a JSON array
+    pub fn format_events(&self, events: &[CsvEvent]) -> Result<String, serde_json::Error> {
+        if self.pretty {
+            serde_json::to_string_pretty(events)
+        } else {
+            serde_json::to_string(events)
+        }
+    }
+
+    /// Format event as a structured log line
+    pub fn format_log_line(&self, event: &CsvEvent) -> String {
+        let timestamp = event.timestamp;
+        let event_type = &event.event_type;
+        let chain = &event.chain;
+        let correlation_id = event.correlation_id.as_deref().unwrap_or("N/A");
+        let transfer_id = event.transfer_id.as_deref().unwrap_or("N/A");
+
+        format!(
+            "{{\"timestamp\":{},\"event_type\":\"{}\",\"chain\":\"{}\",\"correlation_id\":\"{}\",\"transfer_id\":\"{}\"}}",
+            timestamp, event_type, chain, correlation_id, transfer_id
+        )
+    }
+}
+
+impl Default for JsonEventFormatter {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

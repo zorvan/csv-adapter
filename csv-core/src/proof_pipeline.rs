@@ -27,11 +27,14 @@
 //! - `proof_rejected` when validation fails
 //! - `replay_detected` when a replay attempt is detected
 
+use alloc::sync::Arc;
 use alloc::vec::Vec;
+use std::sync::Mutex;
 
 use crate::domain_hash::DomainSeparatedHash;
 use crate::domains::{ProofBundleDomain, ReplayRegistryDomain};
 use crate::error::Result;
+use crate::events::{CsvEvent, EventIndexerRegistry};
 use crate::hash::Hash;
 use crate::proof::{FinalityProof, InclusionProof, ProofBundle};
 use crate::protocol_version::ChainId;
@@ -96,6 +99,7 @@ pub struct ValidationResult {
 /// * `verifier` - Chain-specific verifier implementation
 /// * `source_chain` - Source chain ID
 /// * `destination_chain` - Destination chain ID
+/// * `event_registry` - Optional event registry for emitting events
 ///
 /// # Returns
 ///
@@ -105,6 +109,7 @@ pub async fn validate_proof_bundle(
     verifier: &dyn ChainVerifier,
     source_chain: ChainId,
     destination_chain: ChainId,
+    event_registry: Option<Arc<Mutex<EventIndexerRegistry>>>,
 ) -> ValidationResult {
     let mut steps = Vec::with_capacity(10);
 
@@ -112,6 +117,7 @@ pub async fn validate_proof_bundle(
     let step1 = validate_structural(bundle);
     steps.push(step1.clone());
     if !step1.passed {
+        emit_proof_rejected_event(&event_registry, &source_chain, bundle, step1.error.as_deref()).await;
         return ValidationResult {
             accepted: false,
             steps,
@@ -123,6 +129,7 @@ pub async fn validate_proof_bundle(
     let step2 = validate_domain(bundle, &source_chain, &destination_chain);
     steps.push(step2.clone());
     if !step2.passed {
+        emit_proof_rejected_event(&event_registry, &source_chain, bundle, step2.error.as_deref()).await;
         return ValidationResult {
             accepted: false,
             steps,
@@ -134,6 +141,7 @@ pub async fn validate_proof_bundle(
     let step3 = validate_inclusion_proof(bundle, verifier).await;
     steps.push(step3.clone());
     if !step3.passed {
+        emit_proof_rejected_event(&event_registry, &source_chain, bundle, step3.error.as_deref()).await;
         return ValidationResult {
             accepted: false,
             steps,
@@ -145,6 +153,7 @@ pub async fn validate_proof_bundle(
     let step4 = validate_zk_proof(bundle, verifier).await;
     steps.push(step4.clone());
     if !step4.passed {
+        emit_proof_rejected_event(&event_registry, &source_chain, bundle, step4.error.as_deref()).await;
         return ValidationResult {
             accepted: false,
             steps,
@@ -156,6 +165,7 @@ pub async fn validate_proof_bundle(
     let step5 = validate_finality(bundle, verifier).await;
     steps.push(step5.clone());
     if !step5.passed {
+        emit_proof_rejected_event(&event_registry, &source_chain, bundle, step5.error.as_deref()).await;
         return ValidationResult {
             accepted: false,
             steps,
@@ -175,6 +185,24 @@ pub async fn validate_proof_bundle(
             source_chain,
             destination_chain
         );
+
+        if let Some(ref registry) = event_registry {
+            let timestamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
+            let event = CsvEvent::replay_detected(
+                source_chain.as_str(),
+                bundle.inclusion_proof.block_height,
+                &hex::encode(proof_hash.as_bytes()),
+                timestamp,
+                proof_hash,
+                timestamp - 3600, // Original timestamp (1 hour ago for example)
+                timestamp,
+            );
+            let _ = registry.lock().unwrap().emit(event).await;
+        }
+
         return ValidationResult {
             accepted: false,
             steps,
@@ -186,6 +214,7 @@ pub async fn validate_proof_bundle(
     let step7 = validate_seal_registry(bundle, verifier).await;
     steps.push(step7.clone());
     if !step7.passed {
+        emit_proof_rejected_event(&event_registry, &source_chain, bundle, step7.error.as_deref()).await;
         return ValidationResult {
             accepted: false,
             steps,
@@ -197,6 +226,7 @@ pub async fn validate_proof_bundle(
     let step8 = validate_transition_legality(bundle);
     steps.push(step8.clone());
     if !step8.passed {
+        emit_proof_rejected_event(&event_registry, &source_chain, bundle, step8.error.as_deref()).await;
         return ValidationResult {
             accepted: false,
             steps,
@@ -208,6 +238,7 @@ pub async fn validate_proof_bundle(
     let step9 = validate_signature(bundle, verifier).await;
     steps.push(step9.clone());
     if !step9.passed {
+        emit_proof_rejected_event(&event_registry, &source_chain, bundle, step9.error.as_deref()).await;
         return ValidationResult {
             accepted: false,
             steps,
@@ -232,10 +263,51 @@ pub async fn validate_proof_bundle(
         destination_chain
     );
 
+    if let Some(ref registry) = event_registry {
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        let event = CsvEvent::proof_accepted(
+            source_chain.as_str(),
+            bundle.inclusion_proof.block_height,
+            &hex::encode(proof_hash.as_bytes()),
+            timestamp,
+            proof_hash,
+            "proof_pipeline",
+        );
+        let _ = registry.lock().unwrap().emit(event).await;
+    }
+
     ValidationResult {
         accepted: true,
         steps,
         error: None,
+    }
+}
+
+/// Helper function to emit proof_rejected event
+async fn emit_proof_rejected_event(
+    event_registry: &Option<Arc<Mutex<EventIndexerRegistry>>>,
+    source_chain: &ChainId,
+    bundle: &ProofBundle,
+    error: Option<&str>,
+) {
+    if let Some(ref registry) = event_registry {
+        let proof_hash = DomainSeparatedHash::<ProofBundleDomain>::hash(&bundle.inclusion_proof.proof_bytes);
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        let event = CsvEvent::proof_rejected(
+            source_chain.as_str(),
+            bundle.inclusion_proof.block_height,
+            &hex::encode(proof_hash.as_bytes()),
+            timestamp,
+            proof_hash,
+            error.unwrap_or("validation failed"),
+        );
+        let _ = registry.lock().unwrap().emit(event).await;
     }
 }
 

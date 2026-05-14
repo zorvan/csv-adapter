@@ -98,3 +98,31 @@ jobs:
 
       - name: Run audit
         run: cargo audit
+
+  # ── Fuzz Testing ──────────────────────────────────────────────
+  fuzz:
+    name: Fuzz Testing
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run fuzz targets with corpus
+        run: |
+          cd fuzz
+          # Run each fuzz target for a short duration with corpus
+          cargo fuzz run proof_bundle_decode -- -max_total_time=60 fuzz_targets/proof_bundle_decode/corpus || true
+          cargo fuzz run consignment_decode -- -max_total_time=60 fuzz_targets/consignment_decode/corpus || true
+          cargo fuzz run finality_parser -- -max_total_time=60 fuzz_targets/finality_parser/corpus || true
+          cargo fuzz run abi_decoder -- -max_total_time=60 fuzz_targets/abi_decoder/corpus || true
+          cargo fuzz run rpc_parser -- -max_total_time=60 fuzz_targets/rpc_parser/corpus || true

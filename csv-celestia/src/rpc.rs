@@ -18,6 +18,11 @@
 //! - `/api/v0/cat` - Retrieve data by CID
 //! - `/api/v0/pin/add` - Pin content
 //! - `/api/v0/block/stat` - Get content stats
+//!
+//! ## Quorum Support
+//!
+//! When the `quorum` feature is enabled, RPC calls use a quorum client
+//! to query multiple providers and reach consensus before accepting responses.
 
 use serde::{Deserialize, Serialize};
 
@@ -37,6 +42,9 @@ use crate::namespace::Namespace;
 #[cfg(feature = "rpc")]
 use crate::types::{CelestiaFinalityProof, CelestiaHeader};
 
+#[cfg(all(feature = "rpc", feature = "quorum"))]
+use csv_core::rpc::{QuorumClient, QuorumConfig, RpcProvider};
+
 /// Celestia node RPC client
 #[derive(Clone, Debug)]
 pub struct CelestiaNode {
@@ -45,6 +53,9 @@ pub struct CelestiaNode {
     /// HTTP client
     #[cfg(feature = "rpc")]
     client: reqwest::Client,
+    /// Quorum client for multi-provider consensus (when quorum feature is enabled)
+    #[cfg(all(feature = "rpc", feature = "quorum"))]
+    quorum_client: Option<QuorumClient>,
 }
 
 impl CelestiaNode {
@@ -54,6 +65,30 @@ impl CelestiaNode {
         Self {
             endpoint: endpoint.into(),
             client: reqwest::Client::new(),
+            #[cfg(feature = "quorum")]
+            quorum_client: None,
+        }
+    }
+
+    /// Create a new RPC client with quorum support
+    #[cfg(all(feature = "rpc", feature = "quorum"))]
+    pub fn new_with_quorum(
+        endpoints: Vec<String>,
+        config: QuorumConfig,
+    ) -> Self {
+        let providers: Vec<RpcProvider> = endpoints
+            .into_iter()
+            .map(|url| RpcProvider::new(url))
+            .collect();
+
+        let quorum_client = QuorumClient::new(providers, config);
+
+        Self {
+            endpoint: quorum_client.providers.get(0)
+                .map(|p| p.url.clone())
+                .unwrap_or_else(|| "http://localhost:26658".to_string()),
+            client: reqwest::Client::new(),
+            quorum_client: Some(quorum_client),
         }
     }
 
@@ -171,6 +206,19 @@ impl CelestiaRpc for CelestiaNode {
     }
 
     async fn get_latest_height(&self) -> Result<u64> {
+        #[cfg(all(feature = "rpc", feature = "quorum"))]
+        if let Some(ref quorum) = self.quorum_client {
+            let data = quorum
+                .query_quorum("header.GetLatestHeight", &[])
+                .await
+                .map_err(|e| CelestiaError::RpcError(format!("Quorum error: {}", e)))?;
+            let result: serde_json::Value = serde_json::from_slice(&data)
+                .map_err(|e| CelestiaError::RpcError(format!("JSON error: {}", e)))?;
+            return result["result"]
+                .as_u64()
+                .ok_or_else(|| CelestiaError::RpcError("Missing height in response".to_string()));
+        }
+
         let request = self.build_request("header.GetLatestHeight", serde_json::json!([]));
 
         let response = self

@@ -194,11 +194,30 @@ pub async fn get_transfer(
 {
     let repo = TransfersRepository::new(pool);
 
-    let transfer = repo.get(&id).await.map_err(explorer_error)?;
+    let mut transfer = repo.get(&id).await.map_err(explorer_error)?;
 
     match transfer {
-        Some(t) => Ok(Json(ApiResponse::from(t))),
+        Some(ref mut t) => {
+            // Populate block explorer URLs based on chain
+            t.lock_tx_explorer_url = Some(get_explorer_url(&t.from_chain, &t.lock_tx));
+            if let Some(ref mint_tx) = t.mint_tx {
+                t.mint_tx_explorer_url = Some(get_explorer_url(&t.to_chain, mint_tx));
+            }
+            Ok(Json(ApiResponse::from(t.clone())))
+        },
         None => Err(not_found(&format!("Transfer {} not found", id))),
+    }
+}
+
+/// Get block explorer URL for a transaction on a specific chain.
+fn get_explorer_url(chain: &str, tx_hash: &str) -> String {
+    match chain.to_lowercase().as_str() {
+        "bitcoin" => format!("https://blockstream.info/testnet/tx/{}", tx_hash),
+        "ethereum" => format!("https://sepolia.etherscan.io/tx/{}", tx_hash),
+        "solana" => format!("https://explorer.solana.com/tx/{}?cluster=devnet", tx_hash),
+        "sui" => format!("https://suiscan.xyz/testnet/tx/{}", tx_hash),
+        "aptos" => format!("https://explorer.aptoslabs.com/txn/{}?network=testnet", tx_hash),
+        _ => format!("https://explorer.example.com/tx/{}", tx_hash),
     }
 }
 

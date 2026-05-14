@@ -3,6 +3,10 @@
 //! Detects blockchain reorganizations by comparing current chain state
 //! with previously known state.
 
+use alloc::sync::Arc;
+use std::sync::Mutex;
+
+use crate::events::{CsvEvent, EventIndexerRegistry};
 use crate::hash::Hash;
 use crate::protocol_version::ChainId;
 
@@ -27,6 +31,8 @@ pub struct ReorgEvent {
 pub struct ReorgDetector {
     /// Last known block hashes per chain
     last_known: alloc::collections::BTreeMap<String, (u64, Hash)>,
+    /// Event registry for emitting reorg events
+    event_registry: Option<Arc<Mutex<EventIndexerRegistry>>>,
 }
 
 impl ReorgDetector {
@@ -34,6 +40,15 @@ impl ReorgDetector {
     pub fn new() -> Self {
         Self {
             last_known: alloc::collections::BTreeMap::new(),
+            event_registry: None,
+        }
+    }
+
+    /// Create a new reorg detector with event registry
+    pub fn with_event_registry(registry: Arc<Mutex<EventIndexerRegistry>>) -> Self {
+        Self {
+            last_known: alloc::collections::BTreeMap::new(),
+            event_registry: Some(registry),
         }
     }
 
@@ -42,30 +57,70 @@ impl ReorgDetector {
     /// Returns Some(ReorgEvent) if a reorg is detected, None otherwise.
     pub fn update(&mut self, chain: ChainId, height: u64, hash: Hash) -> Option<ReorgEvent> {
         let chain_str = chain.as_str().to_string();
-        
+
         match self.last_known.get(&chain_str) {
             Some((last_height, last_hash)) => {
                 if height < *last_height {
                     // Reorg detected - chain rolled back
                     let depth = last_height - height;
-                    Some(ReorgEvent {
-                        chain,
+                    let event = ReorgEvent {
+                        chain: chain.clone(),
                         old_height: *last_height,
                         new_height: height,
                         old_hash: *last_hash,
                         new_hash: hash,
                         depth,
-                    })
+                    };
+
+                    // Emit reorg_detected event
+                    if let Some(ref registry) = self.event_registry {
+                        let timestamp = std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_secs();
+                        let csv_event = CsvEvent::reorg_detected(
+                            chain.as_str(),
+                            height,
+                            &hex::encode(hash.as_bytes()),
+                            timestamp,
+                            *last_height,
+                            height,
+                            depth,
+                        );
+                        let _ = registry.lock().unwrap().emit(csv_event).await;
+                    }
+
+                    Some(event)
                 } else if height == *last_height && hash != *last_hash {
                     // Same height but different hash - reorg at same height
-                    Some(ReorgEvent {
-                        chain,
+                    let event = ReorgEvent {
+                        chain: chain.clone(),
                         old_height: *last_height,
                         new_height: height,
                         old_hash: *last_hash,
                         new_hash: hash,
                         depth: 0,
-                    })
+                    };
+
+                    // Emit reorg_detected event
+                    if let Some(ref registry) = self.event_registry {
+                        let timestamp = std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_secs();
+                        let csv_event = CsvEvent::reorg_detected(
+                            chain.as_str(),
+                            height,
+                            &hex::encode(hash.as_bytes()),
+                            timestamp,
+                            *last_height,
+                            height,
+                            0,
+                        );
+                        let _ = registry.lock().unwrap().emit(csv_event).await;
+                    }
+
+                    Some(event)
                 } else {
                     // Normal progression
                     self.last_known.insert(chain_str, (height, hash));

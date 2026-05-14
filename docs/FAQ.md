@@ -22,6 +22,22 @@ Most interoperability solutions focus on "messaging" or "bridging." CSV (Client-
 
 A "Bridge" implies a middleman or a vault where assets are locked. In CSV, we are not locking assets to mint synthetic versions; we are evolving the state of an asset and "sealing" that evolution on a new chain. By removing the bridge narrative, we remove the "Bridge Hack" risk profile.
 
+### "Who pays for the destination chain mint?"
+
+Fee escrow in source-chain native token.
+
+When a transfer is initiated, the sender escrows a small amount of the source chain's native asset (e.g., a few basis points of gas equivalent). This amount is released to the proof-delivery operator upon cryptographic confirmation of successful destination mint. No new token is issued. 
+
+Operators run Nostr relay nodes and are economically incentivized by the escrow release. The protocol enforces this at the smart contract level.
+
+This model:
+
+- Requires no new token (correct — no token before Series A)
+- Aligns proof-delivery node operator incentives
+- Is verifiable on-chain
+- Has a clear answer for every partner question about economics
+
+
 ## 2. Technical Security & Verification
 
 ### "If I lose my Proof Bundle, I lose my money. This is too risky for users."

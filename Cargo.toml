@@ -1,44 +1,88 @@
+[package]
+name = "csv-adapter"
+version = "0.1.0"
+edition = "2021"
+
 [workspace]
 members = [
     "csv-core",
     "csv-bitcoin",
-    "csv-celestia",
     "csv-ethereum",
+    "csv-solana",
     "csv-sui",
     "csv-aptos",
-    "csv-solana",
-    "csv-store",
-    "csv-keys",
+    "csv-celestia",
     "csv-sdk",
     "csv-cli",
     "csv-wallet",
+    "csv-keys",
+    "csv-store",
     "csv-p2p",
-    "csv-stark",
     "csv-observability",
+    "csv-explorer/api",
+    "csv-explorer/shared",
+    "csv-explorer/storage",
+    "csv-explorer/indexer",
+    "csv-stark",
+    "csv-mcp-server",
+    "typescript-sdk/wasm",
+    "xtask",
     "fuzz",
 ]
-resolver = "2"
 
 [workspace.package]
-version = "0.4.0"
-authors = ["Amin Razavi, ALL FREE LLMs"]
-repository = "https://github.com/client-side-validation/csv-protocol"
-homepage = "https://github.com/client-side-validation/csv-protocol"
+version = "0.1.0"
 license = "MIT OR Apache-2.0"
-edition = "2024"
-rust-version = "1.95"
+repository = "https://github.com/csv-protocol/csv-adapter"
 
 [workspace.dependencies]
-parking_lot = "0.12"
-serde = { version = "1.0.227", features = ["derive"] }
-serde_json = "1.0"
-toml = { version = "0.8", features = ["parse"] }
-# Force aws-lc-sys >= 0.39 to fix RUSTSEC-2026-0044 and RUSTSEC-2026-0048
-aws-lc-sys = "0.39"
-
+# Core
 csv-core = { path = "csv-core" }
+
+# Chain adapters
+csv-bitcoin = { path = "csv-bitcoin" }
+csv-ethereum = { path = "csv-ethereum" }
+csv-solana = { path = "csv-solana" }
+csv-sui = { path = "csv-sui" }
+csv-aptos = { path = "csv-aptos" }
+csv-celestia = { path = "csv-celestia" }
+
+# SDK and tooling
+csv-sdk = { path = "csv-sdk" }
+csv-cli = { path = "csv-cli" }
+csv-wallet = { path = "csv-wallet" }
 csv-keys = { path = "csv-keys" }
 csv-store = { path = "csv-store" }
+csv-p2p = { path = "csv-p2p" }
+csv-observability = { path = "csv-observability" }
+
+# Explorer
+csv-explorer-shared = { path = "csv-explorer/shared" }
+csv-explorer-storage = { path = "csv-explorer/storage" }
+csv-explorer-api = { path = "csv-explorer/api" }
+csv-explorer-indexer = { path = "csv-explorer/indexer" }
+
+# Other
+csv-stark = { path = "csv-stark" }
+csv-mcp-server = { path = "csv-mcp-server" }
+
+# Crypto & security
+sha2 = "0.10"
+hmac = "0.12"
+pbkdf2 = "0.12"
+aes-gcm = "0.10"
+scrypt = { version = "0.11", default-features = false }
+bip39 = { version = "2.0", features = ["rand"] }
+zeroize = { version = "1.7", features = ["derive"] }
+
+# Web & WASM
+web-sys = { version = "0.3", features = ["Storage", "Window"] }
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+gloo-timers = "0.2"
+dioxus = "0.5"
+dioxus-web = "0.5"
+dioxus-desktop = "0.5"
 
 # csv-explorer dependencies
 tokio = { version = "1", features = ["full"] }
@@ -65,24 +109,6 @@ anyhow = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.0", features = ["v4", "serde"] }
 config = "0.14"
-
-# Crypto & security
-sha2 = "0.10"
-hmac = "0.12"
-pbkdf2 = "0.12"
-aes-gcm = "0.10"
-scrypt = { version = "0.11", default-features = false }
-bip39 = { version = "2.0", features = ["rand"] }
-zeroize = { version = "1.7", features = ["derive"] }
-
-# Web & WASM
-web-sys = { version = "0.3", features = ["Storage", "Window"] }
-wasm-bindgen = "0.2"
-wasm-bindgen-futures = "0.4"
-gloo-timers = "0.2"
-dioxus = "0.5"
-dioxus-web = "0.5"
-dioxus-desktop = "0.5"
 
 [workspace.lints.rust]
 missing_docs = "warn"
