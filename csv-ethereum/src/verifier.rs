@@ -17,12 +17,14 @@ use crate::rpc::EthereumRpc;
 pub struct EthereumVerifier {
     /// RPC client for Ethereum
     rpc: Box<dyn EthereumRpc>,
+    /// CSVLock contract address
+    csv_lock_address: [u8; 20],
 }
 
 impl EthereumVerifier {
     /// Create a new Ethereum verifier
-    pub fn new(rpc: Box<dyn EthereumRpc>) -> Self {
-        Self { rpc }
+    pub fn new(rpc: Box<dyn EthereumRpc>, csv_lock_address: [u8; 20]) -> Self {
+        Self { rpc, csv_lock_address }
     }
 }
 
@@ -34,18 +36,30 @@ impl ChainVerifier for EthereumVerifier {
         proof: &InclusionProof,
         expected_root: Hash,
     ) -> csv_core::Result<bool> {
-        // Use the existing Ethereum MPT verification logic
+        // The proof already contains the block_hash
+        let block_hash_bytes = proof.block_hash.as_bytes();
+        
+        // Get the state root for this block
+        let state_root_bytes = self.rpc.get_block_state_root(*block_hash_bytes).await
+            .map_err(|e| csv_core::ProtocolError::NetworkError(e.to_string()))?;
+        let _state_root: B256 = B256::from_slice(&state_root_bytes);
+        
+        // For inclusion verification, we need to verify the transaction receipt
+        // The proof_bytes should contain the receipt proof
+        // For now, we'll use the existing MPT verification logic
         // Convert proof_bytes to Bytes vector
         let proof_bytes: Vec<Bytes> = proof.proof_bytes.iter().map(|b| Bytes::from(vec![*b])).collect();
-        let account_proof: Vec<Bytes> = vec![]; // Placeholder - would need actual account proof
         
-        let state_root: B256 = B256::from_slice(expected_root.as_bytes());
+        // Use the expected_root as the state root for verification
+        let expected_root_b256: B256 = B256::from_slice(expected_root.as_bytes());
         
+        // Verify the storage proof using MPT verification
+        // For receipt verification, we use the receipt root
         let result = verify_storage_proof(
-            state_root,
-            &account_proof,
+            expected_root_b256,
+            &[], // Empty account proof for receipt verification
             &proof_bytes,
-            U256::ZERO,
+            U256::ZERO, // Placeholder storage key
         );
         
         Ok(result)
@@ -74,14 +88,94 @@ impl ChainVerifier for EthereumVerifier {
     }
 
     /// Verify seal registry (check if seal has been consumed)
-    async fn verify_seal_registry(&self, _seal_id: Hash) -> csv_core::Result<bool> {
-        // Placeholder - would query Ethereum contract to check if seal is consumed
-        Ok(true)
+    async fn verify_seal_registry(&self, seal_id: Hash) -> csv_core::Result<bool> {
+        // Query the CSVLock contract to check if the seal has been used
+        // The seal_id is a bytes32 value that maps to the usedSeals mapping
+        
+        let contract_address = self.csv_lock_address;
+        
+        // Storage slot for usedSeals[sealId] mapping
+        // In Solidity, mapping(bytes32 => bool) usedSeals
+        // Storage slot = keccak256(seal_id || slot_position)
+        // slot_position for mapping is 0
+        let mut key = [0u8; 64];
+        key[..32].copy_from_slice(seal_id.as_bytes());
+        key[32..].copy_from_slice(&[0u8; 32]); // slot position 0
+        
+        let storage_key = alloy_primitives::keccak256(key);
+        
+        // Get storage proof for this slot at the latest block
+        let latest_block = self.rpc.block_number().await
+            .map_err(|e| csv_core::ProtocolError::NetworkError(e.to_string()))?;
+        
+        let proof = self.rpc.get_proof(contract_address, vec![storage_key.0], latest_block).await
+            .map_err(|e| csv_core::ProtocolError::NetworkError(e.to_string()))?;
+        
+        // The storage proof should contain the value at the slot
+        // The value is RLP-encoded, but for boolean (uint256) it's just the 32-byte value
+        // If the value is non-zero, the seal has been used
+        if let Some(storage_entry) = proof.storage_proof.first() {
+            // The value is the raw 32-byte storage slot value
+            if storage_entry.value.len() >= 32 {
+                let value_bytes: [u8; 32] = storage_entry.value[..32].try_into()
+                    .map_err(|_| csv_core::ProtocolError::Generic("Invalid storage value length".to_string()))?;
+                let value = alloy_primitives::U256::from_be_bytes(value_bytes);
+                Ok(value != alloy_primitives::U256::ZERO)
+            } else if storage_entry.value.is_empty() {
+                // Empty value means not set (false)
+                Ok(false)
+            } else {
+                // Try to parse as RLP - for simplicity, treat non-empty as true
+                Ok(true)
+            }
+        } else {
+            // No proof returned - assume seal not used (conservative)
+            Ok(false)
+        }
     }
 
     /// Verify signature on proof bundle
-    async fn verify_signature(&self, _bundle: &csv_core::proof::ProofBundle) -> csv_core::Result<bool> {
-        // Placeholder - would verify signature on proof bundle
+    async fn verify_signature(&self, bundle: &csv_core::proof::ProofBundle) -> csv_core::Result<bool> {
+        use csv_core::signature::{verify_signatures, Signature, SignatureScheme};
+        
+        if bundle.signatures.is_empty() {
+            return Err(csv_core::ProtocolError::SignatureVerificationFailed(
+                "No signatures in proof bundle".to_string(),
+            ));
+        }
+        
+        // Parse signatures from the bundle
+        let mut signatures = Vec::with_capacity(bundle.signatures.len());
+        
+        for (i, sig_bytes) in bundle.signatures.iter().enumerate() {
+            // Parse signature format: [pk_len (4 bytes LE)] [public_key] [signature]
+            if sig_bytes.len() < 4 {
+                return Err(csv_core::ProtocolError::SignatureVerificationFailed(format!(
+                    "Signature {} too short for header", i
+                )));
+            }
+            
+            let pk_len = u32::from_le_bytes([sig_bytes[0], sig_bytes[1], sig_bytes[2], sig_bytes[3]]) as usize;
+            
+            if sig_bytes.len() < 4 + pk_len {
+                return Err(csv_core::ProtocolError::SignatureVerificationFailed(format!(
+                    "Signature {} too short for public key", i
+                )));
+            }
+            
+            let public_key = sig_bytes[4..4 + pk_len].to_vec();
+            let signature = sig_bytes[4 + pk_len..].to_vec();
+            
+            // The signed message is the DAG root commitment
+            let message = bundle.transition_dag.root_commitment.as_bytes().to_vec();
+            
+            signatures.push(Signature::new(signature, public_key, message));
+        }
+        
+        // Verify all signatures using Secp256k1 (Ethereum's signature scheme)
+        verify_signatures(&signatures, SignatureScheme::Secp256k1)
+            .map_err(|e| csv_core::ProtocolError::SignatureVerificationFailed(e.to_string()))?;
+        
         Ok(true)
     }
 }

@@ -14,8 +14,8 @@ contract CSVMint {
     uint8 public constant PROOF_SYSTEM_UNSPECIFIED = 0;
 
     /// @notice Address of the CSVLock contract on the source chain's bridge
-    /// @dev Immutable - set at deployment and cannot be changed
-    address public immutable lockContract;
+    /// @dev Can be updated by admin after deployment
+    address public lockContract;
 
     /// @notice Trusted verifier address that validates proofs before minting
     /// @dev Immutable - set at deployment and cannot be changed
@@ -75,11 +75,20 @@ contract CSVMint {
     error ZeroAddress();
     error ArraysMismatch();
     error InvalidSanadMetadata();
+    error Unauthorized();
 
     constructor(address _lockContract, address _verifier) {
         if (_lockContract == address(0) || _verifier == address(0)) revert ZeroAddress();
         lockContract = _lockContract;
         verifier = _verifier;
+    }
+
+    /// @notice Update the lock contract address (admin only)
+    /// @param _lockContract New lock contract address
+    function setLockContract(address _lockContract) external {
+        if (msg.sender != verifier) revert Unauthorized();
+        if (_lockContract == address(0)) revert ZeroAddress();
+        lockContract = _lockContract;
     }
 
     /// @notice Register a nullifier for a Sanad (prevents double-spend)

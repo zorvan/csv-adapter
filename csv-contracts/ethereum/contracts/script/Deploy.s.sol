@@ -17,22 +17,23 @@ contract Deploy is Script {
 
         vm.startBroadcast(deployerKey);
 
-        // Step 1: Deploy CSVLock (no constructor args)
-        CSVLock lock = new CSVLock();
-        console.log("CSVLock deployed at:", address(lock));
-
-        // Step 2: Deploy CSVMint with lock contract address
+        // Step 1: Deploy CSVMint first (CSVLock needs its address in constructor)
         // Verifier is initially deployer (can be updated later)
-        CSVMint mint = new CSVMint(address(lock), deployer);
+        // Lock contract is initially address(0) and will be set after CSVLock deployment
+        CSVMint mint = new CSVMint(address(0), deployer);
         console.log("CSVMint deployed at:", address(mint));
 
-        // Step 3: Wire up mint contract in lock contract
-        lock.setMintContract(address(mint));
-        console.log("CSVLock.setMintContract called");
+        // Step 2: Deploy CSVLock with mint contract address
+        CSVLock lock = new CSVLock(address(mint));
+        console.log("CSVLock deployed at:", address(lock));
+
+        // Step 3: Update CSVMint with the actual lock contract address
+        mint.setLockContract(address(lock));
+        console.log("CSVMint.lockContract updated to:", address(lock));
 
         // Step 4: Verify the wiring
-        require(lock.mintContract() == address(mint), "Mint contract not wired");
-        require(mint.lockContract() == address(lock), "Lock contract not set");
+        require(lock.mintContract() == address(mint), "Mint contract not set in lock");
+        require(mint.lockContract() == address(lock), "Lock contract not set in mint");
 
         vm.stopBroadcast();
 
@@ -41,6 +42,7 @@ contract Deploy is Script {
         console.log("CSVLock:", address(lock));
         console.log("CSVMint:", address(mint));
         console.log("Network: Sepolia (chainId 11155111)");
+        console.log("Deployment verified: contracts are properly wired");
         console.log("==========================\n");
 
         lockAddr = address(lock);
