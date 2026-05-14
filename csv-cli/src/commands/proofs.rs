@@ -259,7 +259,7 @@ fn cmd_verify(
         let anchor_ref = CommitAnchor::new(seal_id, anchor_height, inclusion_proof_bytes.clone())
             .map_err(|e| anyhow::anyhow!("Failed to create anchor ref: {}", e))?;
 
-        let inclusion_proof = InclusionProof::new(inclusion_proof_bytes, dag_root, 0)
+        let inclusion_proof = InclusionProof::new(inclusion_proof_bytes, dag_root, 0, 0)
             .map_err(|e| anyhow::anyhow!("Failed to create inclusion proof: {}", e))?;
 
         let confirmations = proof_json

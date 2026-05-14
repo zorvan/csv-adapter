@@ -6,10 +6,8 @@
 //! When the `quorum` feature is enabled, this client makes actual HTTP JSON-RPC
 //! calls to multiple providers and uses consensus to determine the correct response.
 
-use alloc::sync::Arc;
 use alloc::vec::Vec;
 use serde_json;
-use std::sync::Mutex;
 
 use crate::error::Result;
 

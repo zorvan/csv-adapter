@@ -9,9 +9,9 @@ use serde::{Deserialize, Serialize};
 use csv_explorer_storage::repositories::{
     SanadsRepository, SealsRepository, StatsRepository, TransfersRepository,
 };
-use sqlx::SqlitePool;
 
 use csv_explorer_shared::{ExplorerError, SanadFilter, SealFilter, TransferFilter};
+use std::str::FromStr;
 
 // ---------------------------------------------------------------------------
 // Application state
@@ -100,13 +100,13 @@ pub async fn list_sanads(
         offset: Some(offset),
     };
 
-    let total = repo.count(filter.clone()).await.map_err(explorer_error)?;
+    let total = repo.count().await.map_err(explorer_error)?;
 
-    let data = repo.list(filter).await.map_err(explorer_error)?;
+    let data = repo.list(&filter).await.map_err(explorer_error)?;
 
     Ok(Json(ApiResponse::from(PaginatedResponse {
         data,
-        total,
+        total: total as u64,
         limit,
         offset,
     })))
@@ -120,7 +120,7 @@ pub async fn get_sanad(
 {
     let repo = SanadsRepository::new(pool);
 
-    let sanad = repo.get(&id).await.map_err(explorer_error)?;
+    let sanad = repo.get_by_id(&id).await.map_err(explorer_error)?;
 
     match sanad {
         Some(r) => Ok(Json(ApiResponse::from(r))),
@@ -488,7 +488,7 @@ pub async fn get_address_data(
         status: None,
     };
     let sanads = sanads_repo
-        .list(sanads_filter)
+        .list(&sanads_filter)
         .await
         .map_err(explorer_error)?;
 
@@ -560,14 +560,14 @@ pub async fn get_address_sanads(
         status: None,
     };
 
-    let sanads = repo.list(filter).await.map_err(explorer_error)?;
+    let sanads = repo.list(&filter).await.map_err(explorer_error)?;
 
     Ok(Json(ApiResponse::from(sanads)))
 }
 
 /// GET /api/v1/wallet/address/{address}/seals
 pub async fn get_address_seals(
-    Path(address): Path<String>,
+    Path(_address): Path<String>,
     State((_, pool)): State<AppState>,
 ) -> Result<
     Json<ApiResponse<Vec<csv_explorer_shared::SealRecord>>>,
@@ -714,11 +714,11 @@ pub async fn list_enhanced_sanads(
         commitment_scheme: query
             .commitment_scheme
             .as_deref()
-            .and_then(|s| csv_explorer_shared::CommitmentScheme::from_str(s)),
+            .and_then(|s| csv_explorer_shared::CommitmentScheme::from_str(s).ok()),
         inclusion_proof_type: query
             .inclusion_proof_type
             .as_deref()
-            .and_then(|s| csv_explorer_shared::InclusionProofType::from_str(s)),
+            .and_then(|s| csv_explorer_shared::InclusionProofType::from_str(s).ok()),
         finality_proof_type: None,
         limit: query.limit,
         offset: query.offset,
@@ -861,7 +861,7 @@ pub async fn get_sanads_by_scheme(
     use csv_explorer_storage::repositories::AdvancedProofRepository;
 
     let commitment_scheme = CommitmentScheme::from_str(&scheme)
-        .ok_or_else(|| not_found(&format!("Unknown commitment scheme: {}", scheme)))?;
+        .map_err(|_| not_found(&format!("Unknown commitment scheme: {}", scheme)))?;
 
     let repo = AdvancedProofRepository::new(pool);
 
@@ -895,7 +895,7 @@ pub async fn get_sanads_by_proof_type(
     use csv_explorer_storage::repositories::AdvancedProofRepository;
 
     let inclusion_proof_type = InclusionProofType::from_str(&proof_type)
-        .ok_or_else(|| not_found(&format!("Unknown inclusion proof type: {}", proof_type)))?;
+        .map_err(|_| not_found(&format!("Unknown inclusion proof type: {}", proof_type)))?;
 
     let repo = AdvancedProofRepository::new(pool);
 

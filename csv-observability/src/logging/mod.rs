@@ -11,7 +11,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 /// Log level for structured logging
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]
 pub enum LogLevel {
     /// Trace level - very detailed diagnostic information
     Trace,
@@ -51,7 +51,7 @@ impl LogLevel {
 }
 
 /// Structured log entry
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct LogEntry {
     /// Timestamp of the log entry
     pub timestamp: u64,

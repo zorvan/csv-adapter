@@ -14,9 +14,11 @@ use async_trait::async_trait;
 use csv_core::backend::{
     BalanceInfo, ChainBackend, ChainBroadcaster, ChainCapability, ChainDeployer, ChainOpError,
     ChainOpResult, ChainProofProvider, ChainQuery, ChainSanadOps, ChainSigner, ContractStatus,
-    DeploymentStatus, FinalityStatus, SanadOperationResult, TransactionInfo,
-    TransactionStatus,
+    DeploymentStatus, FinalityStatus, SanadOperationResult, TransactionInfo, TransactionStatus,
 };
+
+#[cfg(feature = "rpc")]
+use csv_core::backend::SanadOperation;
 use csv_core::hash::Hash;
 use csv_core::proof::{FinalityProof, InclusionProof as CoreInclusionProof};
 use csv_core::sanad::SanadId;

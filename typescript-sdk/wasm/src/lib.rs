@@ -6,6 +6,8 @@
 //! - SHA3-256 hashing
 //! - Cross-chain commitment building
 
+use rand::rngs::OsRng;
+use rand::RngCore;
 use wasm_bindgen::prelude::*;
 
 // ── Seal Point Operations ──────────────────────────────────────
@@ -109,27 +111,24 @@ pub fn verify_commitment(commitment: &[u8], seal_id: &[u8], chain_id: &str) -> b
 #[cfg(feature = "pq")]
 mod pq_impl {
     use super::*;
+    use pqcrypto_traits::sign::{DetachedSignature as _, PublicKey as _, SecretKey as _};
 
-    /// ML-DSA-65 public key bytes.
-    #[wasm_bindgen]
-    pub struct PqPublicKey(pub(crate) pqcrypto_dilithium::sign::PublicKey);
-
-    /// ML-DSA-65 secret key bytes (keep secure).
-    #[wasm_bindgen]
-    pub struct PqSecretKey(pub(crate) pqcrypto_dilithium::sign::SecretKey);
+    type PublicKey = pqcrypto_dilithium::dilithium2::PublicKey;
+    type SecretKey = pqcrypto_dilithium::dilithium2::SecretKey;
+    type DetachedSignature = pqcrypto_dilithium::dilithium2::DetachedSignature;
 
     /// Generate a new ML-DSA-65 key pair.
     ///
     /// Returns a JSON object with `publicKey` and `secretKey` as hex strings.
     #[wasm_bindgen]
     pub fn ml_dsa_65_keygen() -> String {
-        let (pk, sk) = pqcrypto_dilithium::sign::keypair();
+        let (pk, sk) = pqcrypto_dilithium::dilithium2::keypair();
         serde_json::json!({
-            "publicKey": hex::encode(&pk),
-            "secretKey": hex::encode(&sk),
+            "publicKey": hex::encode(pk.as_bytes()),
+            "secretKey": hex::encode(sk.as_bytes()),
             "scheme": "ML-DSA-65",
-            "publicKeyLen": pk.len(),
-            "secretKeyLen": sk.len()
+            "publicKeyLen": pqcrypto_dilithium::dilithium2::public_key_bytes(),
+            "secretKeyLen": pqcrypto_dilithium::dilithium2::secret_key_bytes()
         })
         .to_string()
     }
@@ -139,18 +138,21 @@ mod pq_impl {
     /// Returns the signature as a hex string.
     #[wasm_bindgen]
     pub fn ml_dsa_65_sign(secret_key: &[u8], message: &[u8]) -> Result<String, JsError> {
-        let sk = pqcrypto_dilithium::sign::SecretKey::from_slice(secret_key)
+        let sk = SecretKey::from_bytes(secret_key)
             .map_err(|e| JsError::new(&format!("Invalid secret key: {}", e)))?;
-        let signature = pqcrypto_dilithium::sign::sign(message, &sk);
-        Ok(hex::encode(&signature))
+        let signature = pqcrypto_dilithium::dilithium2::detached_sign(message, &sk);
+        Ok(hex::encode(signature.as_bytes()))
     }
 
     /// Verify an ML-DSA-65 signature.
     #[wasm_bindgen]
     pub fn ml_dsa_65_verify(public_key: &[u8], message: &[u8], signature: &[u8]) -> Result<bool, JsError> {
-        let pk = pqcrypto_dilithium::sign::PublicKey::from_slice(public_key)
+        let pk = PublicKey::from_bytes(public_key)
             .map_err(|e| JsError::new(&format!("Invalid public key: {}", e)))?;
-        match pqcrypto_dilithium::sign::verify(signature, message, &pk) {
+        let sig = DetachedSignature::from_bytes(signature)
+            .map_err(|e| JsError::new(&format!("Invalid signature: {}", e)))?;
+
+        match pqcrypto_dilithium::dilithium2::verify_detached_signature(&sig, message, &pk) {
             Ok(()) => Ok(true),
             Err(_) => Ok(false),
         }
@@ -160,9 +162,9 @@ mod pq_impl {
     #[wasm_bindgen]
     pub fn ml_dsa_65_sizes() -> String {
         serde_json::json!({
-            "publicKeyLen": pqcrypto_dilithium::sign::CRYPTO_PUBLICKEYBYTES,
-            "secretKeyLen": pqcrypto_dilithium::sign::CRYPTO_SECRETKEYBYTES,
-            "signatureLen": pqcrypto_dilithium::sign::CRYPTO_BYTES
+            "publicKeyLen": pqcrypto_dilithium::dilithium2::public_key_bytes(),
+            "secretKeyLen": pqcrypto_dilithium::dilithium2::secret_key_bytes(),
+            "signatureLen": pqcrypto_dilithium::dilithium2::signature_bytes()
         })
         .to_string()
     }
@@ -215,7 +217,7 @@ pub use pq_impl::*;
 #[wasm_bindgen]
 pub fn create_seal() -> String {
     let mut seal_id = [0u8; 32];
-    rand::fill(&mut seal_id);
+    OsRng.fill_bytes(&mut seal_id);
     hex::encode(seal_id)
 }
 
@@ -223,7 +225,7 @@ pub fn create_seal() -> String {
 #[wasm_bindgen]
 pub fn create_seal_with_value(value: u64) -> String {
     let mut seal_id = [0u8; 32];
-    rand::fill(&mut seal_id);
+    OsRng.fill_bytes(&mut seal_id);
     // Include value in hash for domain separation
     let mut data = Vec::with_capacity(40);
     data.extend_from_slice(&seal_id);

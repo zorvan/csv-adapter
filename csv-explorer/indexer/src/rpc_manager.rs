@@ -88,7 +88,7 @@ impl RpcConfig {
     }
 
     fn resolve_auth(auth: &mut Option<RpcAuth>) {
-        if let Some(ref mut a) = auth {
+        if let Some(a) = auth {
             // If value looks like an env var name (no spaces, all caps/underscores), try to resolve
             if a.value.starts_with('$') {
                 let var_name = a

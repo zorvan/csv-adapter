@@ -663,27 +663,26 @@ impl SealProtocol for AptosSealProtocol {
         // we still prevent double-spends by querying the blockchain
         #[cfg(feature = "rpc")]
         {
-            if let Some(ref rpc) = self.rpc_client {
-                use tokio::runtime::Handle;
-                if let Ok(handle) = Handle::try_current() {
-                    let resource_exists = handle
-                        .block_on(rpc.resource_exists(
-                            &seal.account_address,
-                            &seal.resource_type,
+            use tokio::runtime::Handle;
+            if let Ok(handle) = Handle::try_current() {
+                let resource_exists = handle
+                    .block_on(StateProofVerifier::verify_resource_exists_async(
+                        seal.account_address,
+                        &seal.resource_type,
+                        self.rpc.as_ref(),
+                    ))
+                    .map_err(|e| {
+                        ProtocolError::NetworkError(format!(
+                            "Failed to check resource status on-chain: {}",
+                            e
                         ))
-                        .map_err(|e| {
-                            ProtocolError::NetworkError(format!(
-                                "Failed to check resource status on-chain: {}",
-                                e
-                            ))
-                        })?;
+                    })?;
 
-                    if !resource_exists {
-                        return Err(ProtocolError::SealReplay(format!(
-                            "Resource already consumed on-chain at {}",
-                            format_address(seal.account_address)
-                        )));
-                    }
+                if !resource_exists {
+                    return Err(ProtocolError::SealReplay(format!(
+                        "Resource already consumed on-chain at {}",
+                        format_address(seal.account_address)
+                    )));
                 }
             }
         }

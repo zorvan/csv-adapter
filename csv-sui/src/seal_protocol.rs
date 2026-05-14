@@ -715,24 +715,25 @@ impl SealProtocol for SuiSealProtocol {
         // we still prevent double-spends by querying the blockchain
         #[cfg(feature = "rpc")]
         {
-            if let Some(ref rpc) = self.rpc_client {
-                use tokio::runtime::Handle;
-                if let Ok(handle) = Handle::try_current() {
-                    let object_exists = handle
-                        .block_on(rpc.object_exists(&seal.object_id))
-                        .map_err(|e| {
-                            ProtocolError::NetworkError(format!(
-                                "Failed to check object status on-chain: {}",
-                                e
-                            ))
-                        })?;
+            use tokio::runtime::Handle;
+            if let Ok(handle) = Handle::try_current() {
+                let object_exists = handle
+                    .block_on(StateProofVerifier::verify_object_exists(
+                        seal.object_id,
+                        self.rpc.as_ref(),
+                    ))
+                    .map_err(|e| {
+                        ProtocolError::NetworkError(format!(
+                            "Failed to check object status on-chain: {}",
+                            e
+                        ))
+                    })?;
 
-                    if !object_exists {
-                        return Err(ProtocolError::SealReplay(format!(
-                            "Object {} already consumed on-chain (deleted)",
-                            format_object_id(seal.object_id)
-                        )));
-                    }
+                if object_exists.is_none() {
+                    return Err(ProtocolError::SealReplay(format!(
+                        "Object {} already consumed on-chain (deleted)",
+                        format_object_id(seal.object_id)
+                    )));
                 }
             }
         }

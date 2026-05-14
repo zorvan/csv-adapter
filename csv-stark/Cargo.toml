@@ -1,6 +1,6 @@
 [package]
 name = "csv-stark"
-version = "0.1.0"
+version = "0.5.0"
 edition = "2024"
 description = "STARK batch verification for IoT sensor streams in the CSV protocol"
 license = "MIT OR Apache-2.0"

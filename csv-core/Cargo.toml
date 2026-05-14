@@ -1,6 +1,6 @@
 [package]
 name = "csv-core"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2024"
 description = "Chain-agnostic core traits and types for CSV (Client-Side Validation) protocol"
 license = "MIT OR Apache-2.0"
@@ -54,7 +54,8 @@ ethereum = []
 pq = ["dep:pqcrypto-dilithium", "dep:pqcrypto-traits"]
 zk = ["dep:curve25519-dalek", "dep:rand_core"]
 quorum = ["dep:reqwest", "dep:url", "dep:tokio"]
-full = ["bitcoin", "solana", "aptos", "sui", "ethereum", "pq", "zk", "quorum"]
+observability = []
+full = ["bitcoin", "solana", "aptos", "sui", "ethereum", "pq", "zk", "quorum", "observability"]
 experimental = []
 
 [dev-dependencies]

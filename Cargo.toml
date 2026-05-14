@@ -1,7 +1,7 @@
 [package]
 name = "csv-adapter"
-version = "0.1.0"
-edition = "2021"
+version = "0.5.0"
+edition = "2024"
 
 [workspace]
 members = [
@@ -24,16 +24,19 @@ members = [
     "csv-explorer/storage",
     "csv-explorer/indexer",
     "csv-stark",
-    "csv-mcp-server",
     "typescript-sdk/wasm",
     "xtask",
     "fuzz",
 ]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.5.0"
+edition = "2024"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/csv-protocol/csv-adapter"
+authors = ["CSV Protocol Contributors"]
+homepage = "https://github.com/client-side-validation/csv-protocol"
+rust-version = "1.95"
 
 [workspace.dependencies]
 # Core
@@ -74,6 +77,8 @@ aes-gcm = "0.10"
 scrypt = { version = "0.11", default-features = false }
 bip39 = { version = "2.0", features = ["rand"] }
 zeroize = { version = "1.7", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 
 # Web & WASM
 web-sys = { version = "0.3", features = ["Storage", "Window"] }
@@ -92,11 +97,11 @@ async-trait = "0.1"
 sqlx = { version = "0.7", features = ["sqlite", "runtime-tokio-native-tls", "chrono"] }
 reqwest = { version = "0.11", features = ["json"] }
 warp = "0.3"
-axum = "0.7"
+axum = "0.8"
 tower = "0.4"
 tower-http = { version = "0.5", features = ["cors", "trace"] }
-async-graphql = { version = "7", features = ["chrono"] }
-async-graphql-axum = "7"
+async-graphql = { version = "7.0.12", features = ["chrono"] }
+async-graphql-axum = "7.0.12"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 prometheus = "0.13"
@@ -109,12 +114,16 @@ anyhow = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.0", features = ["v4", "serde"] }
 config = "0.14"
+toml = "0.8"
 
 [workspace.lints.rust]
 missing_docs = "warn"
 unused_imports = "deny"
 unused_variables = "deny"
 unused_mut = "deny"
+
+[patch.crates-io]
+solana-keypair = { path = "patches/solana-keypair" }
 
 [workspace.lints.clippy]
 needless_borrows_for_generic_args = "allow"

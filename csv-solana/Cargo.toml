@@ -1,6 +1,6 @@
 [package]
 name = "csv-solana"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2024"
 description = "Solana adapter for CSV (Client-Side Validation) with account seals and program-based commitments"
 license = "MIT OR Apache-2.0"
@@ -19,8 +19,8 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
-csv-core = { version = "0.4.0", path = "../csv-core" }
-csv-store = { version = "0.4.0", path = "../csv-store", optional = true }
+csv-core = { version = "0.5.0", path = "../csv-core" }
+csv-store = { version = "0.5.0", path = "../csv-store", optional = true }
 solana-sdk = "3.0"
 solana-program = "3.0"
 solana-rpc-client = "3.1"

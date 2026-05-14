@@ -43,7 +43,7 @@ impl Indexer {
         let plugin_registry = IndexerPluginRegistryBuilder::new().build();
 
         // Create indexers using the plugin registry
-        let indexers = plugin_registry.create_all_indexers(&config.chains, rpc_manager.clone());
+        let indexers = plugin_registry.create_all_arc_indexers(&config.chains, rpc_manager.clone());
 
         tracing::info!(
             "Indexer initialized with {} chains from plugin registry",
@@ -79,7 +79,7 @@ impl Indexer {
         let rpc_manager = RpcManager::new(load_rpc_config()?);
 
         // Create indexers using the provided plugin registry
-        let indexers = plugin_registry.create_all_indexers(&config.chains, rpc_manager.clone());
+        let indexers = plugin_registry.create_all_arc_indexers(&config.chains, rpc_manager.clone());
 
         tracing::info!(
             "Indexer initialized with {} chains from custom plugin registry",

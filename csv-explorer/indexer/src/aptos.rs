@@ -494,6 +494,8 @@ impl AptosIndexer {
             created_at: chrono::Utc::now(),
             completed_at: None,
             duration_ms: None,
+            lock_tx_explorer_url: None,
+            mint_tx_explorer_url: None,
         })
     }
 }

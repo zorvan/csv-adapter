@@ -20,7 +20,7 @@ use sqlx::SqlitePool;
 
 /// Sync coordinator that manages multiple chain indexers.
 pub struct SyncCoordinator {
-    indexers: Vec<Box<dyn ChainIndexer>>,
+    indexers: Vec<Arc<dyn ChainIndexer>>,
     pool: SqlitePool,
     sync_repo: SyncRepository,
     sanads_repo: SanadsRepository,
@@ -70,7 +70,7 @@ struct ChainSyncState {
 impl SyncCoordinator {
     /// Create a new sync coordinator.
     pub fn new(
-        indexers: Vec<Box<dyn ChainIndexer>>,
+        indexers: Vec<Arc<dyn ChainIndexer>>,
         pool: SqlitePool,
         chain_configs: std::collections::HashMap<String, ChainConfig>,
         _concurrency: usize,
@@ -112,7 +112,7 @@ impl SyncCoordinator {
             advanced_repo: AdvancedProofRepository::new(pool),
             chain_configs,
             batch_size,
-            poll_interval_ms,
+            indexer_poll_interval_ms: poll_interval_ms,
             running: Arc::new(RwLock::new(false)),
             chain_states: Arc::new(RwLock::new(chain_states)),
             total_indexed: Arc::new(RwLock::new(0)),
@@ -133,17 +133,17 @@ impl SyncCoordinator {
             .chain_intervals
             .get(chain_id)
             .copied()
-            .unwrap_or(Duration::from_millis(self.poll_interval_ms));
+            .unwrap_or(Duration::from_millis(self.indexer_poll_interval_ms));
 
         self.apply_jitter(base)
     }
 
     /// Apply ±20% jitter to a duration using a thread-local RNG.
-    fn apply_jitter(&self, duration: Duration) -> u64 {
+    fn apply_jitter(&self, duration: Duration) -> Duration {
         let mut rng = rand::thread_rng();
         // Jitter factor: 0.8 to 1.2 (±20%)
         let jitter_factor = rng.gen_range(0.8..=1.2);
-        (duration.as_millis() as f64 * jitter_factor) as u64
+        Duration::from_millis((duration.as_millis() as f64 * jitter_factor) as u64)
     }
 
     /// Initialize all chain indexers.
@@ -174,9 +174,8 @@ impl SyncCoordinator {
         tracing::info!("Starting sync coordinator with per-chain polling");
 
         // Spawn a dedicated sync task for each chain with its own interval
-        let indexers: Vec<_> = self.indexers.iter().collect();
+        let indexers = self.indexers.clone();
         let chain_configs = &self.chain_configs;
-        let pool = &self.pool;
         let batch_size = self.batch_size;
         let total_indexed = &self.total_indexed;
 
@@ -195,24 +194,22 @@ impl SyncCoordinator {
             tracing::info!(chain = %chain_id, interval_ms = poll_interval.as_millis(), "Starting chain sync task");
 
             // Clone shared state for the spawned task
-            let pool_for_task = pool.clone();
-            let total_for_task = Arc::clone(total_indexed);
-            let running = Arc::clone(self.running);
-            let chain_states = Arc::clone(self.chain_states);
+            let running = Arc::clone(&self.running);
+            let chain_states = Arc::clone(&self.chain_states);
 
             let sync_ctx = SyncContext::new(
-                &self.sync_repo,
-                &self.sanads_repo,
-                &self.seals_repo,
-                &self.transfers_repo,
-                &self.contracts_repo,
-                &self.advanced_repo,
+                self.sync_repo.clone(),
+                self.sanads_repo.clone(),
+                self.seals_repo.clone(),
+                self.transfers_repo.clone(),
+                self.contracts_repo.clone(),
+                self.advanced_repo.clone(),
                 batch_size,
-                &total_for_task,
-                chain_config,
+                Arc::clone(total_indexed),
+                chain_config.cloned(),
             );
 
-            let indexer_clone = Box::new(indexer.as_ref());
+            let indexer_clone = Arc::clone(&indexer);
 
             tokio::spawn(async move {
                 let mut interval = tokio::time::interval(poll_interval);
@@ -339,15 +336,15 @@ impl SyncCoordinator {
         };
 
         let ctx = SyncContext::new(
-            &self.sync_repo,
-            &self.sanads_repo,
-            &self.seals_repo,
-            &self.transfers_repo,
-            &self.contracts_repo,
-            &self.advanced_repo,
+            self.sync_repo.clone(),
+            self.sanads_repo.clone(),
+            self.seals_repo.clone(),
+            self.transfers_repo.clone(),
+            self.contracts_repo.clone(),
+            self.advanced_repo.clone(),
             self.batch_size,
-            &self.total_indexed,
-            effective_config.as_ref(),
+            Arc::clone(&self.total_indexed),
+            effective_config,
         );
         sync_chain(indexer.as_ref(), &ctx).await
     }
@@ -369,40 +366,40 @@ impl SyncCoordinator {
 }
 
 /// Context for sync operations in the indexer
-pub struct SyncContext<'a> {
+pub struct SyncContext {
     /// Repository for sync progress
-    pub sync_repo: &'a SyncRepository,
+    pub sync_repo: SyncRepository,
     /// Repository for sanads
-    pub sanads_repo: &'a SanadsRepository,
+    pub sanads_repo: SanadsRepository,
     /// Repository for seals
-    pub seals_repo: &'a SealsRepository,
+    pub seals_repo: SealsRepository,
     /// Repository for transfers
-    pub transfers_repo: &'a TransfersRepository,
+    pub transfers_repo: TransfersRepository,
     /// Repository for contracts
-    pub contracts_repo: &'a ContractsRepository,
+    pub contracts_repo: ContractsRepository,
     /// Repository for advanced proofs
-    pub advanced_repo: &'a AdvancedProofRepository,
+    pub advanced_repo: AdvancedProofRepository,
     /// Batch size for processing
     pub batch_size: u64,
     /// Total indexed counter
-    pub total_indexed: &'a Arc<RwLock<u64>>,
+    pub total_indexed: Arc<RwLock<u64>>,
     /// Chain configuration
-    pub chain_config: Option<&'a ChainConfig>,
+    pub chain_config: Option<ChainConfig>,
 }
 
-impl<'a> SyncContext<'a> {
+impl SyncContext {
     /// Create a new sync context
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        sync_repo: &'a SyncRepository,
-        sanads_repo: &'a SanadsRepository,
-        seals_repo: &'a SealsRepository,
-        transfers_repo: &'a TransfersRepository,
-        contracts_repo: &'a ContractsRepository,
-        advanced_repo: &'a AdvancedProofRepository,
+        sync_repo: SyncRepository,
+        sanads_repo: SanadsRepository,
+        seals_repo: SealsRepository,
+        transfers_repo: TransfersRepository,
+        contracts_repo: ContractsRepository,
+        advanced_repo: AdvancedProofRepository,
         batch_size: u64,
-        total_indexed: &'a Arc<RwLock<u64>>,
-        chain_config: Option<&'a ChainConfig>,
+        total_indexed: Arc<RwLock<u64>>,
+        chain_config: Option<ChainConfig>,
     ) -> Self {
         Self {
             sync_repo,
@@ -421,7 +418,7 @@ impl<'a> SyncContext<'a> {
 /// Sync a single chain from its last synced position.
 async fn sync_chain(
     indexer: &dyn ChainIndexer,
-    ctx: &SyncContext<'_>,
+    ctx: &SyncContext,
 ) -> Result<(), ExplorerError> {
     let chain_id = indexer.chain_id();
 
@@ -435,7 +432,7 @@ async fn sync_chain(
     let from_block = if let Some(block) = db_block {
         tracing::info!(chain = chain_id, block, "Resuming sync from database");
         block
-    } else if let Some(config) = ctx.chain_config {
+    } else if let Some(config) = &ctx.chain_config {
         if let Some(start) = config.start_block {
             tracing::info!(
                 chain = chain_id,

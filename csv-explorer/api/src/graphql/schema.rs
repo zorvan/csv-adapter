@@ -4,11 +4,13 @@
 /// pagination, and aggregate statistics.
 use async_graphql::*;
 use sqlx::SqlitePool;
+use std::str::FromStr;
 
 use csv_explorer_storage::repositories::{
     AdvancedProofRepository, ContractsRepository, SanadsRepository, SealsRepository,
     StatsRepository, TransfersRepository,
 };
+use csv_explorer_shared::{CommitmentScheme, InclusionProofType};
 
 use super::types::*;
 
@@ -32,7 +34,7 @@ impl Query {
             .map_err(|e| ServerError::new(format!("{:?}", e), None))?;
         let repo = SanadsRepository::new(gql_ctx.pool.clone());
         let record = repo
-            .get(&id)
+            .get_by_id(&id)
             .await
             .map_err(|e| ServerError::new(format!("{:?}", e), None))?;
         Ok(record.map(Sanad::from))
@@ -67,11 +69,11 @@ impl Query {
         };
 
         let records = repo
-            .list(shared_filter.clone())
+            .list(&shared_filter)
             .await
             .map_err(|e| ServerError::new(format!("{:?}", e), None))?;
         let total_count = repo
-            .count(shared_filter)
+            .count()
             .await
             .map_err(|e| ServerError::new(format!("{:?}", e), None))?;
 
@@ -373,8 +375,15 @@ impl Query {
             .data::<GraphqlContext>()
             .map_err(|e| ServerError::new(format!("{:?}", e), None))?;
         let repo = SanadsRepository::new(gql_ctx.pool.clone());
+        let filter = csv_explorer_shared::SanadFilter {
+            chain: None,
+            owner: Some(owner),
+            status: None,
+            limit: Some(100),
+            offset: Some(0),
+        };
         let records = repo
-            .by_owner(&owner)
+            .list(&filter)
             .await
             .map_err(|e| ServerError::new(format!("{:?}", e), None))?;
         Ok(records.into_iter().map(Sanad::from).collect())
@@ -433,10 +442,10 @@ impl Query {
             owner: None,
             commitment_scheme: scheme
                 .as_deref()
-                .and_then(|s| csv_explorer_shared::CommitmentScheme::from_str(s)),
+                .and_then(|s| CommitmentScheme::from_str(s).ok()),
             inclusion_proof_type: proof_type
                 .as_deref()
-                .and_then(|s| csv_explorer_shared::InclusionProofType::from_str(s)),
+                .and_then(|s| InclusionProofType::from_str(s).ok()),
             finality_proof_type: None,
             limit: limit.map(|v| v as usize),
             offset: offset.map(|v| v as usize),

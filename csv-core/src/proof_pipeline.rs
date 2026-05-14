@@ -186,21 +186,21 @@ pub async fn validate_proof_bundle(
             destination_chain
         );
 
-        if let Some(ref registry) = event_registry {
+        if let Some(registry) = event_registry {
             let timestamp = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_secs();
             let event = CsvEvent::replay_detected(
                 source_chain.as_str(),
-                bundle.inclusion_proof.block_height,
+                bundle.inclusion_proof.block_number,
                 &hex::encode(proof_hash.as_bytes()),
                 timestamp,
                 proof_hash,
                 timestamp - 3600, // Original timestamp (1 hour ago for example)
                 timestamp,
             );
-            let _ = registry.lock().unwrap().emit(event).await;
+            let _ = registry.lock().unwrap().emit(event);
         }
 
         return ValidationResult {
@@ -263,20 +263,20 @@ pub async fn validate_proof_bundle(
         destination_chain
     );
 
-    if let Some(ref registry) = event_registry {
+    if let Some(registry) = event_registry {
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
         let event = CsvEvent::proof_accepted(
             source_chain.as_str(),
-            bundle.inclusion_proof.block_height,
+            bundle.inclusion_proof.block_number,
             &hex::encode(proof_hash.as_bytes()),
             timestamp,
             proof_hash,
             "proof_pipeline",
         );
-        let _ = registry.lock().unwrap().emit(event).await;
+        let _ = registry.lock().unwrap().emit(event);
     }
 
     ValidationResult {
@@ -293,7 +293,7 @@ async fn emit_proof_rejected_event(
     bundle: &ProofBundle,
     error: Option<&str>,
 ) {
-    if let Some(ref registry) = event_registry {
+    if let Some(registry) = event_registry {
         let proof_hash = DomainSeparatedHash::<ProofBundleDomain>::hash(&bundle.inclusion_proof.proof_bytes);
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -301,7 +301,7 @@ async fn emit_proof_rejected_event(
             .as_secs();
         let event = CsvEvent::proof_rejected(
             source_chain.as_str(),
-            bundle.inclusion_proof.block_height,
+            bundle.inclusion_proof.block_number,
             &hex::encode(proof_hash.as_bytes()),
             timestamp,
             proof_hash,

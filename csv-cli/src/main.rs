@@ -155,7 +155,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Initialize logging
     let log_level = if cli.verbose { "debug" } else { "info" };
-    std::env::set_var("RUST_LOG", log_level);
+    unsafe { std::env::set_var("RUST_LOG", log_level) };
     env_logger::init();
 
     // Load configuration

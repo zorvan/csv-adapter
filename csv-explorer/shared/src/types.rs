@@ -567,6 +567,9 @@ impl SanadRecord {
             timestamp: block_info.timestamp,
             data,
             metadata: None,
+            correlation_id: None,
+            operation_id: None,
+            transfer_id: None,
         }
     }
 }
@@ -644,6 +647,9 @@ impl TransferRecord {
             timestamp: block_info.timestamp,
             data,
             metadata: None,
+            correlation_id: None,
+            operation_id: None,
+            transfer_id: None,
         }
     }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "csv-sdk"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2024"
 description = "Unified SDK for CSV (Client-Side Validation) protocol — single entry point for all CSV operations"
 license = "MIT OR Apache-2.0"
@@ -23,23 +23,23 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
 # Core — always included
-csv-core = { version = "0.4.0", path = "../csv-core" }
-csv-p2p = { version = "0.4.0", path = "../csv-p2p", optional = true }
+csv-core = { version = "0.5.0", path = "../csv-core" }
+csv-p2p = { version = "0.5.0", path = "../csv-p2p", optional = true }
 
 # Chain adapters — optional, enabled via feature flags
-csv-bitcoin = { version = "0.4.0", path = "../csv-bitcoin", optional = true }
-csv-ethereum = { version = "0.4.0", path = "../csv-ethereum", optional = true }
-csv-sui = { version = "0.4.0", path = "../csv-sui", optional = true }
-csv-aptos = { version = "0.4.0", path = "../csv-aptos", optional = true }
-csv-solana = { version = "0.4.0", path = "../csv-solana", optional = true }
+csv-bitcoin = { version = "0.5.0", path = "../csv-bitcoin", optional = true }
+csv-ethereum = { version = "0.5.0", path = "../csv-ethereum", optional = true }
+csv-sui = { version = "0.5.0", path = "../csv-sui", optional = true }
+csv-aptos = { version = "0.5.0", path = "../csv-aptos", optional = true }
+csv-solana = { version = "0.5.0", path = "../csv-solana", optional = true }
 
 # Persistence
-csv-store = { version = "0.4.0", path = "../csv-store", optional = true }
-csv-explorer-storage = { version = "0.4.0", path = "../csv-explorer/storage", optional = true }
-csv-explorer-shared = { version = "0.4.0", path = "../csv-explorer/shared", optional = true }
+csv-store = { version = "0.5.0", path = "../csv-store", optional = true }
+csv-explorer-storage = { version = "0.5.0", path = "../csv-explorer/storage", optional = true }
+csv-explorer-shared = { version = "0.5.0", path = "../csv-explorer/shared", optional = true }
 
 # Key management
-csv-keys = { version = "0.4.0", path = "../csv-keys", optional = true }
+csv-keys = { version = "0.5.0", path = "../csv-keys", optional = true }
 
 # Async runtime
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "sync", "time"], optional = true }
@@ -114,7 +114,7 @@ experimental = ["csv-core/experimental"]
 [dev-dependencies]
 rand = "0.8"
 tempfile = "3"
-csv-store = { version = "0.4.0", path = "../csv-store" }
+csv-store = { version = "0.5.0", path = "../csv-store" }
 
 [[example]]
 name = "subscriptions"

@@ -158,7 +158,7 @@ impl ChainIndexer for BitcoinIndexer {
 
             // For each input spending a relevant UTXO → create a seal record
             for vin in &tx.vin {
-                if let (Some(ref prev_txid), Some(prev_vout)) = (&vin.txid, vin.vout) {
+                if let (Some(prev_txid), Some(prev_vout)) = (&vin.txid, vin.vout) {
                     let prev_addr = vin
                         .prevout
                         .as_ref()
