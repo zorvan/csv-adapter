@@ -178,6 +178,80 @@ When contributing, AI agents MUST obey these rules (from the Principal Engineer 
 - **Explicit error handling:** use `CsvError` with chain and message context; do not panic.
 - **Feature‑gated optionality:** internal experiments must be behind `#[cfg(feature = "experimental")]`.
 
+### Global Repository Guardrails
+
+#### Forbidden Runtime Patterns
+
+The following patterns are forbidden in production runtime code:
+
+```rust
+unwrap()
+expect()
+new_unchecked()
+unsafe
+Sha256::digest
+Keccak256::digest
+blake3::hash
+```
+
+Allowed only in:
+
+```text
+/tests
+/fuzz
+/benches
+```
+
+#### Approved Unsafe Modules
+
+Unsafe MAY exist only in:
+
+```text
+csv-crypto/
+csv-zk/
+```
+
+All unsafe blocks MUST include:
+
+```rust
+// SAFETY:
+```
+
+Without exception.
+
+### Cryptographic Guardrails
+
+- **No `Ok(true)` in verification paths.** Every verification path must return `Err` if data is unavailable, not a passing result.
+- **No mock signatures in production code.** The production guarantee CI (once paths are fixed) must catch `fake_sig`, `mock_proof`, `[0u8; 64]` patterns in non-test code.
+- **Seal registry check is mandatory.** `verify_proof()` must always call the seal registry callback. Never skip it with `//todo`.
+- **Empty proof bundles are rejected.** Zero-length `inclusion_proof` bytes must fail, not pass.
+
+### Key Management Guardrails
+
+- **No raw private key bytes in logs.** Add a lint rule: `grep -r "private_key\|secret_key\|signing_key" --include="*.rs" | grep "println\|info!\|debug!"` must return zero results.
+- **Zeroize on drop.** Any type holding a private key must implement `Zeroize` + `ZeroizeOnDrop`. Verify with `#[derive(ZeroizeOnDrop)]`.
+- **No key material in state files.** `unified_storage.json` must never contain fields with names matching `key|secret|mnemonic|seed|private`.
+
+### Chain Integration Guardrails
+
+- **Testnet by default.** Any new chain integration must default to testnet in config. Mainnet requires explicit `--network mainnet` flag.
+- **RPC endpoints via env vars only.** No hardcoded endpoints in any config file checked into the repo.
+- **Finality depth is never zero.** `min_confirmations = 0` must fail at config parse time.
+
+### State Machine Guardrails
+
+- **Transfer status is append-only.** A transfer record cannot go from `Completed` back to `Pending`. Add validation in `UnifiedStateManager::update_transfer()`.
+- **Sanad status is monotonic.** `Active → Transferred → Consumed`. Reverse transitions must panic/error.
+- **Double-consume fails loudly.** Attempting to consume an already-consumed Sanad must return a specific error, not silently succeed or update the record.
+
+### CI Guardrails
+
+- **Production guarantee gates must pass on every PR.** No merges to `main` with failing gates.
+- **`cargo audit` on every push.** Already in CI — keep it.
+- **`cargo clippy -- -D warnings` blocks merge.** Already in CI — keep it.
+- **No `unwrap()` in production paths.** Add clippy lint `#![deny(clippy::unwrap_used)]` to `csv-core/src/lib.rs`, `csv-keys/src/lib.rs`.
+- **CI MUST fail on forbidden patterns:** TODO, FIXME, unwrap(), expect(), unsafe (outside approved modules), raw hashing (outside crypto module), mock proofs (production code), manual ABI encoding (EVM adapters).
+
 When adding new chain adapters, follow the pattern:
 
 - `seal_protocol.rs` – `SealProtocol` implementation
