@@ -196,22 +196,36 @@ impl ProofRouter {
     }
 
     /// Broadcast a proof bundle via the preferred transport.
+    ///
+    /// If the preferred transport fails, automatically falls back to IPFS if available.
     pub async fn broadcast(&self, proof: &ProofBundle) -> Result<EventId, TransportError> {
+        // Try preferred transport first
         if let Some(ref name) = self.preferred_transport {
             if let Some(transport) = self.transports.get(name) {
                 if transport.is_connected().await {
                     debug!(transport = %name, "Broadcasting via preferred transport");
-                    return transport.broadcast_proof(proof).await;
+                    match transport.broadcast_proof(proof).await {
+                        Ok(event_id) => return Ok(event_id),
+                        Err(e) => {
+                            warn!(transport = %name, error = %e, "Preferred transport failed, trying fallback");
+                        }
+                    }
                 } else {
                     warn!(transport = %name, "Preferred transport not connected, trying fallback");
                 }
             }
         }
 
+        // Try all transports in order
         for (name, transport) in &self.transports {
             if transport.is_connected().await {
                 debug!(transport = %name, "Broadcasting via fallback transport");
-                return transport.broadcast_proof(proof).await;
+                match transport.broadcast_proof(proof).await {
+                    Ok(event_id) => return Ok(event_id),
+                    Err(e) => {
+                        warn!(transport = %name, error = %e, "Fallback transport failed");
+                    }
+                }
             }
         }
 

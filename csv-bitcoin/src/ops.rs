@@ -511,6 +511,7 @@ impl ChainProofProvider for BitcoinChainProofProvider {
             block_hash: root_hash,
             proof_bytes,
             position: block_height,
+            block_number: block_height,
         })
     }
 

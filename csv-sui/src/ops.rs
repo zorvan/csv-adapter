@@ -674,6 +674,7 @@ impl ChainProofProvider for SuiBackend {
             proof_bytes: event_data,
             block_hash: Hash::new(checkpoint.digest),
             position: block_height,
+            block_number: block_height,
         })
     }
 

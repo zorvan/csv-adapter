@@ -6,7 +6,7 @@
 
 use csv_core::seal_protocol::SealProtocol;
 use csv_core::{
-    dag::DAGSegment, proof::ProofBundle, signature::SignatureScheme, Hash, Result,
+    dag::DAGSegment, error::ProtocolError, proof::ProofBundle, signature::SignatureScheme, Hash, Result,
 };
 use sha2::{Digest, Sha256};
 use solana_sdk::pubkey::Pubkey;
@@ -404,23 +404,51 @@ impl SealProtocol for SolanaSealProtocol {
 
     /// Enforce seal by closing the account (consuming it)
     fn enforce_seal(&self, seal_point: Self::SealPoint) -> Result<()> {
-        let _rpc = self.check_rpc()?;
-        let _wallet = self
-            .wallet
-            .as_ref()
-            .ok_or_else(|| SolanaError::Wallet("No wallet configured".to_string()))?;
+        // Rule G-02: Double-spend prevention
+        // This method ensures that a PDA account cannot be consumed more than once
+        // by checking both local registry and on-chain account state
 
-        // Get the seal account to consume
-        let seal_account = seal_point.account;
+        // Step 1: Check local registry (fast path)
+        if let Ok(seals) = self.active_seals.lock() {
+            if !seals.iter().any(|s| s.account == seal_point.account) {
+                return Err(ProtocolError::SealReplay(format!(
+                    "PDA account {:?} not found in active seals",
+                    seal_point.account
+                )));
+            }
+        }
 
-        // In production, this would:
-        // 1. Build a ConsumeSeal instruction
-        // 2. Sign and send transaction
-        // 3. Verify account is closed (lamports transferred to owner)
+        // Step 2: Check on-chain account state via RPC (authoritative check)
+        // This ensures that even if local state is corrupted or lost,
+        // we still prevent double-spends by querying the blockchain
+        #[cfg(feature = "rpc")]
+        {
+            let rpc = self.check_rpc()?;
+            use tokio::runtime::Handle;
+            if let Ok(handle) = Handle::try_current() {
+                let account = handle
+                    .block_on(rpc.get_account(&seal_point.account))
+                    .map_err(|e| {
+                        ProtocolError::NetworkError(format!(
+                            "Failed to check account status on-chain: {}",
+                            e
+                        ))
+                    })?;
 
-        // For now, mark as consumed in our tracking
+                // If account doesn't exist or has zero lamports, it's already been consumed
+                if account.lamports == 0 {
+                    return Err(ProtocolError::SealReplay(format!(
+                        "PDA account {:?} already consumed on-chain (zero lamports)",
+                        seal_point.account
+                    )));
+                }
+            }
+        }
+
+        // Step 3: Mark seal as consumed by removing from active seals
+        // In production, this would also close the account on-chain
         if let Ok(mut seals) = self.active_seals.lock() {
-            seals.retain(|s| s.account != seal_account);
+            seals.retain(|s| s.account != seal_point.account);
         }
 
         Ok(())
@@ -501,13 +529,10 @@ impl SealProtocol for SolanaSealProtocol {
                 solana_inclusion
                     .account_proofs
                     .iter()
-                    .flat_map(|p| p.proof.iter().flatten().cloned())
+                    .flat_map(|p| p.proof.iter().flatten().copied())
                     .collect(),
-                csv_core::hash::Hash::new(
-                    anchor_ref.signature.as_ref()[..32]
-                        .try_into()
-                        .unwrap_or([0u8; 32]),
-                ),
+                Hash::new(anchor_ref.signature.as_ref()[..32].try_into().unwrap_or([0u8; 32])),
+                anchor_ref.slot,
                 anchor_ref.slot,
             )
         };

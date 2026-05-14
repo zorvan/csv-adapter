@@ -825,7 +825,7 @@ mod tests {
             signatures: vec![],
             seal_ref: csv_core::seal::SealPoint::new(vec![1u8; 32], None).unwrap(),
             anchor_ref: anchor,
-            inclusion_proof: csv_core::proof::InclusionProof::new(vec![1u8; 32], hash, 1000).unwrap(),
+            inclusion_proof: csv_core::proof::InclusionProof::new(vec![1u8; 32], hash, 1000, 0).unwrap(),
             finality_proof: csv_core::proof::FinalityProof::new(vec![1u8; 32], 1, true).unwrap(),
         };
         
@@ -849,7 +849,7 @@ mod tests {
             signatures: vec![],
             seal_ref: csv_core::seal::SealPoint::new(vec![1u8; 32], None).unwrap(),
             anchor_ref: anchor,
-            inclusion_proof: csv_core::proof::InclusionProof::new(vec![1u8; 32], hash, 1000).unwrap(),
+            inclusion_proof: csv_core::proof::InclusionProof::new(vec![1u8; 32], hash, 1000, 0).unwrap(),
             finality_proof: csv_core::proof::FinalityProof::new(vec![1u8; 32], 1, true).unwrap(),
         };
         
@@ -873,7 +873,7 @@ mod tests {
             signatures: vec![vec![1u8; 64]],
             seal_ref: csv_core::seal::SealPoint::new(vec![1u8; 32], None).unwrap(),
             anchor_ref: anchor,
-            inclusion_proof: csv_core::proof::InclusionProof::new(vec![1u8; 32], hash, 1000).unwrap(),
+            inclusion_proof: csv_core::proof::InclusionProof::new(vec![1u8; 32], hash, 1000, 0).unwrap(),
             finality_proof: csv_core::proof::FinalityProof::new(vec![1u8; 32], 1, true).unwrap(),
         };
         
@@ -901,7 +901,7 @@ mod tests {
             signatures: vec![],
             seal_ref: csv_core::seal::SealPoint::new(vec![1u8; 32], None).unwrap(),
             anchor_ref: anchor,
-            inclusion_proof: csv_core::proof::InclusionProof::new(vec![1u8; 32], hash, 1000).unwrap(),
+            inclusion_proof: csv_core::proof::InclusionProof::new(vec![1u8; 32], hash, 1000, 0).unwrap(),
             finality_proof: csv_core::proof::FinalityProof::new(vec![1u8; 32], 1, true).unwrap(),
         };
         

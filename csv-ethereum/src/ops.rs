@@ -895,6 +895,7 @@ impl ChainProofProvider for EthereumBackend {
         Ok(CoreInclusionProof {
             proof_bytes: event_data,
             block_hash: Hash::new(block.state_root),
+            block_number: block_height,
             position: block_height,
         })
     }

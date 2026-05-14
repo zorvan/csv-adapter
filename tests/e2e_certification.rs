@@ -73,6 +73,7 @@ mod e2e_certification_tests {
         let inclusion_proof = InclusionProof::new(
             vec![0xCD; 32], // Merkle proof
             Hash::new([2u8; 32]), // block hash
+            100, // block number
             0, // position
         ).expect("InclusionProof creation should succeed");
         
@@ -189,7 +190,7 @@ mod e2e_certification_tests {
         );
         let dag_segment = DAGSegment::new(vec![dag_node], Hash::zero());
         
-        let inclusion_proof = InclusionProof::new(vec![0xCD; 32], Hash::new([2u8; 32]), 0)
+        let inclusion_proof = InclusionProof::new(vec![0xCD; 32], Hash::new([2u8; 32]), 100, 0)
             .expect("InclusionProof creation should succeed");
         
         // Create finality proof with zero confirmations (invalid)
@@ -313,7 +314,7 @@ mod e2e_certification_tests {
         
         // Test with oversized proof
         let oversized_proof = vec![0u8; 65 * 1024]; // 65KB
-        let invalid_inclusion = InclusionProof::new(oversized_proof, Hash::new([2u8; 32]), 0);
+        let invalid_inclusion = InclusionProof::new(oversized_proof, Hash::new([2u8; 32]), 0, 0);
         assert!(invalid_inclusion.is_err(), "Oversized proof should be rejected");
     }
 }

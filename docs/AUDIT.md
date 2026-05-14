@@ -7,6 +7,38 @@
 
 ## AUDIT VERDICT SUMMARY
 
+Audit of recent commits shows a pattern: to resolve borrow-checker or compilation errors, developers have simplified cryptographic traits into "Pass-Through" mocks. **This stops today.** ## 2. Critical Red Flags (Launch Blockers)
+
+### 🔴 Verifier "Potemkin Village"
+
+* **Location:** `csv-sdk/src/verifier.rs`
+* **Issue:** Current logic checks DAG structure but skips **Inclusion Proof** validation.
+* **Requirement:** Must implement full Merkle Patricia Trie (MPT) validation for Ethereum and SPV validation for Bitcoin. A "green" test result must represent cryptographic certainty, not just a "non-empty" proof.
+
+### 🔴 Ethereum Integration Maturity
+
+* **Location:** `csv-ethereum/`
+* **Issue:** The adapter uses hardcoded chain IDs and lacks a deterministic deployment manifest.
+* **Requirement:** Deploy `CSVLock.sol` using a deterministic factory. The adapter must fetch the `account_proof` via `eth_getProof` to verify the contract state against the block header.
+
+### 🔴 Reorg Reconciliation
+
+* **Location:** `csv-core/src/reorg/`
+* **Issue:** `test_rollback_state_consistency` is a placeholder.
+* **Requirement:** Implement the "Causal Invalidation" engine. If the `SyncCoordinator` detects a reorg deeper than $N$, it must trigger a transition in the `TransferStateManager` to move affected seals back to `Pending` or `Invalid`.
+
+---
+
+## 3. Priority Matrix
+
+| Level | Task | Owner |
+| :--- | :--- | :--- |
+| **P0** | Replace all `todo!()` in `verifier.rs` with MPT/SPV logic. | Core |
+| **P0** | Implement Rule G-02: Irreversible Seal markers in Persistence. | DevOps/DB |
+| **P1** | Migrate from SQLite to a partitioned PostgreSQL schema. | Backend |
+| **P1** | Add "Negative Tests": Forged proofs that *must* fail. | QA |
+| **P2** | Hidden-namespace experimental features (AI MCP, STARKs). | Research |
+
 | Area | Status | Blockers |
 |---|---|---|
 | Contract Deployment| 🔴 Broken | Contracts not deployed to testnet |
@@ -31,9 +63,9 @@
 In CSV-CONTRACTS Scripts (for all chains)
 So both csv-cli and csv-wallet should be able to get contract addresses for each chain to create and send Sanads.
 
-- Compile and deploy `CSVLock.sol` + `CSVMint.sol` to Sepolia using foundry
-- Send deployed addresses in `chains/ethereum.toml` under `[testnet]`
-- Send deployed address into `lock_contract_address` field on `EthereumBackend`
+* Compile and deploy `CSVLock.sol` + `CSVMint.sol` to Sepolia using foundry
+* Send deployed addresses in `chains/ethereum.toml` under `[testnet]`
+* Send deployed address into `lock_contract_address` field on `EthereumBackend`
 
 ---
 
@@ -43,12 +75,12 @@ So both csv-cli and csv-wallet should be able to get contract addresses for each
 
 **What was done**:
 
-- `TransferManager` now holds `Arc<ChainRuntime>` (passed from `CsvClient::transfers()`)
-- `TransferBuilder::execute()` is now `async` and calls `runtime.lock_sanad()` on the source chain
-- Lock result (`SanadOperationResult`) is captured and stored in `TransferRecord.lock_tx_hash`
-- Transfer status transitions to `Locking { current_confirmations, required_confirmations }`
-- CLI `cmd_transfer` is now async and calls `execute().await`
-- `TransferRecord` struct has new `lock_tx_hash: Option<String>` field
+* `TransferManager` now holds `Arc<ChainRuntime>` (passed from `CsvClient::transfers()`)
+* `TransferBuilder::execute()` is now `async` and calls `runtime.lock_sanad()` on the source chain
+* Lock result (`SanadOperationResult`) is captured and stored in `TransferRecord.lock_tx_hash`
+* Transfer status transitions to `Locking { current_confirmations, required_confirmations }`
+* CLI `cmd_transfer` is now async and calls `execute().await`
+* `TransferRecord` struct has new `lock_tx_hash: Option<String>` field
 
 **Remaining work**:
 
@@ -74,9 +106,9 @@ CLI cmd_transfer() → client.transfers().cross_chain().execute().await
 
 The Explorer has complete SQL schema, REST API, GraphQL, and UI. But for demo step 5 ("csv-explorer list all transactions with links to source chains"), the indexer must be running against actual testnet nodes. Currently:
 
-- `config.testnet.toml` has placeholder RPC endpoints
-- Block explorer links (`blockstream.info`, `suiexplorer.com`, etc.) require real tx hashes from real chains
-- The `wallet_bridge.rs` priority indexing works but needs the wallet to register addresses via the bridge API
+* `config.testnet.toml` has placeholder RPC endpoints
+* Block explorer links (`blockstream.info`, `suiexplorer.com`, etc.) require real tx hashes from real chains
+* The `wallet_bridge.rs` priority indexing works but needs the wallet to register addresses via the bridge API
 
 **What's needed**:
 
@@ -150,27 +182,27 @@ Cross-checking each "Must-Ship Before Demo" item against actual code:
 
 **Items completed since original audit**:
 
-- SV-01b Ethereum finality bypass fix
-- CLI state file encryption (AES-256-GCM + Argon2id)
-- Nostr identity key persistence
-- Demo API keys removed from configs
-- Keystore directory permissions (0o700)
-- Passphrase minimum length (12 chars)
-- MCP server with 7 tools + input validation
-- P2P proof delivery (full Nostr implementation)
-- CLI offline verification with explorer links
-- Native keystore wired into key_manager
-- Sanad commitment chain anchoring (publish_seal)
-- CI production guarantee paths fixed
-- Seal double-spend regression test
-- WASM chain ID regression tests
-- Keccak256 bug fix in sanad_contract.rs
-- TransferStatus enum unification
-- Recovery engine DB integration (steps 4-7)
-- Reorg rollback.rs real implementation
-- Reorg reconciliation.rs real implementation
-- Quorum client integrated into Ethereum adapter
-- ABI migration to generated Alloy bindings
+* SV-01b Ethereum finality bypass fix
+* CLI state file encryption (AES-256-GCM + Argon2id)
+* Nostr identity key persistence
+* Demo API keys removed from configs
+* Keystore directory permissions (0o700)
+* Passphrase minimum length (12 chars)
+* MCP server with 7 tools + input validation
+* P2P proof delivery (full Nostr implementation)
+* CLI offline verification with explorer links
+* Native keystore wired into key_manager
+* Sanad commitment chain anchoring (publish_seal)
+* CI production guarantee paths fixed
+* Seal double-spend regression test
+* WASM chain ID regression tests
+* Keccak256 bug fix in sanad_contract.rs
+* TransferStatus enum unification
+* Recovery engine DB integration (steps 4-7)
+* Reorg rollback.rs real implementation
+* Reorg reconciliation.rs real implementation
+* Quorum client integrated into Ethereum adapter
+* ABI migration to generated Alloy bindings
 
 ---
 
@@ -194,17 +226,17 @@ Balance must reject silent-zero on RPC failure (chain_api.rs has the error type,
 
 `csv cross-chain transfer` now calls runtime.lock_sanad() on source chain (ARCH-03 partial).
 
-- [ ] P2P proof delivery must be functional (ARCH-02)
-- [ ] Ethereum must be deployable if ETH chain involved (ARCH-01)
-- [ ] Transfer state must persist correctly across both wallets
-- [ ] Recipient wallet must receive proof via Nostr subscription
+* [ ] P2P proof delivery must be functional (ARCH-02)
+* [ ] Ethereum must be deployable if ETH chain involved (ARCH-01)
+* [ ] Transfer state must persist correctly across both wallets
+* [ ] Recipient wallet must receive proof via Nostr subscription
 
 ### Step 5: Explorer — List Transactions with Chain Links
 
-- [ ] Indexer must be running against testnet (ARCH-05)
-- [ ] Block explorer links must be populated (ARCH-06)
-- [ ] WebSocket push for live status updates needs wiring
-- [ ] Explorer must be deployed at public URL
+* [ ] Indexer must be running against testnet (ARCH-05)
+* [ ] Block explorer links must be populated (ARCH-06)
+* [ ] WebSocket push for live status updates needs wiring
+* [ ] Explorer must be deployed at public URL
 
 ---
 
@@ -214,35 +246,35 @@ These must be enforced before any code reaches `main`:
 
 ### Cryptographic Guardrails
 
-- **No `Ok(true)` in verification paths.** Every verification path must return `Err` if data is unavailable, not a passing result.
-- **No mock signatures in production code.** The production guarantee CI (once paths are fixed) must catch `fake_sig`, `mock_proof`, `[0u8; 64]` patterns in non-test code.
-- **Seal registry check is mandatory.** `verify_proof()` must always call the seal registry callback. Never skip it with `//todo`.
-- **Empty proof bundles are rejected.** Zero-length `inclusion_proof` bytes must fail, not pass.
+* **No `Ok(true)` in verification paths.** Every verification path must return `Err` if data is unavailable, not a passing result.
+* **No mock signatures in production code.** The production guarantee CI (once paths are fixed) must catch `fake_sig`, `mock_proof`, `[0u8; 64]` patterns in non-test code.
+* **Seal registry check is mandatory.** `verify_proof()` must always call the seal registry callback. Never skip it with `//todo`.
+* **Empty proof bundles are rejected.** Zero-length `inclusion_proof` bytes must fail, not pass.
 
 ### Key Management Guardrails
 
-- **No raw private key bytes in logs.** Add a lint rule: `grep -r "private_key\|secret_key\|signing_key" --include="*.rs" | grep "println\|info!\|debug!"` must return zero results.
-- **Zeroize on drop.** Any type holding a private key must implement `Zeroize` + `ZeroizeOnDrop`. Verify with `#[derive(ZeroizeOnDrop)]`.
-- **No key material in state files.** `unified_storage.json` must never contain fields with names matching `key|secret|mnemonic|seed|private`.
+* **No raw private key bytes in logs.** Add a lint rule: `grep -r "private_key\|secret_key\|signing_key" --include="*.rs" | grep "println\|info!\|debug!"` must return zero results.
+* **Zeroize on drop.** Any type holding a private key must implement `Zeroize` + `ZeroizeOnDrop`. Verify with `#[derive(ZeroizeOnDrop)]`.
+* **No key material in state files.** `unified_storage.json` must never contain fields with names matching `key|secret|mnemonic|seed|private`.
 
 ### Chain Integration Guardrails
 
-- **Testnet by default.** Any new chain integration must default to testnet in config. Mainnet requires explicit `--network mainnet` flag.
-- **RPC endpoints via env vars only.** No hardcoded endpoints in any config file checked into the repo.
-- **Finality depth is never zero.** `min_confirmations = 0` must fail at config parse time.
+* **Testnet by default.** Any new chain integration must default to testnet in config. Mainnet requires explicit `--network mainnet` flag.
+* **RPC endpoints via env vars only.** No hardcoded endpoints in any config file checked into the repo.
+* **Finality depth is never zero.** `min_confirmations = 0` must fail at config parse time.
 
 ### State Machine Guardrails
 
-- **Transfer status is append-only.** A transfer record cannot go from `Completed` back to `Pending`. Add validation in `UnifiedStateManager::update_transfer()`.
-- **Sanad status is monotonic.** `Active → Transferred → Consumed`. Reverse transitions must panic/error.
-- **Double-consume fails loudly.** Attempting to consume an already-consumed Sanad must return a specific error, not silently succeed or update the record.
+* **Transfer status is append-only.** A transfer record cannot go from `Completed` back to `Pending`. Add validation in `UnifiedStateManager::update_transfer()`.
+* **Sanad status is monotonic.** `Active → Transferred → Consumed`. Reverse transitions must panic/error.
+* **Double-consume fails loudly.** Attempting to consume an already-consumed Sanad must return a specific error, not silently succeed or update the record.
 
 ### CI Guardrails (after fixing TEST-01)
 
-- **Production guarantee gates must pass on every PR.** No merges to `main` with failing gates.
-- **`cargo audit` on every push.** Already in CI — keep it.
-- **`cargo clippy -- -D warnings` blocks merge.** Already in CI — keep it.
-- **No `unwrap()` in production paths.** Add clippy lint `#![deny(clippy::unwrap_used)]` to `csv-core/src/lib.rs`, `csv-keys/src/lib.rs`.
+* **Production guarantee gates must pass on every PR.** No merges to `main` with failing gates.
+* **`cargo audit` on every push.** Already in CI — keep it.
+* **`cargo clippy -- -D warnings` blocks merge.** Already in CI — keep it.
+* **No `unwrap()` in production paths.** Add clippy lint `#![deny(clippy::unwrap_used)]` to `csv-core/src/lib.rs`, `csv-keys/src/lib.rs`.
 
 ---
 
@@ -560,20 +592,20 @@ Phase 1 (keccak256 fixed, wire replay)
 
 ## PART 13 — WHAT'S ALREADY PRODUCTION-READY (No Changes Needed)
 
-- `domain_hash.rs` + `domains/` (9 domain types)
-- `proof_pipeline.rs` (10-step canonical validation)
-- `transfer_state/` (8 typestate types with compile-time enforced transitions)
-- `csv-store/src/operations/` (5 SQLite stores)
-- `finality/` (per-chain policies)
-- `csv-keys/` (BIP-39/BIP-44, encrypted keystore, Zeroize memory)
-- `csv-core/src/events.rs` (15 event types)
-- `rpc/quorum_client.rs` (quorum client with real HTTP calls)
-- `reorg/rollback.rs` (real implementation with storage backend)
-- `reorg/reconciliation.rs` (real implementation with chain backend)
-- `recovery_engine.rs` (steps 4-7 wired to storage)
-- `bindings/csv_lock.rs` + `bindings/csv_mint.rs` (Alloy generated, used in ops.rs)
-- `scripts/security/check_forbidden_patterns.sh` (CI enforcement script)
-- `csv-core/tests/properties/` (5 property tests)
-- `csv-core/tests/compile_fail/` (3 tests, needs 3 more)
-- `deployments/deployment-manifest.json` (exists, needs filling)
-- `production-guarantee.yml` CI workflow (exists, needs path fix)
+* `domain_hash.rs` + `domains/` (9 domain types)
+* `proof_pipeline.rs` (10-step canonical validation)
+* `transfer_state/` (8 typestate types with compile-time enforced transitions)
+* `csv-store/src/operations/` (5 SQLite stores)
+* `finality/` (per-chain policies)
+* `csv-keys/` (BIP-39/BIP-44, encrypted keystore, Zeroize memory)
+* `csv-core/src/events.rs` (15 event types)
+* `rpc/quorum_client.rs` (quorum client with real HTTP calls)
+* `reorg/rollback.rs` (real implementation with storage backend)
+* `reorg/reconciliation.rs` (real implementation with chain backend)
+* `recovery_engine.rs` (steps 4-7 wired to storage)
+* `bindings/csv_lock.rs` + `bindings/csv_mint.rs` (Alloy generated, used in ops.rs)
+* `scripts/security/check_forbidden_patterns.sh` (CI enforcement script)
+* `csv-core/tests/properties/` (5 property tests)
+* `csv-core/tests/compile_fail/` (3 tests, needs 3 more)
+* `deployments/deployment-manifest.json` (exists, needs filling)
+* `production-guarantee.yml` CI workflow (exists, needs path fix)

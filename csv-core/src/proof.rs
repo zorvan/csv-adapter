@@ -25,6 +25,8 @@ pub struct InclusionProof {
     pub proof_bytes: Vec<u8>,
     /// Block hash containing the commitment
     pub block_hash: Hash,
+    /// Block number containing the commitment
+    pub block_number: u64,
     /// Position in block (for verification)
     pub position: u64,
 }
@@ -35,6 +37,7 @@ impl InclusionProof {
     /// # Arguments
     /// * `proof_bytes` - Merkle proof or equivalent (max 64KB)
     /// * `block_hash` - Block hash containing the commitment
+    /// * `block_number` - Block number containing the commitment
     /// * `position` - Position in block (for verification)
     ///
     /// # Errors
@@ -42,6 +45,7 @@ impl InclusionProof {
     pub fn new(
         proof_bytes: Vec<u8>,
         block_hash: Hash,
+        block_number: u64,
         position: u64,
     ) -> Result<Self, &'static str> {
         if proof_bytes.len() > MAX_PROOF_BYTES {
@@ -50,6 +54,7 @@ impl InclusionProof {
         Ok(Self {
             proof_bytes,
             block_hash,
+            block_number,
             position,
         })
     }
@@ -59,10 +64,11 @@ impl InclusionProof {
     /// # Safety
     /// The caller MUST ensure the proof_bytes are valid and non-empty.
     /// Violating this causes undefined behavior in proof verification.
-    pub unsafe fn new_unchecked(proof_bytes: Vec<u8>, block_hash: Hash, position: u64) -> Self {
+    pub unsafe fn new_unchecked(proof_bytes: Vec<u8>, block_hash: Hash, block_number: u64, position: u64) -> Self {
         Self {
             proof_bytes,
             block_hash,
+            block_number,
             position,
         }
     }
@@ -232,8 +238,9 @@ mod tests {
 
     #[test]
     fn test_inclusion_proof_creation() {
-        let proof = InclusionProof::new(vec![0xAB; 64], Hash::new([1u8; 32]), 42).unwrap();
+        let proof = InclusionProof::new(vec![0xAB; 64], Hash::new([1u8; 32]), 100, 42).unwrap();
         assert_eq!(proof.position, 42);
+        assert_eq!(proof.block_number, 100);
     }
 
     #[test]
@@ -250,7 +257,7 @@ mod tests {
             vec![vec![0xAB; 64]],
             SealPoint::new(vec![1, 2, 3], Some(42)).unwrap(),
             CommitAnchor::new(vec![4, 5, 6], 100, vec![]).unwrap(),
-            InclusionProof::new(vec![], Hash::zero(), 0).unwrap(),
+            InclusionProof::new(vec![], Hash::zero(), 0, 0).unwrap(),
             FinalityProof::new(vec![], 6, false).unwrap(),
         )
         .unwrap();
@@ -263,7 +270,7 @@ mod tests {
     #[test]
     fn test_inclusion_proof_too_large() {
         let large_proof = vec![0u8; MAX_PROOF_BYTES + 1];
-        let result = InclusionProof::new(large_proof, Hash::zero(), 0);
+        let result = InclusionProof::new(large_proof, Hash::zero(), 0, 0);
         assert!(result.is_err());
     }
 
@@ -282,7 +289,7 @@ mod tests {
             large_sigs,
             SealPoint::new(vec![1, 2, 3], Some(42)).unwrap(),
             CommitAnchor::new(vec![4, 5, 6], 100, vec![]).unwrap(),
-            InclusionProof::new(vec![], Hash::zero(), 0).unwrap(),
+            InclusionProof::new(vec![], Hash::zero(), 0, 0).unwrap(),
             FinalityProof::new(vec![], 6, false).unwrap(),
         );
         assert!(result.is_err());

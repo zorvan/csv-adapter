@@ -180,7 +180,41 @@ When contributing, AI agents MUST obey these rules (from the Principal Engineer 
 
 ### Global Repository Guardrails
 
-#### Forbidden Runtime Patterns
+#### 1. Zero-Placeholder Policy (ZPP)
+
+    The Rule: You are strictly forbidden from using todo!(), unimplemented!(), // FIXME, or empty/mock return values (Ok(vec![]), true) to resolve compilation errors in core, sdk, or adapter modules.
+
+    The Constraint: If a logic block is too complex to pass the borrow checker or type system, you must refactor the architecture to accommodate the complexity rather than deleting the logic to satisfy the compiler.
+
+    If a logic is necessary for production, it must be implemented properly, even if it means refactoring the code to make it work. 
+
+#### 2. Mandatory Debugging Protocol
+
+When encountering a compilation error, follow this sequence:
+
+    Analyze the Invariant: Check docs/PROTOCOL_INVARIANTS.md. Does your proposed fix weaken a security invariant? If yes, the fix is invalid.
+
+    Type-Preservation: You may not simplify data structures (e.g., converting a struct Proof to a Vec<u8>) just to bypass lifetime or trait bound issues.
+
+    Traceability: Every time you resolve a compiler error by changing a function signature or logic flow, you must append a "Refactor Note" to the PR/Commit explaining why the new structure still satisfies the original cryptographic requirements.
+
+#### 3. "Compiling != Correct" Checkpoint
+
+Before declaring a bug fixed:
+    Verification Check: Ensure that any verify() or validate() function still contains at least one cryptographic operation (Hashing, Merkle Proof, or Signature Check).
+    Negative Test Requirement: You must write (or update) a test case that fails if the logic is simplified. For example, if you are fixing a Verifier, you must provide a test with a malformed proof that your "fix" correctly rejects.
+
+#### 4. Forbidden Phrases in Code
+
+The following patterns will trigger an immediate "Needs Revision" status:
+
+    return Ok(Default::default()); // Temporary fix for build
+
+    // Logic removed to satisfy borrow checker; restore later
+
+    assert!(true); // TODO: actual verification
+
+#### 5. Forbidden Runtime Patterns
 
 The following patterns are forbidden in production runtime code:
 
@@ -202,7 +236,7 @@ Allowed only in:
 /benches
 ```
 
-#### Approved Unsafe Modules
+#### 6. Approved Unsafe Modules
 
 Unsafe MAY exist only in:
 
@@ -280,4 +314,3 @@ The single most impactful addition: **a strong, machine‑readable set of invari
 - `csv-core/src/PROTOCOL_INVARIANTS.md` – mandatory reading
 - `docs/CONSULTING.md` and `docs/MASTERPLAN.md` for deeper design
 - `docs/AUDIT.md` and `docs/AUDIT2.md` for security audit status
-

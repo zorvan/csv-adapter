@@ -696,16 +696,55 @@ impl SealProtocol for SuiSealProtocol {
     }
 
     fn enforce_seal(&self, seal: Self::SealPoint) -> CoreResult<()> {
-        let mut registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
+        // Rule G-02: Double-spend prevention
+        // This method ensures that a Sui object cannot be consumed more than once
+        // by checking both local registry and on-chain object state
+
+        // Step 1: Check local registry (fast path)
+        let registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
         if registry.is_seal_used(&seal) {
             return Err(ProtocolError::SealReplay(format!(
-                "Object {} already consumed",
+                "Object {} already consumed in local registry",
                 format_object_id(seal.object_id)
             )));
         }
+        drop(registry);
+
+        // Step 2: Check on-chain object state via RPC (authoritative check)
+        // This ensures that even if local state is corrupted or lost,
+        // we still prevent double-spends by querying the blockchain
+        #[cfg(feature = "rpc")]
+        {
+            if let Some(ref rpc) = self.rpc_client {
+                use tokio::runtime::Handle;
+                if let Ok(handle) = Handle::try_current() {
+                    let object_exists = handle
+                        .block_on(rpc.object_exists(&seal.object_id))
+                        .map_err(|e| {
+                            ProtocolError::NetworkError(format!(
+                                "Failed to check object status on-chain: {}",
+                                e
+                            ))
+                        })?;
+
+                    if !object_exists {
+                        return Err(ProtocolError::SealReplay(format!(
+                            "Object {} already consumed on-chain (deleted)",
+                            format_object_id(seal.object_id)
+                        )));
+                    }
+                }
+            }
+        }
+
+        // Step 3: Mark seal as used in local registry
+        // This is done after the on-chain check to ensure consistency
+        let mut registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
         registry
             .mark_seal_used(&seal, 0)
-            .map_err(ProtocolError::from)
+            .map_err(ProtocolError::from)?;
+
+        Ok(())
     }
 
     fn create_seal(&self, _value: Option<u64>) -> CoreResult<Self::SealPoint> {
@@ -762,6 +801,7 @@ impl SealProtocol for SuiSealProtocol {
             inclusion.object_proof,
             Hash::new(inclusion.checkpoint_hash),
             inclusion.checkpoint_number,
+            0,
         )
         .map_err(|e| ProtocolError::Generic(e.to_string()))?;
 

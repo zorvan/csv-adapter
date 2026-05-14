@@ -513,7 +513,7 @@ impl ChainProofProvider for SolanaBackend {
         let block_hash = Hash::new([0u8; 32]);
 
         Ok(
-            CoreInclusionProof::new(proof_bytes, block_hash, block_height)
+            CoreInclusionProof::new(proof_bytes, block_hash, block_height, block_height)
                 .map_err(|e| ChainOpError::ProofVerificationError(e.to_string()))?,
         )
     }

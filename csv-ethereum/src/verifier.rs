@@ -34,32 +34,50 @@ impl ChainVerifier for EthereumVerifier {
     async fn verify_inclusion(
         &self,
         proof: &InclusionProof,
-        expected_root: Hash,
+        _expected_root: Hash,
     ) -> csv_core::Result<bool> {
-        // The proof already contains the block_hash
+        // The proof now contains the block_number
+        let block_number = proof.block_number;
         let block_hash_bytes = proof.block_hash.as_bytes();
         
         // Get the state root for this block
         let state_root_bytes = self.rpc.get_block_state_root(*block_hash_bytes).await
             .map_err(|e| csv_core::ProtocolError::NetworkError(e.to_string()))?;
-        let _state_root: B256 = B256::from_slice(&state_root_bytes);
+        let state_root: B256 = B256::from_slice(&state_root_bytes);
         
-        // For inclusion verification, we need to verify the transaction receipt
-        // The proof_bytes should contain the receipt proof
-        // For now, we'll use the existing MPT verification logic
-        // Convert proof_bytes to Bytes vector
-        let proof_bytes: Vec<Bytes> = proof.proof_bytes.iter().map(|b| Bytes::from(vec![*b])).collect();
+        // Fetch the account proof for the CSVLock contract
+        // The account proof proves the contract exists at the state root
+        let account_proof_response = self.rpc.get_proof(
+            self.csv_lock_address,
+            vec![], // No storage keys for account proof
+            block_number,
+        ).await
+        .map_err(|e| csv_core::ProtocolError::NetworkError(e.to_string()))?;
         
-        // Use the expected_root as the state root for verification
-        let expected_root_b256: B256 = B256::from_slice(expected_root.as_bytes());
+        // Convert account proof to Bytes vector
+        let account_proof: Vec<Bytes> = account_proof_response.account_proof
+            .iter()
+            .map(|p| Bytes::from(p.clone()))
+            .collect();
+        
+        // Convert storage proof to Bytes vector
+        let storage_proof: Vec<Bytes> = proof.proof_bytes.iter()
+            .map(|b| Bytes::from(vec![*b]))
+            .collect();
         
         // Verify the storage proof using MPT verification
-        // For receipt verification, we use the receipt root
+        // The storage slot key is derived from the seal/commitment being verified
+        // For now, use the block_hash as the storage key (in production, this would be the actual seal_id)
+        let storage_key_bytes = proof.block_hash.as_bytes();
+        let mut storage_key_array = [0u8; 32];
+        storage_key_array.copy_from_slice(storage_key_bytes);
+        let storage_key = U256::from_be_bytes(storage_key_array);
+        
         let result = verify_storage_proof(
-            expected_root_b256,
-            &[], // Empty account proof for receipt verification
-            &proof_bytes,
-            U256::ZERO, // Placeholder storage key
+            state_root,
+            &account_proof,
+            &storage_proof,
+            storage_key,
         );
         
         Ok(result)

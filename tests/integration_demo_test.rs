@@ -83,7 +83,7 @@ mod demo_scenario_tests {
         );
         let dag_segment = DAGSegment::new(vec![dag_node], Hash::zero());
 
-        let inclusion_proof = InclusionProof::new(vec![0xCD; 32], Hash::new([2u8; 32]), 0)
+        let inclusion_proof = InclusionProof::new(vec![0xCD; 32], Hash::new([2u8; 32]), 100, 0)
             .expect("InclusionProof creation should succeed");
 
         let finality_proof = FinalityProof::new(vec![0xAB; 16], 6, false)
@@ -164,7 +164,7 @@ mod demo_scenario_tests {
         );
         let dag_segment = DAGSegment::new(vec![dag_node], Hash::zero());
 
-        let inclusion_proof = InclusionProof::new(vec![0xCD; 32], Hash::new([2u8; 32]), 0)
+        let inclusion_proof = InclusionProof::new(vec![0xCD; 32], Hash::new([2u8; 32]), 100, 0)
             .expect("InclusionProof creation should succeed");
 
         let finality_proof = FinalityProof::new(vec![0xAB; 16], 6, false)

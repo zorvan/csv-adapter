@@ -2,9 +2,6 @@
 //!
 //! This module provides SDK-based minting using Sui's JSON-RPC with proper transaction building.
 
-use csv_core::hash::Hash as CsvHash;
-use crate::error::{SuiError, SuiResult};
-
 /// Mint a sanad on Sui using direct JSON-RPC transaction submission
 ///
 /// This uses Sui's transaction building and execution via JSON-RPC.

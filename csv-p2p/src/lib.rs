@@ -10,9 +10,12 @@
 //! - `NostrTransport` — Nostr-based implementation (feature-gated)
 //! - `ProofRouter` — routes proof bundles to available transports
 
+pub mod ipfs;
 pub mod nostr;
 pub mod proof_delivery;
 
+#[cfg(feature = "ipfs")]
+pub use ipfs::IpfsTransport;
 pub use nostr::NostrTransport;
 pub use proof_delivery::{ProofFilter, ProofRouter};
 
@@ -30,6 +33,9 @@ pub enum TransportError {
 
     #[error("Nostr relay error: {0}")]
     Nostr(String),
+
+    #[error("IPFS error: {0}")]
+    Ipfs(String),
 
     #[error("No relays available")]
     NoRelays,

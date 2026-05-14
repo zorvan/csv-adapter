@@ -17,6 +17,7 @@ pub mod proofs;
 pub mod rpc;
 pub mod seal;
 pub mod seal_protocol;
+pub mod sync_coordinator;
 pub mod types;
 pub mod verifier;
 pub mod wallet;

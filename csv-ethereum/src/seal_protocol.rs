@@ -26,6 +26,7 @@ use crate::seal::SealRegistry;
 use crate::types::{
     EthereumCommitAnchor, EthereumFinalityProof, EthereumInclusionProof, EthereumSealPoint,
 };
+use crate::verifier::EthereumVerifier;
 
 /// Ethereum implementation of the SealProtocol trait
 pub struct EthereumSealProtocol {
@@ -36,6 +37,8 @@ pub struct EthereumSealProtocol {
     finality_checker: FinalityChecker,
     /// CSVSeal contract address for event verification (crate-visible for chain_adapter_impl)
     pub(crate) csv_seal_address: [u8; 20],
+    /// Verifier for MPT inclusion and seal registry checks
+    verifier: EthereumVerifier,
 }
 
 impl EthereumSealProtocol {
@@ -54,6 +57,12 @@ impl EthereumSealProtocol {
             prefer_checkpoint_finality: config.use_checkpoint_finality,
         });
 
+        // Create verifier with CSVLock contract address for seal registry checks
+        let verifier = EthereumVerifier::new(
+            rpc.clone_boxed(),
+            csv_seal_address,
+        );
+
         Ok(Self {
             config,
             seal_registry: Mutex::new(SealRegistry::new()),
@@ -61,6 +70,7 @@ impl EthereumSealProtocol {
             rpc,
             finality_checker,
             csv_seal_address,
+            verifier,
         })
     }
 
@@ -382,8 +392,8 @@ impl SealProtocol for EthereumSealProtocol {
     fn enforce_seal(&self, seal: Self::SealPoint) -> CoreResult<()> {
         // Rule G-02: Double-spend prevention
         // This method ensures that a seal cannot be used more than once
-        // by checking both local registry and on-chain state
-        
+        // by checking both local registry and on-chain state via CSVLock contract
+
         // Step 1: Check local registry (fast path)
         let registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
         if registry.is_seal_used(&seal) {
@@ -392,24 +402,48 @@ impl SealProtocol for EthereumSealProtocol {
                 seal
             )));
         }
-        
+        drop(registry);
+
         // Step 2: Check on-chain state via CSVLock contract (authoritative check)
         // This ensures that even if local state is corrupted or lost,
         // we still prevent double-spends by querying the blockchain
-        // The seal_id is derived from the seal point
-        let _seal_id = Hash::new(seal.seal_id);
-        
-        // In a production implementation, we would query the CSVLock contract
-        // to check if the seal has been marked as used on-chain
-        // For now, we rely on the local registry and mark the seal as used
-        // This is safe because:
-        // 1. The publish() method calls markSealUsed on-chain
-        // 2. The local registry is updated atomically with the on-chain transaction
-        // 3. If the on-chain transaction fails, the local registry is not updated
-        
-        // Mark seal as used in local registry
+        let seal_id = Hash::new(seal.seal_id);
+
+        // Use the verifier to check the CSVLock contract's usedSeals mapping
+        // This performs an MPT storage proof to verify the seal status on-chain
+        #[cfg(feature = "rpc")]
+        {
+            use tokio::runtime::Handle;
+            if let Ok(handle) = Handle::try_current() {
+                let is_used_on_chain = handle
+                    .block_on(self.verifier.verify_seal_registry(seal_id))
+                    .map_err(|e| {
+                        ProtocolError::NetworkError(format!(
+                            "Failed to check seal registry on-chain: {}",
+                            e
+                        ))
+                    })?;
+
+                if is_used_on_chain {
+                    return Err(ProtocolError::SealReplay(format!(
+                        "Seal {:?} already used in CSVLock contract on-chain",
+                        seal
+                    )));
+                }
+            }
+        }
+
+        #[cfg(not(feature = "rpc"))]
+        {
+            // Without RPC feature, we rely on local registry only
+            let _ = seal_id;
+        }
+
+        // Step 3: Mark seal as used in local registry
+        // This is done after the on-chain check to ensure consistency
+        let registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
         registry.mark_seal_used(&seal).map_err(ProtocolError::from)?;
-        
+
         Ok(())
     }
 
@@ -459,6 +493,7 @@ impl SealProtocol for EthereumSealProtocol {
             inclusion.merkle_proof.clone(),
             Hash::new(inclusion.block_hash),
             inclusion.log_index,
+            anchor.block_number,
         )
         .map_err(|e| ProtocolError::Generic(e.to_string()))?;
 

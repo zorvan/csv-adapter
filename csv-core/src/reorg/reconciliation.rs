@@ -309,30 +309,85 @@ impl<B: ChainBackendForReconciliation> ReconciliationEngine<B> {
     /// Compute the new state for a transfer after reconciliation.
     ///
     /// Maps pre-reorg states to appropriate post-reconciliation states
-    /// based on the reorg event.
+    /// based on the reorg event. For deep reorgs (6+ blocks), applies more
+    /// aggressive rollback to ensure security invariants are maintained.
     fn compute_new_state(
         &self,
         state: &str,
-        _block_height: &u64,
+        block_height: &u64,
         event: &ReorgEvent,
     ) -> String {
-        // If the reorg depth is significant, transfers in early stages need to
-        // be moved back to earlier states for re-processing
+        // Calculate reorg depth
         let reorg_depth = event.old_height.saturating_sub(event.new_height);
 
+        // For 6+ block deep reorgs, apply more conservative rollback logic
+        // This is critical for Bitcoin and Ethereum which have different finality characteristics:
+        // - Bitcoin: 6+ block reorg is extremely rare and indicates potential chain split
+        // - Ethereum: 6+ block reorg suggests checkpoint finality issues or network partition
+        let is_deep_reorg = reorg_depth >= 6;
+
         match state {
-            // Locking state - if reorg is deep, go back to init; otherwise stay in awaiting_finality
-            "locking" | "awaiting_finality" if reorg_depth > 3 => "init".to_string(),
+            // Locking state - deep reorgs require full restart to ensure lock validity
+            "locking" | "awaiting_finality" if is_deep_reorg => {
+                log::warn!(
+                    "Deep reorg ({} blocks) at height {} - rolling back locking transfer to init",
+                    reorg_depth,
+                    block_height
+                );
+                "init".to_string()
+            }
+            // Moderate reorg (3-5 blocks) - stay in awaiting_finality to re-confirm
+            "locking" | "awaiting_finality" if reorg_depth > 3 => "awaiting_finality".to_string(),
+            // Shallow reorg (0-3 blocks) - maintain current state
             "locking" | "awaiting_finality" => "awaiting_finality".to_string(),
-            // Proof building state - if reorg is deep, go back to locking; otherwise stay in proof_building
-            "proof_building" | "proof_validated" if reorg_depth > 3 => "locking".to_string(),
+
+            // Proof building state - deep reorgs require full proof rebuild from locking
+            "proof_building" | "proof_validated" if is_deep_reorg => {
+                log::warn!(
+                    "Deep reorg ({} blocks) at height {} - rolling back proof transfer to locking",
+                    reorg_depth,
+                    block_height
+                );
+                "locking".to_string()
+            }
+            // Moderate reorg - go back to proof_building to re-validate
+            "proof_building" | "proof_validated" if reorg_depth > 3 => "proof_building".to_string(),
+            // Shallow reorg - maintain current state
             "proof_building" | "proof_validated" => "proof_building".to_string(),
-            // Minting state - go back to proof_validated to re-build and submit
-            "minting" => "proof_validated".to_string(),
-            // Already completed - no state change needed
+
+            // Minting state - always go back to proof_validated for any reorg
+            // to ensure the proof is still valid before minting
+            "minting" => {
+                log::info!(
+                    "Reorg ({} blocks) at height {} - rolling back minting transfer to proof_validated",
+                    reorg_depth,
+                    block_height
+                );
+                "proof_validated".to_string()
+            }
+
+            // Completed state - for deep reorgs, mark for manual review
+            // to ensure the finality is still valid
+            "completed" if is_deep_reorg => {
+                log::warn!(
+                    "Deep reorg ({} blocks) at height {} - marking completed transfer for security review",
+                    reorg_depth,
+                    block_height
+                );
+                "needs_security_review".to_string()
+            }
+            // Completed state - shallow reorgs don't affect completed transfers
             "completed" => "completed".to_string(),
+
             // Unknown state - conservative: mark for review
-            _ => "needs_review".to_string(),
+            _ => {
+                log::error!(
+                    "Unknown state '{}' for transfer at height {} during reorg - marking for review",
+                    state,
+                    block_height
+                );
+                "needs_review".to_string()
+            }
         }
     }
 

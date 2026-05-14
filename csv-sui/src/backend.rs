@@ -375,7 +375,7 @@ impl ChainDriver for SuiSealProtocol {
 
     async fn create_client(&self, config: &ChainConfig) -> ChainResult<Box<dyn RpcClient>> {
         // Create a new RPC client from config
-        let rpc_endpoint = config
+        let _rpc_endpoint = config
             .rpc_endpoints
             .first()
             .ok_or_else(|| ChainError::InvalidInput("RPC endpoint required".to_string()))?
@@ -480,7 +480,7 @@ pub fn create_sui_adapter(config: &ChainConfig) -> ChainResult<SuiSealProtocol> 
         _ => SuiNetwork::Testnet,
     };
 
-    let sui_config = SuiConfig {
+    let _sui_config = SuiConfig {
         seal_contract: crate::SealContractConfig {
             package_id: Some(
                 "0x0000000000000000000000000000000000000000000000000000000000000002"

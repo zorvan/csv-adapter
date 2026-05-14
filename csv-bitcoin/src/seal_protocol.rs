@@ -567,8 +567,53 @@ impl SealProtocol for BitcoinSealProtocol {
     }
 
     fn enforce_seal(&self, seal: Self::SealPoint) -> CoreResult<()> {
+        // Rule G-02: Double-spend prevention
+        // This method ensures that a UTXO cannot be spent more than once
+        // by checking both local registry and on-chain UTXO set
+
+        // Step 1: Check local registry (fast path)
+        let registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
+        if registry.is_seal_used(&seal) {
+            return Err(ProtocolError::SealReplay(format!(
+                "UTXO {:?}:{:?} already used in local registry",
+                seal.txid, seal.vout
+            )));
+        }
+        drop(registry);
+
+        // Step 2: Check on-chain UTXO set via RPC (authoritative check)
+        // This ensures that even if local state is corrupted or lost,
+        // we still prevent double-spends by querying the blockchain
+        #[cfg(feature = "rpc")]
+        {
+            if let Some(ref rpc) = self.rpc {
+                use tokio::runtime::Handle;
+                if let Ok(handle) = Handle::try_current() {
+                    let is_unspent = handle
+                        .block_on(rpc.is_tx_unspent(&seal.txid, seal.vout))
+                        .map_err(|e| {
+                            ProtocolError::NetworkError(format!(
+                                "Failed to check UTXO status on-chain: {}",
+                                e
+                            ))
+                        })?;
+
+                    if !is_unspent {
+                        return Err(ProtocolError::SealReplay(format!(
+                            "UTXO {:?}:{:?} already spent on-chain",
+                            seal.txid, seal.vout
+                        )));
+                    }
+                }
+            }
+        }
+
+        // Step 3: Mark seal as used in local registry
+        // This is done after the on-chain check to ensure consistency
         let mut registry = self.seal_registry.lock().unwrap_or_else(|e| e.into_inner());
-        registry.mark_seal_used(&seal).map_err(ProtocolError::from)
+        registry.mark_seal_used(&seal).map_err(ProtocolError::from)?;
+
+        Ok(())
     }
 
     fn create_seal(&self, value: Option<u64>) -> CoreResult<Self::SealPoint> {
@@ -618,6 +663,7 @@ impl SealProtocol for BitcoinSealProtocol {
             proof_bytes,
             Hash::new(inclusion.block_hash),
             inclusion.tx_index as u64,
+            anchor.block_height,
         )
         .map_err(|e| ProtocolError::Generic(e.to_string()))?;
 

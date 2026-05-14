@@ -429,7 +429,7 @@ pub fn to_core_inclusion_proof(proof: &EthereumInclusionProof) -> csv_core::Incl
     proof_bytes.extend_from_slice(&proof.block_number.to_le_bytes());
     proof_bytes.extend_from_slice(&proof.log_index.to_le_bytes());
 
-    csv_core::InclusionProof::new(proof_bytes, Hash::new(proof.block_hash), proof.log_index)
+    csv_core::InclusionProof::new(proof_bytes, Hash::new(proof.block_hash), proof.block_number, proof.log_index)
         .expect("valid inclusion proof")
 }
 

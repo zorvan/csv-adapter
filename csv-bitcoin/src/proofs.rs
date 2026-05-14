@@ -527,6 +527,7 @@ pub fn to_core_inclusion_proof(proof: &BitcoinInclusionProof) -> csv_core::Inclu
         csv_core::InclusionProof::new_unchecked(
             proof_bytes,
             CoreHash::new(proof.block_hash),
+            proof.block_height,
             proof.tx_index as u64,
         )
     }

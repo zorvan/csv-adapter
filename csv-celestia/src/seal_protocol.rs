@@ -254,6 +254,7 @@ where
         let inclusion_proof = csv_core::proof::InclusionProof::new(
             proof_bytes,
             csv_core::hash::Hash::new(inclusion.block_hash),
+            inclusion.block_height,
             inclusion.row_index as u64,
         )
         .map_err(|e| {
