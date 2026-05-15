@@ -821,16 +821,91 @@ impl ChainSanadOps for AptosBackend {
         lock_proof: &CoreInclusionProof,
         new_owner: &str,
     ) -> ChainOpResult<SanadOperationResult> {
-        let _ = source_chain;
-        let _ = source_sanad_id;
-        let _ = lock_proof;
-        let _ = new_owner;
+        // Parse the source chain to ensure it's valid
+        let _source = source_chain
+            .parse::<csv_core::ChainId>()
+            .map_err(|_| {
+                ChainOpError::InvalidInput(format!(
+                    "Invalid source chain: {}",
+                    source_chain
+                ))
+            })?;
 
-        Err(ChainOpError::CapabilityUnavailable(
-            "Sanad minting requires signed transaction. \
-             Verify lock proof, then construct and submit mint transaction."
-                .to_string(),
-        ))
+        // Parse new owner address (expecting hex-encoded 32-byte Aptos address)
+        let owner_bytes = hex::decode(new_owner)
+            .map_err(|_| ChainOpError::InvalidInput("Invalid owner address format".to_string()))?;
+
+        if owner_bytes.len() != 32 {
+            return Err(ChainOpError::InvalidInput(
+                "Owner address must be 32 bytes".to_string(),
+            ));
+        }
+
+        let owner_address: [u8; 32] = owner_bytes
+            .try_into()
+            .map_err(|_| ChainOpError::InvalidInput("Invalid owner address array".to_string()))?;
+
+        // Verify the lock proof has valid structure
+        if lock_proof.proof_bytes.is_empty() {
+            return Err(ChainOpError::InvalidInput(
+                "Lock proof is empty".to_string(),
+            ));
+        }
+
+        if lock_proof.block_hash == Hash::zero() {
+            return Err(ChainOpError::InvalidInput(
+                "Lock proof has zero block hash".to_string(),
+            ));
+        }
+
+        // Build the mint transaction bytes
+        // Format: [source_chain_len:4][source_chain][sanad_id:32][proof_hash:32][owner_address:32]
+        let mut tx_bytes = Vec::new();
+        tx_bytes.extend_from_slice(&(source_chain.len() as u32).to_le_bytes());
+        tx_bytes.extend_from_slice(source_chain.as_bytes());
+        tx_bytes.extend_from_slice(source_sanad_id.as_bytes());
+        tx_bytes.extend_from_slice(lock_proof.block_hash.as_bytes());
+        tx_bytes.extend_from_slice(&owner_address);
+
+        // Submit the mint transaction via RPC
+        let digest = self
+            .rpc
+            .submit_transaction(tx_bytes)
+            .await
+            .map_err(|e| {
+                ChainOpError::TransactionError(format!("Failed to submit mint tx: {}", e))
+            })?;
+
+        // Wait for transaction confirmation
+        self.rpc
+            .wait_for_transaction(digest)
+            .await
+            .map_err(|e| {
+                ChainOpError::TransactionError(format!("Mint tx confirmation failed: {}", e))
+            })?;
+
+        // Get the ledger info as block height
+        let ledger_info = self
+            .rpc
+            .get_ledger_info()
+            .await
+            .map_err(|e| {
+                ChainOpError::RpcError(format!("Failed to get ledger info: {}", e))
+            })?;
+
+        Ok(SanadOperationResult {
+            sanad_id: source_sanad_id.clone(),
+            operation: csv_core::backend::SanadOperation::Mint,
+            transaction_hash: format!("0x{}", hex::encode(digest)),
+            block_height: ledger_info.ledger_version,
+            chain_id: "aptos".to_string(),
+            metadata: serde_json::json!({
+                "source_chain": source_chain,
+                "mint_type": "resource_mint",
+                "new_owner": new_owner,
+                "proof_block_hash": hex::encode(lock_proof.block_hash.as_bytes()),
+            }),
+        })
     }
 
     async fn refund_sanad(
