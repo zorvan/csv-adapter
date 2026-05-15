@@ -4,6 +4,7 @@ pub mod balance;
 pub mod export;
 pub mod generate;
 pub mod import;
+pub mod private_key;
 pub mod types;
 
 pub use types::WalletAction;
@@ -37,5 +38,6 @@ pub async fn execute(
             balance::cmd_balance(chain, address, config, state).await
         }
         WalletAction::List => balance::cmd_list(config, state),
+        WalletAction::PrivateKey { chain } => private_key::cmd_private_key(chain, config, state),
     }
 }

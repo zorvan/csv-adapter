@@ -51,4 +51,10 @@ pub enum WalletAction {
     },
     /// List all wallet addresses
     List,
+    /// Show hex-encoded private key for a chain (derived from mnemonic)
+    PrivateKey {
+        /// Chain name
+        #[arg(value_enum)]
+        chain: Chain,
+    },
 }

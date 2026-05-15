@@ -38,6 +38,9 @@ pub fn cmd_init(
     let mnemonic = generate_mnemonic(words)?;
     output::success(&format!("Generated {}-word mnemonic", words));
     output::info("Write this mnemonic down securely. It is your wallet recovery phrase.");
+    println!();
+    output::kv("Mnemonic phrase", &mnemonic);
+    println!();
 
     // Step 2: Generate wallets for all supported chains
     let mut addresses = HashMap::new();
@@ -68,6 +71,7 @@ pub fn cmd_init(
 
     // Step 3: Save configuration
     output::info("Saving wallet configuration...");
+    state.storage.wallet.mnemonic = Some(mnemonic.clone());
     save_wallet_config(&mnemonic, &addresses, config)?;
     output::success("Configuration saved");
 

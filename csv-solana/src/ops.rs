@@ -9,6 +9,7 @@
 //! - ChainSanadOps: Sanad management via program accounts
 //!
 use async_trait::async_trait;
+use std::str::FromStr;
 use csv_core::backend::{
     BalanceInfo, ChainBackend, ChainBroadcaster, ChainCapability, ChainDeployer, ChainOpError,
     ChainOpResult, ChainProofProvider, ChainQuery, ChainSanadOps, ChainSigner, ContractStatus,

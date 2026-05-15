@@ -250,13 +250,13 @@ impl ChainDriver for SolanaSealProtocol {
 
     async fn create_client(&self, config: &ChainConfig) -> ChainResult<Box<dyn RpcClient>> {
         // Create a new RPC client from config
-        let rpc_url = config
-            .rpc_endpoints
-            .first()
-            .ok_or_else(|| ChainError::InvalidInput("RPC endpoint required".to_string()))?;
 
         #[cfg(feature = "rpc")]
         {
+            let rpc_url = config
+                .rpc_endpoints
+                .first()
+                .ok_or_else(|| ChainError::InvalidInput("RPC endpoint required".to_string()))?;
             use crate::node::SolanaNode as RealSolanaRpcClient;
             let rpc = RealSolanaRpcClient::new(rpc_url);
             Ok(Box::new(SolanaRpcClient::new(Box::new(rpc))))
@@ -264,6 +264,7 @@ impl ChainDriver for SolanaSealProtocol {
 
         #[cfg(not(feature = "rpc"))]
         {
+            let _ = config;
             Err(ChainError::FeatureNotEnabled(
                 "Solana RPC client creation requires 'rpc' feature".to_string(),
             ))
