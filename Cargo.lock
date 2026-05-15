@@ -3001,6 +3001,7 @@ dependencies = [
  "bincode",
  "bitcoin 0.30.3",
  "bloomfilter",
+ "csv-observability",
  "curve25519-dalek",
  "ed25519-dalek",
  "hex",

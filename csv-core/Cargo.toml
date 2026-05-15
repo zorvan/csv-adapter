@@ -41,6 +41,7 @@ rand_core = { version = "0.6", optional = true }
 reqwest = { version = "0.11", features = ["json"], optional = true }
 url = { version = "2.5", optional = true }
 tokio = { version = "1", features = ["rt", "macros", "time"], optional = true }
+csv-observability = { path = "../csv-observability", optional = true }
 
 [features]
 default = ["std", "pq"]
@@ -54,7 +55,7 @@ ethereum = []
 pq = ["dep:pqcrypto-dilithium", "dep:pqcrypto-traits"]
 zk = ["dep:curve25519-dalek", "dep:rand_core"]
 quorum = ["dep:reqwest", "dep:url", "dep:tokio"]
-observability = []
+observability = ["dep:csv-observability"]
 full = ["bitcoin", "solana", "aptos", "sui", "ethereum", "pq", "zk", "quorum", "observability"]
 experimental = []
 

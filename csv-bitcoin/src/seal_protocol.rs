@@ -587,23 +587,20 @@ impl SealProtocol for BitcoinSealProtocol {
         #[cfg(feature = "rpc")]
         {
             if let Some(ref rpc) = self.rpc {
-                use tokio::runtime::Handle;
-                if let Ok(handle) = Handle::try_current() {
-                    let is_unspent = handle
-                        .block_on(rpc.is_tx_unspent(&seal.txid, seal.vout))
-                        .map_err(|e| {
-                            ProtocolError::NetworkError(format!(
-                                "Failed to check UTXO status on-chain: {}",
-                                e
-                            ))
-                        })?;
+                let is_unspent = rpc
+                    .is_utxo_unspent(seal.txid, seal.vout)
+                    .map_err(|e| {
+                        ProtocolError::NetworkError(format!(
+                            "Failed to check UTXO status on-chain: {}",
+                            e
+                        ))
+                    })?;
 
-                    if !is_unspent {
-                        return Err(ProtocolError::SealReplay(format!(
-                            "UTXO {:?}:{:?} already spent on-chain",
-                            seal.txid, seal.vout
-                        )));
-                    }
+                if !is_unspent {
+                    return Err(ProtocolError::SealReplay(format!(
+                        "UTXO {:?}:{:?} already spent on-chain",
+                        seal.txid, seal.vout
+                    )));
                 }
             }
         }

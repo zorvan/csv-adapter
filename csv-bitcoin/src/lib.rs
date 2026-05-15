@@ -28,9 +28,6 @@ pub mod verifier;
 pub mod wallet;
 pub mod zk_prover;
 
-#[cfg(feature = "rpc")]
-pub mod node;
-
 #[cfg(feature = "signet-rest")]
 pub mod mempool_rpc;
 

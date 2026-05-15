@@ -424,24 +424,20 @@ impl SealProtocol for SolanaSealProtocol {
         #[cfg(feature = "rpc")]
         {
             let rpc = self.check_rpc()?;
-            use tokio::runtime::Handle;
-            if let Ok(handle) = Handle::try_current() {
-                let account = handle
-                    .block_on(rpc.get_account(&seal_point.account))
-                    .map_err(|e| {
-                        ProtocolError::NetworkError(format!(
-                            "Failed to check account status on-chain: {}",
-                            e
-                        ))
-                    })?;
+            let account = rpc.get_account(&seal_point.account)
+                .map_err(|e| {
+                    ProtocolError::NetworkError(format!(
+                        "Failed to check account status on-chain: {}",
+                        e
+                    ))
+                })?;
 
-                // If account doesn't exist or has zero lamports, it's already been consumed
-                if account.lamports == 0 {
-                    return Err(ProtocolError::SealReplay(format!(
-                        "PDA account {:?} already consumed on-chain (zero lamports)",
-                        seal_point.account
-                    )));
-                }
+            // If account doesn't exist or has zero lamports, it's already been consumed
+            if account.lamports == 0 {
+                return Err(ProtocolError::SealReplay(format!(
+                    "PDA account {:?} already consumed on-chain (zero lamports)",
+                    seal_point.account
+                )));
             }
         }
 

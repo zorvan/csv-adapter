@@ -250,7 +250,7 @@ impl ChainDriver for SolanaSealProtocol {
 
     async fn create_client(&self, config: &ChainConfig) -> ChainResult<Box<dyn RpcClient>> {
         // Create a new RPC client from config
-        let _rpc_url = config
+        let rpc_url = config
             .rpc_endpoints
             .first()
             .ok_or_else(|| ChainError::InvalidInput("RPC endpoint required".to_string()))?;

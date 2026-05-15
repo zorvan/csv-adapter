@@ -12,6 +12,9 @@ use serde_json;
 use crate::error::Result;
 
 #[cfg(feature = "observability")]
+use std::sync::{Arc, Mutex};
+
+#[cfg(feature = "observability")]
 use csv_observability::metrics::RpcMetrics;
 
 /// RPC provider configuration
@@ -141,8 +144,10 @@ struct JsonRpcErrorResponse {
 /// JSON-RPC calls to multiple providers in parallel and uses consensus
 /// to determine the correct response.
 #[cfg(feature = "quorum")]
+#[derive(Clone, Debug)]
 pub struct QuorumClient {
-    providers: Vec<RpcProvider>,
+    /// RPC providers
+    pub providers: Vec<RpcProvider>,
     config: QuorumConfig,
     http_client: reqwest::Client,
     #[cfg(feature = "observability")]
