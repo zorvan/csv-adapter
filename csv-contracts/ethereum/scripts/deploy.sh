@@ -64,7 +64,8 @@ fi
 
 echo ""
 echo -e "${GREEN}=== Building contracts ===${NC}"
-cd contracts
+cd ../contracts
+forge install foundry-rs/forge-std
 forge build --sizes
 
 echo ""
@@ -81,10 +82,9 @@ forge script script/Deploy.s.sol \
 echo ""
 echo -e "${GREEN}=== Extracting deployment information ===${NC}"
 
-# Parse deployment addresses from broadcast output
+# Parse deployment addresses from broadcast output (we're inside contracts/ dir)
 BROADCAST_DIR="broadcast/Deploy.s.sol/11155111"
-RUN_DIR=$(ls -t $BROADCAST_DIR | head -n 1)
-RUN_FILE="$BROADCAST_DIR/$RUN_DIR/run-latest.json"
+RUN_FILE="$BROADCAST_DIR/run-latest.json"
 
 if [ ! -f "$RUN_FILE" ]; then
     echo -e "${RED}Error: Deployment run file not found at $RUN_FILE${NC}"
@@ -92,10 +92,10 @@ if [ ! -f "$RUN_FILE" ]; then
 fi
 
 # Extract contract addresses
-LOCK_ADDRESS=$(jq -r '.transactions[] | select(.contractName == "CSVLock") | .contractAddress' $RUN_FILE)
-MINT_ADDRESS=$(jq -r '.transactions[] | select(.contractName == "CSVMint") | .contractAddress' $RUN_FILE)
-DEPLOYMENT_TX=$(jq -r '.receipts[0].transactionHash' $RUN_FILE)
-BLOCK_NUMBER=$(jq -r '.receipts[0].blockNumber' $RUN_FILE)
+LOCK_ADDRESS=$(jq -r '[.transactions[] | select(.contractName == "CSVLock") | .contractAddress] | first' $RUN_FILE)
+MINT_ADDRESS=$(jq -r '[.transactions[] | select(.contractName == "CSVMint") | .contractAddress] | first' $RUN_FILE)
+DEPLOYMENT_TX=$(jq -r '[.receipts[0].transactionHash] | first' $RUN_FILE)
+BLOCK_NUMBER=$(jq -r '[.receipts[0].blockNumber] | first' $RUN_FILE)
 
 echo -e "${YELLOW}CSVLock address: ${LOCK_ADDRESS}${NC}"
 echo -e "${YELLOW}CSVMint address: ${MINT_ADDRESS}${NC}"
@@ -107,8 +107,39 @@ cd ..
 echo ""
 echo -e "${GREEN}=== Updating deployment manifest ===${NC}"
 
-# Update deployment-manifest.json
-cargo run --bin update_manifest -- $LOCK_ADDRESS $MINT_ADDRESS $DEPLOYMENT_TX $BLOCK_NUMBER
+# Update deployment-manifest.json (relative to csv-contracts/ethereum/)
+MANIFEST="../../../deployments/deployment-manifest.json"
+jq --arg lock "$LOCK_ADDRESS" \
+   --arg mint "$MINT_ADDRESS" \
+   --arg tx "$DEPLOYMENT_TX" \
+   --arg block "$BLOCK_NUMBER" \
+   --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+   '
+   (.deployments.ethereum.contracts[] | select(.name == "CSVLock") | .address) = $lock |
+   (.deployments.ethereum.contracts[] | select(.name == "CSVLock") | .deployment_tx) = $tx |
+   (.deployments.ethereum.contracts[] | select(.name == "CSVLock") | .block_number) = $block |
+   (.deployments.ethereum.contracts[] | select(.name == "CSVLock") | .constructor_args.mintContract) = $mint |
+   (.deployments.ethereum.contracts[] | select(.name == "CSVMint") | .address) = $mint |
+   (.deployments.ethereum.contracts[] | select(.name == "CSVMint") | .deployment_tx) = $tx |
+   (.deployments.ethereum.contracts[] | select(.name == "CSVMint") | .block_number) = $block |
+   (.deployments.ethereum.contracts[] | select(.name == "CSVMint") | .constructor_args.lockContract) = $lock |
+   .deployments.ethereum.deployment_block = $block |
+   .deployments.ethereum.deployment_timestamp = $timestamp
+   ' "$MANIFEST" > "${MANIFEST}.tmp" && mv "${MANIFEST}.tmp" "$MANIFEST"
+echo "Deployment manifest updated successfully!"
+
+# Update chains/ethereum.toml (relative to csv-contracts/ethereum/)
+CHAINS_CONFIG="../../../chains/ethereum.toml"
+if [ -f "$CHAINS_CONFIG" ]; then
+    sed -i "s/lock_contract_address = \".*\"/lock_contract_address = \"$LOCK_ADDRESS\"/" "$CHAINS_CONFIG"
+    sed -i "s/mint_contract_address = \".*\"/mint_contract_address = \"$MINT_ADDRESS\"/" "$CHAINS_CONFIG"
+    echo "chains/ethereum.toml updated successfully!"
+fi
+
+echo -e "${YELLOW}CSVLock address: ${LOCK_ADDRESS}${NC}"
+echo -e "${YELLOW}CSVMint address: ${MINT_ADDRESS}${NC}"
+echo -e "${YELLOW}Deployment TX: ${DEPLOYMENT_TX}${NC}"
+echo -e "${YELLOW}Block number: ${BLOCK_NUMBER}${NC}"
 
 echo ""
 echo -e "${GREEN}=== Deployment completed successfully! ===${NC}"
@@ -116,6 +147,6 @@ echo ""
 echo -e "${YELLOW}Next steps:${NC}"
 echo "1. Verify contracts on Etherscan: https://sepolia.etherscan.io/address/$LOCK_ADDRESS"
 echo "2. Verify contracts on Etherscan: https://sepolia.etherscan.io/address/$MINT_ADDRESS"
-echo "3. Update bytecode_hash in deployment-manifest.json"
+echo "3. Update bytecode_hash in deployment-manifest.json using a tool like `cast hash` or `forge inspect` to compute the deployed bytecode hash"
 echo "4. Set verifier address in CSVMint constructor args if needed"
 echo "5. Mark contracts as verified in deployment-manifest.json"

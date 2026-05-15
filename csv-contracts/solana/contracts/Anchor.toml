@@ -6,7 +6,7 @@ resolution = false
 skip-lint = false
 
 [programs.devnet]
-csv_seal = "GDn6M14biAbfx56MU6wDefHpzSWyTAqb6fF4PtzLQtFF"
+csv_seal = "CCMF6BvAyTPNJAPtGMVJAR652Hv9VPy9NmVdgC9969dj"
 
 [programs.localnet]
 csv_seal = "HzZ12WPJjDvZ8nCA9yjXgKAoJ8XV1386976Jwrm63RcD"
@@ -27,3 +27,5 @@ lint = "cargo clippy"
 test = "cargo test"
 
 [hooks]
+pre-commit = "cargo clippy"
+pre-push = "cargo test"

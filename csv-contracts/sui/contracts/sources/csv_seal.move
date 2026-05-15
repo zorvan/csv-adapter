@@ -140,6 +140,11 @@ module csv_seal::csv_seal {
         proof_root: vector<u8>,
     }
 
+    struct NullifierRegistered has copy, drop {
+        nullifier: vector<u8>,
+        sanad_id: vector<u8>,
+    }
+
     /// Create a new LockRegistry (called once during deployment)
     public fun create_registry(ctx: &mut TxContext) {
         let registry = LockRegistry {
@@ -476,6 +481,22 @@ module csv_seal::csv_seal {
         });
 
         transfer::public_transfer(sanad, tx_context::sender(ctx));
+    }
+
+    /// Register a nullifier for a Sanad (prevents double-spend on L3 chains).
+    /// Reverts if the Sanad's nullifier field is already non-empty.
+    public fun register_nullifier(
+        sanad: &mut SanadObject,
+        nullifier: vector<u8>,
+        _ctx: &mut TxContext
+    ) {
+        assert!(vector::is_empty(&sanad.nullifier), 1007); // Nullifier already set
+        sanad.nullifier = nullifier;
+
+        event::emit(NullifierRegistered {
+            nullifier,
+            sanad_id: sanad.sanad_id,
+        });
     }
 
     /// Transfer ownership of a Sanad

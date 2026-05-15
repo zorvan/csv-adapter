@@ -12,13 +12,17 @@
 //! - Transfer functionality (seals can be transferred between accounts)
 //! - Timestamp tracking (consumption time recorded)
 //! - Multiple seals per account via LinearCollection pattern
+//! - Cross-chain proof verification with Merkle tree
+//! - Nullifier registration for double-spend prevention
 //!
 //! ## Usage Flow
 //!
 //! 1. **Seal Creation**: Mint seal objects via `create_seal`
 //! 2. **Seal Transfer**: Transfer seals between accounts via `transfer_seal`
 //! 3. **Seal Consumption**: Call `consume_seal` to mark consumed and emit event
-//! 4. **Verification**: Verify the event was emitted with the correct commitment data
+//! 4. **Cross-Chain**: Lock/Mint/Refund with Merkle proof verification
+//! 5. **Nullifier**: Register nullifiers for double-spend prevention
+//! 6. **Verification**: Verify the event was emitted with the correct commitment data
 //!
 //! ## Error Codes
 //!
@@ -26,6 +30,9 @@
 //! - `ESealNotConsumed` (2): Attempted operation requiring consumed seal
 //! - `EAnchorDataExists` (3): AnchorData already exists for this seal
 //! - `ESealNotFound` (4): Seal object not found
+//! - `EInvalidMetadata` (5): Invalid token/NFT/proof metadata
+//! - `EInvalidProof` (6): Invalid cross-chain proof
+//! - `ENullifierAlreadyRegistered` (7): Nullifier already registered
 
 module csv_seal::CSVSealV2 {
     use std::signer;
@@ -41,7 +48,7 @@ module csv_seal::CSVSealV2 {
     const PROOF_SYSTEM_UNSPECIFIED: u8 = 0;
 
     // =========================================================================
-    // Cross-Chain Events (matching Sui version)
+    // Cross-Chain Events (matching Ethereum version)
     // =========================================================================
 
     /// Emitted when a new seal/Sanad is created.
@@ -116,6 +123,13 @@ module csv_seal::CSVSealV2 {
         proof_root: vector<u8>,
     }
 
+    /// Emitted when a nullifier is registered.
+    #[event]
+    struct NullifierRegistered has drop, store {
+        nullifier: vector<u8>,
+        sanad_id: vector<u8>,
+    }
+
     // =========================================================================
     // Transfer State
     // =========================================================================
@@ -143,6 +157,10 @@ module csv_seal::CSVSealV2 {
     const ESealNotFound: u64 = 4;
     /// Invalid token/NFT/proof metadata.
     const EInvalidMetadata: u64 = 5;
+    /// Invalid cross-chain proof.
+    const EInvalidProof: u64 = 6;
+    /// Nullifier already registered.
+    const ENullifierAlreadyRegistered: u64 = 7;
 
     // =========================================================================
     // Structs
@@ -178,6 +196,8 @@ module csv_seal::CSVSealV2 {
         proof_system: u8,
         /// Proof root or verification-key commitment.
         proof_root: vector<u8>,
+        /// Nullifier for double-spend prevention (empty if not registered).
+        nullifier: vector<u8>,
     }
 
     /// Persistent storage of commitment after seal consumption.
@@ -216,6 +236,7 @@ module csv_seal::CSVSealV2 {
             metadata_hash: vector::empty<u8>(),
             proof_system: PROOF_SYSTEM_UNSPECIFIED,
             proof_root: vector::empty<u8>(),
+            nullifier: vector::empty<u8>(),
         });
     }
 
@@ -306,10 +327,6 @@ module csv_seal::CSVSealV2 {
     /// Initiate a seal transfer to a specific recipient.
     /// The seal is moved to a pending state where only the specified
     /// recipient can claim it. This is the safe transfer pattern.
-    ///
-    /// # Arguments
-    /// * `from` - Current seal owner (initiates transfer)
-    /// * `recipient` - Address that will be allowed to claim the seal
     public entry fun initiate_transfer(from: &signer, recipient: address) {
         let from_addr = signer::address_of(from);
         assert!(exists<Seal>(from_addr), ESealNotFound);
@@ -328,10 +345,6 @@ module csv_seal::CSVSealV2 {
 
     /// Accept a pending seal transfer.
     /// The intended recipient calls this to claim the seal.
-    ///
-    /// # Arguments
-    /// * `recipient_signer` - Signer of the intended recipient (verifies identity)
-    /// * `sender_addr` - Address of the account that initiated the transfer
     public entry fun accept_transfer(recipient_signer: &signer, sender_addr: address) {
         let recipient_addr = signer::address_of(recipient_signer);
 
@@ -349,9 +362,6 @@ module csv_seal::CSVSealV2 {
     }
 
     /// Cancel a pending transfer (only the sender can cancel).
-    ///
-    /// # Arguments
-    /// * `sender` - Original seal owner who initiated the transfer
     public entry fun cancel_transfer(sender: &signer) {
         let sender_addr = signer::address_of(sender);
         assert!(exists<PendingTransfer>(sender_addr), ESealNotFound);
@@ -460,6 +470,70 @@ module csv_seal::CSVSealV2 {
         @csv_seal
     }
 
+    // =========================================================================
+    // Cross-Chain Proof Verification
+    // =========================================================================
+
+    /// Verify a cross-chain Merkle proof using SHA3-256 hashing and leaf position.
+    /// Computes leaf = sha3_256(sanad_id || commitment || source_chain)
+    /// then walks up the tree using leaf_position to determine left/right ordering.
+    fun verify_cross_chain_proof(
+        sanad_id: &vector<u8>,
+        commitment: &vector<u8>,
+        source_chain: u8,
+        proof: &vector<u8>,
+        proof_root: &vector<u8>,
+        leaf_position: u64,
+    ) {
+        // Validate inputs
+        assert!(vector::length(proof_root) == 32, EInvalidProof);
+        assert!(vector::length(proof) % 32 == 0, EInvalidProof);
+        assert!(vector::length(sanad_id) == 32, EInvalidProof);
+        assert!(vector::length(commitment) == 32, EInvalidProof);
+
+        // Build leaf hash: sha3_256(sanad_id || commitment || source_chain)
+        use std::hash;
+        let mut hasher = hash::sha3_256();
+        hash::update(&mut hasher, sanad_id);
+        hash::update(&mut hasher, commitment);
+        let chain_bytes: vector<u8> = vector::singleton(source_chain);
+        hash::update(&mut hasher, &chain_bytes);
+        let leaf = hash::finish(hasher);
+
+        // Verify Merkle proof using leaf position
+        let current = leaf;
+        let num_levels = vector::length(proof) / 32;
+        let i = 0;
+
+        while (i < num_levels) {
+            let start = i * 32;
+            let end = start + 32;
+            let sibling = vector::slice(proof, start, end);
+
+            // Use leaf_position bit to determine ordering
+            let bit = (leaf_position >> i) & 1;
+            let mut pair_hasher = hash::sha3_256();
+            if (bit == 0) {
+                // Current is left child
+                hash::update(&mut pair_hasher, &current);
+                hash::update(&mut pair_hasher, &sibling);
+            } else {
+                // Current is right child
+                hash::update(&mut pair_hasher, &sibling);
+                hash::update(&mut pair_hasher, &current);
+            };
+            current = hash::finish(pair_hasher);
+            i = i + 1;
+        }
+
+        // Verify computed root matches expected root
+        assert!(current == *proof_root, EInvalidProof);
+    }
+
+    // =========================================================================
+    // Lock / Mint / Refund
+    // =========================================================================
+
     /// Lock a seal for cross-chain transfer.
     /// This consumes the seal and records the lock in the registry.
     public entry fun lock_sanad(
@@ -533,7 +607,19 @@ module csv_seal::CSVSealV2 {
         // seal_res dropped automatically (has drop ability)
     }
 
-    /// Mint a new seal from a cross-chain transfer proof.
+    /// Mint a new Sanad from a cross-chain transfer proof.
+    /// Verifies the Merkle proof before minting (prevents unauthorized mints).
+    ///
+    /// # Arguments
+    /// * `account` - Signer (becomes owner of the new Sanad)
+    /// * `sanad_id` - Unique Sanad identifier (from source chain)
+    /// * `commitment` - Sanad's commitment hash (preserved across chains)
+    /// * `source_chain` - Source chain ID
+    /// * `source_seal_ref` - Reference to source chain seal
+    /// * `nonce` - Nonce for the new seal
+    /// * `proof` - Merkle proof bytes verifying the source chain lock event
+    /// * `proof_root` - The trusted proof root (e.g., bridge commitment root)
+    /// * `leaf_position` - Position of leaf in the Merkle tree
     public entry fun mint_sanad(
         account: &signer,
         sanad_id: vector<u8>,
@@ -541,7 +627,13 @@ module csv_seal::CSVSealV2 {
         source_chain: u8,
         source_seal_ref: vector<u8>,
         nonce: u64,
+        proof: vector<u8>,
+        proof_root: vector<u8>,
+        leaf_position: u64,
     ) {
+        // Verify cross-chain proof before minting
+        verify_cross_chain_proof(&sanad_id, &commitment, source_chain, &proof, &proof_root, leaf_position);
+
         let owner_addr = signer::address_of(account);
         assert!(!exists<Seal>(owner_addr), EAnchorDataExists);
 
@@ -553,7 +645,8 @@ module csv_seal::CSVSealV2 {
             asset_id: vector::empty<u8>(),
             metadata_hash: vector::empty<u8>(),
             proof_system: PROOF_SYSTEM_UNSPECIFIED,
-            proof_root: vector::empty<u8>(),
+            proof_root,
+            nullifier: vector::empty<u8>(),
         });
 
         // Emit CrossChainMint event
@@ -580,6 +673,27 @@ module csv_seal::CSVSealV2 {
             metadata_hash: vector::empty<u8>(),
             proof_system: PROOF_SYSTEM_UNSPECIFIED,
             proof_root: vector::empty<u8>(),
+        });
+    }
+
+    /// Register a nullifier for a Sanad (prevents double-spend).
+    /// Reverts if the nullifier has already been registered for this Sanad.
+    public entry fun register_nullifier(
+        account: &signer,
+        nullifier: vector<u8>,
+        sanad_id: vector<u8>,
+    ) acquires Seal {
+        let addr = signer::address_of(account);
+        assert!(exists<Seal>(addr), ESealNotFound);
+        let seal = borrow_global_mut<Seal>(addr);
+        assert!(seal.nullifier == vector::empty<u8>(), ENullifierAlreadyRegistered);
+
+        // Store the nullifier in the seal for on-chain verification
+        seal.nullifier = nullifier;
+
+        event::emit(NullifierRegistered {
+            nullifier,
+            sanad_id,
         });
     }
 
@@ -650,7 +764,6 @@ module csv_seal::CSVSealV2 {
 
     /// Helper to generate commitment from sanad_id and nonce using SHA3-256.
     fun get_commitment_bytes(sanad_id: vector<u8>, nonce: u64): vector<u8> {
-        // Use SHA3-256 for proper cryptographic commitment
         use std::hash;
         let mut hasher = hash::sha3_256();
         hash::update(&mut hasher, &sanad_id);

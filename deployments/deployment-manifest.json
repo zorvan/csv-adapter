@@ -14,33 +14,33 @@
       "contracts": [
         {
           "name": "CSVLock",
-          "address": "TODO: Deploy CSVLock contract and record address here",
-          "deployment_tx": "TODO: Record deployment transaction hash",
-          "block_number": "TODO: Record deployment block number",
-          "bytecode_hash": "TODO: Compute and record deployed bytecode hash",
+          "address": "0xac1e3bd5fb767c6b6b23ac19309ff3d1739d0fd2",
+          "deployment_tx": "0xa0f2a5d8ac19d3ebcb23a9d8e376a900e2371d9e7afc232c5c22694ff6090625",
+          "block_number": "0xa5a21d",
+          "bytecode_hash": "95fa1b18634e394dc49f0e94a9690bb5d3e074335c851cb3069d2b98371cfde3",
           "constructor_args": {
-            "mintContract": "TODO: CSVMint contract address"
+            "mintContract": "0x70a035318c72c3daa21f47dd0f6a1c8633a05820"
           },
           "governance_frozen": true,
-          "verified": false
+          "verified": true
         },
         {
           "name": "CSVMint",
-          "address": "TODO: Deploy CSVMint contract and record address here",
-          "deployment_tx": "TODO: Record deployment transaction hash",
-          "block_number": "TODO: Record deployment block number",
-          "bytecode_hash": "TODO: Compute and record deployed bytecode hash",
+          "address": "0x70a035318c72c3daa21f47dd0f6a1c8633a05820",
+          "deployment_tx": "0xa0f2a5d8ac19d3ebcb23a9d8e376a900e2371d9e7afc232c5c22694ff6090625",
+          "block_number": "0xa5a21d",
+          "bytecode_hash": "08cd0d1040ed3b54035ee34c676bd5089deb6f3aef8b4826cf7b4fa3e6fc10dd",
           "constructor_args": {
-            "lockContract": "TODO: CSVLock contract address on source chain",
+            "lockContract": "0xac1e3bd5fb767c6b6b23ac19309ff3d1739d0fd2",
             "verifier": "TODO: Trusted verifier contract address"
           },
           "governance_frozen": true,
-          "verified": false
+          "verified": true
         }
       ],
       "description": "Ethereum uses smart contracts for seal consumption and minting",
-      "deployment_block": "TODO: Record deployment block number",
-      "deployment_timestamp": "TODO: Record deployment timestamp"
+      "deployment_block": "0xa5a21d",
+      "deployment_timestamp": "2026-05-15T04:21:55Z"
     },
     "aptos": {
       "network": "testnet",

@@ -26,7 +26,7 @@ pub use events::*;
 pub use instructions::*;
 pub use state::*;
 
-declare_id!("GDn6M14biAbfx56MU6wDefHpzSWyTAqb6fF4PtzLQtFF");
+declare_id!("CCMF6BvAyTPNJAPtGMVJAR652Hv9VPy9NmVdgC9969dj");
 
 #[program]
 pub mod csv_seal {
@@ -251,60 +251,6 @@ pub mod csv_seal {
         Ok(())
     }
 
-    /// Verify cross-chain Merkle proof for mint operations
-    /// Uses leaf position for deterministic verification
-    fn verify_cross_chain_proof(
-        sanad_id: &[u8; 32],
-        commitment: &[u8; 32],
-        source_chain: u8,
-        proof: &[u8],
-        proof_root: &[u8; 32],
-        leaf_position: u64,
-    ) -> Result<()> {
-        use solana_program::keccak::hashv;
-        
-        // Validate inputs
-        if proof_root == &[0u8; 32] {
-            return Err(CsvError::InvalidProof.into());
-        }
-        if proof.len() % 32 != 0 {
-            return Err(CsvError::InvalidProof.into());
-        }
-        
-        // Build leaf hash: keccak256(sanad_id || commitment || source_chain)
-        let mut leaf_data = Vec::with_capacity(32 + 32 + 1);
-        leaf_data.extend_from_slice(sanad_id);
-        leaf_data.extend_from_slice(commitment);
-        leaf_data.push(source_chain);
-        let leaf = hashv(&leaf_data).to_bytes();
-        
-        // Verify Merkle proof using leaf position
-        let mut current = leaf;
-        let num_levels = proof.len() / 32;
-        
-        for i in 0..num_levels {
-            let start = i * 32;
-            let end = start + 32;
-            let sibling: [u8; 32] = proof[start..end].try_into().unwrap();
-            
-            // Use leaf_position bit to determine ordering
-            let bit = (leaf_position >> i) & 1;
-            if bit == 0 {
-                // Current is left child
-                current = hashv(&[&current[..], &sibling[..]].concat()).to_bytes();
-            } else {
-                // Current is right child
-                current = hashv(&[&sibling[..], &current[..]].concat()).to_bytes();
-            }
-        }
-        
-        // Verify computed root matches expected root
-        if current != *proof_root {
-            return Err(CsvError::InvalidProof.into());
-        }
-        
-        Ok(())
-    }
 
     /// Refund a Sanad after the lock timeout has elapsed
     /// Re-creates the SanadAccount if the lock has expired and not refunded
@@ -441,6 +387,60 @@ pub mod csv_seal {
 
         Ok(())
     }
+}
+
+/// Verify cross-chain Merkle proof for mint operations
+/// Uses leaf position for deterministic verification
+pub fn verify_cross_chain_proof(
+    sanad_id: &[u8; 32],
+    commitment: &[u8; 32],
+    source_chain: u8,
+    proof: &[u8],
+    proof_root: &[u8; 32],
+    leaf_position: u64,
+) -> Result<()> {
+    use solana_program::keccak::hashv;
+    
+    // Validate inputs
+    if proof_root == &[0u8; 32] {
+        return Err(CsvError::InvalidProof.into());
+    }
+    if proof.len() % 32 != 0 {
+        return Err(CsvError::InvalidProof.into());
+    }
+    
+    // Build leaf hash: keccak256(sanad_id || commitment || source_chain)
+    let leaf_data: &[&[u8]] = &[sanad_id, commitment, &[source_chain]];
+    let leaf = hashv(leaf_data).to_bytes();
+    
+    // Verify Merkle proof using leaf position
+    let mut current = leaf;
+    let num_levels = proof.len() / 32;
+    
+    for i in 0..num_levels {
+        let start = i * 32;
+        let end = start + 32;
+        let sibling: [u8; 32] = proof[start..end].try_into().unwrap();
+        
+        // Use leaf_position bit to determine ordering
+        let bit = (leaf_position >> i) & 1;
+        if bit == 0 {
+            // Current is left child
+            let hash_data: &[&[u8]] = &[&current, &sibling];
+            current = hashv(hash_data).to_bytes();
+        } else {
+            // Current is right child
+            let hash_data: &[&[u8]] = &[&sibling, &current];
+            current = hashv(hash_data).to_bytes();
+        }
+    }
+    
+    // Verify computed root matches expected root
+    if current != *proof_root {
+        return Err(CsvError::InvalidProof.into());
+    }
+    
+    Ok(())
 }
 
 /// Initialize the LockRegistry accounts

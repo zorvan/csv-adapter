@@ -30,6 +30,7 @@ target/
 **/broadcast/
 **/lib/forge-std/
 **/foundry.toml.bak
+**/forge-std/
 
 # Sui Move build artifacts
 **/Move.lock
@@ -37,3 +38,6 @@ target/
 
 # Chain specific
 .aptos/
+
+# Solana
+test-ledger/

@@ -78,7 +78,7 @@ contract CSVMint {
     error Unauthorized();
 
     constructor(address _lockContract, address _verifier) {
-        if (_lockContract == address(0) || _verifier == address(0)) revert ZeroAddress();
+        if (_verifier == address(0)) revert ZeroAddress();
         lockContract = _lockContract;
         verifier = _verifier;
     }
